@@ -346,7 +346,7 @@ function confirmMaintenanceRequest(issue) {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-        function handleUploadOption(option) {
+         function handleUploadOption(option) {
             const chatBox = document.getElementById('chatBox');
             const userMessage = document.createElement('div');
             userMessage.className = 'user-message';
@@ -356,16 +356,16 @@ function confirmMaintenanceRequest(issue) {
             if (option === "Upload Image 🖼️") {
                 setTimeout(() => openImageUploadDialog(), 1000);
             } else if (option === "Capture Video 🎥") {
-                setTimeout(() => captureVideo(), 1000);
+                setTimeout(() => openVideoCaptureDialog(), 1000);
             } else if (option === "Capture Photo 📸") {
-                setTimeout(() => capturePhoto(), 1000);
+                setTimeout(() => openPhotoCaptureDialog(), 1000);
             }
         }
 
         function openImageUploadDialog() {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = 'image/*';
+            input.accept = 'image/*'; // Only accepts images
             input.style.display = 'none';
             input.onchange = (event) => handleImageUpload(event);
             document.body.appendChild(input);
@@ -375,8 +375,6 @@ function confirmMaintenanceRequest(issue) {
         function handleImageUpload(event) {
             const file = event.target.files[0];
             if (file) {
-                window.attachedImage = file; // Store image globally
-
                 const chatBox = document.getElementById('chatBox');
                 const botResponse = document.createElement('div');
                 botResponse.className = 'bot-message';
@@ -392,94 +390,44 @@ function confirmMaintenanceRequest(issue) {
             }
         }
 
-        function captureVideo() {
-            // Accessing camera for video capture (using HTML5 getUserMedia)
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    const video = document.createElement('video');
-                    video.srcObject = stream;
-                    video.autoplay = true;
-                    video.style.maxWidth = '200px';
-                    video.style.marginTop = '10px';
-                    document.getElementById('chatBox').appendChild(video);
-                    const stopButton = document.createElement('button');
-                    stopButton.innerText = "Stop Recording";
-                    stopButton.onclick = () => stopVideo(stream, video);
-                    document.getElementById('chatBox').appendChild(stopButton);
-                })
-                .catch(err => {
-                    const chatBox = document.getElementById('chatBox');
-                    const botResponse = document.createElement('div');
-                    botResponse.className = 'bot-message';
-                    botResponse.innerText = `Error accessing video: ${err.message}`;
-                    chatBox.appendChild(botResponse);
-                });
+        function openPhotoCaptureDialog() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*'; // Accepts only images
+            input.capture = 'camera'; // Opens the camera directly
+            input.style.display = 'none';
+            input.onchange = (event) => handleImageUpload(event); // Same handler for the captured image
+            document.body.appendChild(input);
+            input.click();
         }
 
-        function stopVideo(stream, videoElement) {
-            // Stop video stream and remove video element
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop());
-            videoElement.remove();
-            const chatBox = document.getElementById('chatBox');
-            const botResponse = document.createElement('div');
-            botResponse.className = 'bot-message';
-            botResponse.innerText = "Video stopped.";
-            chatBox.appendChild(botResponse);
+        function openVideoCaptureDialog() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'video/*'; // Accepts only videos
+            input.capture = 'camera'; // Opens the camera for video
+            input.style.display = 'none';
+            input.onchange = (event) => handleVideoUpload(event); // Handle video upload
+            document.body.appendChild(input);
+            input.click();
         }
 
-        function capturePhoto() {
-            // Accessing camera for photo capture (using HTML5 getUserMedia)
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    const video = document.createElement('video');
-                    video.srcObject = stream;
-                    video.autoplay = true;
-                    video.style.maxWidth = '200px';
-                    video.style.marginTop = '10px';
-                    document.getElementById('chatBox').appendChild(video);
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const chatBox = document.getElementById('chatBox');
+                const botResponse = document.createElement('div');
+                botResponse.className = 'bot-message';
+                botResponse.innerText = "Video uploaded successfully.";
+                chatBox.appendChild(botResponse);
 
-                    const captureButton = document.createElement('button');
-                    captureButton.innerText = "Capture Photo";
-                    captureButton.onclick = () => takeSnapshot(stream, video);
-                    document.getElementById('chatBox').appendChild(captureButton);
-                })
-                .catch(err => {
-                    const chatBox = document.getElementById('chatBox');
-                    const botResponse = document.createElement('div');
-                    botResponse.className = 'bot-message';
-                    botResponse.innerText = `Error accessing camera: ${err.message}`;
-                    chatBox.appendChild(botResponse);
-                });
-        }
-
-        function takeSnapshot(stream, videoElement) {
-            // Capture snapshot from video
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = videoElement.videoWidth;
-            canvas.height = videoElement.videoHeight;
-            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-            // Convert canvas image to data URL and display
-            const photoUrl = canvas.toDataURL('image/png');
-            const imgPreview = document.createElement('img');
-            imgPreview.src = photoUrl;
-            imgPreview.alt = 'Captured Photo';
-            imgPreview.style.maxWidth = '200px';
-            imgPreview.style.marginTop = '10px';
-            document.getElementById('chatBox').appendChild(imgPreview);
-
-            // Stop the camera stream
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop());
-            videoElement.remove();
-
-            const chatBox = document.getElementById('chatBox');
-            const botResponse = document.createElement('div');
-            botResponse.className = 'bot-message';
-            botResponse.innerText = "Photo captured successfully.";
-            chatBox.appendChild(botResponse);
+                const videoPreview = document.createElement('video');
+                videoPreview.src = URL.createObjectURL(file);
+                videoPreview.controls = true;
+                videoPreview.style.maxWidth = '200px';
+                videoPreview.style.marginTop = '10px';
+                chatBox.appendChild(videoPreview);
+            }
         }
 
   async function submitQuery(userQuery) {
