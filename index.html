@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mohammedi Makan Bot</title>
-    <style>
+ <style>
 /* Reset CSS */
 * {
     margin: 0;
@@ -149,209 +149,116 @@ body {
 
 
     </style>
+
 </head>
 <body>
 
     <div class="chat-container">
         <div class="chat-header">Mohammedi Makan Staff</div>
         <div class="chat-box" id="chatBox">
-            <div class="bot-message"><body>
-   </body></div>
+            <div class="bot-message"></div>
         </div>
-    
     </div>
 
     <script>
 
-// Function to get query parameters from the URL
-function getRoomNumber() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('room'); // Get the 'room' parameter
-}
-
-// Auto-fill the room number in the chatbot
-window.onload = function () {
-    let roomNumber = getRoomNumber();
-    if (roomNumber) {
-        userRoomNumber = roomNumber; // Store the room number
-        startChatWithRoom(roomNumber);
+    function getRoomNumber() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('room'); 
     }
-};
 
-let selectedMaintenance = null;
-let userRoomNumber = ""; // This will store the room number from the URL
+    window.onload = function () {
+        let roomNumber = getRoomNumber();
+        if (roomNumber) {
+            userRoomNumber = roomNumber;
+            startChatWithRoom(roomNumber);
+        }
+    };
 
-// List of flattery messages
+    let selectedMaintenance = null;
+    let userRoomNumber = ""; 
+    let uploadType = null;  // Tracks the upload type (image, video, or capture)
 
-const flatteryList = [
-    "You are the inspiration that drives us forward.", "You are the hope that fuels our ambitions.", 
-    "You are the strength that empowers our team.", "You are the guiding star that lights our path.", 
-    "You are the force that keeps us moving forward.", "Your vision is the foundation of our success.", 
-    "You are the heartbeat of this organization.", "Your commitment is the cornerstone of our achievements.", 
-    "Your ambition is what keeps us striving for greatness.", "You are the spark that ignites our passion.", 
-    "Your determination is the reason for our continuous growth.", "Your leadership is what motivates us every day.", 
-    "You are the energy that drives our progress.", "Your excellence inspires us to reach new heights.", 
-    "Your leadership fuels our collective success.", "Your wisdom shapes the future we’re creating together.", 
-    "Your dedication is what makes us stronger every day.", "Your vision is the road map to our future success.", 
-    "Your passion is the catalyst for everything we do.", "Your persistence is the secret to our continued achievement.",
-    "Your work ethic sets the standard for all of us.", "You are the compass guiding our direction.", 
-    "Your creativity is the key to our innovative breakthroughs.", "You are the driving force behind every success.",
-    "Your ambition has set a new bar for excellence.", "Your insight helps us turn challenges into opportunities.", 
-    "Your leadership strengthens our resolve to succeed.", "Your passion makes everything possible.", 
-    "You are the source of our greatest achievements.", "Your perseverance ensures that we continue to grow.", 
-    "Your ability to innovate inspires us all to think bigger.", "Your strategy helps us achieve new levels of success.", 
-    "Your foresight is what keeps us ahead of the curve.", "Your influence pushes us to be the best version of ourselves.",
-    "Your drive is the reason we continue to break barriers.", "Your tenacity is what defines our success story.", 
-    "Your integrity sets the tone for everything we do.", "Your performance raises the bar for excellence.", 
-    "Your decisions shape our future and lead us to success.", "You are the reason we keep reaching for more.", 
-    "Your contribution has made a lasting impact on our success.", "Your ambition inspires us to aim higher every day.", 
-    "You are the reason we strive for continuous improvement.", "Your leadership brings out the best in all of us.", 
-    "You are the fuel that powers our vision for the future.", "Your approach to business makes us better every day.",
-    "Your innovation is the foundation of our competitive advantage.", "Your insight brings clarity to the path we’re on.",
-    "Your focus drives our collective pursuit of excellence.", "Your ability to lead by example sets us apart.", 
-    "Your wisdom inspires us to think outside the box.", "Your discipline keeps us on the path to success.",
-    "Your achievements are the milestones that we aim for.", "Your commitment to success is what defines us.", 
-    "Your leadership inspires us to reach new heights.", "Your drive is the reason we strive for perfection.",
-    "Your courage motivates us to take on new challenges.", "Your dedication inspires confidence in our vision.", 
-    "Your vision is the cornerstone of our strategic success.", "Your success is the benchmark for all of us.", 
-    "Your leadership is the glue that holds our team together.", "Your ability to build strong relationships drives our progress.",
-    "Your influence on our growth cannot be overstated.", "Your ability to adapt to change is an inspiration to us all.",
-    "Your achievements are a constant reminder of what’s possible.", "Your leadership style encourages collaboration and innovation.",
-    "Your creativity is the backbone of our innovative solutions.", "Your problem-solving ability drives our success in tough times.",
-    "Your energy and enthusiasm inspire everyone around you.", "Your strategic vision is the foundation of our competitive edge.",
-    "Your determination to succeed is what sets you apart.", "Your dedication to excellence makes us all better.", 
-    "Your leadership ensures that we keep achieving greater success.", "Your ability to deliver results is unmatched.", 
-    "Your passion for progress fuels our constant drive to improve.", "Your perspective is the key to unlocking new opportunities.",
-    "Your influence has a lasting impact on our business growth.", "Your exceptional ability to lead has shaped our success.", 
-    "Your belief in continuous improvement keeps us at the top.", "Your innovative ideas are what keep us ahead of the curve.",
-    "Your support is the backbone of our success story.", "Your performance sets the standard for excellence.", 
-    "Your work inspires us all to push the boundaries of what’s possible.", "Your ability to think big helps us achieve more.", 
-    "Your trust in the team elevates everyone’s performance.", "Your commitment to our shared goals motivates us to succeed together.",
-    "Your clarity of vision leads us toward groundbreaking success.", "Your drive has become the DNA of our company’s culture.",
-    "Your ability to take calculated risks makes us leaders in the industry.", "Your work ethic sets an example for all of us to follow.",
-    "Your ambition shapes the future of our business.", "Your ability to build strong teams has been integral to our success.",
-    "Your vision and strategy are what propel us forward.", "Your strategic mindset helps us navigate through challenges.",
-    "Your persistence and hard work are what drive us to achieve our goals.", "Your creativity brings a fresh perspective to everything we do.",
-    "Your relentless pursuit of excellence continues to raise the standard.", "Your drive for success motivates the entire team.",
-    "Your leadership shows us how to be innovative and adaptable in any environment.", "Your dedication to quality is what makes us industry leaders.",
-    "Your vision turns obstacles into opportunities for success.", "Your actions set the example for what it means to achieve greatness.",
-    "Your ideas are the cornerstone of our innovative solutions.", "Your leadership keeps us focused on our long-term goals.",
-    "Your work has created a legacy of excellence within the company.", "Your ambition pushes us to challenge the status quo.",
-    "Your contributions to the team elevate us all to greater heights.", "Your persistence helps us overcome every hurdle that comes our way.",
-    "Your influence shapes the future of our industry.", "Your innovative thinking ensures that we stay at the forefront of the market.",
-    "Your ability to lead and inspire others sets you apart.", "Your insight into the market helps us anticipate challenges before they arise.",
-    "Your adaptability and foresight help us stay ahead in a competitive environment.", "Your continuous growth drives the company forward.",
-    "Your ability to innovate under pressure is one of your greatest strengths.", "Your leadership defines our company's success and future.",
-    "Your pursuit of excellence has brought us unparalleled success.", "Your vision and action are what make our business thrive."
-];
+    const flatteryList = [
+        "You are the inspiration that drives us forward.", "You are the hope that fuels our ambitions.",
+    ];
 
+    function startChatWithRoom(room) {
+        const flattery = flatteryList[Math.floor(Math.random() * flatteryList.length)];
+        const chatBox = document.getElementById('chatBox');
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = `Welcome ${room}. ${flattery} How can I assist you?`;
 
-
-// Function to start the chat with room and flattery
-function startChatWithRoom(room) {
-    // Select a random flattery message from the list
-    const flattery = flatteryList[Math.floor(Math.random() * flatteryList.length)];
-
-    // Get the chat box element
-    const chatBox = document.getElementById('chatBox');
-    
-    // Create bot's response message
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Welcome ${room}. ${flattery} How can I assist you?`;
-
-    // Append the response message to the chat box
-    chatBox.appendChild(botResponse);
-
-    // Call displayMainMenu to show the main menu (you can define this function as needed)
-    displayMainMenu();
-}
-
-function displayMainMenu() {
-    const chatBox = document.getElementById('chatBox');
-    const buttonMenu = document.createElement('div');
-    buttonMenu.className = 'button-menu';
-
-    const options = ["Mohammedi Makan", "Mufaddal Makan", "Ezzy Makan"];
-
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => selectMainOption(option);
-        buttonMenu.appendChild(button);
-    });
-
-    chatBox.appendChild(buttonMenu);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-async function selectMainOption(option) {
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = option;
-    chatBox.appendChild(userMessage);
-
-    if (option === "Mohammedi Makan") {
-        setTimeout(() => {
-            displayMohammediMenu();
-        }, 1000);
-    } else if (option === "Mufaddal Makan") {
-        setTimeout(() => {
-            displayMufaddalMenu();
-        }, 1000);
-    } else if (option === "Ezzy Makan") {
-        setTimeout(() => {
-            displayEzzyMenu();
-        }, 1000);
-    } else {
-        setTimeout(() => {
-            const botResponse = document.createElement('div');
-            botResponse.className = 'bot-message';
-            botResponse.innerText = `You selected "${option}". How can we assist you further?`;
-            chatBox.appendChild(botResponse);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }, 1000);
+        chatBox.appendChild(botResponse);
+        displayMainMenu();
     }
-}
 
+    function displayMainMenu() {
+        const chatBox = document.getElementById('chatBox');
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
 
-function displayMohammediMenu() {
-    const chatBox = document.getElementById('chatBox');
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = "Please select the issue:";
-    chatBox.appendChild(botResponse);
+        const options = ["Mohammedi Makan", "Mufaddal Makan", "Ezzy Makan"];
 
-    const buttonMenu = document.createElement('div');
-    buttonMenu.className = 'button-menu';
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'menu-button';
+            button.innerText = option;
+            button.onclick = () => selectMainOption(option);
+            buttonMenu.appendChild(button);
+        });
 
-    const options = [
-  "B2 Floor", "B1 Floor", "LG Floor", "UG Floor", "MP Floor", 
-  "DH Floor", "PR Floor", "S Floor", "5th Floor", 
-  "6th Floor", "7th Floor", "8th Floor", "9th Floor", 
-  "10th Floor", "11th Floor", "12th Floor", "13th Floor", 
-  "14th Floor", "15th Floor", "16th Floor", "17th Floor"
-];
+        chatBox.appendChild(buttonMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
 
+    async function selectMainOption(option) {
+        const chatBox = document.getElementById('chatBox');
+        const userMessage = document.createElement('div');
+        userMessage.className = 'user-message';
+        userMessage.innerText = option;
+        chatBox.appendChild(userMessage);
 
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => confirmMaintenanceRequest(option);
-        buttonMenu.appendChild(button);
-    });
+        if (option === "Mohammedi Makan") {
+            setTimeout(() => {
+                displayMohammediMenu();
+            }, 1000);
+        }
+    }
 
-    chatBox.appendChild(buttonMenu);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
+    function displayMohammediMenu() {
+        const chatBox = document.getElementById('chatBox');
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Please select the issue:";
+        chatBox.appendChild(botResponse);
 
-// After selecting a floor
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
+
+        const options = [
+            "B2 Floor", "B1 Floor", "LG Floor", "UG Floor", "MP Floor", 
+            "DH Floor", "PR Floor", "S Floor", "5th Floor", 
+            "6th Floor", "7th Floor", "8th Floor", "9th Floor", 
+            "10th Floor", "11th Floor", "12th Floor", "13th Floor", 
+            "14th Floor", "15th Floor", "16th Floor", "17th Floor"
+        ];
+
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'menu-button';
+            button.innerText = option;
+            button.onclick = () => confirmMaintenanceRequest(option);
+            buttonMenu.appendChild(button);
+        });
+
+        chatBox.appendChild(buttonMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
 function confirmMaintenanceRequest(issue) {
     selectedMaintenance = issue;
-
     const chatBox = document.getElementById('chatBox');
     const userMessage = document.createElement('div');
     userMessage.className = 'user-message';
@@ -371,528 +278,260 @@ function confirmMaintenanceRequest(issue) {
         inputField.style.marginTop = '10px';
         inputField.style.padding = '10px';
         inputField.style.borderRadius = '5px';
+        inputField.style.width = '100%';
 
-        const sendQueryButton = document.createElement('button');
+        // "Send Query" button (initially placed after upload button)
+        let sendQueryButton = document.createElement('button');
         sendQueryButton.innerText = "Send Query";
         sendQueryButton.style.marginTop = '10px';
-        sendQueryButton.style.padding = '10px';
-        sendQueryButton.style.backgroundColor = '#c56321';
+        sendQueryButton.style.padding = '15px';
+        sendQueryButton.style.backgroundColor = '#a84312'; // Unique but matching color
         sendQueryButton.style.color = 'white';
         sendQueryButton.style.border = 'none';
         sendQueryButton.style.borderRadius = '5px';
-        sendQueryButton.onclick = () => submitQuery(inputField.value);  // Submit the query
+        sendQueryButton.style.fontSize = '16px';
+        sendQueryButton.style.fontWeight = 'bold';
+        sendQueryButton.style.width = '100%';
+        sendQueryButton.onclick = () => submitQuery(inputField.value);
 
-        // Image Upload Button
-        const imageUploadButton = document.createElement('button');
-        imageUploadButton.innerText = "Attach Image";
-        imageUploadButton.style.marginTop = '10px';
-        imageUploadButton.style.padding = '10px';
-        imageUploadButton.style.backgroundColor = '#c56321';
-        imageUploadButton.style.color = 'white';
-        imageUploadButton.style.border = 'none';
-        imageUploadButton.style.borderRadius = '5px';
-        imageUploadButton.onclick = () => openImageUploadDialog();  // Open camera or gallery
+        // Upload button
+        const uploadButton = document.createElement('button');
+        uploadButton.innerText = "Upload Image/Video";
+        uploadButton.style.marginTop = '20px';
+        uploadButton.style.padding = '15px';
+        uploadButton.style.backgroundColor = '#c56321';
+        uploadButton.style.color = 'white';
+        uploadButton.style.border = 'none';
+        uploadButton.style.borderRadius = '5px';
+        uploadButton.style.width = '100%';
+        uploadButton.style.fontSize = '16px';
+        uploadButton.style.fontWeight = 'bold';
+        uploadButton.onclick = () => {
+            chooseUploadType();
+            // Move "Send Query" button to bottom if Upload button is clicked
+            chatBox.appendChild(sendQueryButton);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
 
+        // Display elements in order
         chatBox.appendChild(inputField);
+        chatBox.appendChild(uploadButton);
         chatBox.appendChild(sendQueryButton);
-        chatBox.appendChild(imageUploadButton);
+
         chatBox.scrollTop = chatBox.scrollHeight;
     }, 1000);
 }
 
-// Function to open image upload dialog
-function openImageUploadDialog() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-      // This enables capturing images via the phone camera
-    input.style.display = 'none';
-    input.onchange = (event) => handleImageUpload(event);
-    document.body.appendChild(input);
-    input.click();  // Trigger the file input dialog
-}
 
-// Handle the uploaded image
-function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
+    function chooseUploadType() {
         const chatBox = document.getElementById('chatBox');
         const botResponse = document.createElement('div');
         botResponse.className = 'bot-message';
-        botResponse.innerText = "Image attached. Please proceed with your query.";
+        botResponse.innerText = "Please choose an upload option: (Image, Video, or Capture)";
         chatBox.appendChild(botResponse);
 
-        // You can create a preview of the image
-        const imgPreview = document.createElement('img');
-        imgPreview.src = URL.createObjectURL(file);
-        imgPreview.alt = 'Image Preview';
-        imgPreview.style.maxWidth = '200px';
-        imgPreview.style.marginTop = '10px';
-        chatBox.appendChild(imgPreview);
+        const uploadMenu = document.createElement('div');
+        uploadMenu.className = 'upload-menu';
 
-        // Store the image for sending later
-        window.attachedImage = file;  // Save the image globally for use when submitting the query
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
-// Submit the query and image to Telegram
-function submitQuery(userQuery) {
-    if (!userQuery.trim()) {
-        alert("Please enter a valid query.");
-        return;
-    }
-
-    const chatBox = document.getElementById('chatBox');
-    const queryMessage = document.createElement('div');
-    queryMessage.className = 'user-message';
-    queryMessage.innerText = userQuery;
-    chatBox.appendChild(queryMessage);
-
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
-    chatBox.appendChild(botResponse);
-
-    // Send to Telegram group with image (if available)
-    forwardToTelegramWithQuery(userRoomNumber, selectedMaintenance, userQuery, window.attachedImage);
-
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// Forward the floor, room number, query, and image to Telegram
-async function forwardToTelegramWithQuery(room, floor, query, image) {
-    const message = `🔔 *Mohammedi Makan* 🔔\n\n`
-        + `📌 *Issue*: ${floor}\n`
-        + `🏨 *Username*: ${room}\n`
-        + `💬 *User Query*: ${query}\n\n`
-        + `📩 *Please assist as soon as possible!*`;
-
-    const telegramBotToken = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
-    const telegramChatId = "-1002331220860"; // Replace with your Telegram group ID
-
-    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-    const requestBody = {
-        chat_id: telegramChatId,
-        text: message,
-        parse_mode: "Markdown"
-    };
-
-    try {
-        // First, send the message
-        const response = await fetch(telegramApiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
+        const uploadOptions = ["Upload Image 🖼️", "Capture Photo 📸"];
+        uploadOptions.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'menu-button';
+            button.innerText = option;
+            button.onclick = () => handleUploadOption(option);
+            uploadMenu.appendChild(button);
         });
 
-        const data = await response.json();
-        console.log("Telegram Message Sent:", data);
+        chatBox.appendChild(uploadMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
 
-        // If an image was uploaded, send the image as well
-        if (image) {
-            const formData = new FormData();
-            formData.append('chat_id', telegramChatId);
-            formData.append('photo', image);
 
-            const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
+        let attachedImage = null; // Global variable to hold the attached image
+let attachedVideo = null;
 
-            const imageResponse = await fetch(imageApiUrl, {
-                method: 'POST',
-                body: formData
-            });
+        // Handle upload options (image/video capture)
+        function handleUploadOption(option) {
+            const chatBox = document.getElementById('chatBox');
+            const userMessage = document.createElement('div');
+            userMessage.className = 'user-message';
+            userMessage.innerText = `You selected: ${option}`;
+            chatBox.appendChild(userMessage);
 
-            const imageData = await imageResponse.json();
-            console.log("Telegram Image Sent:", imageData);
+            if (option === "Upload Image 🖼️") {
+                setTimeout(() => openImageUploadDialog(), 1000);
+            } else if (option === "Capture Video 🎥") {
+                setTimeout(() => openVideoCaptureDialog(), 1000);
+            } else if (option === "Capture Photo 📸") {
+                setTimeout(() => openPhotoCaptureDialog(), 1000);
+            }
         }
-    } catch (error) {
-        console.error("Telegram Error:", error);
-    }
-}
 
-function displayMufaddalMenu() {
-    const chatBox = document.getElementById('chatBox');
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = "Please select the issue:";
-    chatBox.appendChild(botResponse);
+        // Handle image upload from file input
+        function openImageUploadDialog() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.style.display = 'none';
+            input.onchange = (event) => handleImageUpload(event);
+            document.body.appendChild(input);
+            input.click();
+        }
 
-    const buttonMenu = document.createElement('div');
-    buttonMenu.className = 'button-menu';
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                attachedImage = file; // Store image globally
 
-    const options = [
- "B1 Floor", "G Floor", 
-  "1st Floor", "2nd Floor", "3rd Floor", "4th Floor", 
-  "5th Floor", "6th Floor", "7th Floor", "Terrace"
-];
+                const chatBox = document.getElementById('chatBox');
+                const botResponse = document.createElement('div');
+                botResponse.className = 'bot-message';
+                botResponse.innerText = "Image uploaded successfully.";
+                chatBox.appendChild(botResponse);
 
+                const imgPreview = document.createElement('img');
+                imgPreview.src = URL.createObjectURL(file);
+                imgPreview.alt = 'Image Preview';
+                imgPreview.style.maxWidth = '200px';
+                imgPreview.style.marginTop = '10px';
+                chatBox.appendChild(imgPreview);
+            }
+        }
 
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => confirmMaintenanceRequestMuf(option);
-        buttonMenu.appendChild(button);
-    });
+        // Handle photo capture via native camera
+        function openPhotoCaptureDialog() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'camera';
+            input.style.display = 'none';
+            input.onchange = (event) => handleImageUpload(event);
+            document.body.appendChild(input);
+            input.click();
+        }
 
-    chatBox.appendChild(buttonMenu);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
+        // Handle video capture via native camera
+        function openVideoCaptureDialog() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'video/*';
+            input.capture = 'camera';
+            input.style.display = 'none';
+            input.onchange = (event) => handleVideoUpload(event);
+            document.body.appendChild(input);
+            input.click();
+        }
 
-// After selecting a floor
-function confirmMaintenanceRequestMuf(issue) {
-    selectedMaintenance = issue;
+        // Handle video upload from file input
+        function handleVideoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                attachedVideo = file; // Store video globally
 
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = issue;
-    chatBox.appendChild(userMessage);
+                const chatBox = document.getElementById('chatBox');
+                const botResponse = document.createElement('div');
+                botResponse.className = 'bot-message';
+                botResponse.innerText = "Video uploaded successfully.";
+                chatBox.appendChild(botResponse);
 
-    setTimeout(() => {
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = `Please type your query related to "${selectedMaintenance}" for Room ${userRoomNumber}.`;
-        chatBox.appendChild(botResponse);
+                const videoPreview = document.createElement('video');
+                videoPreview.src = URL.createObjectURL(file);
+                videoPreview.controls = true;
+                videoPreview.style.maxWidth = '200px';
+                videoPreview.style.marginTop = '10px';
+                chatBox.appendChild(videoPreview);
+            }
+        }
 
-        const inputField = document.createElement('input');
-        inputField.type = 'text';
-        inputField.placeholder = 'Enter your query here...';
-        inputField.id = 'userQuery';
-        inputField.style.marginTop = '10px';
-        inputField.style.padding = '10px';
-        inputField.style.borderRadius = '5px';
+        // Submit the user query and forward it to Telegram
+        async function submitQuery(userQuery) {
+            if (!userQuery.trim()) {
+                alert("Please enter a valid query.");
+                return;
+            }
 
-        const sendQueryButton = document.createElement('button');
-        sendQueryButton.innerText = "Send Query";
-        sendQueryButton.style.marginTop = '10px';
-        sendQueryButton.style.padding = '10px';
-        sendQueryButton.style.backgroundColor = '#c56321';
-        sendQueryButton.style.color = 'white';
-        sendQueryButton.style.border = 'none';
-        sendQueryButton.style.borderRadius = '5px';
-        sendQueryButton.onclick = () => submitQueryMuf(inputField.value);  // Submit the query
+            const chatBox = document.getElementById('chatBox');
+            const queryMessage = document.createElement('div');
+            queryMessage.className = 'user-message';
+            queryMessage.innerText = userQuery;
+            chatBox.appendChild(queryMessage);
 
-        // Image Upload Button
-        const imageUploadButton = document.createElement('button');
-        imageUploadButton.innerText = "Attach Image";
-        imageUploadButton.style.marginTop = '10px';
-        imageUploadButton.style.padding = '10px';
-        imageUploadButton.style.backgroundColor = '#c56321';
-        imageUploadButton.style.color = 'white';
-        imageUploadButton.style.border = 'none';
-        imageUploadButton.style.borderRadius = '5px';
-        imageUploadButton.onclick = () => openImageUploadDialogMuf();  // Open camera or gallery
+            const botResponse = document.createElement('div');
+            botResponse.className = 'bot-message';
+            botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
+            chatBox.appendChild(botResponse);
 
-        chatBox.appendChild(inputField);
-        chatBox.appendChild(sendQueryButton);
-        chatBox.appendChild(imageUploadButton);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }, 1000);
-}
+            if (!userRoomNumber || !selectedMaintenance) {
+                alert("Room number or issue type is missing!");
+                return;
+            }
 
-// Function to open image upload dialog
-function openImageUploadDialogMuf() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-      // This enables capturing images via the phone camera
-    input.style.display = 'none';
-    input.onchange = (event) => handleImageUploadMuf(event);
-    document.body.appendChild(input);
-    input.click();  // Trigger the file input dialog
-}
+            await forwardToTelegramWithQuery(userRoomNumber, selectedMaintenance, userQuery, attachedImage);
+        }
 
-// Handle the uploaded image
-function handleImageUploadMuf(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const chatBox = document.getElementById('chatBox');
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = "Image attached. Please proceed with your query.";
-        chatBox.appendChild(botResponse);
-
-        // You can create a preview of the image
-        const imgPreview = document.createElement('img');
-        imgPreview.src = URL.createObjectURL(file);
-        imgPreview.alt = 'Image Preview';
-        imgPreview.style.maxWidth = '200px';
-        imgPreview.style.marginTop = '10px';
-        chatBox.appendChild(imgPreview);
-
-        // Store the image for sending later
-        window.attachedImage = file;  // Save the image globally for use when submitting the query
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
-// Submit the query and image to Telegram
-function submitQueryMuf(userQuery) {
-    if (!userQuery.trim()) {
-        alert("Please enter a valid query.");
-        return;
-    }
-
-    const chatBox = document.getElementById('chatBox');
-    const queryMessage = document.createElement('div');
-    queryMessage.className = 'user-message';
-    queryMessage.innerText = userQuery;
-    chatBox.appendChild(queryMessage);
-
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
-    chatBox.appendChild(botResponse);
-
-    // Send to Telegram group with image (if available)
-    forwardToTelegramWithQueryMuf(userRoomNumber, selectedMaintenance, userQuery, window.attachedImage);
-
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// Forward the floor, room number, query, and image to Telegram
-async function forwardToTelegramWithQueryMuf(room, floor, query, image) {
-    const message = `🔔 *Mufaddal Makan* 🔔\n\n`
-        + `📌 *Issue*: ${floor}\n`
-        + `🏨 *User Name*: ${room}\n`
-        + `💬 *User Query*: ${query}\n\n`
-        + `📩 *Please assist as soon as possible!*`;
-
+        // Function to forward the query to Telegram
+        async function forwardToTelegramWithQuery(room, floor, query, image) {
     const telegramBotToken = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
-    const telegramChatId = "-1002331220860"; // Replace with your Telegram group ID
+    const telegramChatId = "-4634107398"; // Replace with your Telegram group ID
 
-    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-    const requestBody = {
-        chat_id: telegramChatId,
-        text: message,
-        parse_mode: "Markdown"
-    };
 
-    try {
-        // First, send the message
-        const response = await fetch(telegramApiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
-        });
 
-        const data = await response.json();
-        console.log("Telegram Message Sent:", data);
+            const message = `🔔 *Mohammedi Makan* 🔔\n\n`
+                + `📌 *Issue*: ${floor}\n`
+                + `🏨 *Username*: ${room}\n`
+                + `💬 *User Query*: ${query}\n\n`
+                + `📩 *Please assist as soon as possible!*`;
 
-        // If an image was uploaded, send the image as well
-        if (image) {
-            const formData = new FormData();
-            formData.append('chat_id', telegramChatId);
-            formData.append('photo', image);
+            try {
+                // If an image or video is attached, send it along with the message
+                if (image) {
+                    const formData = new FormData();
+                    formData.append('chat_id', telegramChatId);
+                    formData.append('photo', image);
+                    formData.append('caption', message);
+                    formData.append('parse_mode', 'Markdown');
 
-            const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
+                    const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
 
-            const imageResponse = await fetch(imageApiUrl, {
-                method: 'POST',
-                body: formData
-            });
+                    const imageResponse = await fetch(imageApiUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
 
-            const imageData = await imageResponse.json();
-            console.log("Telegram Image Sent:", imageData);
+                    const imageData = await imageResponse.json();
+                    console.log("Telegram Image Sent:", imageData);
+
+                    if (!imageData.ok) {
+                        throw new Error(`Image send failed: ${imageData.description}`);
+                    }
+                } else {
+                    // If no image or video, just send the text message
+                    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+                    const requestBody = {
+                        chat_id: telegramChatId,
+                        text: message,
+                        parse_mode: "Markdown"
+                    };
+
+                    const response = await fetch(telegramApiUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    const data = await response.json();
+                    console.log("Telegram Message Sent:", data);
+
+                    if (!data.ok) {
+                        throw new Error(`Message send failed: ${data.description}`);
+                    }
+                }
+            } catch (error) {
+                console.error("Telegram Error:", error);
+            }
         }
-    } catch (error) {
-        console.error("Telegram Error:", error);
-    }
-}
 
-function displayEzzyMenu() {
-    const chatBox = document.getElementById('chatBox');
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = "Please select the issue:";
-    chatBox.appendChild(botResponse);
-
-    const buttonMenu = document.createElement('div');
-    buttonMenu.className = 'button-menu';
-
-    const options = [
- "B1 Floor", "G Floor", 
-  "1st Floor", "2nd Floor", "3rd Floor", "4th Floor", 
-  "5th Floor", "6th Floor", "7th Floor"
-];
-
-
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => confirmMaintenanceRequestEzzy(option);
-        buttonMenu.appendChild(button);
-    });
-
-    chatBox.appendChild(buttonMenu);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// After selecting a floor
-function confirmMaintenanceRequestEzzy(issue) {
-    selectedMaintenance = issue;
-
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = issue;
-    chatBox.appendChild(userMessage);
-
-    setTimeout(() => {
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = `Please type your query related to "${selectedMaintenance}" for Room ${userRoomNumber}.`;
-        chatBox.appendChild(botResponse);
-
-        const inputField = document.createElement('input');
-        inputField.type = 'text';
-        inputField.placeholder = 'Enter your query here...';
-        inputField.id = 'userQuery';
-        inputField.style.marginTop = '10px';
-        inputField.style.padding = '10px';
-        inputField.style.borderRadius = '5px';
-
-        const sendQueryButton = document.createElement('button');
-        sendQueryButton.innerText = "Send Query";
-        sendQueryButton.style.marginTop = '10px';
-        sendQueryButton.style.padding = '10px';
-        sendQueryButton.style.backgroundColor = '#c56321';
-        sendQueryButton.style.color = 'white';
-        sendQueryButton.style.border = 'none';
-        sendQueryButton.style.borderRadius = '5px';
-        sendQueryButton.onclick = () => submitQueryEzzy(inputField.value);  // Submit the query
-
-        // Image Upload Button
-        const imageUploadButton = document.createElement('button');
-        imageUploadButton.innerText = "Attach Image";
-        imageUploadButton.style.marginTop = '10px';
-        imageUploadButton.style.padding = '10px';
-        imageUploadButton.style.backgroundColor = '#c56321';
-        imageUploadButton.style.color = 'white';
-        imageUploadButton.style.border = 'none';
-        imageUploadButton.style.borderRadius = '5px';
-        imageUploadButton.onclick = () => openImageUploadDialogEzzy();  // Open camera or gallery
-
-        chatBox.appendChild(inputField);
-        chatBox.appendChild(sendQueryButton);
-        chatBox.appendChild(imageUploadButton);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }, 1000);
-}
-
-// Function to open image upload dialog
-function openImageUploadDialogEzzy() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-      // This enables capturing images via the phone camera
-    input.style.display = 'none';
-    input.onchange = (event) => handleImageUploadEzzy(event);
-    document.body.appendChild(input);
-    input.click();  // Trigger the file input dialog
-}
-
-// Handle the uploaded image
-function handleImageUploadEzzy(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const chatBox = document.getElementById('chatBox');
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = "Image attached. Please proceed with your query.";
-        chatBox.appendChild(botResponse);
-
-        // You can create a preview of the image
-        const imgPreview = document.createElement('img');
-        imgPreview.src = URL.createObjectURL(file);
-        imgPreview.alt = 'Image Preview';
-        imgPreview.style.maxWidth = '200px';
-        imgPreview.style.marginTop = '10px';
-        chatBox.appendChild(imgPreview);
-
-        // Store the image for sending later
-        window.attachedImage = file;  // Save the image globally for use when submitting the query
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
-// Submit the query and image to Telegram
-function submitQueryEzzy(userQuery) {
-    if (!userQuery.trim()) {
-        alert("Please enter a valid query.");
-        return;
-    }
-
-    const chatBox = document.getElementById('chatBox');
-    const queryMessage = document.createElement('div');
-    queryMessage.className = 'user-message';
-    queryMessage.innerText = userQuery;
-    chatBox.appendChild(queryMessage);
-
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
-    chatBox.appendChild(botResponse);
-
-    // Send to Telegram group with image (if available)
-    forwardToTelegramWithQueryEzzy(userRoomNumber, selectedMaintenance, userQuery, window.attachedImage);
-
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// Forward the floor, room number, query, and image to Telegram
-async function forwardToTelegramWithQueryEzzy(room, floor, query, image) {
-    const message = `🔔 *Ezzy Makan* 🔔\n\n`
-        + `📌 *Issue*: ${floor}\n`
-        + `🏨 *Username*: ${room}\n`
-        + `💬 *User Query*: ${query}\n\n`
-        + `📩 *Please assist as soon as possible!*`;
-
-    const telegramBotToken = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
-    const telegramChatId = "-1002331220860"; // Replace with your Telegram group ID
-
-    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-    const requestBody = {
-        chat_id: telegramChatId,
-        text: message,
-        parse_mode: "Markdown"
-    };
-
-    try {
-        // First, send the message
-        const response = await fetch(telegramApiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
-        });
-
-        const data = await response.json();
-        console.log("Telegram Message Sent:", data);
-
-        // If an image was uploaded, send the image as well
-        if (image) {
-            const formData = new FormData();
-            formData.append('chat_id', telegramChatId);
-            formData.append('photo', image);
-
-            const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
-
-            const imageResponse = await fetch(imageApiUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            const imageData = await imageResponse.json();
-            console.log("Telegram Image Sent:", imageData);
-        }
-    } catch (error) {
-        console.error("Telegram Error:", error);
-    }
-}
-        
-        // Adjust the chat container height based on the device's actual viewport height
+         // Adjust the chat container height based on the device's actual viewport height
 function adjustChatContainerHeight() {
     const windowHeight = window.innerHeight;  // Get the inner height of the window (this excludes the browser UI)
     const chatContainer = document.querySelector('.chat-container');
@@ -904,9 +543,7 @@ function adjustChatContainerHeight() {
 // Call the function on page load and when the window is resized
 window.addEventListener('load', adjustChatContainerHeight);
 window.addEventListener('resize', adjustChatContainerHeight);
-
     </script>
 
 </body>
 </html>
-
