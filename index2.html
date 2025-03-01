@@ -346,7 +346,11 @@ function confirmMaintenanceRequest(issue) {
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-         function handleUploadOption(option) {
+
+        let attachedImage = null; // Global variable to hold the attached image
+
+        // Handle upload options (image/video capture)
+        function handleUploadOption(option) {
             const chatBox = document.getElementById('chatBox');
             const userMessage = document.createElement('div');
             userMessage.className = 'user-message';
@@ -362,10 +366,11 @@ function confirmMaintenanceRequest(issue) {
             }
         }
 
+        // Handle image upload from file input
         function openImageUploadDialog() {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = 'image/*'; // Only accepts images
+            input.accept = 'image/*';
             input.style.display = 'none';
             input.onchange = (event) => handleImageUpload(event);
             document.body.appendChild(input);
@@ -375,6 +380,8 @@ function confirmMaintenanceRequest(issue) {
         function handleImageUpload(event) {
             const file = event.target.files[0];
             if (file) {
+                attachedImage = file; // Store image globally
+
                 const chatBox = document.getElementById('chatBox');
                 const botResponse = document.createElement('div');
                 botResponse.className = 'bot-message';
@@ -390,31 +397,36 @@ function confirmMaintenanceRequest(issue) {
             }
         }
 
+        // Handle photo capture via native camera
         function openPhotoCaptureDialog() {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = 'image/*'; // Accepts only images
-            input.capture = 'camera'; // Opens the camera directly
+            input.accept = 'image/*';
+            input.capture = 'camera';
             input.style.display = 'none';
-            input.onchange = (event) => handleImageUpload(event); // Same handler for the captured image
+            input.onchange = (event) => handleImageUpload(event);
             document.body.appendChild(input);
             input.click();
         }
 
+        // Handle video capture via native camera
         function openVideoCaptureDialog() {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = 'video/*'; // Accepts only videos
-            input.capture = 'camera'; // Opens the camera for video
+            input.accept = 'video/*';
+            input.capture = 'camera';
             input.style.display = 'none';
-            input.onchange = (event) => handleVideoUpload(event); // Handle video upload
+            input.onchange = (event) => handleVideoUpload(event);
             document.body.appendChild(input);
             input.click();
         }
 
+        // Handle video upload from file input
         function handleVideoUpload(event) {
             const file = event.target.files[0];
             if (file) {
+                attachedImage = file; // Store video globally
+
                 const chatBox = document.getElementById('chatBox');
                 const botResponse = document.createElement('div');
                 botResponse.className = 'bot-message';
@@ -430,90 +442,93 @@ function confirmMaintenanceRequest(issue) {
             }
         }
 
-  async function submitQuery(userQuery) {
-    if (!userQuery.trim()) {
-        alert("Please enter a valid query.");
-        return;
-    }
-
-    const chatBox = document.getElementById('chatBox');
-    const queryMessage = document.createElement('div');
-    queryMessage.className = 'user-message';
-    queryMessage.innerText = userQuery;
-    chatBox.appendChild(queryMessage);
-
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
-    chatBox.appendChild(botResponse);
-
-    if (!userRoomNumber || !selectedMaintenance) {
-        alert("Room number or issue type is missing!");
-        return;
-    }
-
-    await forwardToTelegramWithQuery(userRoomNumber, selectedMaintenance, userQuery, window.attachedImage);
-}
-
-async function forwardToTelegramWithQuery(room, floor, query, image) {
-    const telegramBotToken = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
-    const telegramChatId = "-4634107398"; // Replace with your Telegram group ID
-
-    const message = `🔔 *Mohammedi Makan* 🔔\n\n`
-        + `📌 *Issue*: ${floor}\n`
-        + `🏨 *Username*: ${room}\n`
-        + `💬 *User Query*: ${query}\n\n`
-        + `📩 *Please assist as soon as possible!*`;
-
-    try {
-        // If an image is available, send the image along with the message
-        if (image) {
-            const formData = new FormData();
-            formData.append('chat_id', telegramChatId);
-            formData.append('photo', image);
-            formData.append('caption', message);
-            formData.append('parse_mode', 'Markdown');
-
-            const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
-
-            const imageResponse = await fetch(imageApiUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            const imageData = await imageResponse.json();
-            console.log("Telegram Image Sent:", imageData);
-            
-            if (!imageData.ok) {
-                throw new Error(`Image send failed: ${imageData.description}`);
+        // Submit the user query and forward it to Telegram
+        async function submitQuery(userQuery) {
+            if (!userQuery.trim()) {
+                alert("Please enter a valid query.");
+                return;
             }
-        } else {
-            // If no image, just send the message
-            const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-            const requestBody = {
-                chat_id: telegramChatId,
-                text: message,
-                parse_mode: "Markdown"
-            };
 
-            const response = await fetch(telegramApiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody)
-            });
+            const chatBox = document.getElementById('chatBox');
+            const queryMessage = document.createElement('div');
+            queryMessage.className = 'user-message';
+            queryMessage.innerText = userQuery;
+            chatBox.appendChild(queryMessage);
 
-            const data = await response.json();
-            console.log("Telegram Message Sent:", data);
-            
-            if (!data.ok) {
-                throw new Error(`Message send failed: ${data.description}`);
+            const botResponse = document.createElement('div');
+            botResponse.className = 'bot-message';
+            botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
+            chatBox.appendChild(botResponse);
+
+            if (!userRoomNumber || !selectedMaintenance) {
+                alert("Room number or issue type is missing!");
+                return;
+            }
+
+            await forwardToTelegramWithQuery(userRoomNumber, selectedMaintenance, userQuery, attachedImage);
+        }
+
+        // Function to forward the query to Telegram
+        async function forwardToTelegramWithQuery(room, floor, query, image) {
+            const telegramBotToken = "YOUR_BOT_TOKEN";
+            const telegramChatId = "YOUR_CHAT_ID";
+
+            const message = `🔔 *Mohammedi Makan* 🔔\n\n`
+                + `📌 *Issue*: ${floor}\n`
+                + `🏨 *Username*: ${room}\n`
+                + `💬 *User Query*: ${query}\n\n`
+                + `📩 *Please assist as soon as possible!*`;
+
+            try {
+                // If an image or video is attached, send it along with the message
+                if (image) {
+                    const formData = new FormData();
+                    formData.append('chat_id', telegramChatId);
+                    formData.append('photo', image);
+                    formData.append('caption', message);
+                    formData.append('parse_mode', 'Markdown');
+
+                    const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
+
+                    const imageResponse = await fetch(imageApiUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const imageData = await imageResponse.json();
+                    console.log("Telegram Image Sent:", imageData);
+
+                    if (!imageData.ok) {
+                        throw new Error(`Image send failed: ${imageData.description}`);
+                    }
+                } else {
+                    // If no image or video, just send the text message
+                    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+                    const requestBody = {
+                        chat_id: telegramChatId,
+                        text: message,
+                        parse_mode: "Markdown"
+                    };
+
+                    const response = await fetch(telegramApiUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    const data = await response.json();
+                    console.log("Telegram Message Sent:", data);
+
+                    if (!data.ok) {
+                        throw new Error(`Message send failed: ${data.description}`);
+                    }
+                }
+            } catch (error) {
+                console.error("Telegram Error:", error);
             }
         }
-    } catch (error) {
-        console.error("Telegram Error:", error);
-    }
-}
-        // Adjust the chat container height based on the device's actual viewport height
+
+         // Adjust the chat container height based on the device's actual viewport height
 function adjustChatContainerHeight() {
     const windowHeight = window.innerHeight;  // Get the inner height of the window (this excludes the browser UI)
     const chatContainer = document.querySelector('.chat-container');
