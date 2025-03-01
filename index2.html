@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mohammedi Makan Bot</title>
+ <style>
+/* Reset CSS */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+/* Fullscreen Layout */
+body {
+    background-color: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    overflow: hidden;  /* Prevent scrolling */
+    height: 100%;  /* Take up full height */
+}
+
+.chat-container {
+    width: 100%;
+    max-width: 400px;
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-image: url('bg.png');
+}
+
+/* Chat Box */
+.chat-box {
+    padding: 10px;
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.chat-header {
+    background: #c56321;
+    color: white;
+    padding: 12px 15px;
+    text-align: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* Bot and User Message */
+.bot-message, .user-message {
+    max-width: 80%;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 22px;
+    word-wrap: break-word;
+}
+
+.bot-message {
+    background: #c56321;
+    color: white;
+    align-self: flex-start;
+}
+
+.user-message {
+    background: #e1e1e1;
+    align-self: flex-end;
+}
+
+/* Input Section */
+.chat-input {
+    display: flex;
+    padding: 12px;
+    border-top: 1px solid #ddd;
+    background: #fff;
+    flex-shrink: 0;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Input Field */
+.chat-input input {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    outline: none;
+}
+
+/* Button */
+.chat-input button {
+    background: #c56321;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    margin-left: 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* Centered button container */
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 150px;
+}
+
+/* Styled buttons */
+.menu-button {
+    width: 250px; /* Fixed width for consistent sizing */
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    background: #c56321;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0px 4px 20px rgba(197, 99, 33, 0.5);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    text-align: center;
+    margin-bottom: 15px; /* Adds space between buttons */
+
+}
+
+/* Hover effects */
+.menu-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0px 8px 30px rgba(197, 99, 33, 0.7);
+}
+
+/* Click effect */
+.menu-button:active {
+    transform: scale(0.95);
+    box-shadow: 0px 2px 10px rgba(197, 99, 33, 0.5);
+}
+
+
+    </style>
+
+</head>
+<body>
+
+    <div class="chat-container">
+        <div class="chat-header">Mohammedi Makan Staff</div>
+        <div class="chat-box" id="chatBox">
+            <div class="bot-message"></div>
+        </div>
+    </div>
+
+    <script>
+
+    function getRoomNumber() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('room'); 
+    }
+
+    window.onload = function () {
+        let roomNumber = getRoomNumber();
+        if (roomNumber) {
+            userRoomNumber = roomNumber;
+            startChatWithRoom(roomNumber);
+        }
+    };
+
+    let selectedMaintenance = null;
+    let userRoomNumber = ""; 
+    let uploadType = null;  // Tracks the upload type (image, video, or capture)
+
+    const flatteryList = [
+        "You are the inspiration that drives us forward.", "You are the hope that fuels our ambitions.",
+    ];
+
+    function startChatWithRoom(room) {
+        const flattery = flatteryList[Math.floor(Math.random() * flatteryList.length)];
+        const chatBox = document.getElementById('chatBox');
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = `Welcome ${room}. ${flattery} How can I assist you?`;
+
+        chatBox.appendChild(botResponse);
+        displayMainMenu();
+    }
+
+    function displayMainMenu() {
+        const chatBox = document.getElementById('chatBox');
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
+
+        const options = ["Mohammedi Makan", "Mufaddal Makan", "Ezzy Makan"];
+
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'menu-button';
+            button.innerText = option;
+            button.onclick = () => selectMainOption(option);
+            buttonMenu.appendChild(button);
+        });
+
+        chatBox.appendChild(buttonMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function selectMainOption(option) {
+        const chatBox = document.getElementById('chatBox');
+        const userMessage = document.createElement('div');
+        userMessage.className = 'user-message';
+        userMessage.innerText = option;
+        chatBox.appendChild(userMessage);
+
+        if (option === "Mohammedi Makan") {
+            setTimeout(() => {
+                displayMohammediMenu();
+            }, 1000);
+        }
+    }
+
+    function displayMohammediMenu() {
+        const chatBox = document.getElementById('chatBox');
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Please select the issue:";
+        chatBox.appendChild(botResponse);
+
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
+
+        const options = [
+            "B2 Floor", "B1 Floor", "LG Floor", "UG Floor", "MP Floor", 
+            "DH Floor", "PR Floor", "S Floor", "5th Floor", 
+            "6th Floor", "7th Floor", "8th Floor", "9th Floor", 
+            "10th Floor", "11th Floor", "12th Floor", "13th Floor", 
+            "14th Floor", "15th Floor", "16th Floor", "17th Floor"
+        ];
+
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'menu-button';
+            button.innerText = option;
+            button.onclick = () => confirmMaintenanceRequest(option);
+            buttonMenu.appendChild(button);
+        });
+
+        chatBox.appendChild(buttonMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+function confirmMaintenanceRequest(issue) {
+    selectedMaintenance = issue;
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = issue;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = `Please type your query related to "${selectedMaintenance}" for Room ${userRoomNumber}.`;
+        chatBox.appendChild(botResponse);
+
+        const inputField = document.createElement('input');
+        inputField.type = 'text';
+        inputField.placeholder = 'Enter your query here...';
+        inputField.id = 'userQuery';
+        inputField.style.marginTop = '10px';
+        inputField.style.padding = '10px';
+        inputField.style.borderRadius = '5px';
+        inputField.style.width = '100%';
+
+        // "Send Query" button (initially placed after upload button)
+        let sendQueryButton = document.createElement('button');
+        sendQueryButton.innerText = "Send Query";
+        sendQueryButton.style.marginTop = '10px';
+        sendQueryButton.style.padding = '15px';
+        sendQueryButton.style.backgroundColor = '#a84312'; // Unique but matching color
+        sendQueryButton.style.color = 'white';
+        sendQueryButton.style.border = 'none';
+        sendQueryButton.style.borderRadius = '5px';
+        sendQueryButton.style.fontSize = '16px';
+        sendQueryButton.style.fontWeight = 'bold';
+        sendQueryButton.style.width = '100%';
+        sendQueryButton.onclick = () => submitQuery(inputField.value);
+
+        // Upload button
+        const uploadButton = document.createElement('button');
+        uploadButton.innerText = "Upload Image/Video";
+        uploadButton.style.marginTop = '20px';
+        uploadButton.style.padding = '15px';
+        uploadButton.style.backgroundColor = '#c56321';
+        uploadButton.style.color = 'white';
+        uploadButton.style.border = 'none';
+        uploadButton.style.borderRadius = '5px';
+        uploadButton.style.width = '100%';
+        uploadButton.style.fontSize = '16px';
+        uploadButton.style.fontWeight = 'bold';
+        uploadButton.onclick = () => {
+            chooseUploadType();
+            // Move "Send Query" button to bottom if Upload button is clicked
+            chatBox.appendChild(sendQueryButton);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
+
+        // Display elements in order
+        chatBox.appendChild(inputField);
+        chatBox.appendChild(uploadButton);
+        chatBox.appendChild(sendQueryButton);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1000);
+}
+
+
+    function chooseUploadType() {
+        const chatBox = document.getElementById('chatBox');
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Please choose an upload option: (Image, Video, or Capture)";
+        chatBox.appendChild(botResponse);
+
+        const uploadMenu = document.createElement('div');
+        uploadMenu.className = 'upload-menu';
+
+        const uploadOptions = ["Upload Image 🖼️", "Capture Video 🎥", "Capture Photo 📸"];
+        uploadOptions.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'menu-button';
+            button.innerText = option;
+            button.onclick = () => handleUploadOption(option);
+            uploadMenu.appendChild(button);
+        });
+
+        chatBox.appendChild(uploadMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+        function handleUploadOption(option) {
+            const chatBox = document.getElementById('chatBox');
+            const userMessage = document.createElement('div');
+            userMessage.className = 'user-message';
+            userMessage.innerText = `You selected: ${option}`;
+            chatBox.appendChild(userMessage);
+
+            if (option === "Upload Image 🖼️") {
+                setTimeout(() => openImageUploadDialog(), 1000);
+            } else if (option === "Capture Video 🎥") {
+                setTimeout(() => captureVideo(), 1000);
+            } else if (option === "Capture Photo 📸") {
+                setTimeout(() => capturePhoto(), 1000);
+            }
+        }
+
+        function openImageUploadDialog() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.style.display = 'none';
+            input.onchange = (event) => handleImageUpload(event);
+            document.body.appendChild(input);
+            input.click();
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                window.attachedImage = file; // Store image globally
+
+                const chatBox = document.getElementById('chatBox');
+                const botResponse = document.createElement('div');
+                botResponse.className = 'bot-message';
+                botResponse.innerText = "Image uploaded successfully.";
+                chatBox.appendChild(botResponse);
+
+                const imgPreview = document.createElement('img');
+                imgPreview.src = URL.createObjectURL(file);
+                imgPreview.alt = 'Image Preview';
+                imgPreview.style.maxWidth = '200px';
+                imgPreview.style.marginTop = '10px';
+                chatBox.appendChild(imgPreview);
+            }
+        }
+
+        function captureVideo() {
+            // Accessing camera for video capture (using HTML5 getUserMedia)
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.autoplay = true;
+                    video.style.maxWidth = '200px';
+                    video.style.marginTop = '10px';
+                    document.getElementById('chatBox').appendChild(video);
+                    const stopButton = document.createElement('button');
+                    stopButton.innerText = "Stop Recording";
+                    stopButton.onclick = () => stopVideo(stream, video);
+                    document.getElementById('chatBox').appendChild(stopButton);
+                })
+                .catch(err => {
+                    const chatBox = document.getElementById('chatBox');
+                    const botResponse = document.createElement('div');
+                    botResponse.className = 'bot-message';
+                    botResponse.innerText = `Error accessing video: ${err.message}`;
+                    chatBox.appendChild(botResponse);
+                });
+        }
+
+        function stopVideo(stream, videoElement) {
+            // Stop video stream and remove video element
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            videoElement.remove();
+            const chatBox = document.getElementById('chatBox');
+            const botResponse = document.createElement('div');
+            botResponse.className = 'bot-message';
+            botResponse.innerText = "Video stopped.";
+            chatBox.appendChild(botResponse);
+        }
+
+        function capturePhoto() {
+            // Accessing camera for photo capture (using HTML5 getUserMedia)
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.srcObject = stream;
+                    video.autoplay = true;
+                    video.style.maxWidth = '200px';
+                    video.style.marginTop = '10px';
+                    document.getElementById('chatBox').appendChild(video);
+
+                    const captureButton = document.createElement('button');
+                    captureButton.innerText = "Capture Photo";
+                    captureButton.onclick = () => takeSnapshot(stream, video);
+                    document.getElementById('chatBox').appendChild(captureButton);
+                })
+                .catch(err => {
+                    const chatBox = document.getElementById('chatBox');
+                    const botResponse = document.createElement('div');
+                    botResponse.className = 'bot-message';
+                    botResponse.innerText = `Error accessing camera: ${err.message}`;
+                    chatBox.appendChild(botResponse);
+                });
+        }
+
+        function takeSnapshot(stream, videoElement) {
+            // Capture snapshot from video
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+            // Convert canvas image to data URL and display
+            const photoUrl = canvas.toDataURL('image/png');
+            const imgPreview = document.createElement('img');
+            imgPreview.src = photoUrl;
+            imgPreview.alt = 'Captured Photo';
+            imgPreview.style.maxWidth = '200px';
+            imgPreview.style.marginTop = '10px';
+            document.getElementById('chatBox').appendChild(imgPreview);
+
+            // Stop the camera stream
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            videoElement.remove();
+
+            const chatBox = document.getElementById('chatBox');
+            const botResponse = document.createElement('div');
+            botResponse.className = 'bot-message';
+            botResponse.innerText = "Photo captured successfully.";
+            chatBox.appendChild(botResponse);
+        }
+
+  async function submitQuery(userQuery) {
+    if (!userQuery.trim()) {
+        alert("Please enter a valid query.");
+        return;
+    }
+
+    const chatBox = document.getElementById('chatBox');
+    const queryMessage = document.createElement('div');
+    queryMessage.className = 'user-message';
+    queryMessage.innerText = userQuery;
+    chatBox.appendChild(queryMessage);
+
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
+    chatBox.appendChild(botResponse);
+
+    if (!userRoomNumber || !selectedMaintenance) {
+        alert("Room number or issue type is missing!");
+        return;
+    }
+
+    await forwardToTelegramWithQuery(userRoomNumber, selectedMaintenance, userQuery, window.attachedImage);
+}
+
+async function forwardToTelegramWithQuery(room, floor, query, image) {
+    const telegramBotToken = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
+    const telegramChatId = "-4634107398"; // Replace with your Telegram group ID
+
+    const message = `🔔 *Mohammedi Makan* 🔔\n\n`
+        + `📌 *Issue*: ${floor}\n`
+        + `🏨 *Username*: ${room}\n`
+        + `💬 *User Query*: ${query}\n\n`
+        + `📩 *Please assist as soon as possible!*`;
+
+    try {
+        // If an image is available, send the image along with the message
+        if (image) {
+            const formData = new FormData();
+            formData.append('chat_id', telegramChatId);
+            formData.append('photo', image);
+            formData.append('caption', message);
+            formData.append('parse_mode', 'Markdown');
+
+            const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
+
+            const imageResponse = await fetch(imageApiUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            const imageData = await imageResponse.json();
+            console.log("Telegram Image Sent:", imageData);
+            
+            if (!imageData.ok) {
+                throw new Error(`Image send failed: ${imageData.description}`);
+            }
+        } else {
+            // If no image, just send the message
+            const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+            const requestBody = {
+                chat_id: telegramChatId,
+                text: message,
+                parse_mode: "Markdown"
+            };
+
+            const response = await fetch(telegramApiUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody)
+            });
+
+            const data = await response.json();
+            console.log("Telegram Message Sent:", data);
+            
+            if (!data.ok) {
+                throw new Error(`Message send failed: ${data.description}`);
+            }
+        }
+    } catch (error) {
+        console.error("Telegram Error:", error);
+    }
+}
+        // Adjust the chat container height based on the device's actual viewport height
+function adjustChatContainerHeight() {
+    const windowHeight = window.innerHeight;  // Get the inner height of the window (this excludes the browser UI)
+    const chatContainer = document.querySelector('.chat-container');
+
+    // Set the height of the chat container to the inner height of the viewport minus any space for the header
+    chatContainer.style.height = `${windowHeight - 20}px`; // 20px can be adjusted based on your desired padding
+}
+
+// Call the function on page load and when the window is resized
+window.addEventListener('load', adjustChatContainerHeight);
+window.addEventListener('resize', adjustChatContainerHeight);
+    </script>
+
+</body>
+</html>
