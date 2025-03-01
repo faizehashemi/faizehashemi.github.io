@@ -348,6 +348,7 @@ function confirmMaintenanceRequest(issue) {
 
 
         let attachedImage = null; // Global variable to hold the attached image
+let attachedVideo = null;
 
         // Handle upload options (image/video capture)
         function handleUploadOption(option) {
@@ -425,7 +426,7 @@ function confirmMaintenanceRequest(issue) {
         function handleVideoUpload(event) {
             const file = event.target.files[0];
             if (file) {
-                attachedImage = file; // Store video globally
+                attachedVideo = file; // Store video globally
 
                 const chatBox = document.getElementById('chatBox');
                 const botResponse = document.createElement('div');
