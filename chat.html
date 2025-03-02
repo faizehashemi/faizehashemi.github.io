@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mohammedi Makan Bot</title>
+    <style>
+/* Reset CSS */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+/* Fullscreen Layout */
+body {
+    background-color: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    overflow: hidden;  /* Prevent scrolling */
+    height: 100%;  /* Take up full height */
+}
+
+.chat-container {
+    width: 100%;
+    max-width: 400px;
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-image: url('bg.png');
+}
+
+/* Chat Box */
+.chat-box {
+    padding: 10px;
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.chat-header {
+    background: #c56321;
+    color: white;
+    padding: 12px 15px;
+    text-align: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* Bot and User Message */
+.bot-message, .user-message {
+    max-width: 80%;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 14px;
+    word-wrap: break-word;
+}
+
+.bot-message {
+    background: #c56321;
+    color: white;
+    align-self: flex-start;
+}
+
+.user-message {
+    background: #e1e1e1;
+    align-self: flex-end;
+}
+
+/* Input Section */
+.chat-input {
+    display: flex;
+    padding: 12px;
+    border-top: 1px solid #ddd;
+    background: #fff;
+    flex-shrink: 0;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Input Field */
+.chat-input input {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    outline: none;
+}
+
+/* Button */
+.chat-input button {
+    background: #c56321;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    margin-left: 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* Centered button container */
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 150px;
+}
+
+/* Styled buttons */
+.menu-button {
+    width: 250px; /* Fixed width for consistent sizing */
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    background: #c56321;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0px 4px 20px rgba(197, 99, 33, 0.5);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    text-align: center;
+    margin-bottom: 15px; /* Adds space between buttons */
+
+}
+
+/* Hover effects */
+.menu-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0px 8px 30px rgba(197, 99, 33, 0.7);
+}
+
+/* Click effect */
+.menu-button:active {
+    transform: scale(0.95);
+    box-shadow: 0px 2px 10px rgba(197, 99, 33, 0.5);
+}
+
+
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">Mohammedi Makan Helpline</div>
+        <div class="chat-box" id="chatBox">
+            <div class="bot-message" style="font-size: 18px;">
+                <h2>Welcome to <b>Mohammedi Makan’s</b> Helpline! 🤖✨</h2>
+                <p>This smart assistant is designed to enhance your stay with <b>seamless service.</b></p>
+                <p><u>Simply enter your <b>room number</b> to get started.</u></p>
+                <p>With this chatbot, you can:</p>
+                <ul>
+                    <li>Request <b>Maintenance Support</b> (e.g., <i>AC not working, lights not working</i>)</li>
+                    <li>Make <b>Emergency Requests</b></li>
+                    <li>Give <b>Feedback</b></li>
+                    <li>Discover <b>Makkah’s Holy Places</b></li>
+                    <li>Access the <b>Mansak PDF</b></li>
+                    <li>Use <b>Live Chat</b> for instant assistance and More</li>
+                </ul>
+                <p><b>Our bot ensures quick, hassle-free communication, available <u>24/7</u> for your convenience.</b></p>
+                <p><i>Experience a smooth, comfortable stay with just a few taps.</i> Try it now and let us take care of the rest! 🏨💡📲</p>
+            </div>
+        </div>
+        <div class="chat-input" id="chatInput">
+            <input type="text" id="userInput" placeholder="Send 'Hi' to begin...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Function to get query parameters from the URL
+        function getRoomNumber() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('room'); // Get the 'room' parameter
+        }
+
+        let userRoomNumber = ""; // This will store the room number from the URL
+
+        // Function to handle "Send" button or "Enter" key press
+        function sendMessage() {
+            const userInput = document.getElementById("userInput").value;
+            if (userInput.toLowerCase() === 'hi') {
+                let roomNumber = getRoomNumber();
+                if (roomNumber) {
+                    userRoomNumber = roomNumber; // Store the room number
+                    startChatWithRoom(roomNumber);
+                } else {
+                    const chatBox = document.getElementById('chatBox');
+                    const botResponse = document.createElement('div');
+                    botResponse.className = 'bot-message';
+                    botResponse.innerText = `Please provide your room number to proceed.`;
+                    chatBox.appendChild(botResponse);
+                }
+            }
+        }
+
+        // Function to initiate the chat with the room number
+        function startChatWithRoom(room) {
+            const chatBox = document.getElementById('chatBox');
+            const botResponse = document.createElement('div');
+            botResponse.className = 'bot-message';
+            botResponse.innerText = `How can we assist you?`;
+            botResponse.style.fontSize = '18px'; // Increase font size
+            chatBox.appendChild(botResponse);
+
+            displayMainMenu();
+        }
+
+
+        // Listen for "Enter" key press to trigger sendMessage function
+        document.getElementById("userInput").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault(); // Prevent the default "Enter" key behavior (form submission)
+                sendMessage(); // Trigger sendMessage when Enter is pressed
+            }
+        });
+
+function displayMainMenu() {
+    const chatBox = document.getElementById('chatBox');
+    const buttonMenu = document.createElement('div');
+    buttonMenu.className = 'button-menu';
+
+    const options = [
+        "Maintenance 🛠️", 
+        "Room Services 🛏️", 
+        "Live Chat 💬", 
+        "Discover Makkah 🕋", 
+        "Mansak PDF 📄", 
+        "Information ℹ️", 
+        "Places To Visit 🌍", 
+        "Feedback ✍️"
+    ];
+
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => selectMainOption(option);
+        buttonMenu.appendChild(button);
+    });
+
+    chatBox.appendChild(buttonMenu);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function selectMainOption(option) {
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = option;
+    chatBox.appendChild(userMessage);
+
+    if (option === "Maintenance 🛠️") {
+        setTimeout(() => {
+            displayMaintenanceMenu();
+        }, 1000);
+    } else if (option === "Room Services 🛏️") {
+        setTimeout(() => {
+            displayEmergencyMenu();
+        }, 1000);
+    } else if (option === "Mansak PDF 📄") {
+        setTimeout(() => {
+            askForMansakConfirmation();
+        }, 1000);
+    } else if (option === "Information ℹ️") {
+        setTimeout(() => {
+            displayInformationMenu();
+        }, 1000);
+    } else if (option === "Places To Visit 🌍") {
+        setTimeout(() => {
+            displayPlacesToVisit();
+        }, 1000);
+    } else if (option === "Feedback ✍️") {
+        setTimeout(() => {
+            displayFeedbackMenu();
+        }, 1000);
+    } else if (option === "Live Chat 💬") {
+        setTimeout(() => {
+            startLiveChatRequest();
+        }, 1000);
+    } else if (option === "Discover Makkah 🕋") {
+        setTimeout(() => {
+            discoverMecca();
+        }, 1000);
+    } else {
+        setTimeout(() => {
+            const botResponse = document.createElement('div');
+            botResponse.className = 'bot-message';
+            botResponse.innerText = `You selected "${option}". How can we assist you further?`;
+            chatBox.appendChild(botResponse);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }, 1000);
+    }
+}
+
+
+function displayMaintenanceMenu() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "Please select the issue:";
+    chatBox.appendChild(botResponse);
+
+    const buttonMenu = document.createElement('div');
+    buttonMenu.className = 'button-menu';
+
+    const options = ["Geaser not working", "AC not working", "Clock Battery", "Lights not working", "Drainage Issues", "Basin Clot", "Cupboard hinge", "Exhaust not working"];
+
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => confirmMaintenanceRequest(option);
+        buttonMenu.appendChild(button);
+    });
+
+    chatBox.appendChild(buttonMenu);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function confirmMaintenanceRequest(issue) {
+    selectedMaintenance = issue;
+
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = issue;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = `Are you sure you want to report "${selectedMaintenance}" for Room ${userRoomNumber}?`;
+        chatBox.appendChild(botResponse);
+
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
+
+        const yesButton = document.createElement('button');
+        yesButton.className = 'menu-button';
+        yesButton.innerText = "Yes";
+        yesButton.onclick = submitMaintenanceRequest;
+
+        const noButton = document.createElement('button');
+        noButton.className = 'menu-button';
+        noButton.innerText = "No";
+        noButton.onclick = () => {
+            botResponse.innerText = "Request canceled.";
+        };
+
+        buttonMenu.appendChild(yesButton);
+        buttonMenu.appendChild(noButton);
+        chatBox.appendChild(buttonMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1000);
+}
+
+function submitMaintenanceRequest() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = `Thank you! Your issue "${selectedMaintenance}" has been reported for Room ${userRoomNumber}.`;
+    chatBox.appendChild(botResponse);
+
+    forwardToTelegramGroup(userRoomNumber);
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function forwardToTelegramGroup(room) {
+    const message = `🔔 *Maintenance Request Received* 🔔\n\n`
+        + `📌 *Issue*: ${selectedMaintenance}\n`
+        + `🏨 *Room Number*: ${room}\n\n`
+        + `📩 *Please assist as soon as possible!*`;
+
+    const telegramBotToken = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
+    const telegramChatId = "-1002331220860"; // Replace with your Telegram group ID
+
+    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+    const requestBody = {
+        chat_id: telegramChatId,
+        text: message,
+        parse_mode: "Markdown"
+    };
+
+    try {
+        const response = await fetch(telegramApiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await response.json();
+        console.log("Telegram Message Sent:", data);
+    } catch (error) {
+        console.error("Telegram Error:", error);
+    }
+}
+
+
+<!-- Global function declarations -->
+function displayEmergencyMenu() {
+    const chatBox = document.getElementById('chatBox');
+    
+    // Display the initial emergency request menu
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "Please select your room service:";
+    chatBox.appendChild(botResponse);
+
+    const buttonMenu = document.createElement('div');
+    buttonMenu.className = 'button-menu';
+
+    const options = ["Commode", "Pillow", "Bedsheet", "Room Cleaning", "Locker"];
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => handleRoomServiceSelection(option);
+        buttonMenu.appendChild(button);
+    });
+
+    chatBox.appendChild(buttonMenu);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function handleRoomServiceSelection(service) {
+    if (service === "Room Cleaning") {
+        displayRoomCleaningTimeSlots(service);
+    } else if (service === "Locker") {
+        displayLockerTimeSlots(service);
+    } else {
+        confirmRoomServiceRequest(service);
+    }
+}
+
+function displayRoomCleaningTimeSlots(service) {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = `Please select a time slot for ${service.toLowerCase()}:`;
+    chatBox.appendChild(botResponse);
+
+    const buttonMenu = document.createElement('div');
+    buttonMenu.className = 'button-menu';
+
+    const timeSlots = [
+        "8:00 AM - 9:00 AM", "9:00 AM - 10:00 AM", "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM",
+        "3:00 PM - 4:00 PM", "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM", "6:00 PM - 7:00 PM", "7:00 PM - 8:00 PM"
+    ];
+
+    timeSlots.forEach(slot => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = slot;
+        button.onclick = () => confirmRoomServiceRequest(`${service} @ ${slot}`);
+        buttonMenu.appendChild(button);
+    });
+
+    chatBox.appendChild(buttonMenu);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function displayLockerTimeSlots(service) {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = `Please select a time slot for ${service.toLowerCase()}:`;
+    chatBox.appendChild(botResponse);
+
+    const buttonMenu = document.createElement('div');
+    buttonMenu.className = 'button-menu';
+
+    const timeSlots = [
+        "9:00 AM - 10:00 AM", "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM",
+        "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM", "9:00 PM - 10:00 PM"
+
+    ];
+
+    timeSlots.forEach(slot => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = slot;
+        button.onclick = () => confirmRoomServiceRequest(`${service} @ ${slot}`);
+        buttonMenu.appendChild(button);
+    });
+
+    chatBox.appendChild(buttonMenu);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function confirmRoomServiceRequest(service) {
+    selectedService = service;
+
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = service;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = `Are you sure you want to request "${selectedService}" for Room ${userRoomNumber}?`;
+        chatBox.appendChild(botResponse);
+
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
+
+        const yesButton = document.createElement('button');
+        yesButton.className = 'menu-button';
+        yesButton.innerText = "Yes";
+        yesButton.onclick = submitRoomServiceRequest;
+
+        const noButton = document.createElement('button');
+        noButton.className = 'menu-button';
+        noButton.innerText = "No";
+        noButton.onclick = () => {
+            botResponse.innerText = "Request canceled.";
+        };
+
+        buttonMenu.appendChild(yesButton);
+        buttonMenu.appendChild(noButton);
+        chatBox.appendChild(buttonMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1000);
+}
+
+function submitRoomServiceRequest() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = `Thank you! Your request "${selectedService}" has been reported for Room ${userRoomNumber}.`;
+    chatBox.appendChild(botResponse);
+
+    forwardToTelegramRoomService(userRoomNumber);
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function forwardToTelegramRoomService(room) {
+    const message = `🔔 *Room Service Request Received* 🔔\n\n`
+        + `📌 *Service*: ${selectedService}\n`
+        + `🏨 *Room Number*: ${room}\n\n`
+        + `📩 *Please assist as soon as possible!*`;
+
+    const telegramBotToken = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
+    const telegramChatId = "-1002331220860"; // Replace with your Telegram group ID
+
+    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+    const requestBody = {
+        chat_id: telegramChatId,
+        text: message,
+        parse_mode: "Markdown"
+    };
+
+    try {
+        const response = await fetch(telegramApiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await response.json();
+        console.log("Telegram Message Sent:", data);
+    } catch (error) {
+        console.error("Telegram Error:", error);
+    }
+}
+
+ function askForMansakConfirmation() {
+        const chatBox = document.getElementById('chatBox');
+        
+        // Ask for confirmation
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Do you want to download the Makkah and Umrah PDFs? (Yes / No)";
+        chatBox.appendChild(botResponse);
+
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
+
+        const yesButton = document.createElement('button');
+        yesButton.className = 'menu-button';
+        yesButton.innerText = "Yes, download PDFs";
+        yesButton.onclick = () => downloadMansakPDFs();
+        buttonMenu.appendChild(yesButton);
+
+        const noButton = document.createElement('button');
+        noButton.className = 'menu-button';
+        noButton.innerText = "No, I don't need them";
+        noButton.onclick = () => {
+            const botResponse = document.createElement('div');
+            botResponse.className = 'bot-message';
+            botResponse.innerText = "Okay, we won't download the PDFs.";
+            chatBox.appendChild(botResponse);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
+
+        buttonMenu.appendChild(noButton);
+        chatBox.appendChild(buttonMenu);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function downloadMansakPDFs() {
+        const chatBox = document.getElementById('chatBox');
+
+        // Create a bot message to inform about the download
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Starting download of Makkah and Umrah PDFs...";
+        chatBox.appendChild(botResponse);
+
+        // Create a download link for both PDFs
+        const linkMakkah = document.createElement('a');
+        linkMakkah.href = 'makkah.pdf'; // Replace with the actual path to the Makkah PDF
+        linkMakkah.download = 'makkah.pdf';
+
+
+        // Trigger the downloads by clicking both links programmatically
+        linkMakkah.click();
+  
+
+        // Provide feedback after download
+        setTimeout(() => {
+            const successMessage = document.createElement('div');
+            successMessage.className = 'bot-message';
+            successMessage.innerText = "Both PDFs have been successfully downloaded to your device.";
+            chatBox.appendChild(successMessage);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }, 2000);
+    }
+
+// Function to display Information menu
+function displayInformationMenu() {
+    const chatBox = document.getElementById('chatBox');
+
+    // Display the Information options
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>📢 Please select the information you need:</b>";
+    chatBox.appendChild(botResponse);
+
+    const options = ["🚍 Transport", "💰 Accounts", "🍽️ Mawaid", "🧺 Laundry", "🏢 Floor Info", "💧 Zamzam", "📶 Sim Card", "🕋 Haram Clothes"];
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => handleInformationSelection_emreq(option);
+        chatBox.appendChild(button);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Function to handle selection within the Information menu
+function handleInformationSelection_emreq(selection) {
+    const chatBox = document.getElementById('chatBox');
+    
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerHTML = `<b>✅ ${selection}</b>`;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        switch(selection) {
+            case "🚍 Transport":
+                displayTransportMenu_emreq();
+                break;
+            case "🍽️ Mawaid":
+                sendMawaidInformation_emreq();
+                break;
+            case "🧺 Laundry":
+                sendLaundryInformation_emreq();
+                break;
+            case "💰 Accounts":
+                sendAccountsInformation_emreq();
+                break;
+            case "💧 Zamzam":
+                sendZamzamInformation_emreq();
+                break;
+            case "📶 Sim Card":
+                sendSimCardInformation_emreq();
+                break;
+            case "🕋 Haram Clothes":
+                sendHaramClothesInformation_emreq();
+                break;
+            case "🏢 Floor Info":
+                sendFloorInfo_emreq();
+                break;
+        }
+    }, 1000);
+}
+
+// Function to display Transport menu
+function displayTransportMenu_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>🚌 Please select the transport information:</b>";
+    chatBox.appendChild(botResponse);
+
+    const options = ["🚖 Makkah Atraaf", "🛫 Madina", "✈️ Airport Departure", "🚌 Haram Bus Services" ];
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => handleTransportSelection_emreq(option);
+        chatBox.appendChild(button);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Function to handle Transport selection
+function handleTransportSelection_emreq(selection) {
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerHTML = `<b>✅ ${selection}</b>`;
+    chatBox.appendChild(userMessage);
+
+    switch(selection) {
+        case "🚖 Makkah Atraaf":
+            sendMakkahAtraafInfo_emreq();
+            break;
+        case "🛫 Madina":
+            sendMadinaDepartureInfo_emreq();
+            break;
+        case "✈️ Airport Departure":
+            sendAirportDepartureInfo_emreq();
+            break;
+	case "🚌 Haram Bus Services":
+            sendHaramBusServices_emreq();
+            break;
+    }
+}
+
+// Transport Information
+function sendMakkahAtraafInfo_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>🚖 Makkah Atraaf Ziyarat:</b><br> 🗓️ Your <i>Atraaf Ziyarat</i> will be on the <u>second day of your arrival</u> (subject to change). <br> 🕝 The buses will depart at <b>2:30 PM</b>. <br> 📌 Please check the <b>notice board</b> regularly for updates.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendMadinaDepartureInfo_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>🛫 Madina Departure:</b><br> 📝 Your name will be <b>displayed on the notice board</b> one day prior. <br> 🕕 Buses will depart at <b>6:15 AM</b>. <br> 🎒 Pack <b>only essential items</b> due to space constraints. <br> 🎁 Lunch will be provided as <b>Tosha</b> in the bus.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendAirportDepartureInfo_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>✈️ Airport Departure:</b><br> ⏳ Departure is <b>5 hours before flight time</b>. <br> 📋 <b>Check your belongings, documents, and passport</b> before leaving. <br> 📌 Always check the <b>notice board</b> for updates.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendHaramBusServices_emreq() {
+const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>🚌 Haram Bus Services:</b><br> 🗓️ Your <i>Haram Bus</i> schedule is as follows: <br> 🕝 Morning: <b>8:30 AM - 9:30 AM</b> from hotel to Haram, <b>12:45 PM - 1:15 PM</b> return from Haram to hotel. <br> 🕝 Night: <b>8:00 PM - 9:00 PM</b> from hotel to Haram, <b>11:30 PM - 1:00 AM</b> return from Haram to hotel. <br> 📌 Please be on time and check for any updates.";
+
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+}
+
+// Function to display Laundry information
+function sendLaundryInformation_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>🧺 Laundry Options:</b><br> 💰 <b>Paid Laundry:</b> Available on the <b>LG floor</b>. Clothes returned in <b>24 hours</b>. <br> 🏠 <b>Self Laundry:</b> Available on the <b>17th floor</b>. Bring your own detergent.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Similar functions for other information sections (Accounts, Mawaid, etc.)
+function sendAccountsInformation_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<strong>📜 Accounts and Checkout:</strong><br><br> You are required to <em>check out</em> <strong>24 hours prior</strong> to your departure at the <u>MP floor</u> or at <u>UG office no. 2</u> and collect your passport accordingly.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendMawaidInformation_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<strong>🍽️ Mawaid Timings:</strong><br><br> Please attend the <em>mawaid</em> on the <u>PR floor</u> in <strong>Libas al-Anwar</strong> only. The timings are as follows:<br> - 🥐 <strong>Breakfast:</strong> 7:30 - 9:00 AM<br> - 🍛 <strong>Lunch:</strong> 1:30 - 2:00 PM<br> - 🍲 <strong>Dinner:</strong> 7:30 - 8:00 PM<br><br>⏰ Please be punctual and attend on time.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendZamzamInformation_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<strong💧 Zamzam Water:</strong><br><br> Zamzam water will be available for purchase at the <strong>airport only</strong> for <strong>13 SAR</strong>. <br><br>⚠️ <strong>Only one bottle per passport</strong> is allowed, subject to flight and government regulations.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendSimCardInformation_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "📱 <strong>SIM Cards:</strong><br><br> SIM cards are available for purchase near the <strong>Haram</strong> with your <u>Visa ID</u> and <u>Passport ID</u>. Please carry these documents with you. <br><br>✅ <strong>STC Sim Cards</strong> are preferable due to their superior connectivity.";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendHaramClothesInformation_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "👕 <strong>Haram Clothes Information:</strong><br><br> Entry into the <strong>Haram</strong> is strictly allowed only in <em>ehraam</em> for men and <strong>single-color rida</strong> (❌ no laces, work, or design) for women. <br><br>🚫 <strong>Anyone not adhering to these guidelines will not be permitted entry in our transport buses.</strong>";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function sendFloorInfo_emreq() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "🏢 <strong>Floor Information:</strong><br><br> 🔹 <strong>UG:</strong> Reception<br> 🔹 <strong>MP:</strong> Accounts and Sabaq<br> 🔹 <strong>DH:</strong> Mawaid<br> 🔹 <strong>PR:</strong> Mawaid<br> 🔹 <strong>17th floor:</strong> Self Laundry<br> 🔹 <strong>LG:</strong> Paid Laundry";
+    chatBox.appendChild(botResponse);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+
+
+function displayPlacesToVisit() {
+    const chatBox = document.getElementById('chatBox');
+
+    // Display the Places options
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "Please select the information you need:";
+    chatBox.appendChild(botResponse);
+
+    const options = ["Food", "Shopping"];
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => handlePlacesSelection(option);
+        chatBox.appendChild(button);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Function to handle selection within the Places menu
+function handlePlacesSelection(selection) {
+    const chatBox = document.getElementById('chatBox');
+    
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = selection;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        if (selection === "Food") {
+            displayFoodOptions();
+        } else if (selection === "Shopping") {
+            displayShoppingOptions();
+        }
+    }, 1000);
+}
+
+// Function to display Food options
+function displayFoodOptions() {
+    const chatBox = document.getElementById('chatBox');
+    const places = [
+        {name: "Adam Cafe for authentic Saudi Coffee", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD/ADAM+cafe+%7C+%D9%85%D9%82%D9%87%D9%89+%D8%A2%D8%AF%D9%85,+King+Khalid+rd%D8%8C+Al+Jamiah,+Makkah+24242%E2%80%AD/"},
+        {name: "Kebab Samarqand", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/%D9%85%D8%B7%D8%B9%D9%85+%D9%83%D8%A8%D8%A7%D8%A8+%D8%B3%D9%85%D8%B1%D9%82%D9%86%D8%AF,+King+Fahd+Road,+Makkah%E2%80%AD/"},
+        {name: "Romansiah Family Restaurant", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/Al+Romansiah+Restaurant,+Al+Masjid+Al+Haram+Road,+Makkah/"},
+        {name: "Turkish Divan", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/Divan+Turkish+Restaurant,+Ibrahim+Al+Joufaili,+Makkah/"},
+        {name: "Fresh Juice", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/%D8%B9%D8%B5%D9%8A%D8%B1%D8%A7%D8%AA+%D8%AA%D8%B1%D9%83%D9%8A%D8%8C+Makkah%E2%80%AD/"},
+        {name: "Pakistani Food", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/Sargodha+Resturant,+King+Abdullah+Road,+Makkah/"}
+    ];
+
+    const botResponse1 = document.createElement('div');
+    botResponse1.className = 'bot-message';
+    botResponse1.innerText = "Select a restaurant to view on Google Maps:";
+    chatBox.appendChild(botResponse1);
+
+    places.forEach(place => {
+        const link = document.createElement('a');
+        link.href = place.url;
+        link.target = "_blank";
+        link.className = 'menu-button';
+        link.innerText = place.name;
+        chatBox.appendChild(link);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Function to display Shopping options
+function displayShoppingOptions() {
+    const chatBox = document.getElementById('chatBox');
+    const places = [
+        {name: "10 Riyal Mall", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/Top+Ten,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D8%B3%D8%AC%D8%AF+%D8%A7%D9%84%D8%AD%D8%B1%D8%A7%D9%85,+Makkah%E2%80%AD/"},
+        {name: "5 Riyal Mall", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/5+Riyals,+Al+Kulliyyah+al+Mutawassitah,+Makkah/"},
+        {name: "Gold Market", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/%D8%B3%D9%88%D9%82+%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85+%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1%D9%8A%D8%8C+Al+Kulliyyah+al+Mutawassitah,+Makkah%E2%80%AD/"},
+        {name: "Mecca Mall", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/Makkah+Mall,+King+Abdullah+Road,+Makkah/"},
+        {name: "Electronics & Gadgets", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/eXtra,+3+Ring+Road,+Makkah/"},
+        {name: "Khajoor", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/%D8%AD%D9%84%D9%82%D8%A9%D8%8C%D8%B3%D9%88%D9%82+%D8%A7%D9%84%D8%AE%D8%B6%D8%B1%D9%88%D8%A7%D8%AA+%D8%A8%D8%A7%D9%84%D8%AC%D9%85%D9%84%D8%A9+%D9%88%D8%A7%D9%84%D9%82%D8%B7%D8%A7%D8%B9%D9%8A%D8%8C+%D8%A7%D9%84%D9%83%D8%B9%D9%83%D9%8A%D8%A9%D8%8C+Makkah%E2%80%AD/"},
+        {name: "Mirza Stationery", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/%D9%85%D9%83%D8%AA%D8%A8%D8%A9+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D9%88%D9%87%D8%A7%D8%A8+%D9%85%D8%B1%D8%B2%D8%A7/"}
+    ];
+
+    const botResponse2 = document.createElement('div');
+    botResponse2.className = 'bot-message';
+    botResponse2.innerText = "Select a shopping place to view on Google Maps:";
+    chatBox.appendChild(botResponse2);
+
+    places.forEach(place => {
+        const link = document.createElement('a');
+        link.href = place.url;
+        link.target = "_blank";
+        link.className = 'menu-button';
+        link.innerText = place.name;
+        chatBox.appendChild(link);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+
+async function displayFeedbackMenu() {
+    const chatBox = document.getElementById('chatBox');
+
+    // Prompt for feedback
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "Please provide your feedback:";
+    chatBox.appendChild(botResponse);
+    
+    document.getElementById('chatInput').style.display = 'flex';
+    document.getElementById('userInput').placeholder = "Your feedback here...";
+    document.getElementById('userInput').setAttribute("onkeydown", `if(event.key==='Enter') submitFeedback_livechat()`);
+    document.querySelector('.chat-input button').setAttribute("onclick", "submitFeedback_livechat()");
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function submitFeedback_livechat() {
+    const inputField = document.getElementById('userInput');
+    const feedback = inputField.value.trim();
+    if (feedback === '') return;
+
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = feedback;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Please provide your phone number with the country code:";
+        chatBox.appendChild(botResponse);
+
+        inputField.placeholder = "+966123456789";
+        inputField.setAttribute("onkeydown", `if(event.key==='Enter') submitPhoneNumber_livechat('${feedback}')`);
+        document.querySelector('.chat-input button').setAttribute("onclick", `submitPhoneNumber_livechat('${feedback}')`);
+    }, 1000);
+}
+
+async function submitPhoneNumber_livechat(feedback) {
+    const inputField = document.getElementById('userInput');
+    const phoneNumber = inputField.value.trim();
+    if (phoneNumber === '') return;
+
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = phoneNumber;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Please provide your name:";
+        chatBox.appendChild(botResponse);
+
+        inputField.placeholder = "Your Name";
+        inputField.setAttribute("onkeydown", `if(event.key==='Enter') submitUserName_livechat('${feedback}', '${phoneNumber}')`);
+        document.querySelector('.chat-input button').setAttribute("onclick", `submitUserName_livechat('${feedback}', '${phoneNumber}')`);
+    }, 1000);
+}
+
+async function submitUserName_livechat(feedback, phoneNumber) {
+    const inputField = document.getElementById('userInput');
+    const userName = inputField.value.trim();
+    if (userName === '') return;
+
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = userName;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Thank you for your feedback.";
+        chatBox.appendChild(botResponse);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1000);
+
+    // Forward the details to Telegram
+    await forwardLiveChatToTelegram_livechat(feedback, phoneNumber, userName);
+}
+
+async function forwardLiveChatToTelegram_livechat(feedback, phoneNumber, userName) {
+    const TELEGRAM_BOT_TOKEN = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
+    const TELEGRAM_GROUP_ID = "-1002331220860";
+
+    const message = `🔹 *Feedback*\n📌 *Name:* ${userName}\n📞 *Phone:* ${phoneNumber}\n💬 *Feedback:* ${feedback}`;
+
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: TELEGRAM_GROUP_ID, text: message, parse_mode: "Markdown" })
+    });
+}
+
+async function startLiveChatRequest() {
+    const chatBox = document.getElementById('chatBox');
+
+    // Ask for the phone number
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "Please provide your phone number with the country code:";
+    chatBox.appendChild(botResponse);
+
+    document.getElementById('chatInput').style.display = 'flex';
+    document.getElementById('userInput').placeholder = "+966123456789";
+    document.getElementById('userInput').setAttribute("onkeydown", `if(event.key==='Enter') submitPhoneNumberForLiveChat()`);
+    document.querySelector('.chat-input button').setAttribute("onclick", "submitPhoneNumberForLiveChat()");
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+async function submitPhoneNumberForLiveChat() {
+    const inputField = document.getElementById('userInput');
+    const phoneNumber = inputField.value.trim();
+    if (phoneNumber === '') return;
+
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = phoneNumber;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Please provide your name:";
+        chatBox.appendChild(botResponse);
+
+        inputField.placeholder = "Your Name";
+        inputField.setAttribute("onkeydown", `if(event.key==='Enter') submitUserNameForLiveChat('${phoneNumber}')`);
+        document.querySelector('.chat-input button').setAttribute("onclick", `submitUserNameForLiveChat('${phoneNumber}')`);
+    }, 1000);
+}
+
+async function submitUserNameForLiveChat(phoneNumber) {
+    const inputField = document.getElementById('userInput');
+    const userName = inputField.value.trim();
+    if (userName === '') return;
+
+    const chatBox = document.getElementById('chatBox');
+    const userMessage = document.createElement('div');
+    userMessage.className = 'user-message';
+    userMessage.innerText = userName;
+    chatBox.appendChild(userMessage);
+
+    setTimeout(() => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Thank you for providing your details. Someone from our team will contact you within 24 hours.";
+        chatBox.appendChild(botResponse);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 1000);
+
+    // Optionally forward the details to Telegram or save for further action
+    await forwardLiveChatDetailsToTelegram(phoneNumber, userName);
+}
+
+async function forwardLiveChatDetailsToTelegram(phoneNumber, userName) {
+    const TELEGRAM_BOT_TOKEN = "7705964738:AAFMxF03ebPGCc-pJf7qILTq4oU5KPhoD7Y";
+    const TELEGRAM_GROUP_ID = "-1002331220860";
+
+    const message = `🔹 *Live Chat Request*\n📌 *Name:* ${userName}\n📞 *Phone:* ${phoneNumber}\n💬 *Request:* The user has contacted us and will be followed up within 24 hours.`;
+
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: TELEGRAM_GROUP_ID, text: message, parse_mode: "Markdown" })
+    });
+}
+async function discoverMecca() {
+    const chatBox = document.getElementById('chatBox');
+    
+    // Presenting the options for "Discover Mecca"
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "Please select a place to discover in Mecca:";
+    chatBox.appendChild(botResponse);
+
+    const options = [
+        "Maulana Abde Manaf AS", "Maulana Hashim AS", "Maulana Abu Talib AS", "Maulatona Khadija AS", 
+        "Jabal al-Nour", "Jabal al-Saur", "Jabal Abi Qubais", "Mina", "Arafah", "Muzdalefah", "Maulid al-Nabi", "Masjid al Kheef"
+    ];
+    
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => handleDiscoverSelection(option);  // Handle the user's selection
+        chatBox.appendChild(button);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    function handleDiscoverSelection(selection) {
+        const userMessage = document.createElement('div');
+        userMessage.className = 'user-message';
+        userMessage.innerText = selection;
+        chatBox.appendChild(userMessage);
+
+        setTimeout(() => {
+            showDiscoverImages(selection);
+        }, 1000);
+    }
+
+    function showDiscoverImages(selection) {
+        // Mapping of selection to image filenames
+        const imageMap = {
+            "Jannatul Ma'ala": ["mala_01.png", "mala_02.png", "mala_03.png", "mala_04.png", "mala_05.png"],
+            "Maulana Abde Manaf AS": ["am_01.png", "am_02.png", "am_03.png"],
+            "Maulana Hashim AS": ["ha_01.png", "ha_02.png", "ha_03.png"],
+            "Maulana Abu Talib AS": ["bt_01.png", "bt_02.png"],
+            "Maulana Abdul Muttalib AS": ["at_01.png", "at_02.png", "at_03.png"],
+            "Maulatona Khadija AS": ["k_01.png", "k_02.png", "k_03.png"],
+            "Jabal al-Nour": ["jn_01.png", "jn_02.png", "jn_03.png", "jn_04.png"],
+            "Jabal al-Saur": ["saur_01.png"],
+            "Jabal Abi Qubais": ["abi_01.png"],
+            "Mina": ["mina_01.png", "mina_02.png", "mina_03.png", "mina_04.png", "mina_05.png"],
+            "Arafah": ["ar_01.png", "ar_02.png", "ar_03.png", "ar_04.png"],
+            "Muzdalefah": ["mz_01.png", "mz_02.png", "mz_03.png", "mz_04.png", "mz_05.png"],
+            "Maulid al-Nabi": ["ghar_01.png", "ghar_02.png", "ghar_03.png"],
+            "Masjid al Kheef": ["mk_01.png", "mk_02.png", "mk_03.png"],
+            "Jamaraat": ["jm_01.png", "jm_02.png"]
+        };
+
+        const images = imageMap[selection];
+        
+        // Show the 5 images corresponding to the selected option
+        images.forEach(image => {
+            const imageElement = document.createElement('img');
+            imageElement.className = 'image';
+            imageElement.src = `${image}`;  // Make sure the path is correct
+            chatBox.appendChild(imageElement);
+        });
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
+
+function askForResetConfirmation() {
+    const chatBox = document.getElementById('chatBox');
+    const botMessage = document.createElement('div');
+    botMessage.className = 'bot-message';
+    botMessage.innerText = "You have reached the end of the chat. Do you want to reset the bot and start over? (Yes / No)";
+    chatBox.appendChild(botMessage);
+
+    const buttonMenu = document.createElement('div');
+    buttonMenu.className = 'button-menu';
+
+    const yesButton = document.createElement('button');
+    yesButton.className = 'menu-button';
+    yesButton.innerText = "Yes, I confirm";
+    yesButton.onclick = () => resetBot();
+    buttonMenu.appendChild(yesButton);
+
+    const noButton = document.createElement('button');
+    noButton.className = 'menu-button';
+    noButton.innerText = "No, I don't want to reset";
+    noButton.onclick = () => {
+        const botResponse = document.createElement('div');
+        botResponse.className = 'bot-message';
+        botResponse.innerText = "Okay, we will continue without resetting.";
+        chatBox.appendChild(botResponse);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    };
+
+    buttonMenu.appendChild(noButton);
+    chatBox.appendChild(buttonMenu);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function resetBot() {
+    const chatBox = document.getElementById('chatBox');
+    chatBox.innerHTML = '';  // Clear chat box
+
+    // Welcome message
+    const botMessage = document.createElement('div');
+    botMessage.className = 'bot-message';
+    botMessage.innerText = "Welcome to Mohammedi Makan, Please enter your room number to proceed:";
+    chatBox.appendChild(botMessage);
+
+    // Show the input again for the user to enter the room number
+    document.getElementById('chatInput').style.display = 'flex';
+    document.getElementById('userInput').value = '';  // Clear the input field
+    document.getElementById('userInput').placeholder = "Enter room number...";  // Reset placeholder
+}
+
+
+        
+        // Adjust the chat container height based on the device's actual viewport height
+function adjustChatContainerHeight() {
+    const windowHeight = window.innerHeight;  // Get the inner height of the window (this excludes the browser UI)
+    const chatContainer = document.querySelector('.chat-container');
+
+    // Set the height of the chat container to the inner height of the viewport minus any space for the header
+    chatContainer.style.height = `${windowHeight - 20}px`; // 20px can be adjusted based on your desired padding
+}
+
+// Call the function on page load and when the window is resized
+window.addEventListener('load', adjustChatContainerHeight);
+window.addEventListener('resize', adjustChatContainerHeight);
+
+    </script>
+
+</body>
+</html>
+
