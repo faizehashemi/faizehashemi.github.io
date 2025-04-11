@@ -286,7 +286,7 @@ async function selectMainOption(option) {
         }, 1000);
     } else if (option === "Live Chat 💬") {
         setTimeout(() => {
-            startLiveChatRequest();
+            requestLiveChat();
         }, 1000);
     } else if (option === "Discover Makkah 🕋") {
         setTimeout(() => {
@@ -952,26 +952,40 @@ function displayShoppingOptions() {
 }
 
 
-async function displayFeedbackMenu() {
+function displayFeedbackMenu() {
     const chatBox = document.getElementById('chatBox');
-
-    // Prompt for feedback
+    
     const botResponse = document.createElement('div');
     botResponse.className = 'bot-message';
-    botResponse.innerText = "Please provide your feedback:";
+    botResponse.innerText = "We'd love to hear your feedback. Please type it below:";
     chatBox.appendChild(botResponse);
-    
-    document.getElementById('chatInput').style.display = 'flex';
-    document.getElementById('userInput').placeholder = "Your feedback here...";
-    document.getElementById('userInput').setAttribute("onkeydown", `if(event.key==='Enter') submitFeedback_livechat()`);
-    document.querySelector('.chat-input button').setAttribute("onclick", "submitFeedback_livechat()");
+
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'input-container';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Type your feedback...';
+    input.id = 'customFeedbackInput';
+
+    const sendButton = document.createElement('button');
+    sendButton.innerText = 'Send';
+    sendButton.onclick = () => {
+        const feedback = input.value.trim();
+        if (feedback !== "") {
+            inputContainer.remove();
+            confirmFeedback(feedback);
+        }
+    };
+
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(sendButton);
+    chatBox.appendChild(inputContainer);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-async function submitFeedback_livechat() {
-    const inputField = document.getElementById('userInput');
-    const feedback = inputField.value.trim();
-    if (feedback === '') return;
+function confirmFeedback(feedback) {
+    selectedFeedback = feedback;
 
     const chatBox = document.getElementById('chatBox');
     const userMessage = document.createElement('div');
@@ -982,149 +996,182 @@ async function submitFeedback_livechat() {
     setTimeout(() => {
         const botResponse = document.createElement('div');
         botResponse.className = 'bot-message';
-        botResponse.innerText = "Please provide your phone number with the country code:";
+        botResponse.innerText = `Are you sure you want to submit this feedback?`;
         chatBox.appendChild(botResponse);
 
-        inputField.placeholder = "+966123456789";
-        inputField.setAttribute("onkeydown", `if(event.key==='Enter') submitPhoneNumber_livechat('${feedback}')`);
-        document.querySelector('.chat-input button').setAttribute("onclick", `submitPhoneNumber_livechat('${feedback}')`);
-    }, 1000);
-}
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
 
-async function submitPhoneNumber_livechat(feedback) {
-    const inputField = document.getElementById('userInput');
-    const phoneNumber = inputField.value.trim();
-    if (phoneNumber === '') return;
+        const yesButton = document.createElement('button');
+        yesButton.className = 'menu-button';
+        yesButton.innerText = "Yes";
+        yesButton.onclick = submitFeedback;
 
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = phoneNumber;
-    chatBox.appendChild(userMessage);
+        const noButton = document.createElement('button');
+        noButton.className = 'menu-button';
+        noButton.innerText = "No";
+        noButton.onclick = () => {
+            botResponse.innerText = "Feedback submission canceled.";
+        };
 
-    setTimeout(() => {
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = "Please provide your name:";
-        chatBox.appendChild(botResponse);
-
-        inputField.placeholder = "Your Name";
-        inputField.setAttribute("onkeydown", `if(event.key==='Enter') submitUserName_livechat('${feedback}', '${phoneNumber}')`);
-        document.querySelector('.chat-input button').setAttribute("onclick", `submitUserName_livechat('${feedback}', '${phoneNumber}')`);
-    }, 1000);
-}
-
-async function submitUserName_livechat(feedback, phoneNumber) {
-    const inputField = document.getElementById('userInput');
-    const userName = inputField.value.trim();
-    if (userName === '') return;
-
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = userName;
-    chatBox.appendChild(userMessage);
-
-    setTimeout(() => {
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = "Thank you for your feedback.";
-        chatBox.appendChild(botResponse);
-
+        buttonMenu.appendChild(yesButton);
+        buttonMenu.appendChild(noButton);
+        chatBox.appendChild(buttonMenu);
         chatBox.scrollTop = chatBox.scrollHeight;
-    }, 1000);
-
-    // Forward the details to Telegram
-    await forwardLiveChatToTelegram_livechat(feedback, phoneNumber, userName);
+    }, 500);
 }
 
-async function forwardLiveChatToTelegram_livechat(feedback, phoneNumber, userName) {
-    const TELEGRAM_BOT_TOKEN = "7907237986:AAHnmVO8CKOSIjKpwZwP3C6F5Ih8viGJoC4";
-    const TELEGRAM_GROUP_ID = "-4754144977";
-
-    const message = `🔹 *Feedback*\n📌 *Name:* ${userName}\n📞 *Phone:* ${phoneNumber}\n💬 *Feedback:* ${feedback}`;
-
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: TELEGRAM_GROUP_ID, text: message, parse_mode: "Markdown" })
-    });
-}
-
-async function startLiveChatRequest() {
+function submitFeedback() {
     const chatBox = document.getElementById('chatBox');
-
-    // Ask for the phone number
     const botResponse = document.createElement('div');
     botResponse.className = 'bot-message';
-    botResponse.innerText = "Please provide your phone number with the country code:";
+    botResponse.innerText = `Thank you for your feedback!`;
     chatBox.appendChild(botResponse);
 
-    document.getElementById('chatInput').style.display = 'flex';
-    document.getElementById('userInput').placeholder = "+966123456789";
-    document.getElementById('userInput').setAttribute("onkeydown", `if(event.key==='Enter') submitPhoneNumberForLiveChat()`);
-    document.querySelector('.chat-input button').setAttribute("onclick", "submitPhoneNumberForLiveChat()");
+    forwardFeedbackToTelegram(selectedFeedback);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-async function submitPhoneNumberForLiveChat() {
-    const inputField = document.getElementById('userInput');
-    const phoneNumber = inputField.value.trim();
-    if (phoneNumber === '') return;
+async function forwardFeedbackToTelegram(feedback) {
+    const message = `📝 *New Feedback Received* 📝\n\n`
+        + `💬 *Feedback*: ${feedback}\n`
+        + `🏨 *Room Number*: ${userRoomNumber}\n\n`
+        + `🙏 *Thank you for helping us improve!*`;
 
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = phoneNumber;
-    chatBox.appendChild(userMessage);
+    const telegramBotToken = "7907237986:AAHnmVO8CKOSIjKpwZwP3C6F5Ih8viGJoC4";
+    const telegramChatId = "-4754144977"; // Replace with your Telegram group ID
 
-    setTimeout(() => {
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = "Please provide your name:";
-        chatBox.appendChild(botResponse);
+    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+    const requestBody = {
+        chat_id: telegramChatId,
+        text: message,
+        parse_mode: "Markdown"
+    };
 
-        inputField.placeholder = "Your Name";
-        inputField.setAttribute("onkeydown", `if(event.key==='Enter') submitUserNameForLiveChat('${phoneNumber}')`);
-        document.querySelector('.chat-input button').setAttribute("onclick", `submitUserNameForLiveChat('${phoneNumber}')`);
-    }, 1000);
+    try {
+        const response = await fetch(telegramApiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await response.json();
+        console.log("Feedback Sent to Telegram:", data);
+    } catch (error) {
+        console.error("Telegram Error:", error);
+    }
 }
 
-async function submitUserNameForLiveChat(phoneNumber) {
-    const inputField = document.getElementById('userInput');
-    const userName = inputField.value.trim();
-    if (userName === '') return;
+function requestLiveChat() {
+    const chatBox = document.getElementById('chatBox');
+    
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "To connect you with a live agent, please enter your phone number:";
+    chatBox.appendChild(botResponse);
+
+    const inputContainer = document.createElement('div');
+    inputContainer.className = 'input-container';
+
+    const input = document.createElement('input');
+    input.type = 'tel';
+    input.placeholder = 'Enter your phone number...';
+    input.id = 'liveChatPhoneInput';
+
+    const sendButton = document.createElement('button');
+    sendButton.innerText = 'Send';
+    sendButton.onclick = () => {
+        const phone = input.value.trim();
+        if (/^\+?\d{7,15}$/.test(phone)) {
+            inputContainer.remove();
+            confirmLiveChat(phone);
+        } else {
+            alert("Please enter a valid phone number.");
+        }
+    };
+
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(sendButton);
+    chatBox.appendChild(inputContainer);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function confirmLiveChat(phone) {
+    selectedPhone = phone;
 
     const chatBox = document.getElementById('chatBox');
     const userMessage = document.createElement('div');
     userMessage.className = 'user-message';
-    userMessage.innerText = userName;
+    userMessage.innerText = phone;
     chatBox.appendChild(userMessage);
 
     setTimeout(() => {
         const botResponse = document.createElement('div');
         botResponse.className = 'bot-message';
-        botResponse.innerText = "Thank you for providing your details. Someone from our team will contact you within 24 hours.";
+        botResponse.innerText = `Would you like to start a live chat using this phone number: ${selectedPhone}?`;
         chatBox.appendChild(botResponse);
 
+        const buttonMenu = document.createElement('div');
+        buttonMenu.className = 'button-menu';
+
+        const yesButton = document.createElement('button');
+        yesButton.className = 'menu-button';
+        yesButton.innerText = "Yes";
+        yesButton.onclick = submitLiveChatRequest;
+
+        const noButton = document.createElement('button');
+        noButton.className = 'menu-button';
+        noButton.innerText = "No";
+        noButton.onclick = () => {
+            botResponse.innerText = "Live chat request canceled.";
+        };
+
+        buttonMenu.appendChild(yesButton);
+        buttonMenu.appendChild(noButton);
+        chatBox.appendChild(buttonMenu);
         chatBox.scrollTop = chatBox.scrollHeight;
-    }, 1000);
-
-    // Optionally forward the details to Telegram or save for further action
-    await forwardLiveChatDetailsToTelegram(phoneNumber, userName);
+    }, 500);
 }
 
-async function forwardLiveChatDetailsToTelegram(phoneNumber, userName) {
-    const TELEGRAM_BOT_TOKEN = "7907237986:AAHnmVO8CKOSIjKpwZwP3C6F5Ih8viGJoC4";
-    const TELEGRAM_GROUP_ID = "-4754144977";
+function submitLiveChatRequest() {
+    const chatBox = document.getElementById('chatBox');
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = `Thank you! Our team will contact you shortly at ${selectedPhone}.`;
+    chatBox.appendChild(botResponse);
 
-    const message = `🔹 *Live Chat Request*\n📌 *Name:* ${userName}\n📞 *Phone:* ${phoneNumber}\n💬 *Request:* The user has contacted us and will be followed up within 24 hours.`;
+    forwardLiveChatToTelegram(selectedPhone);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
 
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: TELEGRAM_GROUP_ID, text: message, parse_mode: "Markdown" })
-    });
+async function forwardLiveChatToTelegram(phone) {
+    const message = `📞 *Live Chat Request* 📞\n\n`
+        + `📱 *Phone Number*: ${phone}\n`
+        + `🏨 *Room Number*: ${userRoomNumber}\n\n`
+        + `⚡ *Please connect this guest to a live agent ASAP.*`;
+
+    const telegramBotToken = "7907237986:AAHnmVO8CKOSIjKpwZwP3C6F5Ih8viGJoC4";
+    const telegramChatId = "-4754144977"; // Replace with your Telegram group ID
+
+    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+    const requestBody = {
+        chat_id: telegramChatId,
+        text: message,
+        parse_mode: "Markdown"
+    };
+
+    try {
+        const response = await fetch(telegramApiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await response.json();
+        console.log("Live Chat Request Sent to Telegram:", data);
+    } catch (error) {
+        console.error("Telegram Error:", error);
+    }
 }
 async function discoverMecca() {
     const chatBox = document.getElementById('chatBox');
