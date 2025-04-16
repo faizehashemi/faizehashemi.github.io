@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Request Received!</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #d0eaff, #ffffff);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 600px;
+      padding: 30px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 15px 25px rgba(0,0,0,0.1);
+      animation: fadeIn 1.5s ease-in-out;
+    }
+
+    .animations {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .draggable {
+      width: 100px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      transition: transform 0.1s ease;
+    }
+
+    h1 {
+      color: #007ACC;
+      font-size: 28px;
+    }
+
+    p {
+      font-size: 18px;
+      color: #444;
+      margin-top: 10px;
+    }
+
+    .info {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #666;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        width: 90%;
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      p, .info {
+        font-size: 16px;
+      }
+
+      .animations {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="animations">
+      <div class="draggable" id="anim-success"></div>
+      <div class="draggable" id="anim-confetti"></div>
+      <div class="draggable" id="anim-thumbs"></div>
+      <div class="draggable" id="anim-sparkle"></div>
+    </div>
+    <h1>Request Received!</h1>
+    <p>Your request has been successfully submitted.</p>
+    <div class="info">Scan the QR code again anytime to access the helpline chat.</div>
+  </div>
+
+  <!-- Lottie Script -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.7.6/lottie.min.js"></script>
+
+  <script>
+    const animations = [
+      { id: "anim-success", path: "https://assets10.lottiefiles.com/packages/lf20_jbrw3hcz.json" },
+      { id: "anim-confetti", path: "https://assets4.lottiefiles.com/packages/lf20_8wREpI.json" },
+      { id: "anim-thumbs", path: "https://assets10.lottiefiles.com/packages/lf20_jrpzvtqz.json" },
+      { id: "anim-sparkle", path: "https://assets1.lottiefiles.com/packages/lf20_dS5g85B9vS.json" },
+    ];
+
+    animations.forEach(anim => {
+      lottie.loadAnimation({
+        container: document.getElementById(anim.id),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: anim.path
+      });
+    });
+
+    // Make Lottie elements draggable
+    document.querySelectorAll('.draggable').forEach(el => {
+      let isDragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      el.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        offsetX = e.clientX - el.getBoundingClientRect().left;
+        offsetY = e.clientY - el.getBoundingClientRect().top;
+        el.style.position = 'absolute';
+        el.style.zIndex = 999;
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+          el.style.left = `${e.clientX - offsetX}px`;
+          el.style.top = `${e.clientY - offsetY}px`;
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // For mobile (touch support)
+      el.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        const touch = e.touches[0];
+        offsetX = touch.clientX - el.getBoundingClientRect().left;
+        offsetY = touch.clientY - el.getBoundingClientRect().top;
+        el.style.position = 'absolute';
+        el.style.zIndex = 999;
+      });
+
+      document.addEventListener('touchmove', (e) => {
+        if (isDragging) {
+          const touch = e.touches[0];
+          el.style.left = `${touch.clientX - offsetX}px`;
+          el.style.top = `${touch.clientY - offsetY}px`;
+        }
+      });
+
+      document.addEventListener('touchend', () => {
+        isDragging = false;
+      });
+    });
+  </script>
+</body>
+</html>
