@@ -373,6 +373,7 @@ function submitMaintenanceRequest() {
     chatBox.appendChild(botResponse);
 
     forwardToTelegramGroup(userRoomNumber);
+    redirectToEndChatPage(); // Call the reusable redirect function
 
     chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -405,6 +406,10 @@ async function forwardToTelegramGroup(room) {
     } catch (error) {
         console.error("Telegram Error:", error);
     }
+}
+
+function redirectToEndChatPage() {
+    window.location.href = "https://faizehashemi.github.io/endchat.html";
 }
 
 
