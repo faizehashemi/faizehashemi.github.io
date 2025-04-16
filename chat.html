@@ -549,6 +549,8 @@ function submitRoomServiceRequest() {
     chatBox.appendChild(botResponse);
 
     forwardToTelegramRoomService(userRoomNumber);
+    redirectToEndChatPage(); // Call the reusable redirect function
+
 
     chatBox.scrollTop = chatBox.scrollHeight;
 }
@@ -1034,6 +1036,8 @@ function submitFeedback() {
     chatBox.appendChild(botResponse);
 
     forwardFeedbackToTelegram(selectedFeedback);
+    redirectToEndChatPage(); // Call the reusable redirect function
+
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
@@ -1146,6 +1150,8 @@ function submitLiveChatRequest() {
     chatBox.appendChild(botResponse);
 
     forwardLiveChatToTelegram(selectedPhone);
+    redirectToEndChatPage(); // Call the reusable redirect function
+
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
