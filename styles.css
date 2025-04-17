@@ -28,7 +28,7 @@ html, body {
 .chat-container {
   width: 100%;
   max-width: 400px;
-  height: calc(100vh - 10px);
+  height: calc(100vh - 100px);
   display: flex;
   flex-direction: column;
   background: var(--white) url('bg.png') no-repeat center center;
