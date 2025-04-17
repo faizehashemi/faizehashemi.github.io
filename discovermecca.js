@@ -33,25 +33,57 @@ async function discoverMecca() {
         }, 1000);
     }
 
-    function showDiscoverImages(selection) {
-        // Mapping of selection to image filenames
-        const imageMap = {
-            "Jannatul Ma'ala": ["mala_01.png", "mala_02.png", "mala_03.png", "mala_04.png", "mala_05.png"],
-            "Maulana Abde Manaf AS": ["am_01.png", "am_02.png", "am_03.png"],
-            "Maulana Hashim AS": ["ha_01.png", "ha_02.png", "ha_03.png"],
-            "Maulana Abu Talib AS": ["bt_01.png", "bt_02.png"],
-            "Maulana Abdul Muttalib AS": ["at_01.png", "at_02.png", "at_03.png"],
-            "Maulatona Khadija AS": ["k_01.png", "k_02.png", "k_03.png"],
-            "Jabal al-Nour": ["jn_01.png", "jn_02.png", "jn_03.png", "jn_04.png"],
-            "Jabal al-Saur": ["saur_01.png"],
-            "Jabal Abi Qubais": ["abi_01.png"],
-            "Mina": ["mina_01.png", "mina_02.png", "mina_03.png", "mina_04.png", "mina_05.png"],
-            "Arafah": ["ar_01.png", "ar_02.png", "ar_03.png", "ar_04.png"],
-            "Muzdalefah": ["mz_01.png", "mz_02.png", "mz_03.png", "mz_04.png", "mz_05.png"],
-            "Maulid al-Nabi": ["ghar_01.png", "ghar_02.png", "ghar_03.png"],
-            "Masjid al Kheef": ["mk_01.png", "mk_02.png", "mk_03.png"],
-            "Jamaraat": ["jm_01.png", "jm_02.png"]
-        };
+  function showDiscoverImages(selection) {
+    // Mapping of selection to image filenames
+    const imageMap = {
+        "Jannatul Ma'ala": [
+            "img/mala_01.png", "img/mala_02.png", "img/mala_03.png", "img/mala_04.png", "img/mala_05.png"
+        ],
+        "Maulana Abde Manaf AS": [
+            "img/am_01.png", "img/am_02.png", "img/am_03.png"
+        ],
+        "Maulana Hashim AS": [
+            "img/ha_01.png", "img/ha_02.png", "img/ha_03.png"
+        ],
+        "Maulana Abu Talib AS": [
+            "img/bt_01.png", "img/bt_02.png"
+        ],
+        "Maulana Abdul Muttalib AS": [
+            "img/at_01.png", "img/at_02.png", "img/at_03.png"
+        ],
+        "Maulatona Khadija AS": [
+            "img/k_01.png", "img/k_02.png", "img/k_03.png"
+        ],
+        "Jabal al-Nour": [
+            "img/jn_01.png", "img/jn_02.png", "img/jn_03.png", "img/jn_04.png"
+        ],
+        "Jabal al-Saur": [
+            "img/saur_01.png"
+        ],
+        "Jabal Abi Qubais": [
+            "img/abi_01.png"
+        ],
+        "Mina": [
+            "img/mina_01.png", "img/mina_02.png", "img/mina_03.png", "img/mina_04.png", "img/mina_05.png"
+        ],
+        "Arafah": [
+            "img/ar_01.png", "img/ar_02.png", "img/ar_03.png", "img/ar_04.png"
+        ],
+        "Muzdalefah": [
+            "img/mz_01.png", "img/mz_02.png", "img/mz_03.png", "img/mz_04.png", "img/mz_05.png"
+        ],
+        "Maulid al-Nabi": [
+            "img/ghar_01.png", "img/ghar_02.png", "img/ghar_03.png"
+        ],
+        "Masjid al Kheef": [
+            "img/mk_01.png", "img/mk_02.png", "img/mk_03.png"
+        ],
+        "Jamaraat": [
+            "img/jm_01.png", "img/jm_02.png"
+        ]
+    };
+
+
 
         const images = imageMap[selection];
         
