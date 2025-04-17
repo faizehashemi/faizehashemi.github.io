@@ -1,3 +1,26 @@
+// Function to display Information menu
+function displayInformationMenu() {
+    const chatBox = document.getElementById('chatBox');
+
+    // Display the Information options
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerHTML = "<b>📢 Please select the information you need:</b>";
+    chatBox.appendChild(botResponse);
+
+    const options = ["🚍 Transport", "💰 Accounts", "🍽️ Mawaid", "🧺 Laundry", "🏢 Floor Info", "💧 Zamzam", "📶 Sim Card", "🕋 Haram Clothes"];
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'menu-button';
+        button.innerText = option;
+        button.onclick = () => handleInformationSelection_emreq(option);
+        chatBox.appendChild(button);
+    });
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+
 // Function to handle selection within the Information menu
 function handleInformationSelection_emreq(selection) {
     const chatBox = document.getElementById('chatBox');
