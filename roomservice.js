@@ -1,7 +1,6 @@
 function displayEmergencyMenu() {
     const chatBox = document.getElementById('chatBox');
-    
-    // Display the initial emergency request menu
+
     const botResponse = document.createElement('div');
     botResponse.className = 'bot-message';
     botResponse.innerText = "Please select your room service:";
@@ -9,19 +8,25 @@ function displayEmergencyMenu() {
 
     const buttonMenu = document.createElement('div');
     buttonMenu.className = 'button-menu';
+    chatBox.appendChild(buttonMenu);
 
     const options = ["Commode", "Pillow", "Bedsheet", "Room Cleaning", "Locker"];
+    const buttons = [];
+
     options.forEach(option => {
         const button = document.createElement('button');
         button.className = 'menu-button';
         button.innerText = option;
-        button.onclick = () => handleRoomServiceSelection(option);
         buttonMenu.appendChild(button);
+        buttons.push(button);
     });
 
-    chatBox.appendChild(buttonMenu);
+    // Apply the global bubble handler with the correct callback
+    enableBubbleEffectOnClick(buttons, handleRoomServiceSelection);
+
     chatBox.scrollTop = chatBox.scrollHeight;
 }
+
 
 function handleRoomServiceSelection(service) {
     if (service === "Room Cleaning") {
@@ -35,6 +40,7 @@ function handleRoomServiceSelection(service) {
 
 function displayRoomCleaningTimeSlots(service) {
     const chatBox = document.getElementById('chatBox');
+    
     const botResponse = document.createElement('div');
     botResponse.className = 'bot-message';
     botResponse.innerText = `Please select a time slot for ${service.toLowerCase()}:`;
@@ -42,26 +48,33 @@ function displayRoomCleaningTimeSlots(service) {
 
     const buttonMenu = document.createElement('div');
     buttonMenu.className = 'button-menu';
+    chatBox.appendChild(buttonMenu);
 
     const timeSlots = [
         "8:00 AM - 9:00 AM", "9:00 AM - 10:00 AM", "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM",
         "3:00 PM - 4:00 PM", "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM", "6:00 PM - 7:00 PM", "7:00 PM - 8:00 PM"
     ];
 
+    const buttons = [];
+
     timeSlots.forEach(slot => {
         const button = document.createElement('button');
         button.className = 'menu-button';
         button.innerText = slot;
-        button.onclick = () => confirmRoomServiceRequest(`${service} @ ${slot}`);
         buttonMenu.appendChild(button);
+        buttons.push(button);
     });
 
-    chatBox.appendChild(buttonMenu);
+    enableBubbleEffectOnClick(buttons, (slot) => {
+        confirmRoomServiceRequest(`${service} @ ${slot}`);
+    });
+
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 function displayLockerTimeSlots(service) {
     const chatBox = document.getElementById('chatBox');
+    
     const botResponse = document.createElement('div');
     botResponse.className = 'bot-message';
     botResponse.innerText = `Please select a time slot for ${service.toLowerCase()}:`;
@@ -69,29 +82,36 @@ function displayLockerTimeSlots(service) {
 
     const buttonMenu = document.createElement('div');
     buttonMenu.className = 'button-menu';
+    chatBox.appendChild(buttonMenu);
 
     const timeSlots = [
         "9:00 AM - 10:00 AM", "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM",
         "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM", "9:00 PM - 10:00 PM"
-
     ];
+
+    const buttons = [];
 
     timeSlots.forEach(slot => {
         const button = document.createElement('button');
         button.className = 'menu-button';
         button.innerText = slot;
-        button.onclick = () => confirmRoomServiceRequest(`${service} @ ${slot}`);
         buttonMenu.appendChild(button);
+        buttons.push(button);
     });
 
-    chatBox.appendChild(buttonMenu);
+    enableBubbleEffectOnClick(buttons, (slot) => {
+        confirmRoomServiceRequest(`${service} @ ${slot}`);
+    });
+
     chatBox.scrollTop = chatBox.scrollHeight;
 }
+
 
 function confirmRoomServiceRequest(service) {
     selectedService = service;
 
     const chatBox = document.getElementById('chatBox');
+
     const userMessage = document.createElement('div');
     userMessage.className = 'user-message';
     userMessage.innerText = service;
@@ -105,25 +125,36 @@ function confirmRoomServiceRequest(service) {
 
         const buttonMenu = document.createElement('div');
         buttonMenu.className = 'button-menu';
+        chatBox.appendChild(buttonMenu);
+
+        const buttons = [];
 
         const yesButton = document.createElement('button');
         yesButton.className = 'menu-button';
         yesButton.innerText = "Yes";
-        yesButton.onclick = submitRoomServiceRequest;
+        buttons.push(yesButton);
 
         const noButton = document.createElement('button');
         noButton.className = 'menu-button';
         noButton.innerText = "No";
-        noButton.onclick = () => {
-            botResponse.innerText = "Request canceled.";
-        };
+        buttons.push(noButton);
 
         buttonMenu.appendChild(yesButton);
         buttonMenu.appendChild(noButton);
-        chatBox.appendChild(buttonMenu);
+
+        enableBubbleEffectOnClick(buttons, (text) => {
+            if (text === "Yes") {
+                submitRoomServiceRequest();
+            } else {
+                botResponse.innerText = "Request canceled. Refreshing page in 5 seconds...";
+                setTimeout(() => location.reload(), 5000);
+            }
+        });
+
         chatBox.scrollTop = chatBox.scrollHeight;
     }, 1000);
 }
+
 
 function submitRoomServiceRequest() {
     const chatBox = document.getElementById('chatBox');

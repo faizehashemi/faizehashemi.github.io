@@ -14,13 +14,18 @@ function displayMainMenu() {
         "Feedback ✍️"
     ];
 
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => selectMainOption(option);
-        buttonMenu.appendChild(button);
-    });
+const buttons = [];
+
+options.forEach(option => {
+    const button = document.createElement('button');
+    button.className = 'menu-button';
+    button.innerText = option;
+    buttonMenu.appendChild(button);
+    buttons.push(button);
+});
+
+// Add bubble effect behavior
+enableBubbleEffectOnClick(buttons, selectMainOption);
 
     chatBox.appendChild(buttonMenu);
     chatBox.scrollTop = chatBox.scrollHeight;

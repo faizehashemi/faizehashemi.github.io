@@ -1,10 +1,10 @@
 async function discoverMecca() {
     const chatBox = document.getElementById('chatBox');
     
-    // Presenting the options for "Discover Mecca"
+    // Presenting the options for "Discover Makkah"
     const botResponse = document.createElement('div');
     botResponse.className = 'bot-message';
-    botResponse.innerText = "Please select a place to discover in Mecca:";
+    botResponse.innerText = "Please select a place to discover in Makkah:";
     chatBox.appendChild(botResponse);
 
     const options = [

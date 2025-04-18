@@ -1,36 +1,53 @@
 function askForMansakConfirmation() {
-        const chatBox = document.getElementById('chatBox');
-        
-        // Ask for confirmation
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = "Do you want to download the Makkah and Umrah PDFs? (Yes / No)";
-        chatBox.appendChild(botResponse);
+    const chatBox = document.getElementById('chatBox');
+    
+    // Ask for confirmation
+    const botResponse = document.createElement('div');
+    botResponse.className = 'bot-message';
+    botResponse.innerText = "Do you want to download the Makkah and Umrah PDFs? (Yes / No)";
+    chatBox.appendChild(botResponse);
 
-        const buttonMenu = document.createElement('div');
-        buttonMenu.className = 'button-menu';
+    const buttonMenu = document.createElement('div');
+    buttonMenu.className = 'button-menu';
 
-        const yesButton = document.createElement('button');
-        yesButton.className = 'menu-button';
-        yesButton.innerText = "Yes, download PDFs";
-        yesButton.onclick = () => downloadMansakPDFs();
-        buttonMenu.appendChild(yesButton);
+    const buttons = [];
 
-        const noButton = document.createElement('button');
-        noButton.className = 'menu-button';
-        noButton.innerText = "No, I don't need them";
-        noButton.onclick = () => {
-            const botResponse = document.createElement('div');
-            botResponse.className = 'bot-message';
-            botResponse.innerText = "Okay, we won't download the PDFs.";
-            chatBox.appendChild(botResponse);
+    const yesButton = document.createElement('button');
+    yesButton.className = 'menu-button';
+    yesButton.innerText = "Yes, download PDFs";
+    buttons.push(yesButton);
+
+    const noButton = document.createElement('button');
+    noButton.className = 'menu-button';
+    noButton.innerText = "No, I don't need them";
+    buttons.push(noButton);
+
+    buttonMenu.appendChild(yesButton);
+    buttonMenu.appendChild(noButton);
+
+    chatBox.appendChild(buttonMenu);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Add bubble effect to buttons
+    enableBubbleEffectOnClick(buttons, (text) => {
+        if (text === "Yes, download PDFs") {
+            downloadMansakPDFs();
+            setTimeout(() => {
+                location.reload(); // Refresh the page after 5 seconds
+            }, 5000);
+        } else {
+            const cancelResponse = document.createElement('div');
+            cancelResponse.className = 'bot-message';
+            cancelResponse.innerText = "Okay, we won't download the PDFs.";
+            chatBox.appendChild(cancelResponse);
             chatBox.scrollTop = chatBox.scrollHeight;
-        };
+             setTimeout(() => {
+                location.reload(); // Refresh the page after 5 seconds
+            }, 5000);
+        }
+    });
+}
 
-        buttonMenu.appendChild(noButton);
-        chatBox.appendChild(buttonMenu);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
 
     function downloadMansakPDFs() {
         const chatBox = document.getElementById('chatBox');

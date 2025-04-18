@@ -8,15 +8,33 @@ function displayMaintenanceMenu() {
     const buttonMenu = document.createElement('div');
     buttonMenu.className = 'button-menu';
 
-    const options = ["Geaser not working", "AC not working", "Clock Battery", "Lights not working", "Drainage Issues", "Basin Clot", "Cupboard hinge", "Exhaust not working"];
+const options = [
+  "🛁 Geaser not working",
+  "❄️ AC not working",
+  "🕰️ Clock Battery",
+  "💡 Lights not working",
+  "🚰 Drainage Issues",
+  "🚿 Basin Clot",
+  "🚪 Cupboard hinge",
+  "💨 Exhaust not working",
+  "⚡ Power outage",
+  "💧 Water leakage",
+  "🚽 Toilet flush issue",
+  "🐜 Pest problem",
+];
 
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => confirmMaintenanceRequest(option);
-        buttonMenu.appendChild(button);
-    });
+const buttons = [];
+
+options.forEach(option => {
+    const button = document.createElement('button');
+    button.className = 'menu-button';
+    button.innerText = option;
+    buttonMenu.appendChild(button);
+    buttons.push(button);
+});
+
+// Add bubble effect behavior
+enableBubbleEffectOnClick(buttons, confirmMaintenanceRequest);
 
     chatBox.appendChild(buttonMenu);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -39,25 +57,28 @@ function confirmMaintenanceRequest(issue) {
 
         const buttonMenu = document.createElement('div');
         buttonMenu.className = 'button-menu';
-
-        const yesButton = document.createElement('button');
-        yesButton.className = 'menu-button';
-        yesButton.innerText = "Yes";
-        yesButton.onclick = submitMaintenanceRequest;
-
-        const noButton = document.createElement('button');
-        noButton.className = 'menu-button';
-        noButton.innerText = "No";
-        noButton.onclick = () => {
-            botResponse.innerText = "Request canceled.";
-        };
-
-        buttonMenu.appendChild(yesButton);
-        buttonMenu.appendChild(noButton);
         chatBox.appendChild(buttonMenu);
+
+        const options = ["Yes", "No"];
+            function handleConfirmation(choice) {
+                if (choice === "Yes") {
+                    submitMaintenanceRequest();
+                } else {
+                    botResponse.innerText = "Request canceled. Refreshing the page in 5 seconds...";
+                    setTimeout(() => {
+                        location.reload();
+                    }, 5000);
+                }
+            }
+
+
+        // Use reusable button generator
+        createBubbleMenuButtons(options, buttonMenu, handleConfirmation);
+
         chatBox.scrollTop = chatBox.scrollHeight;
     }, 1000);
 }
+
 
 function submitMaintenanceRequest() {
     const chatBox = document.getElementById('chatBox');

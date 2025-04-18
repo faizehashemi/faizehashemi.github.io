@@ -47,25 +47,36 @@ function confirmFeedback(feedback) {
 
         const buttonMenu = document.createElement('div');
         buttonMenu.className = 'button-menu';
+        chatBox.appendChild(buttonMenu);
+
+        const buttons = [];
 
         const yesButton = document.createElement('button');
         yesButton.className = 'menu-button';
         yesButton.innerText = "Yes";
-        yesButton.onclick = submitFeedback;
+        buttons.push(yesButton);
 
         const noButton = document.createElement('button');
         noButton.className = 'menu-button';
         noButton.innerText = "No";
-        noButton.onclick = () => {
-            botResponse.innerText = "Feedback submission canceled.";
-        };
+        buttons.push(noButton);
 
         buttonMenu.appendChild(yesButton);
         buttonMenu.appendChild(noButton);
-        chatBox.appendChild(buttonMenu);
+
+        enableBubbleEffectOnClick(buttons, (text) => {
+            if (text === "Yes") {
+                submitFeedback();
+            } else {
+                botResponse.innerText = "Feedback submission canceled. Refreshing page in 5 seconds...";
+                setTimeout(() => location.reload(), 5000);
+            }
+        });
+
         chatBox.scrollTop = chatBox.scrollHeight;
     }, 500);
 }
+
 
 function submitFeedback() {
     const chatBox = document.getElementById('chatBox');

@@ -1,0 +1,120 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\mansak.js||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:mansak.js||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\feedback.js||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:feedback.js||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\livechat.js||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:livechat.js||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\styles.css||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:styles.css||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\chat.html||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:chat.html||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\discovermecca.js||{3B902123-F8A7-4915-9F01-361F908088D0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:discovermecca.js||{3B902123-F8A7-4915-9F01-361F908088D0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "mansak.js",
+              "DocumentMoniker": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\mansak.js",
+              "RelativeDocumentMoniker": "mansak.js",
+              "ToolTip": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\mansak.js",
+              "RelativeToolTip": "mansak.js",
+              "ViewState": "AgIAABUAAAAAAAAAAAAAADcAAAA6AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-04-18T18:48:33.432Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "feedback.js",
+              "DocumentMoniker": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\feedback.js",
+              "RelativeDocumentMoniker": "feedback.js",
+              "ToolTip": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\feedback.js",
+              "RelativeToolTip": "feedback.js",
+              "ViewState": "AgIAACYAAAAAAAAAAAAAwE4AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-04-18T18:42:46.552Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "livechat.js",
+              "DocumentMoniker": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\livechat.js",
+              "RelativeDocumentMoniker": "livechat.js",
+              "ToolTip": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\livechat.js",
+              "RelativeToolTip": "livechat.js",
+              "ViewState": "AgIAACgAAAAAAAAAAAAAwFAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-04-18T18:41:22.125Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "styles.css",
+              "DocumentMoniker": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\styles.css",
+              "RelativeDocumentMoniker": "styles.css",
+              "ToolTip": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\styles.css",
+              "RelativeToolTip": "styles.css",
+              "ViewState": "AgIAAA4BAAAAAAAAAAAAwB8BAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
+              "WhenOpened": "2025-04-18T14:09:56.728Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "chat.html",
+              "DocumentMoniker": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\chat.html",
+              "RelativeDocumentMoniker": "chat.html",
+              "ToolTip": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\chat.html",
+              "RelativeToolTip": "chat.html",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAA6AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001512|",
+              "WhenOpened": "2025-04-18T11:45:37.638Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "discovermecca.js",
+              "DocumentMoniker": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\discovermecca.js",
+              "RelativeDocumentMoniker": "discovermecca.js",
+              "ToolTip": "C:\\Users\\Admin\\Desktop\\faizehashemi.github.io\\discovermecca.js",
+              "RelativeToolTip": "discovermecca.js",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001646|",
+              "WhenOpened": "2025-04-18T11:41:33.924Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
