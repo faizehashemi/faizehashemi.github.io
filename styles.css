@@ -203,3 +203,22 @@ button, img[src$=".png"] {
     padding: 10px;
   }
 }
+
+
+.chat-container {
+  height: calc(100vh - 60px); /* default height minus input bar */
+  transition: height 0.3s ease;
+  overflow-y: auto;
+}
+
+.keyboard-open .chat-container {
+  height: 50vh; /* shrink the chat area when keyboard is up */
+}
+
+.input-bar {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: #fff;
+}
+
