@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Merged 6x6 Grid Table</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      margin: 20px auto;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 14px;
+      text-align: center;
+    }
+    td {
+      border: 1px solid #333;
+      width: 105px;
+      height: 20px;
+      vertical-align: middle;
+      padding: 4px;
+    }
+    tr:nth-child(4) td,
+    tr:nth-child(6) td {
+      height: 80px;
+      white-space: normal;
+      word-break: break-word;
+    }
+    @media print {
+      #controls {
+        display: none;
+      }
+      body * {
+        visibility: hidden;
+      }
+      table, table * {
+        visibility: visible;
+      }
+      table {
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+    }
+    #controls {
+      text-align: center;
+      margin-top: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="controls">
+  <button onclick="printTable()">Print Table</button>
+  <button onclick="downloadHTML()">Download HTML</button>
+  <button onclick="sendEmail()">Send Email</button>
+</div>
+
+<table>
+  <tbody>
+    <tr>
+      <td id="header" colspan="4"> <b>Umra 1446H </b></td>
+      <td id="date" contenteditable="true"><b>Date</b></td>
+      <td id="date-value" contenteditable="true"></td>
+    </tr>
+    <tr><td id="header2" colspan="6"><b>Zaereen Menu</b></td></tr>
+    <tr>
+      <td colspan="2"><b>Breakfast</b></td>
+      <td colspan="2"><b>Lunch</b></td>
+      <td colspan="2"><b>Dinner</b></td>
+    </tr>
+    <tr>
+      <td id="menu-br" colspan="2" contenteditable="true">Honey, Kalonji, Khajoor<br>Butter, Cheese, Cream & Jam<br>Tea & Toast, Banana<br>Corn Flakes, Milk, Hareera</td>
+      <td id="menu-lu" colspan="2" contenteditable="true"></td>
+      <td id="menu-di" colspan="2" contenteditable="true"></td>
+    </tr>
+    <tr>
+      <td><b>Thal Counts</b></td>
+      <td id="thal-br-value" contenteditable="true" oninput="updateQuantities()"></td>
+      <td><b>Thal Counts</b></td>
+      <td id="thal-lu-value" contenteditable="true"></td>
+      <td><b>Thal Counts</b></td>
+      <td id="thal-di-value" contenteditable="true"></td>
+    </tr>
+    <tr>
+      <td id="ingredients-br" colspan="2" contenteditable="true">
+      <br>
+Breakfast Items <br>
+Milk. 2 ltr  <br>
+Corn Flakes. 4 nos  <br>
+Honey. 0.1 btl  <br> 
+Khajoor Sukkari. 0.1 kg  <br> 
+Butter. 0.1 box <br> 
+Jam Halvani. 0.1 box <br> 
+Tea kg. 0.1 kg <br> 
+Toast. 0.1 kg <br> 
+Banana kg. 1 kg <br> 
+Cheese Breakfast. 1 box <br> 
+Gishta. 1 Tins <br> 
+Kalonji. 1 mg <br>  
+-------------------------<br>
+Disposables <br>
+Tea Paper Cup Big. 20 nos <br> 
+Tea Paper Cup Small. 10 nos <br> 
+Plates 3p. 10 nos <br> 
+Plastic Bowl. 10 nos <br> 
+Safra Round. 0.1 bundle <br> 
+Safra Roll. 0.01 pcs <br> 
+Trash Bags. 0.1 bundle <br> 
+Plastic Bags Small. 0.01 bundle <br> 
+Fairy. 0.1 btl <br> 
+Tissue Roll. 0.1 rolls <br> 
+Dettol. 0.1 btl <br> 
+Plastic Spoons. 10 pcs <br>
+Safra Ummal. 2 rolls
+      </td>
+      <td id="ingredients-lu" colspan="2" contenteditable="true"></td>
+      <td id="ingredients-di" colspan="2" contenteditable="true"></td>
+    </tr>
+    <tr>
+      <td><b>Madina</b></td>
+      <td id="madina-value" contenteditable="true" oninput="updateQuantities()"></td>
+      <td><b>Airport Tosha</b></td>
+      <td id="air-tosha-value" contenteditable="true" oninput="updateQuantities()"></td>
+      <td><b>Airport Burgers</b></td>
+      <td id="air-burgers-value" contenteditable="true" oninput="updateQuantities()"></td>
+    </tr>
+    <tr>
+      <td id="madina-ingredients" colspan="2" contenteditable="true">
+Burger Patty Chicken. 1 pcs <br>
+Bread Burger. 1 pcs <br>
+Spring Rolls. 2 pcs <br>
+Mayonnaise. 10 ml <br>
+Ketchup. 10 ml <br>
+Laban. 1 pcs <br>
+Tissue. 1 pcs <br>
+Cake. 1 pcs <br>
+Chips. 1 pcs <br>
+Water. 1 pcs <br>
+Apple. 1 nos
+      </td>
+      <td id="tosha-ingredients" colspan="2" contenteditable="true">
+Apple. 1 pcs <br>
+Rani. 1 pcs <br>
+Water. 1 pcs <br>
+Chips. 1 pcs
+      </td>
+      <td id="burgers-ingredients" colspan="2" contenteditable="true">
+Burger Patty Chicken. 1 pcs <br>
+Bread Burger. 1 nos <br>
+Mayonnaise. 10 ml <br>
+Ketchup. 10 ml
+      </td>
+    </tr>
+  </tbody>
+</table>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+  const baseValues = {};
+
+  function extractQuantities(text) {
+    return text.replace(/(\d+(\.\d+)?)(?=\s*\w+)/g, (match) => {
+      return parseFloat(match);
+    });
+  }
+
+  function storeBaseValues(id) {
+    if (!baseValues[id]) {
+      const element = document.getElementById(id);
+      baseValues[id] = element.innerText;
+    }
+  }
+
+  function scaleIngredients(id, multiplier) {
+    storeBaseValues(id);
+    const original = baseValues[id];
+    const updated = original.replace(/(\d+(\.\d+)?)(?=\s*\w+)/g, (match) => {
+      return (parseFloat(match) * multiplier).toFixed(2);
+    });
+    document.getElementById(id).innerText = updated;
+  }
+
+  function updateQuantities() {
+    const br = parseFloat(document.getElementById("thal-br-value").innerText) || 1;
+    const madina = parseFloat(document.getElementById("madina-value").innerText) || 1;
+    const tosha = parseFloat(document.getElementById("air-tosha-value").innerText) || 1;
+    const burgers = parseFloat(document.getElementById("air-burgers-value").innerText) || 1;
+
+    scaleIngredients("ingredients-br", br);
+    scaleIngredients("madina-ingredients", madina);
+    scaleIngredients("tosha-ingredients", tosha);
+    scaleIngredients("burgers-ingredients", burgers);
+  }
+
+  function printTable() {
+    window.print();
+  }
+
+function downloadHTML() {
+  const dateValue = document.getElementById('date-value').innerText.trim().replace(/[^\w\s]/gi, '') || 'UnknownDate';
+  const content = document.documentElement.outerHTML;
+  const blob = new Blob([content], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Mamool_${dateValue}.html`;
+  a.click();
+}
+
+
+  function sendEmail() {
+    const dateValue = document.getElementById('date-value').innerText.trim().replace(/[^\w\s]/gi, '') || 'UnknownDate';
+    const table = document.querySelector('table');
+    const filename = `Mamool_${dateValue}.pdf`;
+
+    const opt = {
+      margin: 0.5,
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(table).save();
+  }
+
+</script>
+
+</body>
+</html>
