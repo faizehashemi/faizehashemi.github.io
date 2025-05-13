@@ -21,6 +21,7 @@ const options = [
   "💧 Water leakage",
   "🚽 Toilet flush issue",
   "🐜 Pest problem",
+  "🫖 Kettle Not Working",
 ];
 
 const buttons = [];
