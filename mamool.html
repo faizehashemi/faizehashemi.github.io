@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>menu</title>
+  <title>Merged 6x6 Grid Table</title>
   <style>
     table {
       border-collapse: collapse;
@@ -55,16 +55,17 @@
 <body>
 
 <div id="controls">
-<button onclick="printTable()" style="background-color: red; color: white;">Print</button>
-<button onclick="downloadHTML()" style="background-color: green; color: white;">Download</button>
-<button onclick="sendEmail()" style="background-color: yellow; color: black;">PDF</button>
-
+  <button onclick="printTable()">Print Table</button>
+  <button onclick="downloadHTML()">Download HTML</button>
+  <button onclick="sendEmail()">Send Email</button>
 </div>
 
 <table>
   <tbody>
     <tr>
-      <td id="header" colspan="4"> <b>Hajj 1446H </b></td>
+      <td id="header" colspan="2"> <b>Umra 1446H </b></td>
+      <td id="loc"><b>Location</b></td>
+      <td id="loc-value" contenteditable="true"><b> </b></td>
       <td id="date" contenteditable="true"><b>Date</b></td>
       <td id="date-value" contenteditable="true"></td>
     </tr>
@@ -122,6 +123,30 @@ Safra Ummal. 2 rolls
       <td id="ingredients-lu" colspan="2" contenteditable="true"></td>
       <td id="ingredients-di" colspan="2" contenteditable="true"></td>
     </tr>
+            <tr>
+      <td><b>Evening Tea</b></td>
+      <td id="et-value" contenteditable="true"></td>
+      <td><b>Night Tea</b></td>
+      <td id="nt-value" contenteditable="true"></td>
+      <td><b>Ummal Menu</b></td>
+      <td id="um-value" contenteditable="true"></td>
+    </tr>
+    <tr>
+      <td id="et-ingredients" colspan="2" contenteditable="true">
+      Tea <br>
+      Sugar <br>
+      Milk <br>
+      </td>
+      <td id="nt-ingredients" colspan="2" contenteditable="true">
+      Tea <br>
+      Sugar <br>
+      Milk <br>
+      </td>
+      <td id="um-ingredients" colspan="2" contenteditable="true">
+
+      </td>
+    </tr>
+
     <tr>
       <td><b>Madina</b></td>
       <td id="madina-value" contenteditable="true" oninput="updateQuantities()"></td>
@@ -130,13 +155,10 @@ Safra Ummal. 2 rolls
       <td><b>Airport Burgers</b></td>
       <td id="air-burgers-value" contenteditable="true" oninput="updateQuantities()"></td>
     </tr>
+
+
     <tr>
       <td id="madina-ingredients" colspan="2" contenteditable="true">
-Burger Patty Chicken. 1 pcs <br>
-Bread Burger. 1 pcs <br>
-Spring Rolls. 2 pcs <br>
-Mayonnaise. 10 ml <br>
-Ketchup. 10 ml <br>
 Laban. 1 pcs <br>
 Tissue. 1 pcs <br>
 Cake. 1 pcs <br>
@@ -157,6 +179,7 @@ Mayonnaise. 10 ml <br>
 Ketchup. 10 ml
       </td>
     </tr>
+
   </tbody>
 </table>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -204,13 +227,16 @@ Ketchup. 10 ml
 
 function downloadHTML() {
   const dateValue = document.getElementById('date-value').innerText.trim().replace(/[^\w\s]/gi, '') || 'UnknownDate';
+  const locValue = document.getElementById('loc-value').innerText.trim().replace(/[^\w\s]/gi, '') || 'UnknownLocation';
   const content = document.documentElement.outerHTML;
   const blob = new Blob([content], { type: 'text/html' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `Mamool_${dateValue}.html`;
+  a.download = `Mamool_${locValue}_${dateValue}.html`;
   a.click();
 }
+
+ 
 
 
   function sendEmail() {
