@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vacancy Forecast</title>
+<style>
+  :root { --b:#222; --m:#666; --bg:#f7f7f9; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); margin:0; }
+  .wrap { max-width: 1200px; margin: 22px auto; background:#fff; padding:18px; border-radius:10px; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+  h1 { margin:0 0 12px; text-align:center; }
+  .controls { display:grid; grid-template-columns: repeat(6, minmax(140px, 1fr)); gap:10px; align-items:end; margin: 10px 0 16px; }
+  .controls > div { display:flex; flex-direction:column; gap:6px; }
+  label { font-size: 12px; color: var(--m); }
+  input, select, textarea, button { font: inherit; }
+  input[type="date"], input[type="time"], select, textarea {
+    border:1px solid #ccc; border-radius:8px; padding:8px; background:#fff;
+  }
+  textarea { min-height: 44px; }
+  button { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; }
+  button:hover { background:#f0f0f0; }
+  .summary { display:flex; gap:12px; flex-wrap:wrap; margin: 6px 0 14px; }
+  .pill { border:1px solid #ddd; border-radius:999px; padding:6px 12px; background:#fafafa; }
+  table { width:100%; border-collapse: collapse; margin-top:10px; }
+  th, td { border:1px solid var(--b); padding:8px; vertical-align:top; }
+  th { background:#fafafa; text-align:left; }
+  .muted { color: var(--m); }
+  .right { text-align:right; }
+  .nowrap { white-space:nowrap; }
+  .two { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 900px){ .controls { grid-template-columns: 1fr 1fr; } .two { grid-template-columns:1fr; } }
+  @media print{ .controls, .muted, #status { display:none !important; } .wrap { box-shadow:none; padding:0; margin:0; } }
+</style>
+</head>
+<body>
+<!-- ===== PMS SIMPLE NAVBAR (paste near top of <body>) ===== -->
+<nav class="pms-nav" role="navigation" aria-label="Primary">
+  <div class="pms-nav__in">
+    <a class="pms-brand" href="index.html" aria-label="Home">
+      <!-- Kaaba-ish mark -->
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" rx="3" fill="#0f766e"></rect>
+        <rect x="3" y="8" width="18" height="2" fill="#facc15"></rect>
+      </svg>
+      <span>PMS</span>
+    </a>
+
+    <button class="pms-burger" aria-expanded="false" aria-controls="pms-menu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div id="pms-menu" class="pms-menu">
+      <!-- Slip -->
+      <a class="pms-link" href="accommodation_slip.html" data-page="accommodation_slip.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Pen & list -->
+          <svg viewBox="0 0 24 24"><path d="M4 4h12a2 2 0 0 1 2 2v3H4V6a2 2 0 0 1 2-2Z" fill="#0ea5e9"/><path d="M4 9h14v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9Z" fill="#93c5fd"/><path d="M8 13h6M8 16h6" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Slip</span>
+      </a>
+
+      <!-- Forecast -->
+      <a class="pms-link" href="vacancy_forecast.html" data-page="vacancy_forecast.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Calendar & search -->
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="14" height="14" rx="2" fill="#22c55e"/><path d="M3 8h14" stroke="#0b1220"/><circle cx="17.5" cy="17.5" r="3.5" fill="#86efac"/><path d="m20.5 20.5 2.5 2.5" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Forecast</span>
+      </a>
+
+      <!-- Print -->
+      <a class="pms-link" href="print_slip_a5.html" data-page="print_slip_a5.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Printer -->
+          <svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="5" rx="1" fill="#f59e0b"/><rect x="4" y="8" width="16" height="9" rx="2" fill="#fde68a"/><rect x="7" y="13" width="10" height="8" rx="1" fill="#fbbf24"/></svg>
+        </span>
+        <span>Print</span>
+      </a>
+
+      <!-- Admin -->
+      <a class="pms-link" href="slip_admin.html" data-page="slip_admin.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- DB cylinder with shield -->
+          <svg viewBox="0 0 24 24"><ellipse cx="9" cy="6" rx="6" ry="3" fill="#64748b"/><path d="M3 6v6c0 1.7 2.7 3 6 3s6-1.3 6-3V6" fill="#94a3b8"/><path d="M18 10l3 1v4c0 2.2-1.6 4.2-3 5-1.4-.8-3-2.8-3-5v-4l3-1Z" fill="#0ea5e9"/></svg>
+        </span>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<style>
+  :root{
+    --nav-bg:#ffffff; --nav-ink:#0b1220; --nav-muted:#6b7280; --nav-accent:#0f766e;
+    --nav-border:#e5e7eb; --nav-chip:#ecfeff; --shadow:0 10px 28px rgba(2,6,23,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --nav-bg:#0f1216; --nav-ink:#e5e7eb; --nav-muted:#9aa4b2; --nav-accent:#22d3ee; --nav-border:#1f2937; --nav-chip:#062e2e; --shadow:none; }
+  }
+  .pms-nav{ position:sticky; top:0; z-index:9999; background:var(--nav-bg); color:var(--nav-ink);
+    border-bottom:1px solid var(--nav-border); box-shadow:var(--shadow) }
+  .pms-nav__in{ max-width:1200px; margin:0 auto; padding:8px 14px; display:flex; align-items:center; gap:10px }
+  .pms-brand{ display:inline-flex; align-items:center; gap:8px; color:inherit; text-decoration:none; font-weight:900; letter-spacing:.3px; padding:6px 8px; border-radius:10px }
+  .pms-brand:hover{ background:var(--nav-chip) }
+  .pms-menu{ display:flex; align-items:center; gap:4px; margin-left:auto; flex-wrap:wrap }
+  .pms-link{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; color:inherit; text-decoration:none; border:1px solid transparent }
+  .pms-link:hover{ background:var(--nav-chip); border-color:var(--nav-border) }
+  .pms-link[aria-current="page"], .pms-link.active{ background:linear-gradient(0deg, rgba(34,211,238,.12), rgba(34,211,238,.12)); border-color:#99f6e4 }
+  .pms-ico{ width:22px; height:22px; display:inline-grid; place-items:center }
+  .pms-ico svg{ width:22px; height:22px }
+
+  /* Burger for small screens */
+  .pms-burger{ display:none; margin-left:auto; background:transparent; border:0; cursor:pointer; padding:8px }
+  .pms-burger span{ display:block; width:22px; height:2px; background:var(--nav-ink); margin:4px 0; border-radius:2px }
+  @media (max-width:800px){
+    .pms-burger{ display:block }
+    .pms-menu{ display:none; width:100% }
+    .pms-menu.open{ display:grid; grid-template-columns:1fr; gap:6px; padding:8px 0 }
+    .pms-link{ padding:10px 12px }
+  }
+</style>
+
+<script>
+  // Active link highlight and simple burger toggle.
+  (function(){
+    const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+    document.querySelectorAll('.pms-link').forEach(a=>{
+      if((a.dataset.page||'').toLowerCase() === here){
+        a.setAttribute('aria-current','page');
+        a.classList.add('active');
+      }
+    });
+    const burger = document.querySelector('.pms-burger');
+    const menu = document.getElementById('pms-menu');
+    if(burger && menu){
+      burger.addEventListener('click', ()=>{
+        const open = menu.classList.toggle('open');
+        burger.setAttribute('aria-expanded', open?'true':'false');
+      });
+    }
+  })();
+</script>
+<!-- ===== /PMS SIMPLE NAVBAR ===== -->
+
+<div class="wrap">
+  <h1>Vacancy Forecast</h1>
+
+  <div class="controls">
+    <div>
+      <label for="when_date">Date</label>
+      <input type="date" id="when_date">
+    </div>
+    <div>
+      <label for="when_time">Time</label>
+      <input type="time" id="when_time">
+    </div>
+    <div>
+      <label for="building">Building</label>
+      <select id="building"></select>
+    </div>
+    <div>
+      <label for="inventory_mode">Room inventory</label>
+      <select id="inventory_mode">
+        <option value="infer">Infer from DB</option>
+        <option value="manual">Manual list</option>
+      </select>
+    </div>
+    <div>
+      <label for="inventory_text">Manual room list (comma or newline separated)</label>
+      <textarea id="inventory_text" placeholder="e.g. 501, 502, 503&#10;510&#10;516"></textarea>
+    </div>
+    <div>
+      <button id="btnRun">Run Forecast</button>
+      <button id="btnRefresh">Refresh DB</button>
+      <button id="btnPrint">Print</button>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="pill">Inventory rooms: <b id="sum_total">0</b></div>
+    <div class="pill">Occupied rooms: <b id="sum_occ">0</b></div>
+    <div class="pill">Vacant rooms: <b id="sum_free">0</b></div>
+    <div class="pill">Known occupied capacity: <b id="sum_occ_cap">0</b></div>
+    <div class="pill">Known free capacity: <b id="sum_free_cap">0</b> <span class="muted">(if capacity known)</span></div>
+    <div class="pill">Headcount now: <b id="sum_head">0</b> <span class="muted" id="sum_head_break"></span></div>
+  </div>
+
+  <div class="two">
+    <div>
+      <h3 style="margin:8px 0 6px;">Occupied at selected time</h3>
+      <table id="tblOcc">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Group</th>
+            <th>Leader</th>
+            <th>Gender</th>
+            <th class="right">Capacity</th>
+            <th>Window</th>
+            <th>Building</th>
+            <th>SH No.</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div>
+      <h3 style="margin:8px 0 6px;">Vacant at selected time</h3>
+      <table id="tblFree">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th class="right">Capacity</th>
+            <th class="muted">Note</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="muted" id="status"></p>
+</div>
+
+<script>
+/* -------------------------- DB plumbing (v2) -------------------------- */
+const DB_NAME = 'pms_accommodation_db';
+const STORE   = 'slips';
+const DB_VERSION = 2;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      let s;
+      if (!db.objectStoreNames.contains(STORE)) {
+        s = db.createObjectStore(STORE, { keyPath:'id', autoIncrement:true });
+      } else {
+        s = e.target.transaction.objectStore(STORE);
+      }
+      if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt','createdAt',{unique:false});
+      if (!s.indexNames.contains('sh_no'))     s.createIndex('sh_no','sh_no',{unique:false});
+      if (!s.indexNames.contains('building'))  s.createIndex('building','building',{unique:false});
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+async function getAllRecords() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const st = tx.objectStore(STORE);
+    const rq = st.getAll();
+    rq.onsuccess = () => resolve(rq.result || []);
+    rq.onerror   = () => reject(rq.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+
+/* ---------------------------- Helpers ---------------------------- */
+function $(id){ return document.getElementById(id); }
+const CANON_BUILDINGS = ['Mohammedi','Mufaddal','Snood','Baha','Husn'];
+
+function parseDT(d, t){
+  if(!d) return null;
+  const time = t && t.length ? t : '00:00';
+  const v = new Date(`${d}T${time}`);
+  return isNaN(v.getTime()) ? null : v;
+}
+function fmt(dt){
+  if(!dt) return '';
+  return new Intl.DateTimeFormat(undefined, { dateStyle:'medium', timeStyle:'short'}).format(dt);
+}
+function unique(arr){ return Array.from(new Set(arr)); }
+function cleanRoom(x){ return String(x ?? '').trim(); }
+
+/* Build a capacity map using the most recent known capacity per room per building */
+function buildCapacityMap(recs, buildingFilter){
+  const cap = new Map(); // key = building|room -> capacity
+  const items = [...recs].sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+  for(const r of items){
+    if(buildingFilter && buildingFilter !== 'ALL' && (r.building||'').trim() !== buildingFilter) continue;
+    for(const g of (r.rooms?.gents || [])){
+      const key = `${(r.building||'').trim()}|${cleanRoom(g.room_no)}`;
+      if(!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
+    }
+    for(const g of (r.rooms?.ladies || [])){
+      const key = `${(r.building||'').trim()}|${cleanRoom(g.room_no)}`;
+      if(!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
+    }
+  }
+  return cap;
+}
+
+/* Inventory from manual textarea or inferred from DB */
+function getInventoryRooms(mode, manualText, recs, buildingFilter){
+  if(mode === 'manual'){
+    const raw = manualText.split(/[\n,]+/).map(s=>cleanRoom(s)).filter(Boolean);
+    return unique(raw).sort((a,b)=> a.localeCompare(b, undefined, { numeric:true }));
+  }
+  const bag = [];
+  for(const r of recs){
+    if(buildingFilter && buildingFilter !== 'ALL' && (r.building||'').trim() !== buildingFilter) continue;
+    (r.rooms?.gents || []).forEach(x=> bag.push(cleanRoom(x.room_no)));
+    (r.rooms?.ladies || []).forEach(x=> bag.push(cleanRoom(x.room_no)));
+  }
+  return unique(bag.filter(Boolean)).sort((a,b)=> a.localeCompare(b, undefined, { numeric:true }));
+}
+
+/* ---------------------------- UI wiring --------------------------- */
+let DB_CACHE = [];
+
+function populateBuildingFilter(){
+  const sel = $('building');
+  const present = unique(DB_CACHE.map(r => (r.building||'').trim()).filter(Boolean));
+  const merged = unique(['ALL', ...CANON_BUILDINGS, ...present]).filter(Boolean);
+  sel.innerHTML = '';
+  merged.forEach(v=>{
+    const o = document.createElement('option'); o.value = v; o.textContent = v === 'ALL' ? 'ALL BUILDINGS' : v;
+    sel.appendChild(o);
+  });
+  sel.value = 'ALL';
+}
+
+async function refreshDB(){
+  DB_CACHE = await getAllRecords();
+  $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`;
+  populateBuildingFilter();
+}
+
+function currentWhen(){
+  const d = $('when_date').value;
+  const t = $('when_time').value;
+  return parseDT(d,t);
+}
+
+function runForecast(){
+  const when = currentWhen();
+  if(!when){ alert('Choose a valid date and time.'); return; }
+
+  const building = $('building').value || 'ALL';
+  const mode = $('inventory_mode').value;
+  const manualText = $('inventory_text').value || '';
+
+  const capMap = buildCapacityMap(DB_CACHE, building);
+  const inventory = getInventoryRooms(mode, manualText, DB_CACHE, building);
+
+  // Active records at "when"
+  const active = DB_CACHE.filter(r=>{
+    if(building !== 'ALL' && (r.building||'').trim() !== building) return false;
+    const ci = parseDT(r.checkin_date, r.checkin_time);
+    const co = parseDT(r.checkout_date, r.checkout_time);
+    if(!ci || !co) return false;
+    return when >= ci && when < co; // [checkin, checkout)
+  });
+
+  // Occupancy map room -> list of stays
+  const occ = new Map(); // room -> [entries]
+  function pushOcc(room, entry){
+    const key = cleanRoom(room);
+    if(!key) return;
+    if(!occ.has(key)) occ.set(key, []);
+    occ.get(key).push(entry);
+  }
+
+  for(const r of active){
+    const base = {
+      tour: r.tour_name || '',
+      leader: r.group_leader || '',
+      sh_no: r.sh_no ?? '',
+      building: (r.building||'').trim(),
+      window: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}`
+    };
+    (r.rooms?.gents || []).forEach(x=>{
+      pushOcc(x.room_no, { ...base, gender:'Gents', capacity: (x.capacity===''||x.capacity==null)?null:Number(x.capacity) });
+    });
+    (r.rooms?.ladies || []).forEach(x=>{
+      pushOcc(x.room_no, { ...base, gender:'Ladies', capacity: (x.capacity===''||x.capacity==null)?null:Number(x.capacity) });
+    });
+  }
+
+  // Render occupied table
+  const tbodyOcc = $('tblOcc').querySelector('tbody');
+  tbodyOcc.innerHTML = '';
+  let occCount = 0, occCap = 0;
+
+  const occRooms = Array.from(occ.keys()).sort((a,b)=> a.localeCompare(b, undefined, { numeric:true }));
+  for(const room of occRooms){
+    const entries = occ.get(room);
+    for(const e of entries){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="nowrap">${room}</td>
+        <td>${e.tour || ''}</td>
+        <td>${e.leader || ''}</td>
+        <td>${e.gender}</td>
+        <td class="right">${e.capacity==null? '': e.capacity}</td>
+        <td>${e.window}</td>
+        <td>${e.building || ''}</td>
+        <td>${e.sh_no ?? ''}</td>
+      `;
+      tbodyOcc.appendChild(tr);
+    }
+    occCount += 1;
+    const bestCap = entries.find(x=>x.capacity!=null)?.capacity;
+    if(bestCap!=null) occCap += bestCap;
+  }
+
+  // Free rooms = inventory minus occupied keys
+  const occSet = new Set(occRooms);
+  const freeRooms = inventory.filter(r=> !occSet.has(r));
+
+  const tbodyFree = $('tblFree').querySelector('tbody');
+  tbodyFree.innerHTML = '';
+  let freeCap = 0;
+  for(const room of freeRooms){
+    const key = `${building==='ALL'?'':(building)}|${room}`;
+    const cap = capMap.get(key) ?? null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="nowrap">${room}</td>
+      <td class="right">${cap==null? '': cap}</td>
+      <td class="muted">${cap==null? 'capacity unknown': ''}</td>
+    `;
+    tbodyFree.appendChild(tr);
+    if(cap!=null) freeCap += cap;
+  }
+
+  // Totals
+  $('sum_total').textContent   = inventory.length;
+  $('sum_occ').textContent     = occCount;
+  $('sum_free').textContent    = freeRooms.length;
+  $('sum_occ_cap').textContent = occCap;
+  $('sum_free_cap').textContent= freeCap;
+
+  // Headcount now (includes infants/children when available)
+  const sums = active.reduce((acc, r)=>{
+    const g = Number(r.gents)||0, l = Number(r.ladies)||0, c = Number(r.children)||0, i = Number(r.infants)||0, t = Number(r.total)||0;
+    acc.g += g; acc.l += l; acc.c += c; acc.i += i; acc.t += t || (g + l + c + i);
+    return acc;
+  }, {g:0,l:0,c:0,i:0,t:0});
+  $('sum_head').textContent = sums.t;
+  $('sum_head_break').textContent = `(G ${sums.g} / L ${sums.l} / C ${sums.c} / I ${sums.i})`;
+
+  $('status').textContent = `Forecast run for ${fmt(when)} in ${building === 'ALL' ? 'all buildings' : 'building ' + building}.`;
+}
+
+/* ------------------------------ Boot ------------------------------- */
+(function init(){
+  const now = new Date();
+  const pad = n=> String(n).padStart(2,'0');
+  $('when_date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  $('when_time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  $('inventory_mode').addEventListener('change', ()=>{
+    const on = $('inventory_mode').value === 'manual';
+    $('inventory_text').disabled = !on;
+    $('inventory_text').style.opacity = on ? '1' : '.6';
+  });
+  $('inventory_text').disabled = true;
+
+  $('btnRefresh').addEventListener('click', refreshDB);
+  $('btnRun').addEventListener('click', runForecast);
+  $('btnPrint').addEventListener('click', ()=> window.print());
+
+  refreshDB().then(runForecast).catch(err=>{
+    console.error(err);
+    $('status').textContent = 'Could not read local DB. Open the slip page first in this browser and save at least one slip.';
+  });
+})();
+</script>
+</body>
+</html>

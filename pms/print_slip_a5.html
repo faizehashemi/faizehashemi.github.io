@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Print Slip — A5 Landscape (2-up)</title>
+<style>
+  :root{ --ink:#000; --muted:#444; }
+  *{ box-sizing:border-box; }
+  body{ font-family: Arial, Helvetica, sans-serif; background:#f3f3f3; margin:0; color:var(--ink); }
+  .wrap{ max-width: 1120px; margin:18px auto; background:#fff; border:1px solid #ddd; border-radius:10px; padding:12px; }
+  h1{ margin:4px 0 10px; text-align:center; font-size:18px; }
+  .controls{ display:flex; flex-wrap:wrap; gap:8px; align-items:end; justify-content:space-between; margin-bottom:10px; }
+  .controls > div{ display:flex; gap:8px; align-items:center; }
+  label{ font-size:12px; color:var(--muted); }
+  select, input, button{ font:inherit; border:1px solid #bbb; border-radius:8px; padding:7px 10px; background:#fff; }
+  button{ cursor:pointer; }
+  button:hover{ background:#f1f1f1; }
+  .status{ font-size:12px; color:var(--muted); margin-top:6px; }
+
+  /* Page layout: two slips side by side */
+  .sheet{ display:flex; gap:6mm; }
+  .slip{
+    flex: 1 1 0;
+    border:1px solid #000;
+    padding:2mm;
+  }
+  .title{
+    text-align:center; font-weight:700; font-size:14px; letter-spacing:.3px;
+    border-bottom:1px solid #000; padding:1mm 0 1.5mm; margin-bottom:1.5mm;
+    text-transform: uppercase;
+  }
+  table.grid{ width:100%; border-collapse:collapse; }
+  table.grid th, table.grid td{ border:1px solid #000; padding:1.2mm 1.6mm; font-size:11px; vertical-align:middle; }
+  table.grid th{ font-weight:700; text-align:left; white-space:nowrap; }
+  .pair th{ width:28%; }
+  .pair td[colspan="3"]{ width:auto; }
+  .muted{ color:var(--muted); }
+
+  .subtables{ display:grid; grid-template-columns: 1fr 1fr; gap:2mm; margin-top:2mm; }
+  .mini caption{
+    caption-side: top; text-align:left; font-weight:700; font-size:11px; margin-bottom:1mm;
+  }
+  .mini{ width:100%; border-collapse:collapse; }
+  .mini th, .mini td{ border:1px solid #000; padding:1.2mm 1.6mm; font-size:11px; }
+  .mini th{ text-align:left; }
+
+  /* Print rules */
+  @page{ size: A5 landscape; margin: 6mm; } /* real printers will respect this */
+  @media print{
+    body{ background:#fff; }
+    .wrap, .controls, .status, h1{ display:none !important; }
+    .printable{ display:block !important; }
+    .printable .sheet{ break-inside: avoid; }
+  }
+  /* On-screen preview container (hidden in print) */
+  .printable{ display:block; }
+  .note{ font-size:11px; color:var(--muted); margin-top:6px; }
+</style>
+</head>
+<body>
+<!-- ===== PMS SIMPLE NAVBAR (paste near top of <body>) ===== -->
+<nav class="pms-nav" role="navigation" aria-label="Primary">
+  <div class="pms-nav__in">
+    <a class="pms-brand" href="index.html" aria-label="Home">
+      <!-- Kaaba-ish mark -->
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" rx="3" fill="#0f766e"></rect>
+        <rect x="3" y="8" width="18" height="2" fill="#facc15"></rect>
+      </svg>
+      <span>PMS</span>
+    </a>
+
+    <button class="pms-burger" aria-expanded="false" aria-controls="pms-menu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div id="pms-menu" class="pms-menu">
+      <!-- Slip -->
+      <a class="pms-link" href="accommodation_slip.html" data-page="accommodation_slip.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Pen & list -->
+          <svg viewBox="0 0 24 24"><path d="M4 4h12a2 2 0 0 1 2 2v3H4V6a2 2 0 0 1 2-2Z" fill="#0ea5e9"/><path d="M4 9h14v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9Z" fill="#93c5fd"/><path d="M8 13h6M8 16h6" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Slip</span>
+      </a>
+
+      <!-- Forecast -->
+      <a class="pms-link" href="vacancy_forecast.html" data-page="vacancy_forecast.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Calendar & search -->
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="14" height="14" rx="2" fill="#22c55e"/><path d="M3 8h14" stroke="#0b1220"/><circle cx="17.5" cy="17.5" r="3.5" fill="#86efac"/><path d="m20.5 20.5 2.5 2.5" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Forecast</span>
+      </a>
+
+      <!-- Print -->
+      <a class="pms-link" href="print_slip_a5.html" data-page="print_slip_a5.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Printer -->
+          <svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="5" rx="1" fill="#f59e0b"/><rect x="4" y="8" width="16" height="9" rx="2" fill="#fde68a"/><rect x="7" y="13" width="10" height="8" rx="1" fill="#fbbf24"/></svg>
+        </span>
+        <span>Print</span>
+      </a>
+
+      <!-- Admin -->
+      <a class="pms-link" href="slip_admin.html" data-page="slip_admin.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- DB cylinder with shield -->
+          <svg viewBox="0 0 24 24"><ellipse cx="9" cy="6" rx="6" ry="3" fill="#64748b"/><path d="M3 6v6c0 1.7 2.7 3 6 3s6-1.3 6-3V6" fill="#94a3b8"/><path d="M18 10l3 1v4c0 2.2-1.6 4.2-3 5-1.4-.8-3-2.8-3-5v-4l3-1Z" fill="#0ea5e9"/></svg>
+        </span>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<style>
+  :root{
+    --nav-bg:#ffffff; --nav-ink:#0b1220; --nav-muted:#6b7280; --nav-accent:#0f766e;
+    --nav-border:#e5e7eb; --nav-chip:#ecfeff; --shadow:0 10px 28px rgba(2,6,23,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --nav-bg:#0f1216; --nav-ink:#e5e7eb; --nav-muted:#9aa4b2; --nav-accent:#22d3ee; --nav-border:#1f2937; --nav-chip:#062e2e; --shadow:none; }
+  }
+  .pms-nav{ position:sticky; top:0; z-index:9999; background:var(--nav-bg); color:var(--nav-ink);
+    border-bottom:1px solid var(--nav-border); box-shadow:var(--shadow) }
+  .pms-nav__in{ max-width:1200px; margin:0 auto; padding:8px 14px; display:flex; align-items:center; gap:10px }
+  .pms-brand{ display:inline-flex; align-items:center; gap:8px; color:inherit; text-decoration:none; font-weight:900; letter-spacing:.3px; padding:6px 8px; border-radius:10px }
+  .pms-brand:hover{ background:var(--nav-chip) }
+  .pms-menu{ display:flex; align-items:center; gap:4px; margin-left:auto; flex-wrap:wrap }
+  .pms-link{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; color:inherit; text-decoration:none; border:1px solid transparent }
+  .pms-link:hover{ background:var(--nav-chip); border-color:var(--nav-border) }
+  .pms-link[aria-current="page"], .pms-link.active{ background:linear-gradient(0deg, rgba(34,211,238,.12), rgba(34,211,238,.12)); border-color:#99f6e4 }
+  .pms-ico{ width:22px; height:22px; display:inline-grid; place-items:center }
+  .pms-ico svg{ width:22px; height:22px }
+
+  /* Burger for small screens */
+  .pms-burger{ display:none; margin-left:auto; background:transparent; border:0; cursor:pointer; padding:8px }
+  .pms-burger span{ display:block; width:22px; height:2px; background:var(--nav-ink); margin:4px 0; border-radius:2px }
+  @media (max-width:800px){
+    .pms-burger{ display:block }
+    .pms-menu{ display:none; width:100% }
+    .pms-menu.open{ display:grid; grid-template-columns:1fr; gap:6px; padding:8px 0 }
+    .pms-link{ padding:10px 12px }
+  }
+</style>
+
+<script>
+  // Active link highlight and simple burger toggle.
+  (function(){
+    const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+    document.querySelectorAll('.pms-link').forEach(a=>{
+      if((a.dataset.page||'').toLowerCase() === here){
+        a.setAttribute('aria-current','page');
+        a.classList.add('active');
+      }
+    });
+    const burger = document.querySelector('.pms-burger');
+    const menu = document.getElementById('pms-menu');
+    if(burger && menu){
+      burger.addEventListener('click', ()=>{
+        const open = menu.classList.toggle('open');
+        burger.setAttribute('aria-expanded', open?'true':'false');
+      });
+    }
+  })();
+</script>
+<!-- ===== /PMS SIMPLE NAVBAR ===== -->
+
+<div class="wrap">
+  <h1>Print Slip — A5 Landscape (2 copies)</h1>
+  <div class="controls">
+    <div>
+      <label for="savedList">Saved slips</label>
+      <select id="savedList" title="Saved slips" style="min-width:320px;"></select>
+      <button id="btnLoad">Load</button>
+    </div>
+    <div>
+      <label for="shFetch">SH No.</label>
+      <input id="shFetch" type="number" inputmode="numeric" min="0" style="width:120px"/>
+      <button id="btnFetch">Fetch</button>
+    </div>
+    <div>
+      <label for="rows">Rows</label>
+      <input id="rows" type="number" min="4" max="12" value="8" style="width:70px"/>
+      <button id="btnPrint">Print 2-up</button>
+    </div>
+  </div>
+  <div class="note">Rows default to 8 to match the sample layout. Extra room entries beyond the row limit won’t be printed.</div>
+  <div class="status" id="status">Loading DB…</div>
+</div>
+
+<!-- Live preview / print content -->
+<div class="printable" id="printArea">
+  <div class="sheet" id="sheet"><!-- slips injected here --></div>
+</div>
+
+<script>
+/* ===== DB v2 plumbing ===== */
+const DB_NAME = 'pms_accommodation_db';
+const STORE   = 'slips';
+const DB_VERSION = 2;
+
+function openDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e)=>{
+      const db = e.target.result;
+      let s;
+      if(!db.objectStoreNames.contains(STORE)){
+        s = db.createObjectStore(STORE, { keyPath:'id', autoIncrement:true });
+      } else {
+        s = e.target.transaction.objectStore(STORE);
+      }
+      if(!s.indexNames.contains('createdAt')) s.createIndex('createdAt','createdAt',{unique:false});
+      if(!s.indexNames.contains('sh_no'))     s.createIndex('sh_no','sh_no',{unique:false});
+      if(!s.indexNames.contains('building'))  s.createIndex('building','building',{unique:false});
+    };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror   = ()=> reject(req.error);
+  });
+}
+
+async function getAllRecords(){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readonly');
+    const st = tx.objectStore(STORE);
+    const rq = st.getAll();
+    rq.onsuccess = ()=> resolve(rq.result || []);
+    rq.onerror   = ()=> reject(rq.error);
+    tx.oncomplete = ()=> db.close();
+  });
+}
+
+async function getLatestBySh(sh){
+  const db = await openDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE, 'readonly');
+    const st = tx.objectStore(STORE);
+    if(st.indexNames.contains('sh_no')){
+      const rq = st.index('sh_no').getAll(Number(sh));
+      rq.onsuccess = ()=>{
+        const arr = (rq.result || []).sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+        resolve(arr[0] || null);
+      };
+      rq.onerror = ()=> reject(rq.error);
+    } else {
+      const all = st.getAll();
+      all.onsuccess = ()=>{
+        const arr = (all.result || []).filter(r=> r.sh_no === Number(sh)).sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+        resolve(arr[0] || null);
+      };
+      all.onerror = ()=> reject(all.error);
+    }
+    tx.oncomplete = ()=> db.close();
+  });
+}
+
+/* ===== UI helpers ===== */
+function $(id){ return document.getElementById(id); }
+let CACHE = [];
+let CURRENT = null;
+
+function ymdToDMY(ymd){
+  if(!ymd) return '';
+  const [y,m,d] = ymd.split('-');
+  return `${d}/${m}/${y}`;
+}
+function hhmmToHMS(hhmm){
+  if(!hhmm) return '';
+  const [h,m] = hhmm.split(':');
+  return `${h}:${m}:00`;
+}
+
+/* Build the slip HTML for one copy */
+function slipHTML(rec, rows){
+  const title = 'ACCOMODATION DETAILS'; // matches the screenshot spelling
+  const ciDate = ymdToDMY(rec.checkin_date || '');
+  const coDate = ymdToDMY(rec.checkout_date || '');
+  const ciTime = hhmmToHMS(rec.checkin_time || '');
+  const coTime = hhmmToHMS(rec.checkout_time || '');
+
+  const gents = (rec.rooms?.gents || []).slice(0, rows);
+  const ladies = (rec.rooms?.ladies || []).slice(0, rows);
+
+  function fillRows(arr){
+    const out = [];
+    for(let i=0;i<rows;i++){
+      const r = arr[i];
+      const room = r && r.room_no ? r.room_no : '-';
+      const cap  = r && (r.capacity!=='' && r.capacity!=null) ? r.capacity : 0;
+      out.push(`<tr><td>${room}</td><td>${cap}</td></tr>`);
+    }
+    return out.join('');
+  }
+
+  return `
+  <div class="slip">
+    <div class="title">${title}</div>
+    <table class="grid pair">
+      <tbody>
+        <tr>
+          <th>TOUR NAME</th>
+          <td colspan="3">${rec.tour_name || ''}</td>
+        </tr>
+        <tr>
+          <th>GRP LEADER</th>
+          <td colspan="3">${rec.group_leader || ''}</td>
+        </tr>
+        <tr>
+          <th>CHECK IN</th>
+          <td>${ciDate}</td>
+          <td>${ciTime}</td>
+          <td></td>
+        </tr>
+        <tr>
+          <th>CHECK OUT</th>
+          <td>${coDate}</td>
+          <td>${coTime}</td>
+          <td></td>
+        </tr>
+        <tr>
+          <th>BUILDING</th>
+          <td colspan="3">${rec.building || ''}</td>
+        </tr>
+        <tr>
+          <th>SH NO.</th>
+          <td>${rec.sh_no ?? ''}</td>
+          <th>TOTAL</th>
+          <td>${rec.total ?? ''}</td>
+        </tr>
+        <tr>
+          <th>GENTS</th>
+          <td>${rec.gents ?? ''}</td>
+          <th>LADIES</th>
+          <td>${rec.ladies ?? ''}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="subtables">
+      <table class="mini">
+        <caption>GENTS</caption>
+        <thead>
+          <tr><th>Room No</th><th>Capacity</th></tr>
+        </thead>
+        <tbody>
+          ${fillRows(gents)}
+        </tbody>
+      </table>
+
+      <table class="mini">
+        <caption>LADIES</caption>
+        <thead>
+          <tr><th>Room No</th><th>Capacity</th></tr>
+        </thead>
+        <tbody>
+          ${fillRows(ladies)}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderSlips(){
+  const area = $('sheet');
+  area.innerHTML = '';
+  if(!CURRENT){ area.innerHTML = '<div class="slip"><div class="title">ACCOMODATION DETAILS</div><div style="padding:4mm; font-size:11px;">No slip loaded.</div></div><div class="slip"><div class="title">ACCOMODATION DETAILS</div><div style="padding:4mm; font-size:11px;">No slip loaded.</div></div>'; return; }
+  const rows = Math.max(4, Math.min(12, Number($('rows').value || 8)));
+  // two identical copies
+  area.insertAdjacentHTML('beforeend', slipHTML(CURRENT, rows));
+  area.insertAdjacentHTML('beforeend', slipHTML(CURRENT, rows));
+}
+
+/* Populate dropdown */
+async function refreshList(){
+  CACHE = await getAllRecords();
+  const list = $('savedList');
+  list.innerHTML = '';
+  if(!CACHE.length){
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'No slips found';
+    list.appendChild(opt);
+  } else {
+    const sorted = [...CACHE].sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+    for(const r of sorted){
+      const when = new Date(r.createdAt).toLocaleString();
+      const name = r.tour_name || '(unnamed tour)';
+      const sh = r.sh_no ?? '';
+      const o = document.createElement('option');
+      o.value = r.id;
+      o.textContent = `#${r.id} — ${name}${sh!==''?' — SH '+sh:''} — ${when}`;
+      list.appendChild(o);
+    }
+  }
+  $('status').textContent = `${CACHE.length} slip(s) in DB. Load one to preview.`;
+}
+
+/* Wire events */
+$('btnLoad').addEventListener('click', ()=>{
+  const id = Number($('savedList').value);
+  const rec = CACHE.find(x=> x.id === id);
+  if(!rec){ alert('Select a valid slip.'); return; }
+  CURRENT = rec;
+  renderSlips();
+  $('status').textContent = `Loaded #${rec.id}${rec.sh_no?' (SH '+rec.sh_no+')':''}`;
+});
+$('btnFetch').addEventListener('click', async ()=>{
+  const val = $('shFetch').value;
+  if(val === ''){ alert('Enter SH No.'); return; }
+  const rec = await getLatestBySh(Number(val));
+  if(!rec){ $('status').textContent = 'No slip with that SH.'; return; }
+  CURRENT = rec;
+  renderSlips();
+  $('status').textContent = `Loaded latest slip for SH ${rec.sh_no} (#${rec.id})`;
+});
+$('rows').addEventListener('change', renderSlips);
+$('btnPrint').addEventListener('click', ()=> window.print());
+
+/* Boot */
+(async function init(){
+  await refreshList();
+  renderSlips();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Accommodation Details Slip — v3</title>
+<style>
+  :root { --border:#222; --muted:#666; --pad:10px; --warn:#b91c1c; --ok:#0f766e; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f9; margin:0; }
+  .wrap { max-width: 1024px; margin: 24px auto; background:#fff; padding: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.08); border-radius: 10px; }
+  h1 { text-align:center; letter-spacing:.5px; margin: 0 0 12px; }
+  .controls { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; margin: 8px 0 16px; }
+  button, select { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; }
+  button:hover { background:#f0f0f0; }
+  .grid { width:100%; border-collapse: collapse; }
+  .grid th, .grid td { border:1px solid var(--border); padding: var(--pad); vertical-align: middle; }
+  .grid th { background:#fafafa; text-align:left; font-weight:700; }
+  .grid caption { caption-side: top; font-weight: 800; padding: 8px 0 10px; }
+  .kv th { width: 22%; }
+  .kv td[colspan="3"] input, .kv td[colspan="3"] select { width: 100%; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="time"] {
+    width: 100%; padding:8px; border:1px solid #bbb; border-radius:6px; font: inherit; background:#fff;
+  }
+  select { width:100%; padding:8px; border:1px solid #bbb; border-radius:6px; background:#fff; }
+  .inline { display:flex; gap:6px; align-items:center; }
+  .inline > * { flex: 1 1 auto; }
+  .inline button { flex: 0 0 auto; }
+  .subtables { display:flex; gap:12px; }
+  .mini { width:50%; border-collapse: collapse; }
+  .mini th, .mini td { border:1px solid var(--border); padding: var(--pad); }
+  .mini th { background:#f6f6f6; text-align:left; }
+  .mini tfoot td { background:#fafafa; }
+  .row-btn { padding:6px 10px; border-radius:6px; border:1px solid #bbb; background:#fff; cursor:pointer; }
+  .row-btn:hover { background:#f0f0f0; }
+  .help { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .muted { color: var(--muted); }
+  .toolbar { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* availability highlights */
+  .conflict input[type="text"], .conflict input[type="number"] { border-color: var(--warn); background:#fff7f7; }
+  .okfill input[type="text"], .okfill input[type="number"] { border-color: var(--ok); background:#f3fcfa; }
+
+  @media print {
+    body { background:#fff; }
+    .controls, .help, .row-btn, #loadBar, .toolbar { display:none !important; }
+    .wrap { box-shadow:none; padding:0; margin:0; }
+    input, select { border:0 !important; padding:0 !important; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<!-- ===== PMS SIMPLE NAVBAR (paste near top of <body>) ===== -->
+<nav class="pms-nav" role="navigation" aria-label="Primary">
+  <div class="pms-nav__in">
+    <a class="pms-brand" href="index.html" aria-label="Home">
+      <!-- Kaaba-ish mark -->
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" rx="3" fill="#0f766e"></rect>
+        <rect x="3" y="8" width="18" height="2" fill="#facc15"></rect>
+      </svg>
+      <span>PMS</span>
+    </a>
+
+    <button class="pms-burger" aria-expanded="false" aria-controls="pms-menu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div id="pms-menu" class="pms-menu">
+      <!-- Slip -->
+      <a class="pms-link" href="accommodation_slip.html" data-page="accommodation_slip.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Pen & list -->
+          <svg viewBox="0 0 24 24"><path d="M4 4h12a2 2 0 0 1 2 2v3H4V6a2 2 0 0 1 2-2Z" fill="#0ea5e9"/><path d="M4 9h14v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9Z" fill="#93c5fd"/><path d="M8 13h6M8 16h6" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Slip</span>
+      </a>
+
+      <!-- Forecast -->
+      <a class="pms-link" href="vacancy_forecast.html" data-page="vacancy_forecast.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Calendar & search -->
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="14" height="14" rx="2" fill="#22c55e"/><path d="M3 8h14" stroke="#0b1220"/><circle cx="17.5" cy="17.5" r="3.5" fill="#86efac"/><path d="m20.5 20.5 2.5 2.5" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Forecast</span>
+      </a>
+
+      <!-- Print -->
+      <a class="pms-link" href="print_slip_a5.html" data-page="print_slip_a5.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Printer -->
+          <svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="5" rx="1" fill="#f59e0b"/><rect x="4" y="8" width="16" height="9" rx="2" fill="#fde68a"/><rect x="7" y="13" width="10" height="8" rx="1" fill="#fbbf24"/></svg>
+        </span>
+        <span>Print</span>
+      </a>
+
+      <!-- Admin -->
+      <a class="pms-link" href="slip_admin.html" data-page="slip_admin.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- DB cylinder with shield -->
+          <svg viewBox="0 0 24 24"><ellipse cx="9" cy="6" rx="6" ry="3" fill="#64748b"/><path d="M3 6v6c0 1.7 2.7 3 6 3s6-1.3 6-3V6" fill="#94a3b8"/><path d="M18 10l3 1v4c0 2.2-1.6 4.2-3 5-1.4-.8-3-2.8-3-5v-4l3-1Z" fill="#0ea5e9"/></svg>
+        </span>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<style>
+  :root{
+    --nav-bg:#ffffff; --nav-ink:#0b1220; --nav-muted:#6b7280; --nav-accent:#0f766e;
+    --nav-border:#e5e7eb; --nav-chip:#ecfeff; --shadow:0 10px 28px rgba(2,6,23,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --nav-bg:#0f1216; --nav-ink:#e5e7eb; --nav-muted:#9aa4b2; --nav-accent:#22d3ee; --nav-border:#1f2937; --nav-chip:#062e2e; --shadow:none; }
+  }
+  .pms-nav{ position:sticky; top:0; z-index:9999; background:var(--nav-bg); color:var(--nav-ink);
+    border-bottom:1px solid var(--nav-border); box-shadow:var(--shadow) }
+  .pms-nav__in{ max-width:1200px; margin:0 auto; padding:8px 14px; display:flex; align-items:center; gap:10px }
+  .pms-brand{ display:inline-flex; align-items:center; gap:8px; color:inherit; text-decoration:none; font-weight:900; letter-spacing:.3px; padding:6px 8px; border-radius:10px }
+  .pms-brand:hover{ background:var(--nav-chip) }
+  .pms-menu{ display:flex; align-items:center; gap:4px; margin-left:auto; flex-wrap:wrap }
+  .pms-link{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; color:inherit; text-decoration:none; border:1px solid transparent }
+  .pms-link:hover{ background:var(--nav-chip); border-color:var(--nav-border) }
+  .pms-link[aria-current="page"], .pms-link.active{ background:linear-gradient(0deg, rgba(34,211,238,.12), rgba(34,211,238,.12)); border-color:#99f6e4 }
+  .pms-ico{ width:22px; height:22px; display:inline-grid; place-items:center }
+  .pms-ico svg{ width:22px; height:22px }
+
+  /* Burger for small screens */
+  .pms-burger{ display:none; margin-left:auto; background:transparent; border:0; cursor:pointer; padding:8px }
+  .pms-burger span{ display:block; width:22px; height:2px; background:var(--nav-ink); margin:4px 0; border-radius:2px }
+  @media (max-width:800px){
+    .pms-burger{ display:block }
+    .pms-menu{ display:none; width:100% }
+    .pms-menu.open{ display:grid; grid-template-columns:1fr; gap:6px; padding:8px 0 }
+    .pms-link{ padding:10px 12px }
+  }
+</style>
+
+<script>
+  // Active link highlight and simple burger toggle.
+  (function(){
+    const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+    document.querySelectorAll('.pms-link').forEach(a=>{
+      if((a.dataset.page||'').toLowerCase() === here){
+        a.setAttribute('aria-current','page');
+        a.classList.add('active');
+      }
+    });
+    const burger = document.querySelector('.pms-burger');
+    const menu = document.getElementById('pms-menu');
+    if(burger && menu){
+      burger.addEventListener('click', ()=>{
+        const open = menu.classList.toggle('open');
+        burger.setAttribute('aria-expanded', open?'true':'false');
+      });
+    }
+  })();
+</script>
+<!-- ===== /PMS SIMPLE NAVBAR ===== -->
+
+  <div class="wrap">
+    <h1>ACCOMMODATION DETAILS</h1>
+
+    <div class="controls no-print" id="loadBar">
+      <select id="savedList" title="Saved slips"></select>
+      <button id="btnRefresh">Refresh List</button>
+      <button id="btnLoad">Load Selected</button>
+      <button id="btnNew">New Slip</button>
+    </div>
+
+    <table class="grid kv">
+      <tbody>
+        <tr>
+          <th>TOUR NAME</th>
+          <td colspan="3"><input id="tour_name" type="text" placeholder=""/></td>
+        </tr>
+        <tr>
+          <th>GRP LEADER</th>
+          <td colspan="3"><input id="group_leader" type="text" placeholder=""/></td>
+        </tr>
+        <tr>
+          <th>CHECK IN</th>
+          <td><input id="checkin_date" type="date"/></td>
+          <td><input id="checkin_time" type="time"/></td>
+          <td class="muted">date & time</td>
+        </tr>
+        <tr>
+          <th>CHECK OUT</th>
+          <td><input id="checkout_date" type="date"/></td>
+          <td><input id="checkout_time" type="time"/></td>
+          <td class="muted">date & time</td>
+        </tr>
+        <tr>
+          <th>BUILDING</th>
+          <td colspan="3">
+            <select id="building">
+              <option value="">Select building…</option>
+              <option>Mohammedi</option>
+              <option>Mufaddal</option>
+              <option>Snood</option>
+              <option>Baha</option>
+              <option>Husn</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <th>SH NO.</th>
+          <td>
+            <div class="inline">
+              <input id="sh_no" type="number" inputmode="numeric" min="0" step="1" />
+              <button id="btnFetchSh" title="Fetch latest slip with this SH">Fetch</button>
+            </div>
+          </td>
+          <th>TOTAL</th>
+          <td><input id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
+        </tr>
+        <tr>
+          <th>GENTS</th>
+          <td><input id="gents" type="number" inputmode="numeric" min="0" step="1" /></td>
+          <th>LADIES</th>
+          <td><input id="ladies" type="number" inputmode="numeric" min="0" step="1" /></td>
+        </tr>
+        <tr>
+          <th>INFANTS</th>
+          <td><input id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
+          <th>CHILDREN</th>
+          <td><input id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="subtables" style="margin-top:16px;">
+      <table class="mini" id="tblGents">
+        <caption>GENTS — Rooms</caption>
+        <thead>
+          <tr><th style="width:60%">Room No</th><th style="width:30%">Capacity</th><th style="width:10%"></th></tr>
+        </thead>
+        <tbody id="gents-tbody"></tbody>
+        <tfoot>
+          <tr><td colspan="3"><button class="row-btn" onclick="addRow('gents')">Add Row</button></td></tr>
+        </tfoot>
+      </table>
+
+      <table class="mini" id="tblLadies">
+        <caption>LADIES — Rooms</caption>
+        <thead>
+          <tr><th style="width:60%">Room No</th><th style="width:30%">Capacity</th><th style="width:10%"></th></tr>
+        </thead>
+        <tbody id="ladies-tbody"></tbody>
+        <tfoot>
+          <tr><td colspan="3"><button class="row-btn" onclick="addRow('ladies')">Add Row</button></td></tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="toolbar no-print">
+      <button id="btnFetchCap">Fetch capacity data</button>
+      <button id="btnCheckAvail">Check room availability</button>
+    </div>
+
+    <div class="help no-print">
+      Use <b>Fetch capacity data</b> after you enter room numbers. Unknown rooms show capacity placeholder <b>“unassigned.”</b><br/>
+      Use <b>Check room availability</b> to catch conflicts before saving.
+    </div>
+
+    <div class="controls no-print">
+      <button id="btnPrint">Print Slip</button>
+      <button id="btnSave">Save to DB</button>
+      <button id="btnEdit">Edit to DB</button>
+      <span class="muted" id="status"></span>
+    </div>
+  </div>
+
+<script>
+/* -------------------------- IndexedDB setup -------------------------- */
+const DB_NAME = 'pms_accommodation_db';
+const STORE   = 'slips';
+const DB_VERSION = 2;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      let store;
+      if (!db.objectStoreNames.contains(STORE)) {
+        store = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+      } else {
+        store = e.target.transaction.objectStore(STORE);
+      }
+      if (!store.indexNames.contains('createdAt')) store.createIndex('createdAt', 'createdAt', { unique: false });
+      if (!store.indexNames.contains('tour_name')) store.createIndex('tour_name', 'tour_name', { unique: false });
+      if (!store.indexNames.contains('sh_no'))     store.createIndex('sh_no', 'sh_no', { unique: false });
+      if (!store.indexNames.contains('building'))  store.createIndex('building', 'building', { unique: false });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function addRecord(data) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    const req = store.add(data);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror  = () => reject(req.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+async function updateRecord(id, patch) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    const getReq = store.get(Number(id));
+    getReq.onsuccess = () => {
+      const old = getReq.result;
+      if (!old) { reject(new Error('Record not found')); return; }
+      const updated = { ...old, ...patch, id: old.id, createdAt: old.createdAt, updatedAt: new Date().toISOString() };
+      const putReq = store.put(updated);
+      putReq.onsuccess = () => resolve(updated.id);
+      putReq.onerror = () => reject(putReq.error);
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+async function getAllRecords() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+async function getRecord(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    const req = store.get(Number(id));
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+async function getLatestBySh(sh) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    let req;
+    if (store.indexNames.contains('sh_no')) {
+      req = store.index('sh_no').getAll(Number(sh));
+      req.onsuccess = () => {
+        const arr = (req.result || []).sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+        resolve(arr[0] || null);
+      };
+      req.onerror = () => reject(req.error);
+    } else {
+      const all = store.getAll();
+      all.onsuccess = () => {
+        const arr = (all.result || []).filter(r=> r.sh_no === Number(sh)).sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+        resolve(arr[0] || null);
+      };
+      all.onerror = () => reject(all.error);
+    }
+    tx.oncomplete = () => db.close();
+  });
+}
+
+/* ------------------------------ Helpers ----------------------------- */
+function $(id){ return document.getElementById(id); }
+let CURRENT_ID = null;
+let DB_CACHE = []; // for capacity + availability lookup
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function parseDT(d,t){ if(!d) return null; const tt = t && t.length ? t : '00:00'; const v=new Date(`${d}T${tt}`); return isNaN(v)?null:v; }
+function fmt(dt){ if(!dt) return ''; return new Intl.DateTimeFormat(undefined,{dateStyle:'medium', timeStyle:'short'}).format(dt); }
+function cleanRoom(x){ return String(x ?? '').trim(); }
+function uniq(arr){ return Array.from(new Set(arr)); }
+
+async function refreshDBCache(){
+  DB_CACHE = await getAllRecords();
+}
+
+function addRow(group, data={room_no:'', capacity:''}) {
+  const tbody = $(group + '-tbody');
+  const tr = document.createElement('tr');
+
+  const tdRoom = document.createElement('td');
+  const inpRoom = document.createElement('input');
+  inpRoom.type = 'text';
+  inpRoom.placeholder = '';
+  inpRoom.value = data.room_no || '';
+  tdRoom.appendChild(inpRoom);
+
+  const tdCap = document.createElement('td');
+  const inpCap = document.createElement('input');
+  inpCap.type = 'number';
+  inpCap.min = '0';
+  inpCap.step = '1';
+  inpCap.inputMode = 'numeric';
+  inpCap.value = data.capacity ?? '';
+  tdCap.appendChild(inpCap);
+
+  const tdDel = document.createElement('td');
+  const btnDel = document.createElement('button');
+  btnDel.className = 'row-btn';
+  btnDel.type = 'button';
+  btnDel.textContent = 'X';
+  btnDel.title = 'Delete row';
+  btnDel.onclick = () => tr.remove();
+  tdDel.appendChild(btnDel);
+
+  tr.append(tdRoom, tdCap, tdDel);
+  tbody.appendChild(tr);
+}
+
+function collectRows(group) {
+  const rows = [];
+  document.querySelectorAll(`#${group}-tbody tr`).forEach(tr => {
+    const [roomNoEl, capEl] = tr.querySelectorAll('input');
+    const room_no = (roomNoEl.value || '').trim();
+    const capRaw = (capEl.value || '').trim();
+    // treat non-numeric as unknown; we store '' in DB
+    const capacity = /^\d+$/.test(capRaw) ? Number(capRaw) : '';
+    if (room_no !== '' || capRaw !== '') rows.push({ room_no, capacity });
+  });
+  return rows;
+}
+
+function setRows(group, arr) {
+  const tbody = $(group + '-tbody');
+  tbody.innerHTML = '';
+  if (!arr || !arr.length) { addRow(group); return; }
+  arr.forEach(r => addRow(group, r));
+}
+
+function getFormData() {
+  return {
+    tour_name: $('tour_name').value.trim(),
+    group_leader: $('group_leader').value.trim(),
+    checkin_date: $('checkin_date').value || '',
+    checkin_time: $('checkin_time').value || '',
+    checkout_date: $('checkout_date').value || '',
+    checkout_time: $('checkout_time').value || '',
+    building: $('building').value || '',
+    sh_no: $('sh_no').value === '' ? '' : Number($('sh_no').value),
+    total: $('total').value === '' ? '' : Number($('total').value),
+    gents: $('gents').value === '' ? '' : Number($('gents').value),
+    ladies: $('ladies').value === '' ? '' : Number($('ladies').value),
+    infants: $('infants').value === '' ? '' : Number($('infants').value),
+    children: $('children').value === '' ? '' : Number($('children').value),
+    rooms: {
+      gents: collectRows('gents'),
+      ladies: collectRows('ladies')
+    },
+    createdAt: new Date().toISOString()
+  };
+}
+
+function setFormData(data) {
+  $('tour_name').value = data.tour_name || '';
+  $('group_leader').value = data.group_leader || '';
+  $('checkin_date').value = data.checkin_date || '';
+  $('checkin_time').value = data.checkin_time || '';
+  $('checkout_date').value = data.checkout_date || '';
+  $('checkout_time').value = data.checkout_time || '';
+  $('building').value = data.building || '';
+  $('sh_no').value = data.sh_no ?? '';
+  $('total').value = data.total ?? '';
+  $('gents').value = data.gents ?? '';
+  $('ladies').value = data.ladies ?? '';
+  $('infants').value = data.infants ?? '';
+  $('children').value = data.children ?? '';
+  setRows('gents', data.rooms?.gents || []);
+  setRows('ladies', data.rooms?.ladies || []);
+}
+
+function clearForm() {
+  CURRENT_ID = null;
+  setFormData({
+    tour_name:'', group_leader:'', checkin_date:'', checkin_time:'',
+    checkout_date:'', checkout_time:'', building:'', sh_no:'',
+    total:'', gents:'', ladies:'', infants:'', children:'',
+    rooms: { gents:[], ladies:[] }
+  });
+}
+
+/* ------------------------ Saved list UI ------------------------ */
+async function refreshSavedList() {
+  const list = $('savedList');
+  list.innerHTML = '';
+  const items = await getAllRecords();
+  if (!items.length) {
+    const opt = document.createElement('option');
+    opt.textContent = 'No saved slips yet';
+    opt.value = '';
+    list.appendChild(opt);
+    return;
+  }
+  items.sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+  for (const rec of items) {
+    const opt = document.createElement('option');
+    const when = new Date(rec.createdAt).toLocaleString();
+    const name = rec.tour_name || '(unnamed tour)';
+    const sh = (rec.sh_no ?? '') === '' ? '' : ` • SH ${rec.sh_no}`;
+    opt.textContent = `#${rec.id} — ${name}${sh} — ${when}`;
+    opt.value = rec.id;
+    list.appendChild(opt);
+  }
+}
+
+/* ---------------- Capacity lookup (most recent per building|room) --------------- */
+function buildCapacityMap(buildingFilter){
+  const cap = new Map(); // key: building|room -> capacity
+  const items = [...DB_CACHE].sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+  for(const r of items){
+    const b = (r.building||'').trim();
+    if(buildingFilter && b !== buildingFilter) continue;
+    (r.rooms?.gents||[]).forEach(x=>{
+      const key = `${b}|${cleanRoom(x.room_no)}`;
+      const c = (x.capacity===''||x.capacity==null) ? null : Number(x.capacity);
+      if(!cap.has(key) && c!=null) cap.set(key, c);
+    });
+    (r.rooms?.ladies||[]).forEach(x=>{
+      const key = `${b}|${cleanRoom(x.room_no)}`;
+      const c = (x.capacity===''||x.capacity==null) ? null : Number(x.capacity);
+      if(!cap.has(key) && c!=null) cap.set(key, c);
+    });
+  }
+  return cap;
+}
+
+function setUnassigned(input){
+  input.value = '';
+  input.placeholder = 'unassigned';
+}
+
+/* Fill capacities for both tables based on entered rooms */
+async function fetchCapacities(){
+  await refreshDBCache();
+  const b = ($('building').value || '').trim();
+  if(!b){ alert('Select a building first.'); return; }
+  const capMap = buildCapacityMap(b);
+
+  let filled = 0, unknown = 0;
+
+  ['gents','ladies'].forEach(group=>{
+    document.querySelectorAll(`#${group}-tbody tr`).forEach(tr=>{
+      tr.classList.remove('okfill');
+      const [roomEl, capEl] = tr.querySelectorAll('input');
+      const room = cleanRoom(roomEl.value);
+      if(!room) return;
+      const key = `${b}|${room}`;
+      if(capMap.has(key)){
+        capEl.value = capMap.get(key);
+        capEl.placeholder = '';
+        tr.classList.add('okfill');
+        filled++;
+      }else{
+        setUnassigned(capEl);
+        unknown++;
+      }
+    });
+  });
+
+  $('status').textContent = `Capacity fetch: filled ${filled} item(s); ${unknown} unassigned.`;
+}
+
+/* ---------------- Availability check ---------------- */
+function overlaps(aStart, aEnd, bStart, bEnd){
+  return aStart < bEnd && aEnd > bStart; // [start, end)
+}
+
+function highlightConflicts(confRooms){
+  // wipe
+  ['gents','ladies'].forEach(group=>{
+    document.querySelectorAll(`#${group}-tbody tr`).forEach(tr=> tr.classList.remove('conflict'));
+  });
+  if(!confRooms.size) return;
+  ['gents','ladies'].forEach(group=>{
+    document.querySelectorAll(`#${group}-tbody tr`).forEach(tr=>{
+      const [roomEl] = tr.querySelectorAll('input');
+      const room = cleanRoom(roomEl.value);
+      if(confRooms.has(room)) tr.classList.add('conflict');
+    });
+  });
+}
+
+async function checkAvailability(){
+  await refreshDBCache();
+
+  const bld = ($('building').value || '').trim();
+  const ci = parseDT($('checkin_date').value, $('checkin_time').value);
+  const co = parseDT($('checkout_date').value, $('checkout_time').value);
+
+  if(!bld || !ci || !co || co <= ci){
+    alert('Enter a valid building and check-in/check-out window first.');
+    return false;
+  }
+
+  const rooms = [...collectRows('gents'), ...collectRows('ladies')].map(r=> cleanRoom(r.room_no)).filter(Boolean);
+  const uniqRooms = uniq(rooms);
+  if(!uniqRooms.length){ alert('Enter at least one room number.'); return false; }
+
+  const conflicts = new Map(); // room -> {freeAt: Date, stays: [rec]}
+  for(const r of DB_CACHE){
+    if(CURRENT_ID && r.id === CURRENT_ID) continue; // ignore self
+    const rb = (r.building||'').trim();
+    if(rb !== bld) continue;
+
+    const rci = parseDT(r.checkin_date, r.checkin_time);
+    const rco = parseDT(r.checkout_date, r.checkout_time);
+    if(!rci || !rco) continue;
+
+    // if no overlap with our overall window, skip
+    if(!overlaps(ci, co, rci, rco)) continue;
+
+    const usedRooms = [
+      ...(r.rooms?.gents||[]).map(x=> cleanRoom(x.room_no)),
+      ...(r.rooms?.ladies||[]).map(x=> cleanRoom(x.room_no))
+    ].filter(Boolean);
+
+    for(const room of uniqRooms){
+      if(usedRooms.includes(room)){
+        const entry = conflicts.get(room) || { freeAt: rco, stays: [] };
+        // latest checkout among overlapping stays decides "free at"
+        entry.freeAt = entry.freeAt && entry.freeAt > rco ? entry.freeAt : rco;
+        entry.stays.push({
+          tour: r.tour_name || '',
+          leader: r.group_leader || '',
+          sh: r.sh_no ?? '',
+          win: `${fmt(rci)} → ${fmt(rco)}`
+        });
+        conflicts.set(room, entry);
+      }
+    }
+  }
+
+  const confRooms = new Set(conflicts.keys());
+  highlightConflicts(confRooms);
+
+  if(confRooms.size){
+    const lines = [];
+    for(const room of confRooms){
+      const c = conflicts.get(room);
+      lines.push(`${room} is occupied; will be empty at ${fmt(c.freeAt)}.`);
+    }
+    alert(lines.join('\n') + '\nEnter another room to proceed.');
+    $('status').textContent = `${confRooms.size} room(s) in conflict.`;
+    return false;
+  }else{
+    alert('All entered rooms are available in the selected window.');
+    $('status').textContent = 'Availability OK.';
+    return true;
+  }
+}
+
+/* ---------------------------- Events --------------------------- */
+$('btnPrint').addEventListener('click', () => window.print());
+
+$('btnSave').addEventListener('click', async () => {
+  try {
+    const data = getFormData();
+    const ok = await checkAvailability(); // optional guard; comment out if you want silent save
+    if(ok === false) return;
+    const id = await addRecord(data);
+    CURRENT_ID = id;
+    $('status').textContent = `Saved as #${id}`;
+    await refreshSavedList();
+  } catch (err) {
+    $('status').textContent = 'Save failed. Check console.';
+    console.error('Save error:', err);
+    alert('Failed to save. Your browser may block IndexedDB in this context.');
+  }
+});
+
+$('btnEdit').addEventListener('click', async () => {
+  try{
+    if (!CURRENT_ID) { alert('Load a slip (Saved list or SH Fetch) before editing.'); return; }
+    const data = getFormData();
+    const ok = await checkAvailability(); // validate before edit too
+    if(ok === false) return;
+    delete data.createdAt; // keep original
+    const id = await updateRecord(CURRENT_ID, data);
+    $('status').textContent = `Updated #${id}`;
+    await refreshSavedList();
+  }catch(err){
+    $('status').textContent = 'Edit failed. See console.';
+    console.error('Edit error:', err);
+    alert('Edit failed.');
+  }
+});
+
+$('btnRefresh').addEventListener('click', async ()=>{
+  await refreshSavedList();
+  await refreshDBCache();
+  $('status').textContent = 'Refreshed.';
+});
+
+$('btnLoad').addEventListener('click', async () => {
+  const id = $('savedList').value;
+  if (!id) return;
+  const rec = await getRecord(id);
+  if (!rec) return alert('Could not load that record.');
+  CURRENT_ID = rec.id;
+  setFormData(rec);
+  $('status').textContent = `Loaded #${rec.id}`;
+});
+
+$('btnNew').addEventListener('click', () => {
+  clearForm();
+  $('status').textContent = 'New blank slip';
+});
+
+$('btnFetchSh').addEventListener('click', async ()=>{
+  const raw = $('sh_no').value;
+  if (raw === '' || isNaN(Number(raw))) { alert('Enter a valid SH No.'); return; }
+  const rec = await getLatestBySh(Number(raw));
+  if (!rec) { $('status').textContent = 'No slip found for that SH.'; return; }
+  CURRENT_ID = rec.id;
+  setFormData(rec);
+  $('status').textContent = `Loaded latest slip for SH ${rec.sh_no} (#${rec.id})`;
+});
+
+$('sh_no').addEventListener('blur', async ()=>{
+  const hasAny = ($('tour_name').value || $('group_leader').value || $('building').value);
+  if (hasAny) return;
+  const raw = $('sh_no').value;
+  if (raw !== '' && !isNaN(Number(raw))) {
+    const rec = await getLatestBySh(Number(raw));
+    if (rec) {
+      CURRENT_ID = rec.id;
+      setFormData(rec);
+      $('status').textContent = `Auto-loaded latest slip for SH ${rec.sh_no} (#${rec.id})`;
+    }
+  }
+});
+
+$('btnFetchCap').addEventListener('click', fetchCapacities);
+$('btnCheckAvail').addEventListener('click', checkAvailability);
+
+/* ------------------------------ Boot ------------------------------- */
+(async function boot(){
+  clearForm();
+  addRow('gents'); addRow('ladies');
+  await refreshSavedList();
+  await refreshDBCache();
+})();
+</script>
+</body>
+</html>

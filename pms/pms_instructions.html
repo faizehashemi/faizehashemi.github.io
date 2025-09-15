@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PMS Instructions, SOPs & Recovery</title>
+<style>
+  :root{--bg:#f7f7f9;--card:#fff;--ink:#0b1220;--muted:#6b7280;--border:#e5e7eb;--accent:#0f766e}
+  body{margin:0;font:15.5px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:980px;margin:26px auto;padding:0 14px 40px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin:0 0 14px}
+  h1{margin:0 0 6px} h2{margin:6px 0} h3{margin:10px 0 6px}
+  .muted{color:var(--muted)} a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px} @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  ul{margin:8px 0 0 20px}
+  code,kbd{background:#f3f5f7;border:1px solid var(--border);border-radius:6px;padding:0 6px}
+  .pill{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:4px 10px;margin:0 6px 6px 0;background:#fff}
+  .toc a{display:block;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:#fff;margin:6px 0}
+  .tip{border-left:4px solid #22c55e;padding:8px;background:#f6fff9;border-radius:8px}
+  .warn{border-left:4px solid #ef4444;padding:8px;background:#fff6f6;border-radius:8px}
+</style>
+</head>
+<body>
+<!-- ===== PMS SIMPLE NAVBAR (paste near top of <body>) ===== -->
+<nav class="pms-nav" role="navigation" aria-label="Primary">
+  <div class="pms-nav__in">
+    <a class="pms-brand" href="index.html" aria-label="Home">
+      <!-- Kaaba-ish mark -->
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" rx="3" fill="#0f766e"></rect>
+        <rect x="3" y="8" width="18" height="2" fill="#facc15"></rect>
+      </svg>
+      <span>PMS</span>
+    </a>
+
+    <button class="pms-burger" aria-expanded="false" aria-controls="pms-menu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div id="pms-menu" class="pms-menu">
+      <!-- Slip -->
+      <a class="pms-link" href="accommodation_slip.html" data-page="accommodation_slip.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Pen & list -->
+          <svg viewBox="0 0 24 24"><path d="M4 4h12a2 2 0 0 1 2 2v3H4V6a2 2 0 0 1 2-2Z" fill="#0ea5e9"/><path d="M4 9h14v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9Z" fill="#93c5fd"/><path d="M8 13h6M8 16h6" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Slip</span>
+      </a>
+
+      <!-- Forecast -->
+      <a class="pms-link" href="vacancy_forecast.html" data-page="vacancy_forecast.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Calendar & search -->
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="14" height="14" rx="2" fill="#22c55e"/><path d="M3 8h14" stroke="#0b1220"/><circle cx="17.5" cy="17.5" r="3.5" fill="#86efac"/><path d="m20.5 20.5 2.5 2.5" stroke="#0b1220" stroke-linecap="round"/></svg>
+        </span>
+        <span>Forecast</span>
+      </a>
+
+      <!-- Print -->
+      <a class="pms-link" href="print_slip_a5.html" data-page="print_slip_a5.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- Printer -->
+          <svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="5" rx="1" fill="#f59e0b"/><rect x="4" y="8" width="16" height="9" rx="2" fill="#fde68a"/><rect x="7" y="13" width="10" height="8" rx="1" fill="#fbbf24"/></svg>
+        </span>
+        <span>Print</span>
+      </a>
+
+      <!-- Admin -->
+      <a class="pms-link" href="slip_admin.html" data-page="slip_admin.html">
+        <span class="pms-ico" aria-hidden="true">
+          <!-- DB cylinder with shield -->
+          <svg viewBox="0 0 24 24"><ellipse cx="9" cy="6" rx="6" ry="3" fill="#64748b"/><path d="M3 6v6c0 1.7 2.7 3 6 3s6-1.3 6-3V6" fill="#94a3b8"/><path d="M18 10l3 1v4c0 2.2-1.6 4.2-3 5-1.4-.8-3-2.8-3-5v-4l3-1Z" fill="#0ea5e9"/></svg>
+        </span>
+        <span>Admin</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<style>
+  :root{
+    --nav-bg:#ffffff; --nav-ink:#0b1220; --nav-muted:#6b7280; --nav-accent:#0f766e;
+    --nav-border:#e5e7eb; --nav-chip:#ecfeff; --shadow:0 10px 28px rgba(2,6,23,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --nav-bg:#0f1216; --nav-ink:#e5e7eb; --nav-muted:#9aa4b2; --nav-accent:#22d3ee; --nav-border:#1f2937; --nav-chip:#062e2e; --shadow:none; }
+  }
+  .pms-nav{ position:sticky; top:0; z-index:9999; background:var(--nav-bg); color:var(--nav-ink);
+    border-bottom:1px solid var(--nav-border); box-shadow:var(--shadow) }
+  .pms-nav__in{ max-width:1200px; margin:0 auto; padding:8px 14px; display:flex; align-items:center; gap:10px }
+  .pms-brand{ display:inline-flex; align-items:center; gap:8px; color:inherit; text-decoration:none; font-weight:900; letter-spacing:.3px; padding:6px 8px; border-radius:10px }
+  .pms-brand:hover{ background:var(--nav-chip) }
+  .pms-menu{ display:flex; align-items:center; gap:4px; margin-left:auto; flex-wrap:wrap }
+  .pms-link{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; color:inherit; text-decoration:none; border:1px solid transparent }
+  .pms-link:hover{ background:var(--nav-chip); border-color:var(--nav-border) }
+  .pms-link[aria-current="page"], .pms-link.active{ background:linear-gradient(0deg, rgba(34,211,238,.12), rgba(34,211,238,.12)); border-color:#99f6e4 }
+  .pms-ico{ width:22px; height:22px; display:inline-grid; place-items:center }
+  .pms-ico svg{ width:22px; height:22px }
+
+  /* Burger for small screens */
+  .pms-burger{ display:none; margin-left:auto; background:transparent; border:0; cursor:pointer; padding:8px }
+  .pms-burger span{ display:block; width:22px; height:2px; background:var(--nav-ink); margin:4px 0; border-radius:2px }
+  @media (max-width:800px){
+    .pms-burger{ display:block }
+    .pms-menu{ display:none; width:100% }
+    .pms-menu.open{ display:grid; grid-template-columns:1fr; gap:6px; padding:8px 0 }
+    .pms-link{ padding:10px 12px }
+  }
+</style>
+
+<script>
+  // Active link highlight and simple burger toggle.
+  (function(){
+    const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+    document.querySelectorAll('.pms-link').forEach(a=>{
+      if((a.dataset.page||'').toLowerCase() === here){
+        a.setAttribute('aria-current','page');
+        a.classList.add('active');
+      }
+    });
+    const burger = document.querySelector('.pms-burger');
+    const menu = document.getElementById('pms-menu');
+    if(burger && menu){
+      burger.addEventListener('click', ()=>{
+        const open = menu.classList.toggle('open');
+        burger.setAttribute('aria-expanded', open?'true':'false');
+      });
+    }
+  })();
+</script>
+<!-- ===== /PMS SIMPLE NAVBAR ===== -->
+
+<div class="wrap">
+  <h1>Instructions, Use Cases, and Recovery</h1>
+  <p class="muted">This system runs fully in your browser using IndexedDB. No server. No “cloud.” No excuses. <a href="seed.json" download="seed.json">Click here for sample data</a></p>
+
+  <div class="card">
+    <h2>Quick Start</h2>
+    <div class="grid">
+      <div>
+        <h3>Daily flow</h3>
+        <ol>
+          <li>Open <b>Home</b> (index.html) for KPIs and snapshot.</li>
+          <li>Create or edit slips in <a href="accommodation_slip.html">Accommodation Slip</a>.</li>
+          <li>Print guest copy with <a href="print_slip_a5.html">A5 2-up</a>.</li>
+          <li>Check rooms and capacity with <a href="vacancy_forecast.html">Forecast</a>.</li>
+          <li>Backup or clean up in <a href="slip_admin.html">Slip Admin</a>.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Core concepts</h3>
+        <ul>
+          <li><b>DB v2</b>: one object store <code>slips</code> with indexes on <code>createdAt</code>, <code>sh_no</code>, <code>building</code>.</li>
+          <li><b>Rooms & capacity</b>: most recent capacity per building|room is used across pages.</li>
+          <li><b>Occupancy</b>: a room is “occupied” if the time is within <code>[checkin, checkout)</code>.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Features by Page</h2>
+    <div class="grid">
+      <div>
+        <h3><a href="accommodation_slip.html">Accommodation Slip</a></h3>
+        <ul>
+          <li>Create and edit slips; supports infants and children.</li>
+          <li>Fetch capacity data for entered rooms from DB; unknown shows “unassigned.”</li>
+          <li>Check availability for conflicts before save.</li>
+          <li>Fetch by SH No. to auto-fill latest details for that SH.</li>
+          <li>Buildings: Mohammedi, Mufaddal, Snood, Baha, Husn.</li>
+        </ul>
+      </div>
+      <div>
+        <h3><a href="print_slip_a5.html">Print Slip A5 (2-up)</a></h3>
+        <ul>
+          <li>Exact two-copy A5 landscape print, gents/ladies tables side-by-side.</li>
+          <li>Load by saved list or SH No.; choose number of room rows to show.</li>
+          <li>On-screen preview matches print output.</li>
+        </ul>
+      </div>
+      <div>
+        <h3><a href="vacancy_forecast.html">Vacancy Forecast</a></h3>
+        <ul>
+          <li>Pick date, time, and building; view occupied vs free rooms.</li>
+          <li>Infer inventory from DB or paste a manual list.</li>
+          <li>Shows known capacity totals and headcount mix now.</li>
+        </ul>
+      </div>
+      <div>
+        <h3><a href="slip_admin.html">Slip Admin</a></h3>
+        <ul>
+          <li>Search, filter, preview, and delete slips.</li>
+          <li>Export backup JSON; import JSON to restore or migrate.</li>
+          <li>Nuclear option: delete all slips after typing confirmation.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Do’s and Don’ts</h2>
+    <div class="grid">
+      <div>
+        <h3>Do</h3>
+        <ul>
+          <li>Enter check-in and check-out times accurately. Occupancy math depends on it.</li>
+          <li>Run <b>Check room availability</b> before saving edits.</li>
+          <li>Seed capacity slips per building so forecast math isn’t guessing.</li>
+          <li>Export backups regularly: <kbd>Slip Admin → Export JSON</kbd>.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Don’t</h3>
+        <ul>
+          <li>Don’t “Clear site data” in the browser unless you’ve exported a backup.</li>
+          <li>Don’t reuse rooms for overlapping windows. The checker will yell for a reason.</li>
+          <li>Don’t trust memory. If a count changed, update the slip and reprint.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Operational Safety & Good Practices</h2>
+    <ul>
+      <li><b>Backups:</b> keep at least two recent JSON backups on a shared drive or USB.</li>
+      <li><b>Migrations:</b> to move data to another machine, export JSON then import on the new device.</li>
+      <li><b>Capacity hygiene:</b> if a room’s capacity changes, add a tiny “capacity slip” for that building with updated values so the latest snapshot propagates.</li>
+      <li><b>Versioning:</b> avoid editing very old slips just to change capacity. Use a fresh capacity slip instead.</li>
+    </ul>
+    <div class="tip">Tip: you can import a capacity JSON that contains one slip per building with all rooms and capacities to seed the system fast.</div>
+  </div>
+
+  <div class="card">
+    <h2>Recovery Options</h2>
+    <div class="grid">
+      <div>
+        <h3>Lost the data?</h3>
+        <div class="warn">If IndexedDB is wiped, the only recovery is your exported JSON backups.</div>
+        <ol>
+          <li>Open <b>Slip Admin</b>.</li>
+          <li>Click <b>Import JSON</b> and choose your backup file.</li>
+          <li>Choose <b>Replace</b> to clear DB first, or <b>Add</b> to merge.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Moving to a new device</h3>
+        <ol>
+          <li>On the old device, <b>Export JSON</b> from <b>Slip Admin</b>.</li>
+          <li>Copy the file to the new device.</li>
+          <li>On the new device, open <b>Slip Admin</b> and <b>Import JSON</b>.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Troubleshooting</h2>
+    <ul>
+      <li><b>“Could not open local DB”</b>: your browser context is blocking IndexedDB. Try a standard profile, not private mode.</li>
+      <li><b>Print doesn’t fit A5</b>: ensure printer respects page size and margins; system sets <code>@page size: A5 landscape</code>.</li>
+      <li><b>Forecast shows unknown capacity</b>: seed capacity via capacity slips or use the slip editor’s “Fetch capacity data.”</li>
+      <li><b>Rooms flagged as occupied when editing</b>: availability checker found an overlap. Use the alert’s “will be empty at” time to choose a different room or adjust dates.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Reference</h2>
+    <div>
+      <span class="pill">Home dashboard (this)</span>
+      <a class="pill" href="accommodation_slip.html">Accommodation Slip</a>
+      <a class="pill" href="print_slip_a5.html">Print Slip A5</a>
+      <a class="pill" href="vacancy_forecast.html">Vacancy Forecast</a>
+      <a class="pill" href="slip_admin.html">Slip Admin</a>
+    </div>
+    <p class="muted">These features align with your current module pages. Source pages referenced for consistency: accommodation slip, A5 print, admin, forecast.</p>
+  </div>
+</div>
+</body>
+</html>

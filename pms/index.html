@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PMS — Gateways</title>
+<style>
+  :root{
+    --bg1:#ffffff; --bg2:#f7fafc; --ink:#0b1220; --muted:#64748b;
+    --btn1:#e6fff8; --btn2:#ccfbf1; --ring:#99f6e4; --shadow:0 16px 40px rgba(2,6,23,.10);
+    --glow:0 0 0 0 rgba(16,185,129,.0);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg1:#0f1216; --bg2:#11161c; --ink:#e5e7eb; --muted:#9aa4b2; --btn1:#0f766e22; --btn2:#22d3ee22; --ring:#22d3ee; --shadow:none; }
+  }
+
+  /* Page */
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--ink); background:
+      radial-gradient(1200px 600px at 50% -10%, #22c55e0f, transparent 60%),
+      linear-gradient(180deg, var(--bg1), var(--bg2));
+    font:15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* Ambient shapes */
+  .ambience::before, .ambience::after{
+    content:""; position:fixed; inset:auto; z-index:-1; filter:blur(40px); opacity:.45; pointer-events:none;
+    background: conic-gradient(from 0deg, #22d3ee33, #22c55e22, #eab30822, #22d3ee33);
+    width:48vmin; height:48vmin; border-radius:50%;
+    animation: drift 26s linear infinite;
+  }
+  .ambience::before{ top:-12vmin; left:-10vmin }
+  .ambience::after{ bottom:-14vmin; right:-8vmin; animation-duration: 32s }
+  @keyframes drift{ to{ transform: rotate(360deg) } }
+
+  /* Grid of gateways */
+  .wrap{
+    max-width:1180px; margin:0 auto; padding:48px 16px 64px;
+    min-height:100%; display:grid; place-items:center;
+  }
+  .gate-grid{
+    display:grid; gap:16px;
+    grid-template-columns: repeat(4, minmax(180px,1fr));
+    width:100%;
+  }
+  @media (max-width:1000px){ .gate-grid{ grid-template-columns: repeat(2, 1fr) } }
+  @media (max-width:560px){ .gate-grid{ grid-template-columns: 1fr } }
+
+  /* Buttons */
+  .gate{
+    --bg: linear-gradient(180deg, var(--btn1), var(--btn2));
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:6px; min-height:140px; padding:18px;
+    background: var(--bg); border:1px solid var(--ring); border-radius:18px;
+    text-decoration:none; color:var(--ink); box-shadow: var(--shadow);
+    transform: translateY(24px) scale(.98); opacity:0;
+    animation: pop 700ms cubic-bezier(.2,.8,.2,1) forwards;
+    position:relative; isolation:isolate;
+  }
+  .gate:focus-visible{ outline:3px solid var(--ring); outline-offset:4px }
+  .gate b{ font-size:20px; letter-spacing:.3px }
+  .gate span{ color:var(--muted); font-weight:600 }
+
+  /* Shimmer on hover */
+  .gate::after{
+    content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
+    background: radial-gradient(240px 140px at var(--mx,50%) 0%, #22d3ee33, transparent 60%),
+                radial-gradient(240px 140px at var(--mx,50%) 100%, #22c55e33, transparent 60%);
+    opacity:0; transition: opacity .25s ease;
+  }
+  .gate:hover{ transform: translateY(0) scale(1.006); box-shadow: 0 18px 48px rgba(2,6,23,.18) }
+  .gate:hover::after{ opacity:1 }
+
+  /* Staggered entrance */
+  .gate:nth-child(1){ animation-delay: .05s }
+  .gate:nth-child(2){ animation-delay: .18s }
+  .gate:nth-child(3){ animation-delay: .31s }
+  .gate:nth-child(4){ animation-delay: .44s }
+  @keyframes pop{ to{ transform: translateY(0) scale(1); opacity:1 } }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    .gate{ animation:none; transform:none; opacity:1 }
+    .ambience::before,.ambience::after{ animation:none }
+  }
+
+  /* Visually hidden title for a11y without cluttering UI */
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
+</style>
+</head>
+<body class="ambience">
+<h1 class="sr-only">PMS Gateways</h1>
+
+<div class="wrap" aria-label="Gateways">
+  <div class="gate-grid" id="gates">
+    <a class="gate" href="accommodation_slip.html">
+      <b>Create / Edit Slip</b>
+      <span>Rooms & allocations</span>
+    </a>
+    <a class="gate" href="vacancy_forecast.html">
+      <b>Vacancy Forecast</b>
+      <span>Free vs occupied</span>
+    </a>
+    <a class="gate" href="print_slip_a5.html">
+      <b>Print A5 (2-up)</b>
+      <span>Exact slip layout</span>
+    </a>
+    <a class="gate" href="slip_admin.html">
+      <b>Admin & Backup</b>
+      <span>Delete • Export • Import</span>
+    </a>
+    <a class="gate" href="pms_instructions.html">
+      <b>Help</b>
+      <span>Instructions • Do's • Dont's</span>
+    </a>
+  </div>
+</div>
+
+<script>
+  // Tiny glow follows pointer over each button (no data, no nonsense)
+  document.querySelectorAll('.gate').forEach(btn=>{
+    btn.addEventListener('pointermove', e=>{
+      const r = btn.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * 100;
+      btn.style.setProperty('--mx', x + '%');
+    });
+  });
+</script>
+</body>
+</html>
