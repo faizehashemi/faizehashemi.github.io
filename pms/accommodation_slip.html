@@ -40,14 +40,6 @@
   .conflict input[type="text"], .conflict input[type="number"] { border-color: var(--warn); background:#fff7f7; }
   .okfill input[type="text"], .okfill input[type="number"] { border-color: var(--ok); background:#f3fcfa; }
 
-  @media print {
-    body { background:#fff; }
-    .controls, .help, .row-btn, #loadBar, .toolbar { display:none !important; }
-    .wrap { box-shadow:none; padding:0; margin:0; }
-    input, select { border:0 !important; padding:0 !important; }
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  }
 </style>
 </head>
 <body>
@@ -266,9 +258,8 @@
     </div>
 
     <div class="controls no-print">
-      <button id="btnPrint">Print Slip</button>
-      <button id="btnSave">Save to DB</button>
-      <button id="btnEdit">Edit to DB</button>
+      <button id="btnSave">Save</button>
+      <button id="btnEdit">Edit</button>
       <span class="muted" id="status"></span>
     </div>
   </div>
@@ -609,7 +600,7 @@ async function checkAvailability(){
 
   const rooms = [...collectRows('gents'), ...collectRows('ladies')].map(r=> cleanRoom(r.room_no)).filter(Boolean);
   const uniqRooms = uniq(rooms);
-  if(!uniqRooms.length){ alert('Enter at least one room number.'); return false; }
+ //commented if(!uniqRooms.length){ alert('Enter at least one room number.'); return false; }
 
   const conflicts = new Map(); // room -> {freeAt: Date, stays: [rec]}
   for(const r of DB_CACHE){
@@ -665,7 +656,6 @@ async function checkAvailability(){
 }
 
 /* ---------------------------- Events --------------------------- */
-$('btnPrint').addEventListener('click', () => window.print());
 
 $('btnSave').addEventListener('click', async () => {
   try {
