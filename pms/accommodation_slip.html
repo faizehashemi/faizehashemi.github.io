@@ -505,29 +505,65 @@
                 tx.oncomplete = () => db.close();
             });
         }
+        function reqToPromise(req) {
+            return new Promise((resolve, reject) => {
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+        function toTs(v) {
+            if (!v) return 0;
+            if (v instanceof Date) return +v;
+            const n = Date.parse(v);
+            if (!Number.isNaN(n)) return n;
+            const k = Number(v);
+            return Number.isFinite(k) ? k : 0;
+        }
+        function toNum(v) {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        }
+        function shCandidates(sh) {
+            const raw = String(sh ?? "").trim();
+            const out = [raw];
+            const num = Number(raw);
+            if (!Number.isNaN(num)) out.push(num);
+            return [...new Set(out)];
+        }
+
+        /* FIXED VERSION */
         async function getLatestBySh(sh) {
             const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE, 'readonly');
-                const store = tx.objectStore(STORE);
-                let req;
+            const tx = db.transaction(STORE, 'readonly');
+            const store = tx.objectStore(STORE);
+            const cands = shCandidates(sh);
+            let rows = [];
+
+            try {
                 if (store.indexNames.contains('sh_no')) {
-                    req = store.index('sh_no').getAll(Number(sh));
-                    req.onsuccess = () => {
-                        const arr = (req.result || []).sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
-                        resolve(arr[0] || null);
-                    };
-                    req.onerror = () => reject(req.error);
+                    const idx = store.index('sh_no');
+                    for (const key of cands) {
+                        const chunk = await reqToPromise(idx.getAll(key));
+                        if (Array.isArray(chunk) && chunk.length) rows.push(...chunk);
+                    }
                 } else {
-                    const all = store.getAll();
-                    all.onsuccess = () => {
-                        const arr = (all.result || []).filter(r => r.sh_no === Number(sh)).sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
-                        resolve(arr[0] || null);
-                    };
-                    all.onerror = () => reject(all.error);
+                    const all = await reqToPromise(store.getAll());
+                    rows = all.filter(r =>
+                        cands.includes(r.sh_no) || cands.includes(Number(r.sh_no))
+                    );
                 }
-                tx.oncomplete = () => db.close();
-            });
+
+                rows.sort((a, b) => {
+                    const tb = toTs(b.createdAt), ta = toTs(a.createdAt);
+                    if (tb !== ta) return tb - ta;
+                    return toNum(b.id) - toNum(a.id);
+                });
+
+                return rows[0] || null;
+            } finally {
+                // Let the transaction finish before closing
+                setTimeout(() => { try { db.close(); } catch (_) { } }, 0);
+            }
         }
 
         /* ------------------------------ Helpers ----------------------------- */
