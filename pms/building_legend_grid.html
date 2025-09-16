@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PMS — Building Legends Grid</title>
+<style>
+  :root{
+    --ink:#0b1220; --muted:#64748b; --card:#ffffff; --border:#e5e7eb;
+    --occupied:#ef4444; --vacant:#ffffff;
+    --cellW:62px; --cellH:42px; --fs:11px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#e5e7eb; --muted:#9aa4b2; --card:#0f1216; --border:#1f2937;
+           --occupied:#ef4444; --vacant:#111827; }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font:15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:linear-gradient(180deg,#f7fafc,#fff);color:var(--ink)
+  }
+  .wrap{max-width:1200px;margin:18px auto;padding:0 10px 28px}
+  header.hero{background:#ffffffcc;backdrop-filter: blur(2px);border-radius:12px;padding:10px 12px;border:1px solid var(--border)}
+  h1{margin:0 0 4px;font-size:18px}
+  .muted{color:var(--muted);font-size:13px;margin:0}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:8px}
+  .controls>div{display:flex;flex-direction:column;gap:4px}
+  input[type="date"],input[type="time"],button{font:inherit;border:1px solid var(--border);border-radius:10px;padding:6px 10px;background:#fff0;color:var(--ink)}
+  button.primary{border-color:#99f6e4;background:linear-gradient(0deg,rgba(34,211,238,.12),rgba(34,211,238,.12))}
+  .grid{margin-top:10px;display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:8px}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
+  .panel h3{margin:0 6px 8px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+  .rooms{
+    display:grid;gap:4px;
+    grid-template-columns: repeat(auto-fill, minmax(var(--cellW), 1fr));
+  }
+  .cell{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    width:100%; height:var(--cellH); border:1px solid var(--border); border-radius:8px;
+    background:var(--vacant); color:var(--ink); text-align:center; font-size:var(--fs); line-height:1.1;
+    position:relative; cursor:default;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .cell .rn{font-weight:800; font-size:calc(var(--fs) + 1px)}
+  .cell.occ{background:var(--occupied); color:#fff; border-color:#b91c1c}
+  /* Optional tiny dot to signal "has upcoming booking" when vacant */
+  .cell.has-next::after{
+    content:""; position:absolute; right:3px; bottom:3px; width:6px; height:6px; border-radius:50%;
+    background:#0ea5e9; opacity:.8;
+  }
+  .status{margin-top:8px;color:var(--muted);font-size:12px}
+  /* Hover title helper: browsers show native tooltip from title. No custom JS UI needed. */
+</style>
+</head>
+<body>
+
+    <!-- ==== Background: put this once per page ==== -->
+    <style>
+         .pms-bg {
+             position: fixed;
+             inset: 0;
+             z-index: -2;
+             background: center/cover no-repeat url("bg.png");
+             /* Remove blur if you hate nice things */
+             filter: saturate(105%) brightness(0.98);
+         }
+
+             .pms-bg::after {
+                 content: "";
+                 position: absolute;
+                 inset: 0;
+                 z-index: -1;
+                 background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
+                 pointer-events: none;
+             }
+         /* If you need extra contrast for text-heavy pages, uncomment:
+        body { background: rgba(255,255,255,.85); backdrop-filter: blur(2px); }
+        */
+    </style>
+    <div class="pms-bg" aria-hidden="true"></div>
+
+    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
+    <nav class="min-nav" role="navigation" aria-label="Primary">
+        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
+        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
+        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
+        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
+        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
+        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
+        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
+        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
+    </nav>
+
+    <style>
+        .min-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center; /* centered */
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            background: rgba(255,255,255,.75);
+            backdrop-filter: blur(6px);
+        }
+
+            .min-nav a {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px; /* emoji + text */
+                color: #0b1220;
+                text-decoration: none;
+                padding: 6px 10px;
+                border-radius: 10px;
+            }
+
+                .min-nav a:hover {
+                    text-decoration: underline
+                }
+
+                .min-nav a[aria-current="page"] {
+                    font-weight: 700;
+                    background: #f3f4f6;
+                }
+
+            .min-nav .e {
+                font-size: 1.05em;
+                line-height: 1
+            }
+        /* emojis aligned nicely */
+
+        @media (prefers-color-scheme: dark) {
+            .min-nav {
+                background: rgba(15,18,22,.6);
+                border-color: #1f2937
+            }
+
+                .min-nav a {
+                    color: #e5e7eb
+                }
+
+                    .min-nav a[aria-current="page"] {
+                        background: #0f172a
+                    }
+        }
+    </style>
+
+    <script>
+        (function () {
+            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+            document.querySelectorAll('.min-nav a').forEach(function (a) {
+                if ((a.getAttribute('href') || '').toLowerCase() === here) {
+                    a.setAttribute('aria-current', 'page');
+                }
+            });
+        })();
+    </script>
+    <!-- ===== /Minimal Navbar ===== -->
+
+    <div class="wrap">
+        <header class="hero">
+            <h1>Building Legends Grid</h1>
+            <p class="muted">Compact view. White = vacant, Red = occupied. Hover a room for SH and times.</p>
+
+            <div class="controls">
+                <div><label for="asof_date" class="muted">Date</label><input id="asof_date" type="date"></div>
+                <div><label for="asof_time" class="muted">Time</label><input id="asof_time" type="time" step="60"></div>
+                <div style="display:flex;gap:6px;align-items:flex-end">
+                    <button id="btnRefresh">Refresh DB</button>
+                    <button id="btnRecalc" class="primary">Recalculate</button>
+                </div>
+            </div>
+        </header>
+
+        <section class="grid" id="grid"></section>
+        <p class="status" id="status">Loading DB…</p>
+    </div>
+
+    <script>
+        /* ===== IndexedDB v2 wiring ===== */
+        const DB_NAME = 'pms_accommodation_db', STORE = 'slips', DB_VERSION = 2;
+        function openDB() {
+            return new Promise((res, rej) => {
+                const r = indexedDB.open(DB_NAME, DB_VERSION);
+                r.onupgradeneeded = e => {
+                    const db = e.target.result; let s = db.objectStoreNames.contains(STORE) ? e.target.transaction.objectStore(STORE) : db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+                    if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt', 'createdAt', { unique: false });
+                    if (!s.indexNames.contains('sh_no')) s.createIndex('sh_no', 'sh_no', { unique: false });
+                    if (!s.indexNames.contains('building')) s.createIndex('building', 'building', { unique: false });
+                };
+                r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+            });
+        }
+        async function getAllRecords() { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction(STORE, 'readonly'); const st = tx.objectStore(STORE); const rq = st.getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => rej(rq.error); tx.oncomplete = () => db.close(); }); }
+
+        /* ===== Helpers ===== */
+        function $(id) { return document.getElementById(id) }
+        function pad(n) { return String(n).padStart(2, '0') }
+        function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
+        function uniq(a) { return Array.from(new Set(a)) }
+        function cleanRoom(x) { return String(x ?? '').trim() }
+        function fmtDT(dt) { try { return dt.toLocaleString([], { year: '2-digit', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) { return dt.toISOString().slice(0, 16).replace('T', ' ') } }
+        const CANON_BUILDINGS = ['Mohammedi', 'Mufaddal', 'Snood', 'Baha', 'Husn'];
+
+        let CACHE = [];
+
+        function roomsFromSlip(r) {
+            const bag = [];
+            (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+            (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+            return bag.filter(Boolean);
+        }
+
+        function activeSlipForRoom(when, building, room) {
+            const candidates = CACHE.filter(r => {
+                if ((r.building || '').trim() !== building) return false;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                const co = parseDT(r.checkout_date, r.checkout_time);
+                if (!ci || !co) return false;
+                if (!(when >= ci && when < co)) return false;
+                const rooms = roomsFromSlip(r);
+                return rooms.includes(room);
+            });
+            if (!candidates.length) return null;
+            // Prefer the one with earliest checkout after 'when'
+            candidates.sort((a, b) => parseDT(a.checkout_date, a.checkout_time) - parseDT(b.checkout_date, b.checkout_time));
+            return candidates[0];
+        }
+
+        function nextSlipForRoom(when, building, room) {
+            const candidates = CACHE.filter(r => {
+                if ((r.building || '').trim() !== building) return false;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                if (!ci) return false;
+                if (!(ci > when)) return false;
+                const rooms = roomsFromSlip(r);
+                return rooms.includes(room);
+            });
+            if (!candidates.length) return null;
+            candidates.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
+            return candidates[0];
+        }
+
+        function inventory(building) {
+            const bag = [];
+            CACHE.forEach(r => {
+                if (building && (r.building || '').trim() !== building) return;
+                bag.push(...roomsFromSlip(r));
+            });
+            return uniq(bag).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        }
+
+        /* ===== Renderer ===== */
+        function recalc() {
+            const dateStr = $('asof_date').value, timeStr = $('asof_time').value;
+            if (!dateStr || !timeStr) { alert('Choose a valid date and time.'); return; }
+            const when = new Date(`${dateStr}T${timeStr}`);
+            if (isNaN(when)) { alert('Invalid date/time.'); return; }
+
+            const grid = $('grid'); grid.innerHTML = '';
+
+            const buildings = uniq([...CANON_BUILDINGS, ...CACHE.map(r => (r.building || '').trim()).filter(Boolean)]).filter(Boolean);
+
+            buildings.forEach(b => {
+                const inv = inventory(b);
+                if (!inv.length) return;
+                const panel = document.createElement('div'); panel.className = 'panel';
+                panel.innerHTML = `<h3><span>${b}</span><span class="muted" id="stat-${b}"></span></h3>`;
+                const wrap = document.createElement('div'); wrap.className = 'rooms';
+
+                let occCount = 0;
+                inv.forEach(room => {
+                    const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.room = room;
+                    const occ = activeSlipForRoom(when, b, room);
+                    if (occ) {
+                        occCount++;
+                        cell.classList.add('occ');
+                        const co = parseDT(occ.checkout_date, occ.checkout_time);
+                        const sh = occ.sh_no || occ.tour_name || '—';
+                        cell.title = `Occupied\nSH ${sh}\nCheckout ${co ? fmtDT(co) : '—'}`;
+                    } else {
+                        const next = nextSlipForRoom(when, b, room);
+                        if (next) {
+                            const ci = parseDT(next.checkin_date, next.checkin_time);
+                            const nsh = next.sh_no || next.tour_name || '—';
+                            cell.title = `Vacant\nNext check-in ${ci ? fmtDT(ci) : '—'}\nNext SH ${nsh}`;
+                            cell.classList.add('has-next');
+                        } else {
+                            cell.title = `Vacant\nNo upcoming booking`;
+                        }
+                    }
+                    cell.innerHTML = `<div class="rn">${room}</div>`;
+                    wrap.appendChild(cell);
+                });
+
+                panel.querySelector(`#stat-${CSS.escape(b)}`).textContent = `Occupied: ${occCount}/${inv.length}`;
+                panel.appendChild(wrap);
+                grid.appendChild(panel);
+            });
+
+            $('status').textContent = `${buildings.length} building(s) • Snapshot at ${dateStr} ${timeStr} • ${CACHE.length} slip(s) in DB`;
+        }
+
+        /* ===== Boot ===== */
+        async function refresh() {
+            try {
+                CACHE = await getAllRecords();
+                const now = new Date();
+                const ymd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+                const hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                if (!$('asof_date').value) $('asof_date').value = ymd;
+                if (!$('asof_time').value) $('asof_time').value = hm;
+                recalc();
+            } catch (e) {
+                console.error(e);
+                $('status').textContent = 'Could not open local DB (IndexedDB blocked?).';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            $('btnRefresh').addEventListener('click', refresh);
+            $('btnRecalc').addEventListener('click', recalc);
+            $('asof_date').addEventListener('change', recalc);
+            $('asof_time').addEventListener('change', recalc);
+            refresh();
+        });
+    </script>
+</body>
+</html>

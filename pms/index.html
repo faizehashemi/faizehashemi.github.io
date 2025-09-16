@@ -1,133 +1,551 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>PMS — Gateways</title>
-<style>
-  :root{
-    --ink:#0b1220; --muted:#64748b; --card:#ffffff; --ring:#99f6e4;
-    --btn1:#e6fff8; --btn2:#ccfbf1; --btnshadow:0 16px 40px rgba(2,6,23,.12);
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --ink:#e5e7eb; --muted:#9aa4b2; --card:#0f1216; --ring:#22d3ee; --btn1:#0f766e22; --btn2:#22d3ee22; --btnshadow:none; }
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0; color:var(--ink); font:15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; overflow-x:hidden;
-  }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PMS — Watch & DB Health</title>
+    <style>
+        :root {
+            --ink: #0b1220;
+            --muted: #6b7280;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --ring: #99f6e4;
+            --ok: #16a34a;
+            --bad: #dc2626;
+            --warn: #f59e0b;
+            --glow1: #22d3ee;
+            --glow2: #34d399;
+            --glow3: #60a5fa;
+            --shadow: 0 20px 60px rgba(2,6,23,.12);
+        }
 
-  /* ===== Fullscreen video background ===== */
-  .bg{
-    position:fixed; inset:0; z-index:-2; overflow:hidden; background:#0b0d10;
-  }
-  .bg video{
-    position:absolute; top:50%; left:50%;
-    min-width:100vw; min-height:100vh; transform:translate(-50%,-50%);
-    object-fit:cover; filter:blur(10px) saturate(110%) brightness(.8);
-    opacity:.9;
-  }
-  /* Subtle overlay for readability */
-  .overlay{
-    position:fixed; inset:0; z-index:-1;
-    background:
-      radial-gradient(1400px 700px at 50% -10%, rgba(34,211,238,.18), transparent 60%),
-      radial-gradient(1000px 600px at 80% 120%, rgba(16,185,129,.14), transparent 60%),
-      linear-gradient(180deg, rgba(0,0,0,.20), rgba(0,0,0,.10));
-  }
-  .no-video .bg video{ display:none }
-  .no-video .overlay{ background:
-      radial-gradient(1200px 700px at 50% -10%, rgba(34,211,238,.12), transparent 60%),
-      radial-gradient(900px 600px at 80% 120%, rgba(16,185,129,.10), transparent 60%),
-      linear-gradient(180deg, #f8fafc, #eef2f7);
-  }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ink: #e5e7eb;
+                --muted: #9aa4b2;
+                --bg: #0b0f14;
+                --card: #0f1216;
+                --border: #1f2937;
+                --shadow: none;
+            }
+        }
 
-  /* ===== Content ===== */
-  .wrap{ max-width:1180px; margin:0 auto; padding:56px 16px 80px; min-height:100%;
-         display:grid; grid-template-rows:auto 1fr; gap:16px }
-  .title{ text-align:center; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.35) }
-  .title h1{ margin:0 0 6px; letter-spacing:.3px }
-  .title p{ margin:0; color:rgba(255,255,255,.9) }
-  @media (prefers-color-scheme: light){
-    .title{ color:#0b1220; text-shadow:none }
-    .title p{ color:var(--muted) }
-  }
+        * {
+            box-sizing: border-box
+        }
 
-  .gate-grid{
-    align-self:center; width:100%;
-    display:grid; gap:16px; grid-template-columns: repeat(5, minmax(160px,1fr));
-  }
-  @media (max-width:1200px){ .gate-grid{ grid-template-columns: repeat(3, 1fr) } }
-  @media (max-width:700px){ .gate-grid{ grid-template-columns: repeat(2, 1fr) } }
-  @media (max-width:480px){ .gate-grid{ grid-template-columns: 1fr } }
+        html, body {
+            height: 100%
+        }
 
-  .gate{
-    --bg: linear-gradient(180deg, var(--btn1), var(--btn2));
-    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px;
-    min-height:140px; padding:18px; background:var(--bg); border:1px solid var(--ring); border-radius:18px;
-    text-decoration:none; color:var(--ink); box-shadow:var(--btnshadow);
-    transform: translateY(24px) scale(.98); opacity:0; animation:pop .7s cubic-bezier(.2,.8,.2,1) forwards;
-    position:relative; isolation:isolate;
-  }
-  .gate b{ font-size:20px; letter-spacing:.3px }
-  .gate span{ color:var(--muted); font-weight:600 }
-  .gate::after{
-    content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1;
-    background: radial-gradient(240px 140px at var(--mx,50%) 0%, #22d3ee33, transparent 60%),
-                radial-gradient(240px 140px at var(--mx,50%) 100%, #22c55e33, transparent 60%);
-    opacity:0; transition: opacity .25s ease;
-  }
-  .gate:hover{ transform: translateY(0) scale(1.006) }
-  .gate:hover::after{ opacity:1 }
-  .gate:nth-child(1){ animation-delay:.05s } .gate:nth-child(2){ animation-delay:.15s }
-  .gate:nth-child(3){ animation-delay:.25s } .gate:nth-child(4){ animation-delay:.35s } .gate:nth-child(5){ animation-delay:.45s }
-  @keyframes pop{ to{ transform:translateY(0) scale(1); opacity:1 } }
-  @media (prefers-reduced-motion: reduce){ .gate{ animation:none; transform:none; opacity:1 } }
+        body {
+            margin: 0;
+            color: var(--ink);
+            font: 15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: radial-gradient(1400px 900px at 50% -10%, #e6fffb, transparent 60%), radial-gradient(900px 600px at 120% 110%, #f0f9ff, transparent 60%), var(--bg);
+        }
 
-  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
-</style>
+        .wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 14px 56px;
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr 420px;
+            align-items: start;
+        }
+
+        @media (max-width:1000px) {
+            .wrap {
+                grid-template-columns: 1fr
+            }
+        }
+        /* Scales the entire card, including padding. Can blur text slightly. */
+        .watch-card {
+            transform: scale(.4);
+            transform-origin: top left;
+        }
+
+        /* Watch card */
+        .watch-card {
+            position: relative;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 18px;
+            overflow: hidden;
+        }
+
+        .watch-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px
+        }
+
+            .watch-header h2 {
+                margin: 0;
+                font-size: 16px;
+                letter-spacing: .3px;
+                font-weight: 800
+            }
+
+            .watch-header .tz {
+                color: var(--muted);
+                font-size: 12px;
+                font-family: ui-monospace, Menlo, Consolas, monospace
+            }
+
+        .glow {
+            content: "";
+            position: absolute;
+            inset: -20% -10% auto -10%;
+            height: 60%;
+            background: radial-gradient(700px 150px at var(--mx,50%) 0%, #22d3ee22, transparent 60%), radial-gradient(700px 150px at var(--mx,50%) 100%, #34d39922, transparent 60%);
+            pointer-events: none;
+        }
+
+        .rm {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            align-items: center;
+            justify-items: center;
+        }
+
+            .rm svg {
+                width: min(100%, 780px);
+                height: auto;
+                display: block
+            }
+
+        .digital {
+            text-align: center;
+            font-variant-numeric: tabular-nums
+        }
+
+            .digital b {
+                font-size: 22px
+            }
+
+            .digital .date {
+                color: var(--muted);
+                font-size: 12px
+            }
+
+        /* RM styling */
+        .rm-face {
+            fill: #0f172a;
+            stroke: #475569;
+            stroke-width: 1
+        }
+
+        .rm-inner {
+            fill: #0b1120;
+            stroke: #334155;
+            stroke-width: .7
+        }
+
+        .rm-skeleton {
+            fill: url(#gradBars);
+            opacity: .3
+        }
+
+        .rm-mark {
+            stroke: #94a3b8;
+            stroke-linecap: round
+        }
+
+        .rm-screw {
+            fill: #111827;
+            stroke: #475569;
+            stroke-width: .8
+        }
+
+        .hand {
+            transform-origin: 50% 70px;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 2px rgba(0,0,0,.6))
+        }
+
+            .hand.hour {
+                stroke: #22d3ee;
+                stroke-width: 3.2
+            }
+
+            .hand.min {
+                stroke: #34d399;
+                stroke-width: 2.4
+            }
+
+            .hand.sec {
+                stroke: #ef4444;
+                stroke-width: 1.6
+            }
+
+        .axle {
+            fill: #e5e7eb
+        }
+
+        /* DB health card */
+        .db-card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            position: relative;
+        }
+
+            .db-card h3 {
+                margin: 0 0 8px;
+                font-size: 16px
+            }
+
+        .list {
+            display: grid;
+            gap: 8px
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 8px 10px
+        }
+
+        .name {
+            color: var(--ink)
+        }
+
+        .mono {
+            font-family: ui-monospace, Menlo, Consolas, monospace
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            border: 1px solid var(--border)
+        }
+
+            .pill.ok {
+                background: #ecfdf5;
+                color: #065f46;
+                border-color: #a7f3d0
+            }
+
+            .pill.fail {
+                background: #fef2f2;
+                color: #7f1d1d;
+                border-color: #fecaca
+            }
+
+            .pill.wait {
+                background: #fffbeb;
+                color: #78350f;
+                border-color: #fde68a
+            }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px
+        }
+
+        button {
+            font: inherit;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            cursor: pointer
+        }
+
+            button:hover {
+                background: #f3f4f6
+            }
+
+        @media (prefers-color-scheme: dark) {
+            button:hover {
+                background: #0f172a
+            }
+        }
+
+        .foot {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 6px
+        }
+    </style>
 </head>
 <body>
-  <!-- Background video -->
-  <div class="bg" aria-hidden="true">
-    <!-- Reference your uploaded video -->
-    <video id="bgvid" autoplay loop muted playsinline preload="metadata" src="videoplayback.mp4"></video>
-  </div>
-  <div class="overlay" aria-hidden="true"></div>
+    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
+    <nav class="min-nav" role="navigation" aria-label="Primary">
+        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
+        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
+        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
+        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
+        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
+        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
+        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
+        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
+    </nav>
 
-  <h1 class="sr-only">PMS Gateways</h1>
-  <div class="wrap" aria-label="Gateways">
-    <div class="title">
-      <h1>PMS Gateways</h1>
+    <style>
+        .min-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center; /* centered */
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            background: rgba(255,255,255,.75);
+            backdrop-filter: blur(6px);
+        }
 
+            .min-nav a {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px; /* emoji + text */
+                color: #0b1220;
+                text-decoration: none;
+                padding: 6px 10px;
+                border-radius: 10px;
+            }
+
+                .min-nav a:hover {
+                    text-decoration: underline
+                }
+
+                .min-nav a[aria-current="page"] {
+                    font-weight: 700;
+                    background: #f3f4f6;
+                }
+
+            .min-nav .e {
+                font-size: 1.05em;
+                line-height: 1
+            }
+        /* emojis aligned nicely */
+
+        @media (prefers-color-scheme: dark) {
+            .min-nav {
+                background: rgba(15,18,22,.6);
+                border-color: #1f2937
+            }
+
+                .min-nav a {
+                    color: #e5e7eb
+                }
+
+                    .min-nav a[aria-current="page"] {
+                        background: #0f172a
+                    }
+        }
+    </style>
+
+    <script>
+        (function () {
+            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+            document.querySelectorAll('.min-nav a').forEach(function (a) {
+                if ((a.getAttribute('href') || '').toLowerCase() === here) {
+                    a.setAttribute('aria-current', 'page');
+                }
+            });
+        })();
+    </script>
+    <!-- ===== /Minimal Navbar ===== -->
+    <div class="wrap">
+        <!-- Watch -->
+        <section class="watch-card" id="watchCard" aria-label="Riyadh time">
+            <div class="glow" aria-hidden="true"></div>
+            <div class="watch-header">
+                <h2>Riyadh Time</h2>
+                <span class="tz">Asia/Riyadh • UTC+03</span>
+            </div>
+
+            <div class="rm" id="rm">
+                <!-- Tonneau-case RM-style SVG; viewBox centered at (50,70) -->
+                <svg viewBox="0 0 100 140" role="img" aria-label="Analog clock">
+                    <!-- case -->
+                    <path class="rm-face" d="M10,20 Q12,5 30,5 H70 Q88,5 90,20 V120 Q88,135 70,135 H30 Q12,135 10,120 Z" />
+                    <path class="rm-inner" d="M18,24 Q20,12 32,12 H68 Q80,12 82,24 V116 Q80,128 68,128 H32 Q20,128 18,116 Z" />
+
+                    <!-- screws -->
+                    <circle class="rm-screw" cx="22" cy="26" r="2" />
+                    <circle class="rm-screw" cx="78" cy="26" r="2" />
+                    <circle class="rm-screw" cx="22" cy="114" r="2" />
+                    <circle class="rm-screw" cx="78" cy="114" r="2" />
+
+                    <!-- skeleton bars gradient -->
+                    <defs>
+                        <linearGradient id="gradBars" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0" stop-color="#0ea5e9" />
+                            <stop offset="1" stop-color="#22d3ee" />
+                        </linearGradient>
+                    </defs>
+                    <g class="rm-skeleton">
+                        <rect x="26" y="34" width="48" height="2" rx="1" />
+                        <rect x="26" y="54" width="48" height="2" rx="1" />
+                        <rect x="26" y="74" width="48" height="2" rx="1" />
+                        <rect x="26" y="94" width="48" height="2" rx="1" />
+                    </g>
+
+                    <!-- ticks -->
+                    <g id="ticks" aria-hidden="true"></g>
+
+                    <!-- hands pivot at (50,70) -->
+                    <line id="h-hand" class="hand hour" x1="50" y1="70" x2="50" y2="48" />
+                    <line id="m-hand" class="hand min" x1="50" y1="70" x2="50" y2="38" />
+                    <line id="s-hand" class="hand sec" x1="50" y1="70" x2="50" y2="32" />
+                    <circle class="axle" cx="50" cy="70" r="1.6" />
+                </svg>
+
+                <div class="digital">
+                    <div><b id="timeText">--:--:--</b></div>
+                    <div class="date" id="dateText">---</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DB Health -->
+        <aside class="db-card" aria-label="Database health">
+            <h3>Database Health</h3>
+            <div class="list">
+                <div class="row"><div class="name">IndexedDB open</div><span id="dbOpen" class="pill wait">Testing…</span></div>
+                <div class="row"><div class="name">DB name</div><span class="mono">pms_accommodation_db</span></div>
+                <div class="row"><div class="name">DB version (actual)</div><span id="dbVersion" class="mono">—</span></div>
+                <div class="row"><div class="name">Object stores</div><span id="dbStores" class="mono">—</span></div>
+                <div class="row"><div class="name">“slips” count</div><span id="slipCount" class="mono">—</span></div>
+            </div>
+            <div class="actions">
+                <button id="btnRecheck">Recheck</button>
+            </div>
+            <div class="foot" id="dbNote"></div>
+        </aside>
     </div>
-    <div class="gate-grid" id="gates">
-      <a class="gate" href="accommodation_slip.html"><b>Create / Edit Slip</b><span>Rooms & allocations</span></a>
-      <a class="gate" href="vacancy_forecast.html"><b>Vacancy Forecast</b><span>Free vs occupied</span></a>
-      <a class="gate" href="print_slip_a5.html"><b>Print A5 (2-up)</b><span>Exact slip layout</span></a>
-      <a class="gate" href="slip_admin.html"><b>Admin & Backup</b><span>Delete • Export • Import</span></a>
-      <a class="gate" href="pms_instructions.html"><b>Instructions</b><span>How-to & recovery</span></a>
-    </div>
-  </div>
 
-<script>
-/* Respect Save-Data / 2G / reduced-motion by disabling the video to save bandwidth. */
-(function(){
-  const video = document.getElementById('bgvid');
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  const lowData = (conn && (conn.saveData || /2g/.test(conn.effectiveType||''))) ||
-                  (window.matchMedia && window.matchMedia('(prefers-reduced-data: reduce)').matches) ||
-                  (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  if(lowData){ document.body.classList.add('no-video'); if(video) video.removeAttribute('src'); }
+    <script>
+        /* ===== RM watch (Riyadh time) ===== */
+        (function () {
+            const host = document.getElementById('watchCard');
+            host.addEventListener('pointermove', e => {
+                const r = host.getBoundingClientRect();
+                const mx = ((e.clientX - r.left) / r.width * 100).toFixed(2) + '%';
+                host.querySelector('.glow')?.style.setProperty('--mx', mx);
+            });
 
-  document.querySelectorAll('.gate').forEach(btn=>{
-    btn.addEventListener('pointermove', e=>{
-      const r = btn.getBoundingClientRect();
-      btn.style.setProperty('--mx', ((e.clientX - r.left) / r.width) * 100 + '%');
-    }, {passive:true});
-  });
-})();
-</script>
+            const tz = 'Asia/Riyadh';
+            const ticks = document.getElementById('ticks');
+            // Build ticks: hour ticks thicker
+            for (let i = 0; i < 60; i++) {
+                const a = (i / 60) * Math.PI * 2;
+                const r1 = i % 5 === 0 ? 40 : 41.2;
+                const r2 = i % 5 === 0 ? 33 : 37;
+                const x1 = 50 + r1 * Math.sin(a);
+                const y1 = 70 - r1 * Math.cos(a);
+                const x2 = 50 + r2 * Math.sin(a);
+                const y2 = 70 - r2 * Math.cos(a);
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x1.toFixed(2));
+                line.setAttribute('y1', y1.toFixed(2));
+                line.setAttribute('x2', x2.toFixed(2));
+                line.setAttribute('y2', y2.toFixed(2));
+                line.setAttribute('class', 'rm-mark');
+                line.setAttribute('stroke-width', i % 5 === 0 ? 1.8 : 0.8);
+                ticks.appendChild(line);
+            }
+
+            const hEl = document.getElementById('h-hand');
+            const mEl = document.getElementById('m-hand');
+            const sEl = document.getElementById('s-hand');
+            const tText = document.getElementById('timeText');
+            const dText = document.getElementById('dateText');
+
+            function parts(d) {
+                const P = new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false, timeZone: tz }).formatToParts(d);
+                const map = {}; P.forEach(p => map[p.type] = p.value);
+                const dateStr = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: tz }).format(d);
+                return { h: +map.hour, m: +map.minute, s: +map.second, dateStr };
+            }
+            function setHands() {
+                const now = new Date();
+                const { h, m, s, dateStr } = parts(now);
+                const hr = ((h % 12) + m / 60 + s / 3600) * 30;
+                const mr = (m + s / 60) * 6;
+                const sr = s * 6;
+                hEl.style.transform = `rotate(${hr}deg)`;
+                mEl.style.transform = `rotate(${mr}deg)`;
+                sEl.style.transform = `rotate(${sr}deg)`;
+                tText.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                dText.textContent = `${dateStr} • Riyadh`;
+            }
+            setHands();
+            setInterval(setHands, 1000);
+        })();
+
+        /* ===== DB health ===== */
+        async function checkDB() {
+            const outOpen = document.getElementById('dbOpen');
+            const outVer = document.getElementById('dbVersion');
+            const outStores = document.getElementById('dbStores');
+            const outCount = document.getElementById('slipCount');
+            const note = document.getElementById('dbNote');
+
+            outOpen.textContent = 'Testing…'; outOpen.className = 'pill wait';
+            outVer.textContent = '—'; outStores.textContent = '—'; outCount.textContent = '—';
+            note.textContent = '';
+
+            try {
+                const req = indexedDB.open('pms_accommodation_db');
+                req.onsuccess = () => {
+                    const db = req.result;
+                    outOpen.textContent = 'Open'; outOpen.className = 'pill ok';
+                    outVer.textContent = db.version;
+                    const stores = Array.from(db.objectStoreNames);
+                    outStores.textContent = stores.join(', ') || '—';
+
+                    if (stores.includes('slips')) {
+                        try {
+                            const tx = db.transaction('slips', 'readonly');
+                            const st = tx.objectStore('slips');
+                            const c = st.count();
+                            c.onsuccess = () => { outCount.textContent = c.result; db.close(); };
+                            c.onerror = () => { outCount.textContent = 'error'; db.close(); };
+                        } catch (_) {
+                            outCount.textContent = 'n/a'; db.close();
+                        }
+                    } else {
+                        outCount.textContent = 'store not found';
+                        db.close();
+                    }
+
+                    note.textContent = 'Tip: initialize by saving a slip in your Slip page if empty.';
+                };
+                req.onerror = () => {
+                    outOpen.textContent = 'Blocked'; outOpen.className = 'pill fail';
+                    note.textContent = 'IndexedDB unavailable. Use a local server instead of file:// and a modern browser.';
+                };
+            } catch (e) {
+                outOpen.textContent = 'Error'; outOpen.className = 'pill fail';
+                note.textContent = 'Unexpected error opening IndexedDB.';
+            }
+        }
+        document.getElementById('btnRecheck').addEventListener('click', checkDB);
+        checkDB();
+    </script>
 </body>
 </html>
