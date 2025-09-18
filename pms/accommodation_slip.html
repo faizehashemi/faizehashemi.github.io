@@ -433,12 +433,13 @@
         <!-- Bulk room import -->
         <div class="bulk-box no-print">
             <div class="bulk-row">
-                <label for="gentsBulk">Gents rooms (comma separated)</label>
-                <input id="gentsBulk" type="text" placeholder="501, 502A, 503" />
+
+                <label for="gentsBulk">Gents rooms</label>
+                <input id="gentsBulk" type="text" placeholder="501-502-503" />
             </div>
             <div class="bulk-row">
-                <label for="ladiesBulk">Ladies rooms (comma separated)</label>
-                <input id="ladiesBulk" type="text" placeholder="401, 402B, 403" />
+                <label for="ladiesBulk">Ladies rooms</label>
+                <input id="ladiesBulk" type="text" placeholder="401-402-403" />
             </div>
             <div class="bulk-actions">
                 <button id="btnBulkLoad" type="button">Load rooms & fetch capacity</button>
@@ -452,7 +453,7 @@
             function bulkParse(str) {
                 if (!str) return [];
                 const parts = str
-                    .split(/[,\s\/\*\-]+/)      // separators: ,  /  *  -  any whitespace
+                    .split(/[,\s\/\*\-\.]+/)      // separators: ,  /  *  -  any whitespace
                     .map(s => s.trim())
                     .filter(Boolean);
 
