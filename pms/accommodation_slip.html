@@ -40,6 +40,49 @@
   .conflict input[type="text"], .conflict input[type="number"] { border-color: var(--warn); background:#fff7f7; }
   .okfill input[type="text"], .okfill input[type="number"] { border-color: var(--ok); background:#f3fcfa; }
 
+
+    /* Bulk room import */
+    .bulk-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        border: 1px dashed var(--border,#ddd);
+        border-radius: 10px;
+        background: #fafafa;
+        padding: 12px;
+        margin: 8px 0 12px;
+    }
+
+    .bulk-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+        .bulk-row label {
+            width: 220px;
+            color: var(--muted,#666);
+            font-size: 12px;
+        }
+
+        .bulk-row input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #bbb;
+            border-radius: 8px;
+        }
+
+    .bulk-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    #bulkReport {
+        font-size: 12px;
+    }
+
 </style>
 </head>
 <body>
@@ -386,6 +429,99 @@
                 </tr>
             </tbody>
         </table>
+
+        <!-- Bulk room import -->
+        <div class="bulk-box no-print">
+            <div class="bulk-row">
+                <label for="gentsBulk">Gents rooms (comma separated)</label>
+                <input id="gentsBulk" type="text" placeholder="501, 502A, 503" />
+            </div>
+            <div class="bulk-row">
+                <label for="ladiesBulk">Ladies rooms (comma separated)</label>
+                <input id="ladiesBulk" type="text" placeholder="401, 402B, 403" />
+            </div>
+            <div class="bulk-actions">
+                <button id="btnBulkLoad" type="button">Load rooms & fetch capacity</button>
+                <span id="bulkReport" class="muted"></span>
+            </div>
+        </div>
+        <script>
+            /* ========= Bulk Rooms: minimal + correct ========= */
+
+            /* Parse comma-separated rooms: trim, drop empties, de-dupe (case-insensitive), keep order */
+            function bulkParse(str) {
+                if (!str) return [];
+                const out = [];
+                const seen = new Set();
+                str.split(",").map(s => s.trim()).filter(Boolean).forEach(r => {
+                    const k = r.toLowerCase();
+                    if (!seen.has(k)) { seen.add(k); out.push(r); }
+                });
+                return out;
+            }
+
+            /* Replace rows for a group with provided room list */
+            function bulkFillGroup(group, rooms) {
+                const tbody = document.getElementById(group + "-tbody");
+                if (!tbody) return;
+                tbody.innerHTML = "";
+                if (!rooms.length) { addRow(group); return; }
+                rooms.forEach(r => addRow(group, { room_no: r, capacity: "" }));
+            }
+
+            /* Sum numeric capacities across both tables */
+            function sumAssignedBeds() {
+                const sumFor = (group) => {
+                    let s = 0;
+                    document.querySelectorAll(`#${group}-tbody tr`).forEach(tr => {
+                        const capEl = tr.querySelector('td:nth-child(2) input');
+                        const n = Number(capEl && capEl.value);
+                        if (Number.isFinite(n)) s += n;
+                    });
+                    return s;
+                };
+                return sumFor('gents') + sumFor('ladies');
+            }
+
+            /* Main action: load lists → fetch capacities → report total beds assigned */
+            async function bulkLoadRooms() {
+                const gRooms = bulkParse(document.getElementById("gentsBulk").value);
+                const lRooms = bulkParse(document.getElementById("ladiesBulk").value);
+
+                // Replace current rows
+                bulkFillGroup("gents", gRooms);
+                bulkFillGroup("ladies", lRooms);
+
+                // Auto-fetch capacities if you have that function
+                if (typeof fetchCapacities === "function") {
+                    await fetchCapacities();
+                }
+
+                // Single metric you asked for
+                const bedsAssigned = sumAssignedBeds();
+                const rep = document.getElementById("bulkReport");
+                if (rep) rep.textContent = `Beds assigned: ${bedsAssigned}`;
+
+                if (typeof updateTotals === "function") updateTotals();
+                const s = document.getElementById("status");
+                if (s) s.textContent = `Bulk loaded; beds assigned = ${bedsAssigned}.`;
+            }
+
+            /* Wire up the button and Enter key on inputs */
+            (function wireBulk() {
+                const btn = document.getElementById("btnBulkLoad");
+                if (btn) btn.addEventListener("click", bulkLoadRooms);
+                ["gentsBulk", "ladiesBulk"].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.addEventListener("keydown", e => {
+                        if (e.key === "Enter") { e.preventDefault(); bulkLoadRooms(); }
+                    });
+                });
+            })();
+        </script>
+
+
 
         <div class="subtables" style="margin-top:16px;">
             <table class="mini" id="tblGents">
