@@ -446,17 +446,23 @@
             </div>
         </div>
         <script>
-            /* ========= Bulk Rooms: minimal + correct ========= */
+            /* ========= Bulk Rooms: multi-separator + bold big beds count ========= */
 
-            /* Parse comma-separated rooms: trim, drop empties, de-dupe (case-insensitive), keep order */
+            /* Split by: comma, slash, asterisk, dash, any whitespace (space/newline/tab) */
             function bulkParse(str) {
                 if (!str) return [];
+                const parts = str
+                    .split(/[,\s\/\*\-]+/)      // separators: ,  /  *  -  any whitespace
+                    .map(s => s.trim())
+                    .filter(Boolean);
+
+                // de-dupe case-insensitively, preserve order
                 const out = [];
                 const seen = new Set();
-                str.split(",").map(s => s.trim()).filter(Boolean).forEach(r => {
+                for (const r of parts) {
                     const k = r.toLowerCase();
                     if (!seen.has(k)) { seen.add(k); out.push(r); }
-                });
+                }
                 return out;
             }
 
@@ -469,7 +475,7 @@
                 rooms.forEach(r => addRow(group, { room_no: r, capacity: "" }));
             }
 
-            /* Sum numeric capacities across both tables */
+            /* Sum numeric capacities across both tables (gents + ladies) */
             function sumAssignedBeds() {
                 const sumFor = (group) => {
                     let s = 0;
@@ -483,31 +489,36 @@
                 return sumFor('gents') + sumFor('ladies');
             }
 
-            /* Main action: load lists → fetch capacities → report total beds assigned */
+            /* Main action: load lists → fetch capacities → show bold big beds count */
             async function bulkLoadRooms() {
                 const gRooms = bulkParse(document.getElementById("gentsBulk").value);
                 const lRooms = bulkParse(document.getElementById("ladiesBulk").value);
 
-                // Replace current rows
                 bulkFillGroup("gents", gRooms);
                 bulkFillGroup("ladies", lRooms);
 
-                // Auto-fetch capacities if you have that function
                 if (typeof fetchCapacities === "function") {
                     await fetchCapacities();
                 }
 
-                // Single metric you asked for
                 const bedsAssigned = sumAssignedBeds();
                 const rep = document.getElementById("bulkReport");
-                if (rep) rep.textContent = `Beds assigned: ${bedsAssigned}`;
+                if (rep) {
+                    rep.innerHTML = `Beds assigned: <span id="bedsAssignedVal">${bedsAssigned}</span>`;
+                    // make it big and bold
+                    const val = document.getElementById("bedsAssignedVal");
+                    rep.style.fontWeight = "700";
+                    rep.style.fontSize = "22px";
+                    rep.style.color = "blue";
+                    if (val) { val.style.fontWeight = "800"; val.style.fontSize = "26px"; }
+                }
 
                 if (typeof updateTotals === "function") updateTotals();
                 const s = document.getElementById("status");
                 if (s) s.textContent = `Bulk loaded; beds assigned = ${bedsAssigned}.`;
             }
 
-            /* Wire up the button and Enter key on inputs */
+            /* Wire the button and Enter key on inputs */
             (function wireBulk() {
                 const btn = document.getElementById("btnBulkLoad");
                 if (btn) btn.addEventListener("click", bulkLoadRooms);
@@ -520,6 +531,7 @@
                 });
             })();
         </script>
+
 
 
 
