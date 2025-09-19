@@ -1,97 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>PMS — Building Legends Grid</title>
-<style>
-  :root{
-    --ink:#0b1220; --muted:#64748b; --card:#ffffff; --border:#e5e7eb;
-    --occupied:#ef4444; --vacant:#ffffff;
-    --cellW:62px; --cellH:42px; --fs:11px;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --ink:#e5e7eb; --muted:#9aa4b2; --card:#0f1216; --border:#1f2937;
-           --occupied:#ef4444; --vacant:#111827; }
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;font:15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    background:linear-gradient(180deg,#f7fafc,#fff);color:var(--ink)
-  }
-  .wrap{max-width:1200px;margin:18px auto;padding:0 10px 28px}
-  header.hero{background:#ffffffcc;backdrop-filter: blur(2px);border-radius:12px;padding:10px 12px;border:1px solid var(--border)}
-  h1{margin:0 0 4px;font-size:18px}
-  .muted{color:var(--muted);font-size:13px;margin:0}
-  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:8px}
-  .controls>div{display:flex;flex-direction:column;gap:4px}
-  input[type="date"],input[type="time"],button{font:inherit;border:1px solid var(--border);border-radius:10px;padding:6px 10px;background:#fff0;color:var(--ink)}
-  button.primary{border-color:#99f6e4;background:linear-gradient(0deg,rgba(34,211,238,.12),rgba(34,211,238,.12))}
-  .grid{margin-top:10px;display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:8px}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
-  .panel h3{margin:0 6px 8px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
-  .rooms{
-    display:grid;gap:4px;
-    grid-template-columns: repeat(auto-fill, minmax(var(--cellW), 1fr));
-  }
-  .cell{
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    width:100%; height:var(--cellH); border:1px solid var(--border); border-radius:8px;
-    background:var(--vacant); color:var(--ink); text-align:center; font-size:var(--fs); line-height:1.1;
-    position:relative; cursor:default;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
-  .cell .rn{font-weight:800; font-size:calc(var(--fs) + 1px)}
-  .cell.occ{background:var(--occupied); color:#fff; border-color:#b91c1c}
-  /* Optional tiny dot to signal "has upcoming booking" when vacant */
-  .cell.has-next::after{
-    content:""; position:absolute; right:3px; bottom:3px; width:6px; height:6px; border-radius:50%;
-    background:#0ea5e9; opacity:.8;
-  }
-  .status{margin-top:8px;color:var(--muted);font-size:12px}
-  /* Hover title helper: browsers show native tooltip from title. No custom JS UI needed. */
-</style>
-</head>
-<body>
-
-    <!-- ==== Background: put this once per page ==== -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PMS — Building Matrix (Floors × Room Numbers)</title>
     <style>
-         .pms-bg {
-             position: fixed;
-             inset: 0;
-             z-index: -2;
-             background: center/cover no-repeat url("bg.png");
-             /* Remove blur if you hate nice things */
-             filter: saturate(105%) brightness(0.98);
-         }
+        :root {
+            --ink: #0b1220;
+            --muted: #64748b;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --ok: #16a34a;
+            --warn: #f59e0b;
+            --bad: #ef4444;
+            --vacant: #ffffff;
+            --occupied: #ef4444;
+            --cellW: 120px;
+            --cellH: 92px;
+            --fs: 12px;
+            --hdrBg: #f8fafc;
+        }
 
-             .pms-bg::after {
-                 content: "";
-                 position: absolute;
-                 inset: 0;
-                 z-index: -1;
-                 background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
-                 pointer-events: none;
-             }
-         /* If you need extra contrast for text-heavy pages, uncomment:
-        body { background: rgba(255,255,255,.85); backdrop-filter: blur(2px); }
-        */
-    </style>
-    <div class="pms-bg" aria-hidden="true"></div>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ink: #e5e7eb;
+                --muted: #9aa4b2;
+                --card: #0f1216;
+                --border: #1f2937;
+                --hdrBg: #0f172a;
+                --vacant: #0b1220;
+                --occupied: #dc2626;
+            }
+        }
 
-    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
-    <nav class="min-nav" role="navigation" aria-label="Primary">
-        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
-        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
-        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
-        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
-        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
-        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
-        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
-        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
-    </nav>
+        * {
+            box-sizing: border-box
+        }
 
-    <style>
+        html, body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            color: var(--ink);
+            background: #f6f7fb
+        }
+        /* Navbar */
         .min-nav {
             position: sticky;
             top: 0;
@@ -99,21 +55,21 @@
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            justify-content: center; /* centered */
+            justify-content: center;
             padding: 10px 12px;
-            border-bottom: 1px solid #e5e7eb;
-            background: rgba(255,255,255,.75);
-            backdrop-filter: blur(6px);
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,.85);
+            backdrop-filter: blur(6px)
         }
 
             .min-nav a {
                 display: inline-flex;
                 align-items: center;
-                gap: 6px; /* emoji + text */
+                gap: 6px;
                 color: #0b1220;
                 text-decoration: none;
                 padding: 6px 10px;
-                border-radius: 10px;
+                border-radius: 10px
             }
 
                 .min-nav a:hover {
@@ -122,18 +78,16 @@
 
                 .min-nav a[aria-current="page"] {
                     font-weight: 700;
-                    background: #f3f4f6;
+                    background: #f3f4f6
                 }
 
             .min-nav .e {
-                font-size: 1.05em;
-                line-height: 1
+                font-size: 1.05em
             }
-        /* emojis aligned nicely */
 
         @media (prefers-color-scheme: dark) {
             .min-nav {
-                background: rgba(15,18,22,.6);
+                background: rgba(15,18,22,.7);
                 border-color: #1f2937
             }
 
@@ -145,187 +99,589 @@
                         background: #0f172a
                     }
         }
-    </style>
 
-    <script>
-        (function () {
-            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-            document.querySelectorAll('.min-nav a').forEach(function (a) {
-                if ((a.getAttribute('href') || '').toLowerCase() === here) {
-                    a.setAttribute('aria-current', 'page');
+        /* Full viewport layout */
+        .wrap {
+            height: calc(100vh - 58px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            background: #fff;
+        }
+
+            .toolbar .group {
+                display: flex;
+                gap: 8px;
+                align-items: end;
+                flex-wrap: wrap
+            }
+
+        label.small {
+            font-size: 12px;
+            color: var(--muted);
+            display: block
+        }
+
+        input, select, button {
+            font: inherit;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px 10px;
+            background: #fff;
+            color: var(--ink)
+        }
+
+            button.primary {
+                border-color: #99f6e4;
+                background: linear-gradient(0deg,rgba(34,211,238,.12),rgba(34,211,238,.12))
+            }
+
+        .spacer {
+            flex: 1 1 auto
+        }
+
+        /* Building tabs */
+        .tabs {
+            display: flex;
+            gap: 6px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            background: #fff
+        }
+
+        .tab {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            cursor: pointer;
+            background: #fff;
+            color: var(--ink)
+        }
+
+            .tab[aria-selected="true"] {
+                background: #0ea5e9;
+                border-color: #0ea5e9;
+                color: #fff;
+                font-weight: 700
+            }
+
+        /* Matrix area fills rest of screen */
+        .stage {
+            flex: 1 1 auto;
+            min-height: 0; /* allow internal scroll if necessary */
+            background: #fff
+        }
+
+        .matrix-wrap {
+            height: 100%;
+            width: 100%;
+            overflow: auto
+        }
+
+        .matrix {
+            display: grid;
+            border-top: 1px solid var(--border);
+            border-left: 1px solid var(--border);
+            background: #fff
+        }
+
+        .hcell, .rcell, .cell {
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .hcell {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--hdrBg);
+            text-align: center;
+            font-weight: 800;
+            padding: 6px;
+            font-size: calc(var(--fs) + 1px);
+        }
+
+        .rcell {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background: var(--hdrBg);
+            font-weight: 800;
+            padding: 6px;
+            text-align: center;
+            font-size: calc(var(--fs) + 1px);
+        }
+
+        .corner {
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 3;
+            background: var(--hdrBg)
+        }
+
+        .cell {
+            width: var(--cellW);
+            height: var(--cellH);
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            align-items: center;
+            justify-items: center;
+            padding: 6px;
+            font-size: var(--fs);
+            background: var(--vacant);
+        }
+
+            .cell .rn {
+                font-weight: 800;
+                font-size: calc(var(--fs) + 2px);
+                line-height: 1
+            }
+
+            .cell .cap {
+                font-weight: 700;
+                color: var(--ok)
+            }
+
+            .cell .meta {
+                font-size: calc(var(--fs) - 1px);
+                text-align: center;
+                line-height: 1.1
+            }
+
+            .cell.occ {
+                background: var(--occupied);
+                color: #fff
+            }
+
+                .cell.occ .cap {
+                    color: #fff
                 }
-            });
-        })();
-    </script>
-    <!-- ===== /Minimal Navbar ===== -->
+
+        .legend {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--muted);
+            background: #fff;
+            border-top: 1px solid var(--border)
+        }
+
+        /* size bar */
+        .sizebar {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .sizegrp {
+            display: flex;
+            gap: 6px;
+            align-items: center
+        }
+
+            .sizegrp input[type="range"] {
+                width: 160px
+            }
+
+        .iconbtn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff0;
+            cursor: pointer
+        }
+
+            .iconbtn:hover {
+                background: #f1f5f9
+            }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="min-nav" role="navigation" aria-label="Primary">
+        <a href="index.html"><span class="e">🏠</span><span>Home</span></a>
+        <a href="accommodation_slip.html"><span class="e">📝</span><span>Slip</span></a>
+        <a href="vacancy_forecast.html"><span class="e">📈</span><span>Forecast</span></a>
+        <a href="building_legend_grid.html" aria-current="page"><span class="e">🧩</span><span>Legend Grid</span></a>
+        <a href="checkins_checkouts.html"><span class="e">🗓️</span><span>Checkins/Checkouts</span></a>
+        <a href="print_slip_a5.html"><span class="e">🖨️</span><span>Print</span></a>
+        <a href="slip_admin.html"><span class="e">🗄️</span><span>Admin</span></a>
+        <a href="pms_instructions.html"><span class="e">📖</span><span>Instructions</span></a>
+    </nav>
 
     <div class="wrap">
-        <header class="hero">
-            <h1>Building Legends Grid</h1>
-            <p class="muted">Compact view. White = vacant, Red = occupied. Hover a room for SH and times.</p>
-
-            <div class="controls">
-                <div><label for="asof_date" class="muted">Date</label><input id="asof_date" type="date"></div>
-                <div><label for="asof_time" class="muted">Time</label><input id="asof_time" type="time" step="60"></div>
-                <div style="display:flex;gap:6px;align-items:flex-end">
-                    <button id="btnRefresh">Refresh DB</button>
-                    <button id="btnRecalc" class="primary">Recalculate</button>
+        <!-- Top toolbar -->
+        <div class="toolbar">
+            <div class="group">
+                <div>
+                    <label class="small" for="asof_date">Date</label>
+                    <input id="asof_date" type="date">
+                </div>
+                <div>
+                    <label class="small" for="asof_time">Time</label>
+                    <input id="asof_time" type="time" step="60">
+                </div>
+                <button id="btnRecalc" class="primary">Recalculate</button>
+                <button id="btnRefresh">Refresh DB</button>
+            </div>
+            <div class="spacer"></div>
+            <div class="sizebar">
+                <div class="sizegrp" title="Cell width">
+                    <span class="small">Width</span>
+                    <button class="iconbtn" id="wMinus">–</button>
+                    <input id="wRange" type="range" min="80" max="240" step="2" value="120">
+                    <button class="iconbtn" id="wPlus">+</button>
+                </div>
+                <div class="sizegrp" title="Cell height">
+                    <span class="small">Height</span>
+                    <button class="iconbtn" id="hMinus">–</button>
+                    <input id="hRange" type="range" min="60" max="200" step="2" value="92">
+                    <button class="iconbtn" id="hPlus">+</button>
+                </div>
+                <div class="sizegrp" title="Text size">
+                    <span class="small">Text</span>
+                    <button class="iconbtn" id="fMinus">–</button>
+                    <input id="fRange" type="range" min="9" max="20" step="1" value="12">
+                    <button class="iconbtn" id="fPlus">+</button>
                 </div>
             </div>
-        </header>
+        </div>
 
-        <section class="grid" id="grid"></section>
-        <p class="status" id="status">Loading DB…</p>
+        <!-- Building tabs -->
+        <div class="tabs" id="tabs"></div>
+
+        <!-- Matrix area -->
+        <div class="stage">
+            <div class="matrix-wrap">
+                <div class="matrix" id="matrix"></div>
+            </div>
+            <div class="legend" id="status">Loading DB…</div>
+        </div>
     </div>
 
     <script>
-        /* ===== IndexedDB v2 wiring ===== */
+        /* ===================== IndexedDB v2 ===================== */
         const DB_NAME = 'pms_accommodation_db', STORE = 'slips', DB_VERSION = 2;
         function openDB() {
-            return new Promise((res, rej) => {
-                const r = indexedDB.open(DB_NAME, DB_VERSION);
-                r.onupgradeneeded = e => {
-                    const db = e.target.result; let s = db.objectStoreNames.contains(STORE) ? e.target.transaction.objectStore(STORE) : db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-                    if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt', 'createdAt', { unique: false });
-                    if (!s.indexNames.contains('sh_no')) s.createIndex('sh_no', 'sh_no', { unique: false });
-                    if (!s.indexNames.contains('building')) s.createIndex('building', 'building', { unique: false });
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    const has = db.objectStoreNames.contains(STORE);
+                    const st = has ? e.target.transaction.objectStore(STORE)
+                        : db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+                    if (!st.indexNames.contains('createdAt')) st.createIndex('createdAt', 'createdAt', { unique: false });
+                    if (!st.indexNames.contains('sh_no')) st.createIndex('sh_no', 'sh_no', { unique: false });
+                    if (!st.indexNames.contains('building')) st.createIndex('building', 'building', { unique: false });
                 };
-                r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
             });
         }
-        async function getAllRecords() { const db = await openDB(); return new Promise((res, rej) => { const tx = db.transaction(STORE, 'readonly'); const st = tx.objectStore(STORE); const rq = st.getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => rej(rq.error); tx.oncomplete = () => db.close(); }); }
+        async function getAllRecords() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readonly'); const st = tx.objectStore(STORE);
+                const rq = st.getAll();
+                rq.onsuccess = () => resolve(rq.result || []); rq.onerror = () => reject(rq.error);
+                tx.oncomplete = () => db.close();
+            });
+        }
 
-        /* ===== Helpers ===== */
-        function $(id) { return document.getElementById(id) }
-        function pad(n) { return String(n).padStart(2, '0') }
+        /* ===================== Helpers ===================== */
+        function $(id) { return document.getElementById(id); }
+        function pad(n) { return String(n).padStart(2, '0'); }
         function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
-        function uniq(a) { return Array.from(new Set(a)) }
-        function cleanRoom(x) { return String(x ?? '').trim() }
-        function fmtDT(dt) { try { return dt.toLocaleString([], { year: '2-digit', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) { return dt.toISOString().slice(0, 16).replace('T', ' ') } }
-        const CANON_BUILDINGS = ['Mohammedi', 'Mufaddal', 'Snood', 'Baha', 'Husn'];
+        function fmtDT(dt) { try { return dt.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) { return dt.toISOString().slice(5, 16).replace('T', ' ') } }
+        function uniq(a) { return Array.from(new Set(a)); }
+        function cleanRoom(x) { return String(x ?? '').trim(); }
 
-        let CACHE = [];
+        /* Parse floor and column token from a room like 501, 1203, 502A, 1002B
+           Rule: take leading digits; floor = all but the last 2 digits (min 1).
+                 col = last 2 digits + any trailing letters.
+           e.g. 501 -> floor '5', col '01'
+                1203 -> floor '12', col '03'
+                502A -> floor '5', col '02A'
+        */
+        function parseRoomToken(room) {
+            const r = cleanRoom(room);
+            const m = r.match(/^(\d+)([A-Za-z]*)$/);
+            if (!m) return { floor: '?', col: r };
+            const digits = m[1]; const suf = m[2] || '';
+            if (digits.length <= 2) return { floor: '0', col: digits + suf };
+            const floor = digits.slice(0, -2);
+            const col = digits.slice(-2) + suf;
+            return { floor, col };
+        }
 
-        function roomsFromSlip(r) {
+        /* Compute inventory and column set for a building */
+        function roomsFromSlip(rec) {
             const bag = [];
-            (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no)));
-            (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+            (rec.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+            (rec.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no)));
             return bag.filter(Boolean);
         }
 
-        function activeSlipForRoom(when, building, room) {
-            const candidates = CACHE.filter(r => {
-                if ((r.building || '').trim() !== building) return false;
+        function buildInventoryPerBuilding(records, building) {
+            const rooms = [];
+            records.forEach(r => {
+                if ((r.building || '').trim() !== building) return;
+                rooms.push(...roomsFromSlip(r));
+            });
+            const uniqRooms = uniq(rooms);
+            // Map floor -> set(cols), and map floor+col -> canonical room string
+            const floors = new Map();
+            const cellToRoom = new Map();
+            uniqRooms.forEach(room => {
+                const { floor, col } = parseRoomToken(room);
+                if (!floors.has(floor)) floors.set(floor, new Set());
+                floors.get(floor).add(col);
+                cellToRoom.set(`${floor}|${col}`, room);
+            });
+            // Build sorted floor list (numeric), and column list (numeric within two digits then letters)
+            const flist = Array.from(floors.keys()).sort((a, b) => Number(a) - Number(b));
+            const allCols = new Set(); flist.forEach(f => floors.get(f).forEach(c => allCols.add(c)));
+            const clist = Array.from(allCols).sort((a, b) => {
+                const an = parseInt(a, 10); const bn = parseInt(b, 10);
+                if (!isNaN(an) && !isNaN(bn) && an !== bn) return an - bn;
+                return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
+            });
+            return { flist, clist, cellToRoom };
+        }
+
+        /* Occupancy and capacity */
+        let CACHE = [];
+        function overlapsIn(when, ci, co) { return when >= ci && when < co; }
+
+        function activeStay(when, building, room) {
+            const out = [];
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
                 const ci = parseDT(r.checkin_date, r.checkin_time);
                 const co = parseDT(r.checkout_date, r.checkout_time);
-                if (!ci || !co) return false;
-                if (!(when >= ci && when < co)) return false;
-                const rooms = roomsFromSlip(r);
-                return rooms.includes(room);
-            });
-            if (!candidates.length) return null;
-            // Prefer the one with earliest checkout after 'when'
-            candidates.sort((a, b) => parseDT(a.checkout_date, a.checkout_time) - parseDT(b.checkout_date, b.checkout_time));
-            return candidates[0];
+                if (!ci || !co) continue;
+                if (!overlapsIn(when, ci, co)) continue;
+                const rms = roomsFromSlip(r);
+                if (rms.includes(room)) out.push(r);
+            }
+            if (!out.length) return null;
+            // If multiple, pick the one with earliest checkout after when
+            out.sort((a, b) => parseDT(a.checkout_date, a.checkout_time) - parseDT(b.checkout_date, b.checkout_time));
+            return out[0];
         }
 
-        function nextSlipForRoom(when, building, room) {
-            const candidates = CACHE.filter(r => {
-                if ((r.building || '').trim() !== building) return false;
+        function nextStay(when, building, room) {
+            const out = [];
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
                 const ci = parseDT(r.checkin_date, r.checkin_time);
-                if (!ci) return false;
-                if (!(ci > when)) return false;
-                const rooms = roomsFromSlip(r);
-                return rooms.includes(room);
-            });
-            if (!candidates.length) return null;
-            candidates.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
-            return candidates[0];
+                if (!ci || !(ci > when)) continue;
+                const rms = roomsFromSlip(r);
+                if (rms.includes(room)) out.push(r);
+            }
+            if (!out.length) return null;
+            out.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
+            return out[0];
         }
 
-        function inventory(building) {
-            const bag = [];
-            CACHE.forEach(r => {
-                if (building && (r.building || '').trim() !== building) return;
-                bag.push(...roomsFromSlip(r));
-            });
-            return uniq(bag).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        /* Capacity map: latest known capacity per building|room from any slip */
+        function buildCapacityMap(building) {
+            const cap = new Map();
+            const sorted = [...CACHE].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+            for (const r of sorted) {
+                if ((r.building || '').trim() !== building) continue;
+                (r.rooms?.gents || []).forEach(x => {
+                    const key = `${building}|${cleanRoom(x.room_no)}`;
+                    const c = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
+                    if (!cap.has(key) && c != null) cap.set(key, c);
+                });
+                (r.rooms?.ladies || []).forEach(x => {
+                    const key = `${building}|${cleanRoom(x.room_no)}`;
+                    const c = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
+                    if (!cap.has(key) && c != null) cap.set(key, c);
+                });
+            }
+            return cap;
         }
 
-        /* ===== Renderer ===== */
-        function recalc() {
+        /* ===================== UI: tabs and matrix ===================== */
+        const CANON_BUILDINGS = [];
+
+        function renderTabs(buildings) {
+            const tabs = $('tabs'); tabs.innerHTML = '';
+            buildings.forEach((b, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'tab'; btn.textContent = b;
+                btn.setAttribute('role', 'tab');
+                btn.setAttribute('aria-selected', String(i === 0));
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+                    btn.setAttribute('aria-selected', 'true');
+                    renderMatrix(b);
+                });
+                tabs.appendChild(btn);
+            });
+        }
+
+        function renderMatrix(building) {
             const dateStr = $('asof_date').value, timeStr = $('asof_time').value;
-            if (!dateStr || !timeStr) { alert('Choose a valid date and time.'); return; }
+            if (!dateStr || !timeStr) { alert('Choose date and time'); return; }
             const when = new Date(`${dateStr}T${timeStr}`);
-            if (isNaN(when)) { alert('Invalid date/time.'); return; }
+            if (isNaN(when)) { alert('Invalid date/time'); return; }
 
-            const grid = $('grid'); grid.innerHTML = '';
+            const mx = $('matrix'); mx.innerHTML = '';
 
-            const buildings = uniq([...CANON_BUILDINGS, ...CACHE.map(r => (r.building || '').trim()).filter(Boolean)]).filter(Boolean);
+            const { flist, clist, cellToRoom } = buildInventoryPerBuilding(CACHE, building);
+            if (!flist.length) { mx.textContent = 'No rooms found for this building.'; return; }
 
-            buildings.forEach(b => {
-                const inv = inventory(b);
-                if (!inv.length) return;
-                const panel = document.createElement('div'); panel.className = 'panel';
-                panel.innerHTML = `<h3><span>${b}</span><span class="muted" id="stat-${b}"></span></h3>`;
-                const wrap = document.createElement('div'); wrap.className = 'rooms';
+            // CSS grid columns: 1 for row header + columns for each room token
+            mx.style.gridTemplateColumns = `repeat(${clist.length + 1}, max-content)`;
 
-                let occCount = 0;
-                inv.forEach(room => {
-                    const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.room = room;
-                    const occ = activeSlipForRoom(when, b, room);
-                    if (occ) {
-                        occCount++;
-                        cell.classList.add('occ');
-                        const co = parseDT(occ.checkout_date, occ.checkout_time);
-                        const sh = occ.sh_no || occ.tour_name || '—';
-                        cell.title = `Occupied\nSH ${sh}\nCheckout ${co ? fmtDT(co) : '—'}`;
+            // Corner
+            const corner = document.createElement('div');
+            corner.className = 'hcell corner';
+            corner.style.width = '84px'; corner.style.height = '44px';
+            corner.textContent = building;
+            mx.appendChild(corner);
+
+            // Column headers
+            clist.forEach(col => {
+                const h = document.createElement('div');
+                h.className = 'hcell';
+                h.style.width = 'var(--cellW)';
+                h.style.height = '44px';
+                h.textContent = col; // like 01, 02A, 03
+                mx.appendChild(h);
+            });
+
+            // Rows
+            const capMap = buildCapacityMap(building);
+            flist.forEach(floor => {
+                // Row header
+                const rhead = document.createElement('div');
+                rhead.className = 'rcell';
+                rhead.style.width = '84px';
+                rhead.style.height = 'var(--cellH)';
+                rhead.textContent = `FLOOR ${floor}`;
+                mx.appendChild(rhead);
+
+                // Cells
+                clist.forEach(col => {
+                    const key = `${floor}|${col}`;
+                    const room = cellToRoom.get(key) || null;
+
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.width = 'var(--cellW)';
+                    cell.style.height = 'var(--cellH)';
+
+                    if (!room) {
+                        // empty slot
+                        cell.innerHTML = `<div class="cap">—</div><div class="meta">&nbsp;</div>`;
                     } else {
-                        const next = nextSlipForRoom(when, b, room);
-                        if (next) {
-                            const ci = parseDT(next.checkin_date, next.checkin_time);
-                            const nsh = next.sh_no || next.tour_name || '—';
-                            cell.title = `Vacant\nNext check-in ${ci ? fmtDT(ci) : '—'}\nNext SH ${nsh}`;
-                            cell.classList.add('has-next');
+                        const occ = activeStay(when, building, room);
+                        const next = occ ? null : nextStay(when, building, room);
+                        const cap = capMap.get(`${building}|${room}`);
+                        const capTxt = Number.isFinite(cap) ? String(cap) : '—';
+
+                        if (occ) {
+                            const co = parseDT(occ.checkout_date, occ.checkout_time);
+                            const sh = occ.sh_no ?? '';
+                            cell.classList.add('occ');
+                            cell.innerHTML = `
+                
+                <div class="cap">${capTxt}</div>
+                <div class="meta">SH ${sh || '—'} • Out ${co ? fmtDT(co) : '—'}</div>
+              `;
                         } else {
-                            cell.title = `Vacant\nNo upcoming booking`;
+                            const ci = next ? parseDT(next.checkin_date, next.checkin_time) : null;
+                            const nsh = next ? (next.sh_no ?? '') : '';
+                            cell.innerHTML = `
+                
+                <div class="cap">${capTxt}</div>
+                <div class="meta">${next ? ('Next ' + fmtDT(ci) + (nsh ? ' • SH ' + nsh : '')) : 'Vacant'}</div>
+              `;
                         }
                     }
-                    cell.innerHTML = `<div class="rn">${room}</div>`;
-                    wrap.appendChild(cell);
+                    mx.appendChild(cell);
                 });
-
-                panel.querySelector(`#stat-${CSS.escape(b)}`).textContent = `Occupied: ${occCount}/${inv.length}`;
-                panel.appendChild(wrap);
-                grid.appendChild(panel);
             });
 
-            $('status').textContent = `${buildings.length} building(s) • Snapshot at ${dateStr} ${timeStr} • ${CACHE.length} slip(s) in DB`;
+            $('status').textContent = `${building} • Floors ${flist.join(', ')} • ${clist.length} columns • ${CACHE.length} slip(s)`;
         }
 
-        /* ===== Boot ===== */
-        async function refresh() {
+        /* ===================== Size controls ===================== */
+        function setVar(name, val) { document.documentElement.style.setProperty(name, val); }
+        function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+        function wireSizeControls() {
+            const wR = $('wRange'), hR = $('hRange'), fR = $('fRange');
+            const wM = $('wMinus'), wP = $('wPlus'), hM = $('hMinus'), hP = $('hPlus'), fM = $('fMinus'), fP = $('fPlus');
+            const apply = () => { setVar('--cellW', wR.value + 'px'); setVar('--cellH', hR.value + 'px'); setVar('--fs', fR.value + 'px'); };
+            [wR, hR, fR].forEach(el => el.addEventListener('input', apply));
+            const step = (el, d, min, max) => { el.value = clamp(Number(el.value) + d, min, max); el.dispatchEvent(new Event('input')); };
+            if (wM) wM.onclick = () => step(wR, -8, 80, 240);
+            if (wP) wP.onclick = () => step(wR, 8, 80, 240);
+            if (hM) hM.onclick = () => step(hR, -8, 60, 200);
+            if (hP) hP.onclick = () => step(hR, 8, 60, 200);
+            if (fM) fM.onclick = () => step(fR, -1, 9, 20);
+            if (fP) fP.onclick = () => step(fR, 1, 9, 20);
+            apply();
+        }
+
+        /* ===================== Boot ===================== */
+        (async function boot() {
             try {
                 CACHE = await getAllRecords();
-                const now = new Date();
-                const ymd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-                const hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-                if (!$('asof_date').value) $('asof_date').value = ymd;
-                if (!$('asof_time').value) $('asof_time').value = hm;
-                recalc();
             } catch (e) {
-                console.error(e);
                 $('status').textContent = 'Could not open local DB (IndexedDB blocked?).';
+                console.error(e);
+                return;
             }
-        }
+            // date/time defaults
+            const now = new Date();
+            const y = now.getFullYear(), m = pad(now.getMonth() + 1), d = pad(now.getDate());
+            const h = pad(now.getHours()), n = pad(now.getMinutes());
+            if (!$('asof_date').value) $('asof_date').value = `${y}-${m}-${d}`;
+            if (!$('asof_time').value) $('asof_time').value = `${h}:${n}`;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            $('btnRefresh').addEventListener('click', refresh);
-            $('btnRecalc').addEventListener('click', recalc);
-            $('asof_date').addEventListener('change', recalc);
-            $('asof_time').addEventListener('change', recalc);
-            refresh();
-        });
+            // buildings present (union of canon + data)
+            const fromData = uniq(CACHE.map(r => (r.building || '').trim()).filter(Boolean));
+            const buildings = uniq([...CANON_BUILDINGS, ...fromData]).filter(Boolean);
+            renderTabs(buildings);
+            if (buildings.length) renderMatrix(buildings[0]);
+
+            $('btnRecalc').addEventListener('click', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('btnRefresh').addEventListener('click', async () => {
+                CACHE = await getAllRecords();
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('asof_date').addEventListener('change', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('asof_time').addEventListener('change', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+
+            wireSizeControls();
+        })();
     </script>
 </body>
 </html>
