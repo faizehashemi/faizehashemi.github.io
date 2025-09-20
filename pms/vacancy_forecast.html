@@ -231,7 +231,7 @@
             <div class="pill">Occupied rooms: <b id="sum_occ">0</b></div>
             <div class="pill">Vacant rooms: <b id="sum_free">0</b></div>
             <div class="pill">Known occupied capacity (eff.): <b id="sum_occ_cap">0</b></div>
-            <div class="pill">Known free capacity (eff.): <b id="sum_free_cap">0</b> <span class="muted">(assigned if set, else capacity)</span></div>
+            <div class="pill">Known free capacity: <b id="sum_free_cap">0</b></div>
             <div class="pill">Under-assigned rooms: <b id="sum_under">0</b></div>
             <div class="pill">Headcount now: <b id="sum_head">0</b> <span class="muted" id="sum_head_break"></span></div>
         </div>
@@ -331,6 +331,12 @@
     }
 
     /* ---------------------------- Helpers ---------------------------- */
+    function capacityOnlyFor(building, room, maps) {
+  const key = `${building}|${room}`;
+  const c = maps.cap.get(key);
+  return (c != null && !Number.isNaN(c)) ? c : null;
+}
+
     function $(id) { return document.getElementById(id); }
     const CANON_BUILDINGS = [];
     function parseDT(d, t) {
@@ -503,12 +509,11 @@
       for (const room of freeRooms) {
         let cap = null, note = '';
         if (building !== 'ALL') {
-          cap = effectiveCapFor(building, room, maps);
-          note = cap == null ? 'capacity unknown' : '';
-        } else {
-          // No reliable building context when ALL; leave blank to avoid mixing same-number rooms across buildings
-          note = 'building=ALL (cap not shown)';
-        }
+  cap = capacityOnlyFor(building, room, maps);    // capacity only
+  note = cap == null ? 'capacity unknown' : '';
+} else {
+  note = 'building=ALL (cap not shown)';
+}
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="nowrap">${room}</td>
