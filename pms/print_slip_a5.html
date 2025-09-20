@@ -175,29 +175,31 @@
             return `${h}:${m}:00`;
         }
 
-        /* Build the slip HTML for one copy */
-        function slipHTML(rec, rows) {
-            const title = 'ACCOMODATION DETAILS'; // matches the screenshot spelling
-            const ciDate = ymdToDMY(rec.checkin_date || '');
-            const coDate = ymdToDMY(rec.checkout_date || '');
-            const ciTime = hhmmToHMS(rec.checkin_time || '');
-            const coTime = hhmmToHMS(rec.checkout_time || '');
+       function slipHTML(rec, rows) {
+    const title = 'ACCOMODATION DETAILS'; 
+    const ciDate = ymdToDMY(rec.checkin_date || '');
+    const coDate = ymdToDMY(rec.checkout_date || '');
+    const ciTime = hhmmToHMS(rec.checkin_time || '');
+    const coTime = hhmmToHMS(rec.checkout_time || '');
 
-            const gents = (rec.rooms?.gents || []).slice(0, rows);
-            const ladies = (rec.rooms?.ladies || []).slice(0, rows);
+    const gents = (rec.rooms?.gents || []).slice(0, rows);
+    const ladies = (rec.rooms?.ladies || []).slice(0, rows);
 
-            function fillRows(arr) {
-                const out = [];
-                for (let i = 0; i < rows; i++) {
-                    const r = arr[i];
-                    const room = r && r.room_no ? r.room_no : '-';
-                    const cap = r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0;
-                    out.push(`<tr><td>${room}</td><td>${cap}</td></tr>`);
-                }
-                return out.join('');
-            }
+    function fillRows(arr) {
+        const out = [];
+        for (let i = 0; i < rows; i++) {
+            const r = arr[i];
+            const room = r && r.room_no ? r.room_no : '-';
+            // prefer assigned, otherwise capacity, otherwise 0
+            const beds = r && (r.assigned !== '' && r.assigned != null) 
+                ? r.assigned 
+                : (r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0);
+            out.push(`<tr><td>${room}</td><td>${beds}</td></tr>`);
+        }
+        return out.join('');
+    }
 
-            return `
+    return `
       <div class="slip">
         <div class="title">${title}</div>
         <table class="grid pair">
@@ -251,7 +253,7 @@
           <table class="mini">
             <caption>GENTS</caption>
             <thead>
-              <tr><th>Room No</th><th>Capacity</th></tr>
+              <tr><th>Room No</th><th>Assigned Beds</th></tr>
             </thead>
             <tbody>
               ${fillRows(gents)}
@@ -261,7 +263,7 @@
           <table class="mini">
             <caption>LADIES</caption>
             <thead>
-              <tr><th>Room No</th><th>Capacity</th></tr>
+              <tr><th>Room No</th><th>Assigned Beds</th></tr>
             </thead>
             <tbody>
               ${fillRows(ladies)}
@@ -269,7 +271,8 @@
           </table>
         </div>
       </div>`;
-        }
+}
+
 
         function renderSlips() {
             const area = $('sheet');

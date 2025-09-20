@@ -1,143 +1,196 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Vacancy Forecast</title>
-<style>
-  :root { --b:#222; --m:#666; --bg:#f7f7f9; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); margin:0; }
-  .wrap { max-width: 1200px; margin: 22px auto; background:#fff; padding:18px; border-radius:10px; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
-  h1 { margin:0 0 12px; text-align:center; }
-  .controls { display:grid; grid-template-columns: repeat(6, minmax(140px, 1fr)); gap:10px; align-items:end; margin: 10px 0 16px; }
-  .controls > div { display:flex; flex-direction:column; gap:6px; }
-  label { font-size: 12px; color: var(--m); }
-  input, select, textarea, button { font: inherit; }
-  input[type="date"], input[type="time"], select, textarea {
-    border:1px solid #ccc; border-radius:8px; padding:8px; background:#fff;
-  }
-  textarea { min-height: 44px; }
-  button { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; }
-  button:hover { background:#f0f0f0; }
-  .summary { display:flex; gap:12px; flex-wrap:wrap; margin: 6px 0 14px; }
-  .pill { border:1px solid #ddd; border-radius:999px; padding:6px 12px; background:#fafafa; }
-  table { width:100%; border-collapse: collapse; margin-top:10px; }
-  th, td { border:1px solid var(--b); padding:8px; vertical-align:top; }
-  th { background:#fafafa; text-align:left; }
-  .muted { color: var(--m); }
-  .right { text-align:right; }
-  .nowrap { white-space:nowrap; }
-  .two { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
-  @media (max-width: 900px){ .controls { grid-template-columns: 1fr 1fr; } .two { grid-template-columns:1fr; } }
-  @media print{ .controls, .muted, #status { display:none !important; } .wrap { box-shadow:none; padding:0; margin:0; } }
-</style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vacancy Forecast (Assigned-first)</title>
+    <style>
+        :root {
+            --b: #222;
+            --m: #666;
+            --bg: #f7f7f9;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: var(--bg);
+            margin: 0;
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 22px auto;
+            background: #fff;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,.08);
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            text-align: center;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(140px, 1fr));
+            gap: 10px;
+            align-items: end;
+            margin: 10px 0 16px;
+        }
+
+            .controls > div {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+        label {
+            font-size: 12px;
+            color: var(--m);
+        }
+
+        input, select, textarea, button {
+            font: inherit;
+        }
+
+            input[type="date"], input[type="time"], select, textarea {
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                padding: 8px;
+                background: #fff;
+            }
+
+        textarea {
+            min-height: 44px;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #fff;
+            cursor: pointer;
+        }
+
+            button:hover {
+                background: #f0f0f0;
+            }
+
+        .summary {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 6px 0 14px;
+        }
+
+        .pill {
+            border: 1px solid #ddd;
+            border-radius: 999px;
+            padding: 6px 12px;
+            background: #fafafa;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid var(--b);
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        th {
+            background: #fafafa;
+            text-align: left;
+        }
+
+        .muted {
+            color: var(--m);
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        .two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .delta-pos {
+            color: #16a34a;
+            font-weight: 700;
+        }
+
+        .delta-neg {
+            color: #ef4444;
+            font-weight: 700;
+        }
+
+        @media (max-width: 900px) {
+            .controls {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .two {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            .controls, .muted, #status {
+                display: none !important;
+            }
+
+            .wrap {
+                box-shadow: none;
+                padding: 0;
+                margin: 0;
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- ==== Background: put this once per page ==== -->
+    <!-- Background (optional) -->
     <style>
-         .pms-bg {
-             position: fixed;
-             inset: 0;
-             z-index: -2;
-             background: center/cover no-repeat url("bg.png");
-             /* Remove blur if you hate nice things */
-             filter: saturate(105%) brightness(0.98);
-         }
+        .pms-bg {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background: center/cover no-repeat url("bg.png");
+            filter: saturate(105%) brightness(0.98);
+        }
 
-             .pms-bg::after {
-                 content: "";
-                 position: absolute;
-                 inset: 0;
-                 z-index: -1;
-                 background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
-                 pointer-events: none;
-             }
-         /* If you need extra contrast for text-heavy pages, uncomment:
-        body { background: rgba(255,255,255,.85); backdrop-filter: blur(2px); }
-        */
+            .pms-bg::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                z-index: -1;
+                background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
+            }
     </style>
     <div class="pms-bg" aria-hidden="true"></div>
 
-    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
-    <nav class="min-nav" role="navigation" aria-label="Primary">
-        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
-        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
-        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
-        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
-        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
-        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
-        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
-        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
+    <!-- Navbar -->
+    <nav class="min-nav" role="navigation" aria-label="Primary" style="position:sticky;top:0;z-index:1000;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:10px 12px;border-bottom:1px solid #e5e7eb;background:rgba(255,255,255,.75);backdrop-filter:blur(6px)">
+        <a href="index.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🏠</span>Home</a>
+        <a href="accommodation_slip.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>📝</span>Slip</a>
+        <a href="vacancy_forecast.html" aria-current="page" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px;background:#f3f4f6"><span>📈</span>Forecast</a>
+        <a href="building_legend_grid.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🧩</span>Legend Grid</a>
+        <a href="checkins_checkouts.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🗓️</span>Checkins/Checkouts</a>
+        <a href="print_slip_a5.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🖨️</span>Print</a>
+        <a href="slip_admin.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🗄️</span>Admin</a>
+        <a href="pms_instructions.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>📖</span>Instructions</a>
     </nav>
-
-    <style>
-        .min-nav {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center; /* centered */
-            padding: 10px 12px;
-            border-bottom: 1px solid #e5e7eb;
-            background: rgba(255,255,255,.75);
-            backdrop-filter: blur(6px);
-        }
-
-            .min-nav a {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px; /* emoji + text */
-                color: #0b1220;
-                text-decoration: none;
-                padding: 6px 10px;
-                border-radius: 10px;
-            }
-
-                .min-nav a:hover {
-                    text-decoration: underline
-                }
-
-                .min-nav a[aria-current="page"] {
-                    font-weight: 700;
-                    background: #f3f4f6;
-                }
-
-            .min-nav .e {
-                font-size: 1.05em;
-                line-height: 1
-            }
-        /* emojis aligned nicely */
-
-        @media (prefers-color-scheme: dark) {
-            .min-nav {
-                background: rgba(15,18,22,.6);
-                border-color: #1f2937
-            }
-
-                .min-nav a {
-                    color: #e5e7eb
-                }
-
-                    .min-nav a[aria-current="page"] {
-                        background: #0f172a
-                    }
-        }
-    </style>
-
-    <script>
-        (function () {
-            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-            document.querySelectorAll('.min-nav a').forEach(function (a) {
-                if ((a.getAttribute('href') || '').toLowerCase() === here) {
-                    a.setAttribute('aria-current', 'page');
-                }
-            });
-        })();
-    </script>
-    <!-- ===== /Minimal Navbar ===== -->
-
 
     <div class="wrap">
         <h1>Vacancy Forecast</h1>
@@ -177,8 +230,9 @@
             <div class="pill">Inventory rooms: <b id="sum_total">0</b></div>
             <div class="pill">Occupied rooms: <b id="sum_occ">0</b></div>
             <div class="pill">Vacant rooms: <b id="sum_free">0</b></div>
-            <div class="pill">Known occupied capacity: <b id="sum_occ_cap">0</b></div>
-            <div class="pill">Known free capacity: <b id="sum_free_cap">0</b> <span class="muted">(if capacity known)</span></div>
+            <div class="pill">Known occupied capacity (eff.): <b id="sum_occ_cap">0</b></div>
+            <div class="pill">Known free capacity (eff.): <b id="sum_free_cap">0</b> <span class="muted">(assigned if set, else capacity)</span></div>
+            <div class="pill">Under-assigned rooms: <b id="sum_under">0</b></div>
             <div class="pill">Headcount now: <b id="sum_head">0</b> <span class="muted" id="sum_head_break"></span></div>
         </div>
 
@@ -192,7 +246,7 @@
                             <th>Group</th>
                             <th>Leader</th>
                             <th>Gender</th>
-                            <th class="right">Capacity</th>
+                            <th class="right">Cap (eff.)</th>
                             <th>Window</th>
                             <th>Building</th>
                             <th>SH No.</th>
@@ -208,7 +262,7 @@
                     <thead>
                         <tr>
                             <th>Room</th>
-                            <th class="right">Capacity</th>
+                            <th class="right">Cap (eff.)</th>
                             <th class="muted">Note</th>
                         </tr>
                     </thead>
@@ -217,258 +271,327 @@
             </div>
         </div>
 
+        <div style="margin-top:16px">
+            <h3 style="margin:8px 0 6px;">Capacity deviations (Assigned vs Capacity)</h3>
+            <table id="tblUnder">
+                <thead>
+                    <tr>
+                        <th>Building</th>
+                        <th>Room</th>
+                        <th class="right">Assigned</th>
+                        <th class="right">Capacity</th>
+                        <th class="right">Δ (A−C)</th>
+                        <th class="muted">Note</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p class="muted" style="margin:6px 0 0">Shows latest known values per room. Only rooms where assigned differs from capacity are listed.</p>
+        </div>
+
         <p class="muted" id="status"></p>
     </div>
 
     <script>
-        /* -------------------------- DB plumbing (v2) -------------------------- */
-        const DB_NAME = 'pms_accommodation_db';
-        const STORE = 'slips';
-        const DB_VERSION = 2;
+    /* -------------------------- DB plumbing (v2) -------------------------- */
+    const DB_NAME = 'pms_accommodation_db';
+    const STORE = 'slips';
+    const DB_VERSION = 2;
 
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(DB_NAME, DB_VERSION);
-                req.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    let s;
-                    if (!db.objectStoreNames.contains(STORE)) {
-                        s = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-                    } else {
-                        s = e.target.transaction.objectStore(STORE);
-                    }
-                    if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt', 'createdAt', { unique: false });
-                    if (!s.indexNames.contains('sh_no')) s.createIndex('sh_no', 'sh_no', { unique: false });
-                    if (!s.indexNames.contains('building')) s.createIndex('building', 'building', { unique: false });
-                };
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => reject(req.error);
-            });
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          let s;
+          if (!db.objectStoreNames.contains(STORE)) {
+            s = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+          } else {
+            s = e.target.transaction.objectStore(STORE);
+          }
+          if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt', 'createdAt', { unique: false });
+          if (!s.indexNames.contains('sh_no')) s.createIndex('sh_no', 'sh_no', { unique: false });
+          if (!s.indexNames.contains('building')) s.createIndex('building', 'building', { unique: false });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function getAllRecords() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const st = tx.objectStore(STORE);
+        const rq = st.getAll();
+        rq.onsuccess = () => resolve(rq.result || []);
+        rq.onerror = () => reject(rq.error);
+        tx.oncomplete = () => db.close();
+      });
+    }
+
+    /* ---------------------------- Helpers ---------------------------- */
+    function $(id) { return document.getElementById(id); }
+    const CANON_BUILDINGS = [];
+    function parseDT(d, t) {
+      if (!d) return null;
+      const time = t && t.length ? t : '00:00';
+      const v = new Date(`${d}T${time}`);
+      return isNaN(v.getTime()) ? null : v;
+    }
+    function fmt(dt) {
+      if (!dt) return '';
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(dt);
+    }
+    function unique(arr) { return Array.from(new Set(arr)); }
+    function cleanRoom(x) { return String(x ?? '').trim(); }
+
+    /* Build latest-known capacity and assigned maps (per building|room) */
+    function buildCapacityMaps(recs, buildingFilter) {
+      const cap = new Map(); // key = building|room -> capacity
+      const asg = new Map(); // key = building|room -> assigned
+      const items = [...recs].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1)); // newest first
+      for (const r of items) {
+        const b = (r.building || '').trim();
+        if (buildingFilter && buildingFilter !== 'ALL' && b !== buildingFilter) continue;
+        for (const g of (r.rooms?.gents || [])) {
+          const key = `${b}|${cleanRoom(g.room_no)}`;
+          if (!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
+          if (!asg.has(key) && g.assigned !== '' && g.assigned != null) asg.set(key, Number(g.assigned));
         }
-
-        async function getAllRecords() {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE, 'readonly');
-                const st = tx.objectStore(STORE);
-                const rq = st.getAll();
-                rq.onsuccess = () => resolve(rq.result || []);
-                rq.onerror = () => reject(rq.error);
-                tx.oncomplete = () => db.close();
-            });
+        for (const g of (r.rooms?.ladies || [])) {
+          const key = `${b}|${cleanRoom(g.room_no)}`;
+          if (!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
+          if (!asg.has(key) && g.assigned !== '' && g.assigned != null) asg.set(key, Number(g.assigned));
         }
+      }
+      return { cap, asg };
+    }
+    function effectiveCapFor(building, room, maps) {
+      const key = `${building}|${room}`;
+      const a = maps.asg.get(key);
+      if (a != null && !Number.isNaN(a)) return a;
+      const c = maps.cap.get(key);
+      return (c != null && !Number.isNaN(c)) ? c : null;
+    }
 
-        /* ---------------------------- Helpers ---------------------------- */
-        function $(id) { return document.getElementById(id); }
-        const CANON_BUILDINGS = [];
+    /* Inventory from manual textarea or inferred from DB */
+    function getInventoryRooms(mode, manualText, recs, buildingFilter) {
+      if (mode === 'manual') {
+        const raw = manualText.split(/[\n,]+/).map(s => cleanRoom(s)).filter(Boolean);
+        return unique(raw).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      }
+      const bag = [];
+      for (const r of recs) {
+        if (buildingFilter && buildingFilter !== 'ALL' && (r.building || '').trim() !== buildingFilter) continue;
+        (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+        (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+      }
+      return unique(bag.filter(Boolean)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
 
-        function parseDT(d, t) {
-            if (!d) return null;
-            const time = t && t.length ? t : '00:00';
-            const v = new Date(`${d}T${time}`);
-            return isNaN(v.getTime()) ? null : v;
-        }
-        function fmt(dt) {
-            if (!dt) return '';
-            return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(dt);
-        }
-        function unique(arr) { return Array.from(new Set(arr)); }
-        function cleanRoom(x) { return String(x ?? '').trim(); }
+    /* ---------------------------- UI wiring --------------------------- */
+    let DB_CACHE = [];
 
-        /* Build a capacity map using the most recent known capacity per room per building */
-        function buildCapacityMap(recs, buildingFilter) {
-            const cap = new Map(); // key = building|room -> capacity
-            const items = [...recs].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
-            for (const r of items) {
-                if (buildingFilter && buildingFilter !== 'ALL' && (r.building || '').trim() !== buildingFilter) continue;
-                for (const g of (r.rooms?.gents || [])) {
-                    const key = `${(r.building || '').trim()}|${cleanRoom(g.room_no)}`;
-                    if (!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
-                }
-                for (const g of (r.rooms?.ladies || [])) {
-                    const key = `${(r.building || '').trim()}|${cleanRoom(g.room_no)}`;
-                    if (!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
-                }
-            }
-            return cap;
-        }
+    function populateBuildingFilter() {
+      const sel = $('building');
+      const present = unique(DB_CACHE.map(r => (r.building || '').trim()).filter(Boolean));
+      const merged = unique(['ALL', ...CANON_BUILDINGS, ...present]).filter(Boolean);
+      sel.innerHTML = '';
+      merged.forEach(v => {
+        const o = document.createElement('option'); o.value = v; o.textContent = v === 'ALL' ? 'ALL BUILDINGS' : v;
+        sel.appendChild(o);
+      });
+      sel.value = 'ALL';
+    }
 
-        /* Inventory from manual textarea or inferred from DB */
-        function getInventoryRooms(mode, manualText, recs, buildingFilter) {
-            if (mode === 'manual') {
-                const raw = manualText.split(/[\n,]+/).map(s => cleanRoom(s)).filter(Boolean);
-                return unique(raw).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-            }
-            const bag = [];
-            for (const r of recs) {
-                if (buildingFilter && buildingFilter !== 'ALL' && (r.building || '').trim() !== buildingFilter) continue;
-                (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no)));
-                (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no)));
-            }
-            return unique(bag.filter(Boolean)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-        }
+    async function refreshDB() {
+      DB_CACHE = await getAllRecords();
+      $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`;
+      populateBuildingFilter();
+    }
 
-        /* ---------------------------- UI wiring --------------------------- */
-        let DB_CACHE = [];
+    function currentWhen() {
+      const d = $('when_date').value;
+      const t = $('when_time').value;
+      return parseDT(d, t);
+    }
 
-        function populateBuildingFilter() {
-            const sel = $('building');
-            const present = unique(DB_CACHE.map(r => (r.building || '').trim()).filter(Boolean));
-            const merged = unique(['ALL', ...CANON_BUILDINGS, ...present]).filter(Boolean);
-            sel.innerHTML = '';
-            merged.forEach(v => {
-                const o = document.createElement('option'); o.value = v; o.textContent = v === 'ALL' ? 'ALL BUILDINGS' : v;
-                sel.appendChild(o);
-            });
-            sel.value = 'ALL';
-        }
+    function runForecast() {
+      const when = currentWhen();
+      if (!when) { alert('Choose a valid date and time.'); return; }
 
-        async function refreshDB() {
-            DB_CACHE = await getAllRecords();
-            $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`;
-            populateBuildingFilter();
-        }
+      const building = $('building').value || 'ALL';
+      const mode = $('inventory_mode').value;
+      const manualText = $('inventory_text').value || '';
 
-        function currentWhen() {
-            const d = $('when_date').value;
-            const t = $('when_time').value;
-            return parseDT(d, t);
-        }
+      const maps = buildCapacityMaps(DB_CACHE, building);
+      const inventory = getInventoryRooms(mode, manualText, DB_CACHE, building);
 
-        function runForecast() {
-            const when = currentWhen();
-            if (!when) { alert('Choose a valid date and time.'); return; }
+      // Active records at "when"
+      const active = DB_CACHE.filter(r => {
+        if (building !== 'ALL' && (r.building || '').trim() !== building) return false;
+        const ci = parseDT(r.checkin_date, r.checkin_time);
+        const co = parseDT(r.checkout_date, r.checkout_time);
+        if (!ci || !co) return false;
+        return when >= ci && when < co; // [checkin, checkout)
+      });
 
-            const building = $('building').value || 'ALL';
-            const mode = $('inventory_mode').value;
-            const manualText = $('inventory_text').value || '';
+      // Occupancy map room -> list of stays (with assigned AND capacity)
+      const occ = new Map(); // room -> [entries]
+      function pushOcc(room, entry) {
+        const key = cleanRoom(room);
+        if (!key) return;
+        if (!occ.has(key)) occ.set(key, []);
+        occ.get(key).push(entry);
+      }
 
-            const capMap = buildCapacityMap(DB_CACHE, building);
-            const inventory = getInventoryRooms(mode, manualText, DB_CACHE, building);
+      for (const r of active) {
+        const base = {
+          tour: r.tour_name || '',
+          leader: r.group_leader || '',
+          sh_no: r.sh_no ?? '',
+          building: (r.building || '').trim(),
+          window: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}`
+        };
+        (r.rooms?.gents || []).forEach(x => {
+          const cap = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
+          const asg = (x.assigned === '' || x.assigned == null) ? null : Number(x.assigned);
+          pushOcc(x.room_no, { ...base, gender: 'Gents', capacity: cap, assigned: asg, effCap: (asg!=null?asg:cap) });
+        });
+        (r.rooms?.ladies || []).forEach(x => {
+          const cap = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
+          const asg = (x.assigned === '' || x.assigned == null) ? null : Number(x.assigned);
+          pushOcc(x.room_no, { ...base, gender: 'Ladies', capacity: cap, assigned: asg, effCap: (asg!=null?asg:cap) });
+        });
+      }
 
-            // Active records at "when"
-            const active = DB_CACHE.filter(r => {
-                if (building !== 'ALL' && (r.building || '').trim() !== building) return false;
-                const ci = parseDT(r.checkin_date, r.checkin_time);
-                const co = parseDT(r.checkout_date, r.checkout_time);
-                if (!ci || !co) return false;
-                return when >= ci && when < co; // [checkin, checkout)
-            });
+      // Render occupied table
+      const tbodyOcc = $('tblOcc').querySelector('tbody');
+      tbodyOcc.innerHTML = '';
+      let occCount = 0, occCap = 0;
 
-            // Occupancy map room -> list of stays
-            const occ = new Map(); // room -> [entries]
-            function pushOcc(room, entry) {
-                const key = cleanRoom(room);
-                if (!key) return;
-                if (!occ.has(key)) occ.set(key, []);
-                occ.get(key).push(entry);
-            }
-
-            for (const r of active) {
-                const base = {
-                    tour: r.tour_name || '',
-                    leader: r.group_leader || '',
-                    sh_no: r.sh_no ?? '',
-                    building: (r.building || '').trim(),
-                    window: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}`
-                };
-                (r.rooms?.gents || []).forEach(x => {
-                    pushOcc(x.room_no, { ...base, gender: 'Gents', capacity: (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity) });
-                });
-                (r.rooms?.ladies || []).forEach(x => {
-                    pushOcc(x.room_no, { ...base, gender: 'Ladies', capacity: (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity) });
-                });
-            }
-
-            // Render occupied table
-            const tbodyOcc = $('tblOcc').querySelector('tbody');
-            tbodyOcc.innerHTML = '';
-            let occCount = 0, occCap = 0;
-
-            const occRooms = Array.from(occ.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-            for (const room of occRooms) {
-                const entries = occ.get(room);
-                for (const e of entries) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
+      const occRooms = Array.from(occ.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      for (const room of occRooms) {
+        const entries = occ.get(room);
+        for (const e of entries) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
             <td class="nowrap">${room}</td>
             <td>${e.tour || ''}</td>
             <td>${e.leader || ''}</td>
             <td>${e.gender}</td>
-            <td class="right">${e.capacity == null ? '' : e.capacity}</td>
+            <td class="right">${e.effCap == null ? '' : e.effCap}</td>
             <td>${e.window}</td>
             <td>${e.building || ''}</td>
             <td>${e.sh_no ?? ''}</td>
           `;
-                    tbodyOcc.appendChild(tr);
-                }
-                occCount += 1;
-                const bestCap = entries.find(x => x.capacity != null)?.capacity;
-                if (bestCap != null) occCap += bestCap;
-            }
+          tbodyOcc.appendChild(tr);
+        }
+        occCount += 1;
+        const best = entries.find(x => x.effCap != null)?.effCap;
+        if (best != null) occCap += best;
+      }
 
-            // Free rooms = inventory minus occupied keys
-            const occSet = new Set(occRooms);
-            const freeRooms = inventory.filter(r => !occSet.has(r));
+      // Free rooms = inventory minus occupied keys
+      const occSet = new Set(occRooms);
+      const freeRooms = inventory.filter(r => !occSet.has(r));
 
-            const tbodyFree = $('tblFree').querySelector('tbody');
-            tbodyFree.innerHTML = '';
-            let freeCap = 0;
-            for (const room of freeRooms) {
-                const key = `${building === 'ALL' ? '' : (building)}|${room}`;
-                const cap = capMap.get(key) ?? null;
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
+      const tbodyFree = $('tblFree').querySelector('tbody');
+      tbodyFree.innerHTML = '';
+      let freeCap = 0;
+      for (const room of freeRooms) {
+        let cap = null, note = '';
+        if (building !== 'ALL') {
+          cap = effectiveCapFor(building, room, maps);
+          note = cap == null ? 'capacity unknown' : '';
+        } else {
+          // No reliable building context when ALL; leave blank to avoid mixing same-number rooms across buildings
+          note = 'building=ALL (cap not shown)';
+        }
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
           <td class="nowrap">${room}</td>
           <td class="right">${cap == null ? '' : cap}</td>
-          <td class="muted">${cap == null ? 'capacity unknown' : ''}</td>
+          <td class="muted">${note}</td>
         `;
-                tbodyFree.appendChild(tr);
-                if (cap != null) freeCap += cap;
-            }
+        tbodyFree.appendChild(tr);
+        if (cap != null) freeCap += cap;
+      }
 
-            // Totals
-            $('sum_total').textContent = inventory.length;
-            $('sum_occ').textContent = occCount;
-            $('sum_free').textContent = freeRooms.length;
-            $('sum_occ_cap').textContent = occCap;
-            $('sum_free_cap').textContent = freeCap;
+      // Under-assigned table (latest known values)
+      const tbodyUnder = $('tblUnder').querySelector('tbody');
+      tbodyUnder.innerHTML = '';
+      let underCount = 0;
 
-            // Headcount now (includes infants/children when available)
-            const sums = active.reduce((acc, r) => {
-                const g = Number(r.gents) || 0, l = Number(r.ladies) || 0, c = Number(r.children) || 0, i = Number(r.infants) || 0, t = Number(r.total) || 0;
-                acc.g += g; acc.l += l; acc.c += c; acc.i += i; acc.t += t || (g + l + c + i);
-                return acc;
-            }, { g: 0, l: 0, c: 0, i: 0, t: 0 });
-            $('sum_head').textContent = sums.t;
-            $('sum_head_break').textContent = `(G ${sums.g} / L ${sums.l} / C ${sums.c} / I ${sums.i})`;
+      // Build maps across current building scope
+      const scanScope = buildCapacityMaps(DB_CACHE, building);
+      const keys = new Set([...scanScope.cap.keys(), ...scanScope.asg.keys()]);
+      const sortedKeys = Array.from(keys).sort((a,b)=>a.localeCompare(b, undefined, { numeric:true }));
 
-            $('status').textContent = `Forecast run for ${fmt(when)} in ${building === 'ALL' ? 'all buildings' : 'building ' + building}.`;
-        }
+      for (const key of sortedKeys) {
+        const [bld, room] = key.split('|');
+        const cap = scanScope.cap.get(key);
+        const asg = scanScope.asg.get(key);
+        if (cap == null || asg == null) continue;           // need both to compare
+        if (asg === cap) continue;                          // only show where different
+        const delta = asg - cap;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${bld || ''}</td>
+          <td class="nowrap">${room || ''}</td>
+          <td class="right">${asg}</td>
+          <td class="right">${cap}</td>
+          <td class="right ${delta<0?'delta-neg':'delta-pos'}">${delta>0? '+'+delta : delta}</td>
+          <td class="muted">${delta<0?'under-assigned':'over-assigned'}</td>
+        `;
+        tbodyUnder.appendChild(tr);
+        if (delta < 0) underCount += 1;
+      }
 
-        /* ------------------------------ Boot ------------------------------- */
-        (function init() {
-            const now = new Date();
-            const pad = n => String(n).padStart(2, '0');
-            $('when_date').value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-            $('when_time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      // Totals
+      $('sum_total').textContent = inventory.length;
+      $('sum_occ').textContent = occCount;
+      $('sum_free').textContent = freeRooms.length;
+      $('sum_occ_cap').textContent = occCap;
+      $('sum_free_cap').textContent = freeCap;
+      $('sum_under').textContent = underCount;
 
-            $('inventory_mode').addEventListener('change', () => {
-                const on = $('inventory_mode').value === 'manual';
-                $('inventory_text').disabled = !on;
-                $('inventory_text').style.opacity = on ? '1' : '.6';
-            });
-            $('inventory_text').disabled = true;
+      // Headcount now (from active slips)
+      const sums = active.reduce((acc, r) => {
+        const g = Number(r.gents) || 0, l = Number(r.ladies) || 0, c = Number(r.children) || 0, i = Number(r.infants) || 0, t = Number(r.total) || 0;
+        acc.g += g; acc.l += l; acc.c += c; acc.i += i; acc.t += t || (g + l + c + i);
+        return acc;
+      }, { g: 0, l: 0, c: 0, i: 0, t: 0 });
+      $('sum_head').textContent = sums.t;
+      $('sum_head_break').textContent = `(G ${sums.g} / L ${sums.l} / C ${sums.c} / I ${sums.i})`;
 
-            $('btnRefresh').addEventListener('click', refreshDB);
-            $('btnRun').addEventListener('click', runForecast);
-            $('btnPrint').addEventListener('click', () => window.print());
+      $('status').textContent = `Forecast run for ${fmt(when)} in ${building === 'ALL' ? 'all buildings' : 'building ' + building}. Using assigned where available.`;
+    }
 
-            refreshDB().then(runForecast).catch(err => {
-                console.error(err);
-                $('status').textContent = 'Could not read local DB. Open the slip page first in this browser and save at least one slip.';
-            });
-        })();
+    /* ------------------------------ Boot ------------------------------- */
+    (function init() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      $('when_date').value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      $('when_time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      $('inventory_mode').addEventListener('change', () => {
+        const on = $('inventory_mode').value === 'manual';
+        $('inventory_text').disabled = !on;
+        $('inventory_text').style.opacity = on ? '1' : '.6';
+      });
+      $('inventory_text').disabled = true;
+
+      $('btnRefresh').addEventListener('click', refreshDB);
+      $('btnRun').addEventListener('click', runForecast);
+      $('btnPrint').addEventListener('click', () => window.print());
+
+      refreshDB().then(runForecast).catch(err => {
+        console.error(err);
+        $('status').textContent = 'Could not read local DB. Open the slip page first in this browser and save at least one slip.';
+      });
+    })();
     </script>
 </body>
 </html>

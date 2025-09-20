@@ -539,9 +539,16 @@
         <div class="subtables" style="margin-top:16px;">
             <table class="mini" id="tblGents">
                 <caption>GENTS — Rooms</caption>
+                <!-- GENTS header: was Room No | Capacity | [X] -->
                 <thead>
-                    <tr><th style="width:60%">Room No</th><th style="width:30%">Capacity</th><th style="width:10%"></th></tr>
+                    <tr>
+                        <th style="width:50%">Room No</th>
+                        <th style="width:22%">Capacity</th>
+                        <th style="width:18%">Assigned</th>
+                        <th style="width:10%"></th>
+                    </tr>
                 </thead>
+
                 <tbody id="gents-tbody"></tbody>
                 <tfoot>
                     <tr><td colspan="3"><button class="row-btn" onclick="addRow('gents')">Add Row</button></td></tr>
@@ -550,9 +557,16 @@
 
             <table class="mini" id="tblLadies">
                 <caption>LADIES — Rooms</caption>
+                <!-- LADIES header: same change -->
                 <thead>
-                    <tr><th style="width:60%">Room No</th><th style="width:30%">Capacity</th><th style="width:10%"></th></tr>
+                    <tr>
+                        <th style="width:50%">Room No</th>
+                        <th style="width:22%">Capacity</th>
+                        <th style="width:18%">Assigned</th>
+                        <th style="width:10%"></th>
+                    </tr>
                 </thead>
+
                 <tbody id="ladies-tbody"></tbody>
                 <tfoot>
                     <tr><td colspan="3"><button class="row-btn" onclick="addRow('ladies')">Add Row</button></td></tr>
@@ -730,58 +744,82 @@
             DB_CACHE = await getAllRecords();
         }
 
-        function addRow(group, data = { room_no: '', capacity: '' }) {
-            const tbody = $(group + '-tbody');
-            const tr = document.createElement('tr');
+function addRow(group, data = { room_no: '', capacity: '', assigned: '' }) {
+  const tbody = $(group + '-tbody');
+  const tr = document.createElement('tr');
 
-            const tdRoom = document.createElement('td');
-            const inpRoom = document.createElement('input');
-            inpRoom.type = 'text';
-            inpRoom.placeholder = '';
-            inpRoom.value = data.room_no || '';
-            tdRoom.appendChild(inpRoom);
+  // Room
+  const tdRoom = document.createElement('td');
+  const inpRoom = document.createElement('input');
+  inpRoom.type = 'text';
+  inpRoom.placeholder = '';
+  inpRoom.value = data.room_no || '';
+  tdRoom.appendChild(inpRoom);
 
-            const tdCap = document.createElement('td');
-            const inpCap = document.createElement('input');
-            inpCap.type = 'number';
-            inpCap.min = '0';
-            inpCap.step = '1';
-            inpCap.inputMode = 'numeric';
-            inpCap.value = data.capacity ?? '';
-            tdCap.appendChild(inpCap);
+  // Capacity (reference/nominal)
+  const tdCap = document.createElement('td');
+  const inpCap = document.createElement('input');
+  inpCap.type = 'number';
+  inpCap.min = '0';
+  inpCap.step = '1';
+  inpCap.inputMode = 'numeric';
+  inpCap.value = data.capacity ?? '';
+  tdCap.appendChild(inpCap);
 
-            const tdDel = document.createElement('td');
-            const btnDel = document.createElement('button');
-            btnDel.className = 'row-btn';
-            btnDel.type = 'button';
-            btnDel.textContent = 'X';
-            btnDel.title = 'Delete row';
-            btnDel.onclick = () => tr.remove();
-            tdDel.appendChild(btnDel);
+  // Assigned (what you actually assign right now)
+  const tdAsg = document.createElement('td');
+  const inpAsg = document.createElement('input');
+  inpAsg.type = 'number';
+  inpAsg.min = '0';
+  inpAsg.step = '1';
+  inpAsg.inputMode = 'numeric';
+  inpAsg.placeholder = 'assigned';
+  inpAsg.value = data.assigned ?? '';
+  tdAsg.appendChild(inpAsg);
 
-            tr.append(tdRoom, tdCap, tdDel);
-            tbody.appendChild(tr);
-        }
+  // Delete
+  const tdDel = document.createElement('td');
+  const btnDel = document.createElement('button');
+  btnDel.className = 'row-btn';
+  btnDel.type = 'button';
+  btnDel.textContent = 'X';
+  btnDel.title = 'Delete row';
+  btnDel.onclick = () => tr.remove();
+  tdDel.appendChild(btnDel);
 
-        function collectRows(group) {
-            const rows = [];
-            document.querySelectorAll(`#${group}-tbody tr`).forEach(tr => {
-                const [roomNoEl, capEl] = tr.querySelectorAll('input');
-                const room_no = (roomNoEl.value || '').trim();
-                const capRaw = (capEl.value || '').trim();
-                // treat non-numeric as unknown; we store '' in DB
-                const capacity = /^\d+$/.test(capRaw) ? Number(capRaw) : '';
-                if (room_no !== '' || capRaw !== '') rows.push({ room_no, capacity });
-            });
-            return rows;
-        }
+  tr.append(tdRoom, tdCap, tdAsg, tdDel);
+  tbody.appendChild(tr);
+}
 
-        function setRows(group, arr) {
-            const tbody = $(group + '-tbody');
-            tbody.innerHTML = '';
-            if (!arr || !arr.length) { addRow(group); return; }
-            arr.forEach(r => addRow(group, r));
-        }
+
+function collectRows(group) {
+  const rows = [];
+  document.querySelectorAll(`#${group}-tbody tr`).forEach(tr => {
+    const [roomNoEl, capEl, asgEl] = tr.querySelectorAll('input');
+    const room_no = (roomNoEl?.value || '').trim();
+
+    const capRaw = (capEl?.value || '').trim();
+    const capacity = /^\d+$/.test(capRaw) ? Number(capRaw) : '';
+
+    const asgRaw = (asgEl?.value || '').trim();
+    const assigned = /^\d+$/.test(asgRaw) ? Number(asgRaw) : '';
+
+    // Only push if anything is filled
+    if (room_no !== '' || capRaw !== '' || asgRaw !== '') {
+      rows.push({ room_no, capacity, assigned });
+    }
+  });
+  return rows;
+}
+
+
+function setRows(group, arr) {
+  const tbody = $(group + '-tbody');
+  tbody.innerHTML = '';
+  if (!arr || !arr.length) { addRow(group); return; }
+  arr.forEach(r => addRow(group, r)); // r may include r.assigned
+}
+
 
         function getFormData() {
             return {
