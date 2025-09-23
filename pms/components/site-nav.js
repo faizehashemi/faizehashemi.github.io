@@ -20,7 +20,6 @@ class SiteNav extends HTMLElement {
               { href: "fega.html",                 text: "FE KG" },     /* fega = FE KG   */
               { href: "print_slip_a5.html",        text: "Print" },
               { href: "slip_admin.html",           text: "Admin" },
-              { href: "pms_instructions.html",     text: "Instructions" }
             ].map(l => `
               <a class="item" role="menuitem" href="${l.href}">
                 <span class="t">${l.text}</span>
