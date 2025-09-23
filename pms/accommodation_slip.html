@@ -1,400 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Accommodation Details Slip — v3</title>
-<style>
-  :root { --border:#222; --muted:#666; --pad:10px; --warn:#b91c1c; --ok:#0f766e; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f7f7f9; margin:0; }
-  .wrap { max-width: 1024px; margin: 24px auto; background:#fff; padding: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.08); border-radius: 10px; }
-  h1 { text-align:center; letter-spacing:.5px; margin: 0 0 12px; }
-  .controls { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; margin: 8px 0 16px; }
-  button, select { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; }
-  button:hover { background:#f0f0f0; }
-  .grid { width:100%; border-collapse: collapse; }
-  .grid th, .grid td { border:1px solid var(--border); padding: var(--pad); vertical-align: middle; }
-  .grid th { background:#fafafa; text-align:left; font-weight:700; }
-  .grid caption { caption-side: top; font-weight: 800; padding: 8px 0 10px; }
-  .kv th { width: 22%; }
-  .kv td[colspan="3"] input, .kv td[colspan="3"] select { width: 100%; }
-  input[type="text"], input[type="number"], input[type="date"], input[type="time"] {
-    width: 100%; padding:8px; border:1px solid #bbb; border-radius:6px; font: inherit; background:#fff;
-  }
-  select { width:100%; padding:8px; border:1px solid #bbb; border-radius:6px; background:#fff; }
-  .inline { display:flex; gap:6px; align-items:center; }
-  .inline > * { flex: 1 1 auto; }
-  .inline button { flex: 0 0 auto; }
-  .subtables { display:flex; gap:12px; }
-  .mini { width:50%; border-collapse: collapse; }
-  .mini th, .mini td { border:1px solid var(--border); padding: var(--pad); }
-  .mini th { background:#f6f6f6; text-align:left; }
-  .mini tfoot td { background:#fafafa; }
-  .row-btn { padding:6px 10px; border-radius:6px; border:1px solid #bbb; background:#fff; cursor:pointer; }
-  .row-btn:hover { background:#f0f0f0; }
-  .help { color: var(--muted); font-size: 12px; margin-top: 6px; }
-  .muted { color: var(--muted); }
-  .toolbar { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
-
-  /* availability highlights */
-  .conflict input[type="text"], .conflict input[type="number"] { border-color: var(--warn); background:#fff7f7; }
-  .okfill input[type="text"], .okfill input[type="number"] { border-color: var(--ok); background:#f3fcfa; }
-
-
-    /* Bulk room import */
-    .bulk-box {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        border: 1px dashed var(--border,#ddd);
-        border-radius: 10px;
-        background: #fafafa;
-        padding: 12px;
-        margin: 8px 0 12px;
-    }
-
-    .bulk-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-
-        .bulk-row label {
-            width: 220px;
-            color: var(--muted,#666);
-            font-size: 12px;
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slip</title>
+    <link rel="icon" type="image/png" href="./logo.png">
+    <style>
+        :root {
+            --border: #d6d6d6;
+            --muted: #7a7a7a;
+            --pad: 5px;
+            --warn: #b91c1c;
+            --ok: #0f766e;
         }
 
-        .bulk-row input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #bbb;
+
+        /* Base */
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
+        }
+
+        .wrap {
+            max-width: 1500px;
+            margin: 10px auto;
+            background: #fff;
+            padding: 12px;
             border-radius: 8px;
+            box-shadow: 0 3px 12px rgba(0,0,0,.06);
         }
 
-    .bulk-actions {
-        grid-column: 1 / -1;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-    }
 
-    #bulkReport {
-        font-size: 12px;
-    }
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: flex-end;
+            margin: 6px 0 10px;
+        }
 
-</style>
+        button, select {
+            padding: 6px 8px;
+            border: 1px solid #c9c9c9;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 14px;
+        }
+
+            button:hover {
+                background: #f0f0f0
+            }
+
+        /* Tables */
+        .grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+            .grid th, .grid td {
+                border: 1px solid var(--border);
+                padding: var(--pad) 8px;
+                vertical-align: middle;
+                font-size: 13px;
+            }
+
+            .grid th {
+                background: #fafafa;
+                text-align: left;
+                font-weight: 700;
+            }
+
+            .grid caption {
+                caption-side: top;
+                font-weight: 800;
+                padding: 6px 0 8px;
+            }
+
+        .kv th {
+            width: 5%
+        }
+
+        .kv td[colspan="1"] input,
+        .kv td[colspan="1"] select {
+            width: 80%
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="time"] {
+            width: 80%;
+            padding: 6px;
+            border: 1px solid #bbb;
+            border-radius: 6px;
+            font: inherit;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #bbb;
+            border-radius: 6px;
+            background: #fff;
+        }
+
+        .inline {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+            .inline > * {
+                flex: 1 1 auto
+            }
+
+            .inline button {
+                flex: 0 0 auto
+            }
+
+        /* Two minis side-by-side */
+        .subtables {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mini {
+            width: 50%;
+            border-collapse: collapse;
+        }
+
+            .mini th, .mini td {
+                border: 1px solid var(--border);
+                padding: var(--pad);
+            }
+
+            .mini th {
+                background: #f6f6f6;
+                text-align: left
+            }
+
+            .mini tfoot td {
+                background: #fafafa
+            }
+
+        .row-btn {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #bbb;
+            background: #fff;
+            cursor: pointer;
+            font: inherit;
+        }
+
+            .row-btn:hover {
+                background: #f0f0f0
+            }
+
+        .help {
+            color: var(--muted);
+            font-size: 11px;
+            margin-top: 4px
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .toolbar {
+            margin-top: 8px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* Availability highlights */
+        .conflict input[type="text"],
+        .conflict input[type="number"] {
+            border-color: var(--warn);
+            background: #fff7f7;
+        }
+
+        .okfill input[type="text"],
+        .okfill input[type="number"] {
+            border-color: var(--ok);
+            background: #f3fcfa;
+        }
+       
+
+
+
+    </style>
 </head>
 <body>
 
-    <!-- ==== Background: put this once per page ==== -->
-    <style>
-        .pms-bg {
-            position: fixed;
-            inset: 0;
-            z-index: -2;
-            background: center/cover no-repeat url("bg.png");
-            /* Remove blur if you hate nice things */
-            filter: saturate(105%) brightness(0.98);
-        }
 
-            .pms-bg::after {
-                content: "";
-                position: absolute;
-                inset: 0;
-                z-index: -1;
-                background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
-                pointer-events: none;
-            }
-        /* If you need extra contrast for text-heavy pages, uncomment:
-        body { background: rgba(255,255,255,.85); backdrop-filter: blur(2px); }
-        */
-    </style>
-    <div class="pms-bg" aria-hidden="true"></div>
-
-    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
-    <nav class="min-nav" role="navigation" aria-label="Primary">
-        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
-        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
-        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
-        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
-        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
-        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
-        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
-        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
-    </nav>
-
-    <style>
-        .min-nav {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center; /* centered */
-            padding: 10px 12px;
-            border-bottom: 1px solid #e5e7eb;
-            background: rgba(255,255,255,.75);
-            backdrop-filter: blur(6px);
-        }
-
-            .min-nav a {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px; /* emoji + text */
-                color: #0b1220;
-                text-decoration: none;
-                padding: 6px 10px;
-                border-radius: 10px;
-            }
-
-                .min-nav a:hover {
-                    text-decoration: underline
-                }
-
-                .min-nav a[aria-current="page"] {
-                    font-weight: 700;
-                    background: #f3f4f6;
-                }
-
-            .min-nav .e {
-                font-size: 1.05em;
-                line-height: 1
-            }
-        /* emojis aligned nicely */
-
-        @media (prefers-color-scheme: dark) {
-            .min-nav {
-                background: rgba(15,18,22,.6);
-                border-color: #1f2937
-            }
-
-                .min-nav a {
-                    color: #e5e7eb
-                }
-
-                    .min-nav a[aria-current="page"] {
-                        background: #0f172a
-                    }
-        }
-    </style>
-
-    <script>
-        (function () {
-            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-            document.querySelectorAll('.min-nav a').forEach(function (a) {
-                if ((a.getAttribute('href') || '').toLowerCase() === here) {
-                    a.setAttribute('aria-current', 'page');
-                }
-            });
-        })();
-    </script>
-    <!-- ===== /Minimal Navbar ===== -->
+    <!-- Navbar --> <site-nav></site-nav> <script type="module" src="/components/site-nav.js"></script>
 
 
 
 
 
-    <style>
-        :root {
-            --nav-bg: #ffffff;
-            --nav-ink: #0b1220;
-            --nav-muted: #6b7280;
-            --nav-accent: #0f766e;
-            --nav-border: #e5e7eb;
-            --nav-chip: #ecfeff;
-            --shadow: 0 10px 28px rgba(2,6,23,.08);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --nav-bg: #0f1216;
-                --nav-ink: #e5e7eb;
-                --nav-muted: #9aa4b2;
-                --nav-accent: #22d3ee;
-                --nav-border: #1f2937;
-                --nav-chip: #062e2e;
-                --shadow: none;
-            }
-        }
-
-        .pms-nav {
-            position: sticky;
-            top: 0;
-            z-index: 9999;
-            background: var(--nav-bg);
-            color: var(--nav-ink);
-            border-bottom: 1px solid var(--nav-border);
-            box-shadow: var(--shadow)
-        }
-
-        .pms-nav__in {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 8px 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px
-        }
-
-        .pms-brand {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: inherit;
-            text-decoration: none;
-            font-weight: 900;
-            letter-spacing: .3px;
-            padding: 6px 8px;
-            border-radius: 10px
-        }
-
-            .pms-brand:hover {
-                background: var(--nav-chip)
-            }
-
-        .pms-menu {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin-left: auto;
-            flex-wrap: wrap
-        }
-
-        .pms-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
-            border-radius: 12px;
-            color: inherit;
-            text-decoration: none;
-            border: 1px solid transparent
-        }
-
-            .pms-link:hover {
-                background: var(--nav-chip);
-                border-color: var(--nav-border)
-            }
-
-            .pms-link[aria-current="page"], .pms-link.active {
-                background: linear-gradient(0deg, rgba(34,211,238,.12), rgba(34,211,238,.12));
-                border-color: #99f6e4
-            }
-
-        .pms-ico {
-            width: 22px;
-            height: 22px;
-            display: inline-grid;
-            place-items: center
-        }
-
-            .pms-ico svg {
-                width: 22px;
-                height: 22px
-            }
-
-        /* Burger for small screens */
-        .pms-burger {
-            display: none;
-            margin-left: auto;
-            background: transparent;
-            border: 0;
-            cursor: pointer;
-            padding: 8px
-        }
-
-            .pms-burger span {
-                display: block;
-                width: 22px;
-                height: 2px;
-                background: var(--nav-ink);
-                margin: 4px 0;
-                border-radius: 2px
-            }
-
-        @media (max-width:800px) {
-            .pms-burger {
-                display: block
-            }
-
-            .pms-menu {
-                display: none;
-                width: 100%
-            }
-
-                .pms-menu.open {
-                    display: grid;
-                    grid-template-columns: 1fr;
-                    gap: 6px;
-                    padding: 8px 0
-                }
-
-            .pms-link {
-                padding: 10px 12px
-            }
-        }
-    </style>
-
-    <script>
-        // Active link highlight and simple burger toggle.
-        (function () {
-            const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-            document.querySelectorAll('.pms-link').forEach(a => {
-                if ((a.dataset.page || '').toLowerCase() === here) {
-                    a.setAttribute('aria-current', 'page');
-                    a.classList.add('active');
-                }
-            });
-            const burger = document.querySelector('.pms-burger');
-            const menu = document.getElementById('pms-menu');
-            if (burger && menu) {
-                burger.addEventListener('click', () => {
-                    const open = menu.classList.toggle('open');
-                    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
-                });
-            }
-        })();
-    </script>
-    <!-- ===== /PMS SIMPLE NAVBAR ===== -->
 
     <div class="wrap">
-        <h1>ACCOMMODATION DETAILS</h1>
-
-        <div class="controls no-print" id="loadBar">
-            <select id="savedList" title="Saved slips"></select>
-            <button id="btnRefresh">Refresh List</button>
-            <button id="btnLoad">Load Selected</button>
-            <button id="btnNew">New Slip</button>
-        </div>
 
         <table class="grid kv">
             <tbody>
                 <tr>
-                    <th>TOUR NAME</th>
-                    <td colspan="3"><input id="tour_name" type="text" placeholder="" /></td>
-                </tr>
-                <tr>
-                    <th>GRP LEADER</th>
-                    <td colspan="3"><input id="group_leader" type="text" placeholder="" /></td>
-                </tr>
-                <tr>
-                    <th>CHECK IN</th>
-                    <td><input id="checkin_date" type="date" /></td>
-                    <td><input id="checkin_time" type="time" /></td>
-                    <td class="muted">date & time</td>
-                </tr>
-                <tr>
-                    <th>CHECK OUT</th>
-                    <td><input id="checkout_date" type="date" /></td>
-                    <td><input id="checkout_time" type="time" /></td>
-                    <td class="muted">date & time</td>
-                </tr>
-                <tr>
-                    <th>BUILDING</th>
-                    <td colspan="3">
-                        <select id="building">
+                    <td colspan="2">
+                        <div class="inline">
+                            <input placeholder="SH Number" id="sh_no" type="number" inputmode="numeric" min="0" step="1" />
+                            <button id="btnFetchSh" title="Fetch latest slip with this SH">Fetch</button>
+                        </div>
+                    </td>
+                    <td colspan="2"><input placeholder="Tour Name" id="tour_name" type="text" placeholder="" /></td>
+                    <td colspan="2"><input placeholder="Group Leader Name" id="group_leader" type="text" placeholder="" /></td>
+                    <td colspan="2">
+                        <select placeholder="Building" id="building">
                             <option value="">Select building…</option>
                             <option>MOHAMMEDI</option>
                             <option>MUFADDAL</option>
@@ -403,49 +232,35 @@
                             <option>HUSN</option>
                         </select>
                     </td>
+                    <td><input placeholder="Gents" id="gents" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <td><input placeholder="Ladies" id="ladies" type="number" inputmode="numeric" min="0" step="1" /></td>
+
                 </tr>
                 <tr>
-                    <th>SH NO.</th>
-                    <td>
-                        <div class="inline">
-                            <input id="sh_no" type="number" inputmode="numeric" min="0" step="1" />
-                            <button id="btnFetchSh" title="Fetch latest slip with this SH">Fetch</button>
-                        </div>
-                    </td>
-                    <th>TOTAL</th>
-                    <td><input id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
+
+                    <th>CHECK IN</th>
+                    <td><input id="checkin_date" type="date" /></td>
+                    <td><input id="checkin_time" type="time" /></td>
+                    <th>CHECK OUT</th>
+                    <td><input id="checkout_date" type="date" /></td>
+                    <td><input id="checkout_time" type="time" /></td>
+                    <td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
                 </tr>
-                <tr>
-                    <th>GENTS</th>
-                    <td><input id="gents" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <th>LADIES</th>
-                    <td><input id="ladies" type="number" inputmode="numeric" min="0" step="1" /></td>
-                </tr>
-                <tr>
-                    <th>INFANTS</th>
-                    <td><input id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <th>CHILDREN</th>
-                    <td><input id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
-                </tr>
+
             </tbody>
         </table>
 
         <!-- Bulk room import -->
-        <div class="bulk-box no-print">
-            <div class="bulk-row">
+        <div class="bulk-row">
 
-                <label for="gentsBulk">Gents rooms</label>
-                <input id="gentsBulk" type="text" placeholder="501-502-503" />
-            </div>
-            <div class="bulk-row">
-                <label for="ladiesBulk">Ladies rooms</label>
-                <input id="ladiesBulk" type="text" placeholder="401-402-403" />
-            </div>
-            <div class="bulk-actions">
-                <button id="btnBulkLoad" type="button">Load rooms & fetch capacity</button>
+                <input id="gentsBulk" type="text" placeholder="Gents Rooms: 501-502-503" />
+                <input id="ladiesBulk" type="text" placeholder="Ladies Rooms: 401-402-403" />
+                <button id="btnBulkLoad" type="button">Load</button>
                 <span id="bulkReport" class="muted"></span>
-            </div>
         </div>
+     
         <script>
             /* ========= Bulk Rooms: multi-separator + bold big beds count ========= */
 
@@ -585,6 +400,7 @@
         </div>
 
         <div class="controls no-print">
+            <button id="btnNew">New Slip</button>
             <button id="btnSave">Save</button>
             <button id="btnEdit">Edit</button>
             <span class="muted" id="status"></span>
@@ -873,28 +689,7 @@ function setRows(group, arr) {
         }
 
         /* ------------------------ Saved list UI ------------------------ */
-        async function refreshSavedList() {
-            const list = $('savedList');
-            list.innerHTML = '';
-            const items = await getAllRecords();
-            if (!items.length) {
-                const opt = document.createElement('option');
-                opt.textContent = 'No saved slips yet';
-                opt.value = '';
-                list.appendChild(opt);
-                return;
-            }
-            items.sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
-            for (const rec of items) {
-                const opt = document.createElement('option');
-                const when = new Date(rec.createdAt).toLocaleString();
-                const name = rec.tour_name || '(unnamed tour)';
-                const sh = (rec.sh_no ?? '') === '' ? '' : ` • SH ${rec.sh_no}`;
-                opt.textContent = `#${rec.id} — ${name}${sh} — ${when}`;
-                opt.value = rec.id;
-                list.appendChild(opt);
-            }
-        }
+       
 
         /* ---------------- Capacity lookup (most recent per building|room) --------------- */
         function buildCapacityMap(buildingFilter) {
@@ -1077,21 +872,7 @@ function setRows(group, arr) {
             }
         });
 
-        $('btnRefresh').addEventListener('click', async () => {
-            await refreshSavedList();
-            await refreshDBCache();
-            $('status').textContent = 'Refreshed.';
-        });
-
-        $('btnLoad').addEventListener('click', async () => {
-            const id = $('savedList').value;
-            if (!id) return;
-            const rec = await getRecord(id);
-            if (!rec) return alert('Could not load that record.');
-            CURRENT_ID = rec.id;
-            setFormData(rec);
-            $('status').textContent = `Loaded #${rec.id}`;
-        });
+    
 
         $('btnNew').addEventListener('click', () => {
             clearForm();
@@ -1129,7 +910,6 @@ function setRows(group, arr) {
         (async function boot() {
             clearForm();
             addRow('gents'); addRow('ladies');
-            await refreshSavedList();
             await refreshDBCache();
         })();
     </script>

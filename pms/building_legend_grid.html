@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>PMS — Building Matrix (Floors × Room Numbers)</title>
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>Grid</title>
     <style>
         :root {
             --ink: #0b1220;
@@ -37,69 +38,16 @@
             box-sizing: border-box
         }
 
-        html, body {
-            height: 100%
-        }
 
         body {
-            margin: 0;
-            font: 15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            color: var(--ink);
-            background: #f6f7fb
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
         }
 
-        /* Navbar */
-        .min-nav {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(255,255,255,.85);
-            backdrop-filter: blur(6px)
-        }
 
-            .min-nav a {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                color: #0b1220;
-                text-decoration: none;
-                padding: 6px 10px;
-                border-radius: 10px
-            }
-
-                .min-nav a:hover {
-                    text-decoration: underline
-                }
-
-                .min-nav a[aria-current="page"] {
-                    font-weight: 700;
-                    background: #f3f4f6
-                }
-
-            .min-nav .e {
-                font-size: 1.05em
-            }
-
-        @media (prefers-color-scheme: dark) {
-            .min-nav {
-                background: rgba(15,18,22,.7);
-                border-color: #1f2937
-            }
-
-                .min-nav a {
-                    color: #e5e7eb
-                }
-
-                    .min-nav a[aria-current="page"] {
-                        background: #0f172a
-                    }
-        }
 
         /* Full viewport layout */
         .wrap {
@@ -313,18 +261,9 @@
     </style>
 </head>
 <body>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="/components/site-nav.js"></script>
 
-    <!-- Navbar -->
-    <nav class="min-nav" role="navigation" aria-label="Primary">
-        <a href="index.html"><span class="e">🏠</span><span>Home</span></a>
-        <a href="accommodation_slip.html"><span class="e">📝</span><span>Slip</span></a>
-        <a href="vacancy_forecast.html"><span class="e">📈</span><span>Forecast</span></a>
-        <a href="building_legend_grid.html" aria-current="page"><span class="e">🧩</span><span>Legend Grid</span></a>
-        <a href="checkins_checkouts.html"><span class="e">🗓️</span><span>Checkins/Checkouts</span></a>
-        <a href="print_slip_a5.html"><span class="e">🖨️</span><span>Print</span></a>
-        <a href="slip_admin.html"><span class="e">🗄️</span><span>Admin</span></a>
-        <a href="pms_instructions.html"><span class="e">📖</span><span>Instructions</span></a>
-    </nav>
 
     <div class="wrap">
         <div class="toolbar">

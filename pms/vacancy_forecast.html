@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./logo.png">
     <title>Vacancy Forecast (Assigned-first)</title>
     <style>
         :root {
@@ -12,9 +13,11 @@
         }
 
         body {
-            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-            background: var(--bg);
-            margin: 0;
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
         }
 
         .wrap {
@@ -160,37 +163,9 @@
     </style>
 </head>
 <body>
-    <!-- Background (optional) -->
-    <style>
-        .pms-bg {
-            position: fixed;
-            inset: 0;
-            z-index: -2;
-            background: center/cover no-repeat url("bg.png");
-            filter: saturate(105%) brightness(0.98);
-        }
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="/components/site-nav.js"></script>
 
-            .pms-bg::after {
-                content: "";
-                position: absolute;
-                inset: 0;
-                z-index: -1;
-                background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
-            }
-    </style>
-    <div class="pms-bg" aria-hidden="true"></div>
-
-    <!-- Navbar -->
-    <nav class="min-nav" role="navigation" aria-label="Primary" style="position:sticky;top:0;z-index:1000;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:10px 12px;border-bottom:1px solid #e5e7eb;background:rgba(255,255,255,.75);backdrop-filter:blur(6px)">
-        <a href="index.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🏠</span>Home</a>
-        <a href="accommodation_slip.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>📝</span>Slip</a>
-        <a href="vacancy_forecast.html" aria-current="page" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px;background:#f3f4f6"><span>📈</span>Forecast</a>
-        <a href="building_legend_grid.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🧩</span>Legend Grid</a>
-        <a href="checkins_checkouts.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🗓️</span>Checkins/Checkouts</a>
-        <a href="print_slip_a5.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🖨️</span>Print</a>
-        <a href="slip_admin.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>🗄️</span>Admin</a>
-        <a href="pms_instructions.html" style="display:inline-flex;gap:6px;color:#0b1220;text-decoration:none;padding:6px 10px;border-radius:10px"><span>📖</span>Instructions</a>
-    </nav>
 
     <div class="wrap">
         <h1>Vacancy Forecast</h1>

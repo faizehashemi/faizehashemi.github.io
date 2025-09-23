@@ -3,22 +3,22 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>PMS — Watch & DB Health</title>
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>PMS</title>
     <style>
         :root {
             --ink: #0b1220;
             --muted: #6b7280;
             --bg: #f8fafc;
-            --card: #ffffff;
+            --card: #fff;
             --border: #e5e7eb;
-            --ring: #99f6e4;
             --ok: #16a34a;
-            --bad: #dc2626;
             --warn: #f59e0b;
-            --glow1: #22d3ee;
-            --glow2: #34d399;
-            --glow3: #60a5fa;
+            --bad: #dc2626;
             --shadow: 0 20px 60px rgba(2,6,23,.12);
+            --fill: #10b981;
+            --fill-warn: #f59e0b;
+            --fill-bad: #ef4444;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -41,12 +41,13 @@
         }
 
         body {
-            margin: 0;
-            color: var(--ink);
-            font: 15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: radial-gradient(1400px 900px at 50% -10%, #e6fffb, transparent 60%), radial-gradient(900px 600px at 120% 110%, #f0f9ff, transparent 60%), var(--bg);
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
         }
-
+      
         .wrap {
             max-width: 1200px;
             margin: 0 auto;
@@ -62,142 +63,223 @@
                 grid-template-columns: 1fr
             }
         }
-        /* Scales the entire card, including padding. Can blur text slightly. */
-        .watch-card {
-            transform: scale(.4);
-            transform-origin: top left;
-        }
 
-        /* Watch card */
-        .watch-card {
-            position: relative;
+        /* Left column: batteries + chart */
+        .panel {
             border: 1px solid var(--border);
             border-radius: 18px;
             background: var(--card);
             box-shadow: var(--shadow);
-            padding: 18px;
-            overflow: hidden;
+            padding: 16px;
         }
 
-        .watch-header {
+            .panel h2 {
+                margin: 0 0 8px;
+                font-size: 18px;
+                letter-spacing: .2px
+            }
+
+        .sub {
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 10px
+        }
+
+        .battery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .battery-card {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .b-head {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            gap: 8px
+        }
+
+        .b-name {
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        .b-cap {
+            color: var(--muted);
+            font-size: 12px
+        }
+
+        .cap-edit {
+            display: flex;
+            gap: 6px;
+            align-items: center
+        }
+
+            .cap-edit input {
+                width: 80px;
+                padding: 6px 8px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                font: inherit;
+                background: var(--card);
+                color: var(--ink)
+            }
+
+            .cap-edit button {
+                padding: 6px 10px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--card);
+                cursor: pointer;
+            }
+
+                .cap-edit button:hover {
+                    background: #f3f4f6
+                }
+
+        @media (prefers-color-scheme: dark) {
+            .cap-edit button:hover {
+                background: #0f172a
+            }
+        }
+
+        /* Battery visual */
+        .battery {
+            position: relative;
+            height: 48px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+            .battery::after {
+                content: "";
+                position: absolute;
+                right: -10px;
+                width: 8px;
+                height: 18px;
+                background: var(--border);
+                border-radius: 3px;
+            }
+
+        .fill {
+            height: 100%;
+            transition: width .3s ease;
+            background: linear-gradient(90deg, #34d399, #10b981);
+        }
+
+        .meter {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+            text-shadow: 0 1px 0 rgba(0,0,0,.05);
+        }
+
+        .bad .fill {
+            background: linear-gradient(90deg, #f97316, #ef4444)
+        }
+
+        .warn .fill {
+            background: linear-gradient(90deg, #f59e0b, #f97316)
+        }
+
+        .b-stats {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+            .b-stats b {
+                color: var(--ink)
+            }
+
+        /* Chart */
+        .chart-wrap {
+            margin-top: 14px;
+            border: 1px dashed var(--border);
+            border-radius: 14px;
+            padding: 10px
+        }
+
+        .chart-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
             margin-bottom: 8px
         }
 
-            .watch-header h2 {
-                margin: 0;
-                font-size: 16px;
-                letter-spacing: .3px;
-                font-weight: 800
+            .chart-toolbar .left {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                align-items: center
             }
 
-            .watch-header .tz {
-                color: var(--muted);
-                font-size: 12px;
-                font-family: ui-monospace, Menlo, Consolas, monospace
+        .chip {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 10px;
+            cursor: pointer;
+            background: var(--card);
+        }
+
+            .chip[aria-pressed="true"] {
+                font-weight: 700;
+                text-decoration: underline
             }
 
-        .glow {
-            content: "";
-            position: absolute;
-            inset: -20% -10% auto -10%;
-            height: 60%;
-            background: radial-gradient(700px 150px at var(--mx,50%) 0%, #22d3ee22, transparent 60%), radial-gradient(700px 150px at var(--mx,50%) 100%, #34d39922, transparent 60%);
-            pointer-events: none;
+        svg.chart {
+            width: 100%;
+            height: 220px;
+            display: block
         }
 
-        .rm {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-            align-items: center;
-            justify-items: center;
-        }
-
-            .rm svg {
-                width: min(100%, 780px);
-                height: auto;
-                display: block
-            }
-
-        .digital {
-            text-align: center;
-            font-variant-numeric: tabular-nums
-        }
-
-            .digital b {
-                font-size: 22px
-            }
-
-            .digital .date {
-                color: var(--muted);
-                font-size: 12px
-            }
-
-        /* RM styling */
-        .rm-face {
-            fill: #0f172a;
-            stroke: #475569;
-            stroke-width: 1
-        }
-
-        .rm-inner {
-            fill: #0b1120;
-            stroke: #334155;
-            stroke-width: .7
-        }
-
-        .rm-skeleton {
-            fill: url(#gradBars);
-            opacity: .3
-        }
-
-        .rm-mark {
+        .axis {
             stroke: #94a3b8;
-            stroke-linecap: round
+            stroke-width: 1;
         }
 
-        .rm-screw {
-            fill: #111827;
-            stroke: #475569;
+        .bar {
+            fill: #60a5fa;
+        }
+
+        .grid line {
+            stroke: #e5e7eb;
             stroke-width: .8
         }
 
-        .hand {
-            transform-origin: 50% 70px;
-            stroke-linecap: round;
-            filter: drop-shadow(0 0 2px rgba(0,0,0,.6))
+        @media (prefers-color-scheme: dark) {
+            .grid line {
+                stroke: #1f2937
+            }
         }
 
-            .hand.hour {
-                stroke: #22d3ee;
-                stroke-width: 3.2
-            }
-
-            .hand.min {
-                stroke: #34d399;
-                stroke-width: 2.4
-            }
-
-            .hand.sec {
-                stroke: #ef4444;
-                stroke-width: 1.6
-            }
-
-        .axle {
-            fill: #e5e7eb
-        }
-
-        /* DB health card */
+        /* Right column (DB health) kept from your file */
         .db-card {
             border: 1px solid var(--border);
             border-radius: 18px;
             background: var(--card);
             box-shadow: var(--shadow);
             padding: 16px;
-            position: relative;
         }
 
             .db-card h3 {
@@ -289,139 +371,29 @@
     </style>
 </head>
 <body>
-    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
-    <nav class="min-nav" role="navigation" aria-label="Primary">
-        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
-        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
-        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
-        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
-        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
-        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
-        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
-        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
-    </nav>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="/components/site-nav.js"></script>
 
-    <style>
-        .min-nav {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center; /* centered */
-            padding: 10px 12px;
-            border-bottom: 1px solid #e5e7eb;
-            background: rgba(255,255,255,.75);
-            backdrop-filter: blur(6px);
-        }
-
-            .min-nav a {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px; /* emoji + text */
-                color: #0b1220;
-                text-decoration: none;
-                padding: 6px 10px;
-                border-radius: 10px;
-            }
-
-                .min-nav a:hover {
-                    text-decoration: underline
-                }
-
-                .min-nav a[aria-current="page"] {
-                    font-weight: 700;
-                    background: #f3f4f6;
-                }
-
-            .min-nav .e {
-                font-size: 1.05em;
-                line-height: 1
-            }
-        /* emojis aligned nicely */
-
-        @media (prefers-color-scheme: dark) {
-            .min-nav {
-                background: rgba(15,18,22,.6);
-                border-color: #1f2937
-            }
-
-                .min-nav a {
-                    color: #e5e7eb
-                }
-
-                    .min-nav a[aria-current="page"] {
-                        background: #0f172a
-                    }
-        }
-    </style>
-
-    <script>
-        (function () {
-            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-            document.querySelectorAll('.min-nav a').forEach(function (a) {
-                if ((a.getAttribute('href') || '').toLowerCase() === here) {
-                    a.setAttribute('aria-current', 'page');
-                }
-            });
-        })();
-    </script>
-    <!-- ===== /Minimal Navbar ===== -->
     <div class="wrap">
-        <!-- Watch -->
-        <section class="watch-card" id="watchCard" aria-label="Riyadh time">
-            <div class="glow" aria-hidden="true"></div>
-            <div class="watch-header">
-                <h2>Riyadh Time</h2>
-                <span class="tz">Asia/Riyadh • UTC+03</span>
-            </div>
+        <!-- Left: Building batteries + chart -->
+        <section class="panel" id="occPanel" aria-label="Building occupancy">
+            <h2>Building Occupancy</h2>
+            <div class="sub">Batteries show percent of capacity in use today. Edit capacity per building as needed.</div>
+            <div class="battery-grid" id="batteryGrid"></div>
 
-            <div class="rm" id="rm">
-                <!-- Tonneau-case RM-style SVG; viewBox centered at (50,70) -->
-                <svg viewBox="0 0 100 140" role="img" aria-label="Analog clock">
-                    <!-- case -->
-                    <path class="rm-face" d="M10,20 Q12,5 30,5 H70 Q88,5 90,20 V120 Q88,135 70,135 H30 Q12,135 10,120 Z" />
-                    <path class="rm-inner" d="M18,24 Q20,12 32,12 H68 Q80,12 82,24 V116 Q80,128 68,128 H32 Q20,128 18,116 Z" />
-
-                    <!-- screws -->
-                    <circle class="rm-screw" cx="22" cy="26" r="2" />
-                    <circle class="rm-screw" cx="78" cy="26" r="2" />
-                    <circle class="rm-screw" cx="22" cy="114" r="2" />
-                    <circle class="rm-screw" cx="78" cy="114" r="2" />
-
-                    <!-- skeleton bars gradient -->
-                    <defs>
-                        <linearGradient id="gradBars" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0" stop-color="#0ea5e9" />
-                            <stop offset="1" stop-color="#22d3ee" />
-                        </linearGradient>
-                    </defs>
-                    <g class="rm-skeleton">
-                        <rect x="26" y="34" width="48" height="2" rx="1" />
-                        <rect x="26" y="54" width="48" height="2" rx="1" />
-                        <rect x="26" y="74" width="48" height="2" rx="1" />
-                        <rect x="26" y="94" width="48" height="2" rx="1" />
-                    </g>
-
-                    <!-- ticks -->
-                    <g id="ticks" aria-hidden="true"></g>
-
-                    <!-- hands pivot at (50,70) -->
-                    <line id="h-hand" class="hand hour" x1="50" y1="70" x2="50" y2="48" />
-                    <line id="m-hand" class="hand min" x1="50" y1="70" x2="50" y2="38" />
-                    <line id="s-hand" class="hand sec" x1="50" y1="70" x2="50" y2="32" />
-                    <circle class="axle" cx="50" cy="70" r="1.6" />
-                </svg>
-
-                <div class="digital">
-                    <div><b id="timeText">--:--:--</b></div>
-                    <div class="date" id="dateText">---</div>
+            <div class="chart-wrap" id="histWrap" aria-label="Totals by date">
+                <div class="chart-toolbar">
+                    <div class="left">
+                        <strong>Totals by date</strong>
+                        <span class="sub" id="chartSubtitle">All buildings</span>
+                    </div>
+                    <div class="left" id="buildingChips"></div>
                 </div>
+                <svg class="chart" id="histChart" viewBox="0 0 800 220" role="img" aria-label="Histogram of totals"></svg>
             </div>
         </section>
 
-        <!-- DB Health -->
+        <!-- Right: DB Health (kept from your file) -->
         <aside class="db-card" aria-label="Database health">
             <h3>Database Health</h3>
             <div class="list">
@@ -439,113 +411,297 @@
     </div>
 
     <script>
-        /* ===== RM watch (Riyadh time) ===== */
-        (function () {
-            const host = document.getElementById('watchCard');
-            host.addEventListener('pointermove', e => {
-                const r = host.getBoundingClientRect();
-                const mx = ((e.clientX - r.left) / r.width * 100).toFixed(2) + '%';
-                host.querySelector('.glow')?.style.setProperty('--mx', mx);
-            });
+    /* Keep active nav highlighting */
+    (function(){
+      var here=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+      document.querySelectorAll('.min-nav a').forEach(a=>{
+        if((a.getAttribute('href')||'').toLowerCase()===here){ a.setAttribute('aria-current','page'); }
+      });
+    })();
 
-            const tz = 'Asia/Riyadh';
-            const ticks = document.getElementById('ticks');
-            // Build ticks: hour ticks thicker
-            for (let i = 0; i < 60; i++) {
-                const a = (i / 60) * Math.PI * 2;
-                const r1 = i % 5 === 0 ? 40 : 41.2;
-                const r2 = i % 5 === 0 ? 33 : 37;
-                const x1 = 50 + r1 * Math.sin(a);
-                const y1 = 70 - r1 * Math.cos(a);
-                const x2 = 50 + r2 * Math.sin(a);
-                const y2 = 70 - r2 * Math.cos(a);
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', x1.toFixed(2));
-                line.setAttribute('y1', y1.toFixed(2));
-                line.setAttribute('x2', x2.toFixed(2));
-                line.setAttribute('y2', y2.toFixed(2));
-                line.setAttribute('class', 'rm-mark');
-                line.setAttribute('stroke-width', i % 5 === 0 ? 1.8 : 0.8);
-                ticks.appendChild(line);
-            }
+    /* ===== IndexedDB helpers (read-only) ===== */
+    function openDB(){
+      return new Promise((resolve,reject)=>{
+        const req = indexedDB.open('pms_accommodation_db');
+        req.onsuccess = ()=>resolve(req.result);
+        req.onerror = ()=>reject(req.error);
+      });
+    }
+    async function getAllSlips(){
+      const db = await openDB();
+      return new Promise((resolve,reject)=>{
+        if(!db.objectStoreNames.contains('slips')){ db.close(); resolve([]); return; }
+        const tx = db.transaction('slips','readonly');
+        const st = tx.objectStore('slips');
+        const rq = st.getAll();
+        rq.onsuccess = ()=>{ resolve(rq.result||[]); db.close(); };
+        rq.onerror = ()=>{ reject(rq.error); db.close(); };
+      });
+    }
 
-            const hEl = document.getElementById('h-hand');
-            const mEl = document.getElementById('m-hand');
-            const sEl = document.getElementById('s-hand');
-            const tText = document.getElementById('timeText');
-            const dText = document.getElementById('dateText');
+    /* ===== Capacity storage (per building) ===== */
+    const CAP_KEY = 'pms_building_capacity_v1';
+    function loadCaps(){ try{ return JSON.parse(localStorage.getItem(CAP_KEY)||'{}'); }catch{ return {}; } }
+    function saveCaps(m){ localStorage.setItem(CAP_KEY, JSON.stringify(m||{})); }
 
-            function parts(d) {
-                const P = new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false, timeZone: tz }).formatToParts(d);
-                const map = {}; P.forEach(p => map[p.type] = p.value);
-                const dateStr = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: tz }).format(d);
-                return { h: +map.hour, m: +map.minute, s: +map.second, dateStr };
-            }
-            function setHands() {
-                const now = new Date();
-                const { h, m, s, dateStr } = parts(now);
-                const hr = ((h % 12) + m / 60 + s / 3600) * 30;
-                const mr = (m + s / 60) * 6;
-                const sr = s * 6;
-                hEl.style.transform = `rotate(${hr}deg)`;
-                mEl.style.transform = `rotate(${mr}deg)`;
-                sEl.style.transform = `rotate(${sr}deg)`;
-                tText.textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-                dText.textContent = `${dateStr} • Riyadh`;
-            }
-            setHands();
-            setInterval(setHands, 1000);
-        })();
+    /* ===== Data processing ===== */
+    function parseNum(x){ const n = Number(x); return Number.isFinite(n)? n : 0; }
+    function dateOnlyStr(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0,10); }
+    function inStay(dStr, ciStr, coStr){
+      if(!ciStr || !coStr) return false;
+      const d = new Date(dStr), ci = new Date(ciStr), co = new Date(coStr);
+      // Count inclusive of check-in, exclusive of checkout morning
+      return d >= new Date(ci.getFullYear(),ci.getMonth(),ci.getDate()) &&
+             d <= new Date(co.getFullYear(),co.getMonth(),co.getDate());
+    }
 
-        /* ===== DB health ===== */
-        async function checkDB() {
-            const outOpen = document.getElementById('dbOpen');
-            const outVer = document.getElementById('dbVersion');
-            const outStores = document.getElementById('dbStores');
-            const outCount = document.getElementById('slipCount');
-            const note = document.getElementById('dbNote');
+    function unique(arr){ return Array.from(new Set(arr)); }
 
-            outOpen.textContent = 'Testing…'; outOpen.className = 'pill wait';
-            outVer.textContent = '—'; outStores.textContent = '—'; outCount.textContent = '—';
-            note.textContent = '';
+    /* ===== UI: Batteries ===== */
+    function batteryClass(p){
+      if(p >= 85) return '';
+      if(p >= 60) return 'warn';
+      return 'bad';
+    }
 
-            try {
-                const req = indexedDB.open('pms_accommodation_db');
-                req.onsuccess = () => {
-                    const db = req.result;
-                    outOpen.textContent = 'Open'; outOpen.className = 'pill ok';
-                    outVer.textContent = db.version;
-                    const stores = Array.from(db.objectStoreNames);
-                    outStores.textContent = stores.join(', ') || '—';
+    function renderBatteries(buildings, caps, todayTotals){
+      const grid = document.getElementById('batteryGrid');
+      grid.innerHTML = '';
+      buildings.forEach(b=>{
+        const cap = caps[b] ?? 100;
+        const used = todayTotals[b] ?? 0;
+        const pct = cap>0 ? Math.min(100, Math.round(used*100/cap)) : 0;
+        const cls = batteryClass(pct);
+        const card = document.createElement('div');
+        card.className = 'battery-card';
+        card.innerHTML = `
+          <div class="b-head">
+            <div>
+              <div class="b-name">${b || '(Unassigned)'}</div>
+              <div class="b-cap">Capacity: <b>${cap}</b> • Used: <b>${used}</b></div>
+            </div>
+            <div class="cap-edit" aria-label="Capacity editor">
+              <label for="cap_${cssId(b)}" class="sr-only">Capacity</label>
+              <input id="cap_${cssId(b)}" type="number" min="0" value="${cap}" />
+              <button data-b="${encodeURIComponent(b)}">Save</button>
+            </div>
+          </div>
+          <div class="battery ${cls}">
+            <div class="fill" style="width:${pct}%;"></div>
+            <div class="meter">${pct}%</div>
+          </div>
+          <div class="b-stats">
+            <div>Today: <b>${used}</b></div>
+            <div>Free: <b>${Math.max(0, cap-used)}</b></div>
+          </div>
+        `;
+        card.querySelector('button').addEventListener('click', ()=>{
+          const nb = decodeURIComponent(card.querySelector('button').dataset.b);
+          const v = parseNum(card.querySelector('input').value);
+          const all = loadCaps(); all[nb]=v; saveCaps(all);
+          hydrate(); // re-render everything
+        });
+        grid.appendChild(card);
+      });
+    }
 
-                    if (stores.includes('slips')) {
-                        try {
-                            const tx = db.transaction('slips', 'readonly');
-                            const st = tx.objectStore('slips');
-                            const c = st.count();
-                            c.onsuccess = () => { outCount.textContent = c.result; db.close(); };
-                            c.onerror = () => { outCount.textContent = 'error'; db.close(); };
-                        } catch (_) {
-                            outCount.textContent = 'n/a'; db.close();
-                        }
-                    } else {
-                        outCount.textContent = 'store not found';
-                        db.close();
-                    }
+    function cssId(t){ return String(t||'unassigned').replace(/[^a-z0-9]+/gi,'_'); }
 
-                    note.textContent = 'Tip: initialize by saving a slip in your Slip page if empty.';
-                };
-                req.onerror = () => {
-                    outOpen.textContent = 'Blocked'; outOpen.className = 'pill fail';
-                    note.textContent = 'IndexedDB unavailable. Use a local server instead of file:// and a modern browser.';
-                };
-            } catch (e) {
-                outOpen.textContent = 'Error'; outOpen.className = 'pill fail';
-                note.textContent = 'Unexpected error opening IndexedDB.';
-            }
+    /* ===== UI: Building chips & Histogram ===== */
+    function renderChips(buildings, active){
+      const wrap = document.getElementById('buildingChips');
+      wrap.innerHTML = '';
+      const allBtn = document.createElement('button');
+      allBtn.className='chip';
+      allBtn.setAttribute('aria-pressed', String(active==='_ALL'));
+      allBtn.textContent='All';
+      allBtn.addEventListener('click', ()=>{ state.filter='_ALL'; drawChart(); });
+      wrap.appendChild(allBtn);
+      buildings.forEach(b=>{
+        const btn = document.createElement('button');
+        btn.className='chip';
+        btn.setAttribute('aria-pressed', String(state.filter===b));
+        btn.textContent = b || '(Unassigned)';
+        btn.addEventListener('click', ()=>{ state.filter=b; drawChart(); });
+        wrap.appendChild(btn);
+      });
+    }
+
+    function drawChart(){
+      const svg = document.getElementById('histChart');
+      const w = 800, h = 220, padL=46, padR=10, padT=14, padB=26;
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.innerHTML = '';
+
+      const dates = state.dates;
+      const active = state.filter;
+      const label = active==='_ALL' ? 'All buildings' : (active||'(Unassigned)');
+      document.getElementById('chartSubtitle').textContent = label;
+
+      // pick series
+      let series = [];
+      dates.forEach(d=>{
+        const m = state.byDate[d];
+        let sum = 0;
+        if(active==='_ALL'){
+          Object.values(m).forEach(v=> sum+=v);
+        } else {
+          sum = m[active] || 0;
         }
-        document.getElementById('btnRecheck').addEventListener('click', checkDB);
-        checkDB();
+        series.push({d, y: sum});
+      });
+
+      const maxY = Math.max(10, ...series.map(s=>s.y));
+      const xStep = (w - padL - padR) / Math.max(1, series.length);
+      const yScale = (h - padT - padB) / maxY;
+
+      // grid & axes
+      const gGrid = document.createElementNS('http://www.w3.org/2000/svg','g'); gGrid.setAttribute('class','grid');
+      for(let k=0;k<=5;k++){
+        const y = h - padB - k*(h - padT - padB)/5;
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', padL); line.setAttribute('x2', w - padR);
+        line.setAttribute('y1', y); line.setAttribute('y2', y);
+        gGrid.appendChild(line);
+      }
+      svg.appendChild(gGrid);
+
+      // y axis
+      const yAxis = document.createElementNS('http://www.w3.org/2000/svg','path');
+      yAxis.setAttribute('class','axis');
+      yAxis.setAttribute('d', `M ${padL} ${padT} V ${h-padB}`);
+      svg.appendChild(yAxis);
+      // x axis
+      const xAxis = document.createElementNS('http://www.w3.org/2000/svg','path');
+      xAxis.setAttribute('class','axis');
+      xAxis.setAttribute('d', `M ${padL} ${h-padB} H ${w-padR}`);
+      svg.appendChild(xAxis);
+
+      // bars
+      series.forEach((s,i)=>{
+        const barW = Math.max(6, xStep*0.7);
+        const x = padL + i*xStep + (xStep - barW)/2;
+        const y = h - padB - s.y*yScale;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('class','bar');
+        rect.setAttribute('x', x); rect.setAttribute('y', y);
+        rect.setAttribute('width', barW); rect.setAttribute('height', Math.max(0, s.y*yScale));
+        rect.setAttribute('role','img'); rect.setAttribute('aria-label', `${s.d}: ${s.y}`);
+        svg.appendChild(rect);
+
+        // x ticks at reasonable density
+        if(series.length<=20 || i%Math.ceil(series.length/20)===0){
+          const tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+          tx.setAttribute('x', x + barW/2); tx.setAttribute('y', h - 6);
+          tx.setAttribute('text-anchor','middle'); tx.setAttribute('font-size','10');
+          tx.textContent = s.d.slice(5); // show MM-DD
+          svg.appendChild(tx);
+        }
+      });
+
+      // y labels
+      for(let k=0;k<=5;k++){
+        const val = Math.round(maxY*k/5);
+        const ty = h - padB - val*yScale;
+        const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x', padL - 6); t.setAttribute('y', ty+3);
+        t.setAttribute('text-anchor','end'); t.setAttribute('font-size','10');
+        t.textContent = val;
+        svg.appendChild(t);
+      }
+    }
+
+    /* ===== State + hydration ===== */
+    const state = {
+      slips: [],
+      buildings: [],
+      byDate: {},  // { 'YYYY-MM-DD': { building: total, ... } }
+      dates: [],
+      todayTotals: {}, // { building: usedToday }
+      filter: '_ALL'
+    };
+
+    async function hydrate(){
+      // DB health panel (same logic as your original)
+      checkDB();
+
+      const slips = await getAllSlips();
+      state.slips = slips;
+
+      // Collect building names
+      const buildings = unique(slips.map(s=> String(s.building||'').trim())).sort((a,b)=> a.localeCompare(b));
+      state.buildings = buildings.length ? buildings : [''];
+
+      // Build byDate map using checkin_date as X and total as Y
+      const byDate = {};
+      slips.forEach(s=>{
+        const d = (s.checkin_date||'').trim();
+        if(!d) return;
+        const b = String(s.building||'').trim();
+        const y = parseNum(s.total);
+        byDate[d] = byDate[d] || {};
+        byDate[d][b] = (byDate[d][b]||0) + y;
+      });
+      state.byDate = byDate;
+      state.dates = Object.keys(byDate).sort(); // chronological
+
+      // Compute "today" usage per building from stays spanning today
+      const todayStr = dateOnlyStr(new Date());
+      const todayTotals = {};
+      slips.forEach(s=>{
+        const b = String(s.building||'').trim();
+        if(inStay(todayStr, s.checkin_date, s.checkout_date)){
+          todayTotals[b] = (todayTotals[b]||0) + parseNum(s.total);
+        }
+      });
+      state.todayTotals = todayTotals;
+
+      // Render
+      const caps = loadCaps();
+      renderBatteries(state.buildings, caps, state.todayTotals);
+      renderChips(state.buildings, state.filter);
+      drawChart();
+    }
+
+    /* ===== DB health (copied from your file, minor tidy) ===== */
+    async function checkDB(){
+      const outOpen = document.getElementById('dbOpen');
+      const outVer  = document.getElementById('dbVersion');
+      const outStores = document.getElementById('dbStores');
+      const outCount = document.getElementById('slipCount');
+      const note = document.getElementById('dbNote');
+      outOpen.textContent='Testing…'; outOpen.className='pill wait';
+      outVer.textContent='—'; outStores.textContent='—'; outCount.textContent='—'; note.textContent='';
+      try{
+        const req = indexedDB.open('pms_accommodation_db');
+        req.onsuccess = ()=>{
+          const db = req.result;
+          outOpen.textContent='Open'; outOpen.className='pill ok';
+          outVer.textContent=db.version;
+          const stores = Array.from(db.objectStoreNames);
+          outStores.textContent = stores.join(', ') || '—';
+          if(stores.includes('slips')){
+            const tx = db.transaction('slips','readonly');
+            const st = tx.objectStore('slips');
+            const c = st.count();
+            c.onsuccess = ()=>{ outCount.textContent = c.result; db.close(); };
+            c.onerror = ()=>{ outCount.textContent = 'error'; db.close(); };
+          } else { outCount.textContent = 'store not found'; db.close(); }
+          note.textContent = 'Tip: initialize by saving a slip in your Slip page if empty.';
+        };
+        req.onerror = ()=>{
+          outOpen.textContent='Blocked'; outOpen.className='pill fail';
+          note.textContent='IndexedDB unavailable. Serve over http and use a modern browser.';
+        };
+      } catch{
+        outOpen.textContent='Error'; outOpen.className='pill fail';
+        note.textContent='Unexpected error opening IndexedDB.';
+      }
+    }
+    document.getElementById('btnRecheck').addEventListener('click', checkDB);
+
+    // Boot
+    hydrate();
     </script>
 </body>
 </html>

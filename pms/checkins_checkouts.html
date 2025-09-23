@@ -1,159 +1,216 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>PMS — Check-ins & Check-outs</title>
-<style>
-  :root{
-    --ink:#0b1220; --muted:#64748b; --card:#ffffff; --border:#e5e7eb; --accent:#0f766e;
-    --shadow:0 10px 28px rgba(2,6,23,.08);
-    --chip:#ecfeff;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --ink:#e5e7eb; --muted:#9aa4b2; --card:#0f1216; --border:#1f2937; --accent:#22d3ee; --shadow:none; --chip:#062e2e; }
-  }
-  *{box-sizing:border-box}
-  body{margin:0;font:15.5px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#f7fafc,#fff);color:var(--ink)}
-  .wrap{max-width:1200px;margin:22px auto;padding:0 14px 40px}
-  header.hero{background:linear-gradient(0deg,rgba(15,118,110,.10),rgba(15,118,110,.06));border-radius:16px;padding:14px;box-shadow:var(--shadow);border:1px solid var(--border)}
-  h1{margin:0 0 6px}
-  .muted{color:var(--muted)}
-  .controls{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end;margin-top:10px}
-  .controls .col{display:flex;flex-direction:column;gap:6px}
-  .controls .col-3{grid-column: span 3}
-  .controls .col-2{grid-column: span 2}
-  .controls .col-4{grid-column: span 4}
-  @media (max-width:900px){
-    .controls{grid-template-columns:repeat(6,1fr)}
-    .controls .col-3{grid-column: span 3}
-    .controls .col-2{grid-column: span 3}
-    .controls .col-4{grid-column: span 6}
-  }
-  input[type="date"],input[type="time"],select,button{font:inherit}
-  input[type="date"],input[type="time"],select{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:#fff0;color:var(--ink)}
-  button{padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer}
-  button.primary{border-color:#99f6e4;background:linear-gradient(0deg,rgba(34,211,238,.12),rgba(34,211,238,.12))}
-  .chips{display:flex;gap:8px;flex-wrap:wrap}
-  .chip{border:1px solid var(--border);background:var(--card);border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer}
-  .chip:hover{background:var(--chip)}
-  .grid{display:grid;gap:12px;margin-top:14px}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;box-shadow:var(--shadow)}
-  .panel h3{margin:0 0 6px;display:flex;justify-content:space-between;align-items:center}
-  .panel .toolbar{display:flex;gap:8px;align-items:center}
-  table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid var(--border);padding:8px;vertical-align:top}
-  th{background:rgba(15,118,110,.08);text-align:left}
-  .right{text-align:right}
-  .nowrap{white-space:nowrap}
-  .status{margin-top:8px;color:var(--muted)}
-</style>
-</head>
-<body>
-    <!-- ==== Background: put this once per page ==== -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>Checkins</title>
     <style>
-         .pms-bg {
-             position: fixed;
-             inset: 0;
-             z-index: -2;
-             background: center/cover no-repeat url("bg.png");
-             /* Remove blur if you hate nice things */
-             filter: saturate(105%) brightness(0.98);
-         }
-
-             .pms-bg::after {
-                 content: "";
-                 position: absolute;
-                 inset: 0;
-                 z-index: -1;
-                 background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
-                 pointer-events: none;
-             }
-         /* If you need extra contrast for text-heavy pages, uncomment:
-        body { background: rgba(255,255,255,.85); backdrop-filter: blur(2px); }
-        */
-    </style>
-    <div class="pms-bg" aria-hidden="true"></div>
-
-    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
-    <nav class="min-nav" role="navigation" aria-label="Primary">
-        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
-        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
-        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
-        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
-        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
-        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
-        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
-        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
-    </nav>
-
-    <style>
-        .min-nav {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center; /* centered */
-            padding: 10px 12px;
-            border-bottom: 1px solid #e5e7eb;
-            background: rgba(255,255,255,.75);
-            backdrop-filter: blur(6px);
+        :root {
+            --ink: #0b1220;
+            --muted: #64748b;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --accent: #0f766e;
+            --shadow: 0 10px 28px rgba(2,6,23,.08);
+            --chip: #ecfeff;
         }
-
-            .min-nav a {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px; /* emoji + text */
-                color: #0b1220;
-                text-decoration: none;
-                padding: 6px 10px;
-                border-radius: 10px;
-            }
-
-                .min-nav a:hover {
-                    text-decoration: underline
-                }
-
-                .min-nav a[aria-current="page"] {
-                    font-weight: 700;
-                    background: #f3f4f6;
-                }
-
-            .min-nav .e {
-                font-size: 1.05em;
-                line-height: 1
-            }
-        /* emojis aligned nicely */
 
         @media (prefers-color-scheme: dark) {
-            .min-nav {
-                background: rgba(15,18,22,.6);
-                border-color: #1f2937
+            :root {
+                --ink: #e5e7eb;
+                --muted: #9aa4b2;
+                --card: #0f1216;
+                --border: #1f2937;
+                --accent: #22d3ee;
+                --shadow: none;
+                --chip: #062e2e;
+            }
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 22px auto;
+            padding: 0 14px 40px
+        }
+
+        header.hero {
+            background: linear-gradient(0deg,rgba(15,118,110,.10),rgba(15,118,110,.06));
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border)
+        }
+
+        h1 {
+            margin: 0 0 6px
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(12,1fr);
+            gap: 10px;
+            align-items: end;
+            margin-top: 10px
+        }
+
+            .controls .col {
+                display: flex;
+                flex-direction: column;
+                gap: 6px
             }
 
-                .min-nav a {
-                    color: #e5e7eb
+            .controls .col-3 {
+                grid-column: span 3
+            }
+
+            .controls .col-2 {
+                grid-column: span 2
+            }
+
+            .controls .col-4 {
+                grid-column: span 4
+            }
+
+        @media (max-width:900px) {
+            .controls {
+                grid-template-columns: repeat(6,1fr)
+            }
+
+                .controls .col-3 {
+                    grid-column: span 3
                 }
 
-                    .min-nav a[aria-current="page"] {
-                        background: #0f172a
-                    }
+                .controls .col-2 {
+                    grid-column: span 3
+                }
+
+                .controls .col-4 {
+                    grid-column: span 6
+                }
+        }
+
+        input[type="date"], input[type="time"], select, button {
+            font: inherit
+        }
+
+        input[type="date"], input[type="time"], select {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: #fff0;
+            color: var(--ink)
+        }
+
+        button {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            cursor: pointer
+        }
+
+            button.primary {
+                border-color: #99f6e4;
+                background: linear-gradient(0deg,rgba(34,211,238,.12),rgba(34,211,238,.12))
+            }
+
+        .chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap
+        }
+
+        .chip {
+            border: 1px solid var(--border);
+            background: var(--card);
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 13px;
+            cursor: pointer
+        }
+
+            .chip:hover {
+                background: var(--chip)
+            }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 14px
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: var(--shadow)
+        }
+
+            .panel h3 {
+                margin: 0 0 6px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center
+            }
+
+            .panel .toolbar {
+                display: flex;
+                gap: 8px;
+                align-items: center
+            }
+
+        table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            vertical-align: top
+        }
+
+        th {
+            background: rgba(15,118,110,.08);
+            text-align: left
+        }
+
+        .right {
+            text-align: right
+        }
+
+        .nowrap {
+            white-space: nowrap
+        }
+
+        .status {
+            margin-top: 8px;
+            color: var(--muted)
         }
     </style>
+</head>
+<body>
 
-    <script>
-        (function () {
-            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-            document.querySelectorAll('.min-nav a').forEach(function (a) {
-                if ((a.getAttribute('href') || '').toLowerCase() === here) {
-                    a.setAttribute('aria-current', 'page');
-                }
-            });
-        })();
-    </script>
-    <!-- ===== /Minimal Navbar ===== -->
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="/components/site-nav.js"></script>
 
     <div class="wrap">
         <header class="hero">
@@ -267,8 +324,7 @@
         <p class="status" id="status">Loading DB…</p>
     </div>
 
-    <script>
-        /* ===== DB plumbing ===== */
+    <script>/* ===== DB plumbing ===== */
         const DB_NAME = 'pms_accommodation_db', STORE = 'slips', DB_VERSION = 2;
         function openDB() {
             return new Promise((res, rej) => {
@@ -431,7 +487,6 @@
                 downloadCSV(toCSV(rows, 'out'), `checkouts_${df}_${dt}.csv`);
             });
             refresh();
-        });
-    </script>
+        });</script>
 </body>
 </html>

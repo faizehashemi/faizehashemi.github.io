@@ -1,141 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Slip Admin — Delete & Backup</title>
-<style>
-  :root { --b:#222; --m:#666; --bg:#f7f7f9; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); margin:0; }
-  .wrap { max-width: 1200px; margin: 22px auto; background:#fff; padding:18px; border-radius:10px; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
-  h1 { margin:0 0 12px; text-align:center; }
-  .controls { display:grid; grid-template-columns: repeat(9, minmax(120px, 1fr)); gap:10px; align-items:end; margin: 10px 0 16px; }
-  .controls > div { display:flex; flex-direction:column; gap:6px; }
-  label { font-size:12px; color:var(--m); }
-  input, select, button { font:inherit; }
-  input[type="date"], input[type="text"], select { border:1px solid #ccc; border-radius:8px; padding:8px; background:#fff; }
-  button { padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#fff; cursor:pointer; }
-  button:hover { background:#f0f0f0; }
-  .danger { border-color:#c33; color:#c33; }
-  .danger:hover { background:#fff1f1; }
-  table { width:100%; border-collapse: collapse; }
-  th, td { border:1px solid var(--b); padding:8px; vertical-align:top; }
-  th { background:#fafafa; text-align:left; }
-  .right { text-align:right; }
-  .muted { color:var(--m); }
-  .split { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
-  @media (max-width: 1000px){ .controls { grid-template-columns:1fr 1fr; } .split { grid-template-columns:1fr; } }
-  .card { border:1px solid #ddd; border-radius:8px; padding:10px; background:#fafafa; }
-  .pill { display:inline-block; border:1px solid #ddd; border-radius:999px; padding:4px 10px; margin:0 6px 6px 0; background:#fff; font-size:12px; }
-  #status { margin-top:10px; }
-</style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>Slip Admin — Delete & Backup</title>
+    <style>
+        :root {
+            --b: #222;
+            --m: #666;
+            --bg: #f7f7f9;
+        }
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 22px auto;
+            background: #fff;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,.08);
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            text-align: center;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(9, minmax(120px, 1fr));
+            gap: 10px;
+            align-items: end;
+            margin: 10px 0 16px;
+        }
+
+            .controls > div {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+        label {
+            font-size: 12px;
+            color: var(--m);
+        }
+
+        input, select, button {
+            font: inherit;
+        }
+
+            input[type="date"], input[type="text"], select {
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                padding: 8px;
+                background: #fff;
+            }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
+        }
+
+            button:hover {
+                background: #f0f0f0;
+            }
+
+        .danger {
+            border-color: #c33;
+            color: #c33;
+        }
+
+            .danger:hover {
+                background: #fff1f1;
+            }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid var(--b);
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        th {
+            background: #fafafa;
+            text-align: left;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .muted {
+            color: var(--m);
+        }
+
+        .split {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 1000px) {
+            .controls {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .split {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fafafa;
+        }
+
+        .pill {
+            display: inline-block;
+            border: 1px solid #ddd;
+            border-radius: 999px;
+            padding: 4px 10px;
+            margin: 0 6px 6px 0;
+            background: #fff;
+            font-size: 12px;
+        }
+
+        #status {
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-    <!-- ==== Background: put this once per page ==== -->
-    <style>
-         .pms-bg {
-             position: fixed;
-             inset: 0;
-             z-index: -2;
-             background: center/cover no-repeat url("bg.png");
-             /* Remove blur if you hate nice things */
-             filter: saturate(105%) brightness(0.98);
-         }
-
-             .pms-bg::after {
-                 content: "";
-                 position: absolute;
-                 inset: 0;
-                 z-index: -1;
-                 background: radial-gradient(1200px 700px at 50% -10%, rgba(0,0,0,.05), transparent 60%), linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 40%, rgba(0,0,0,.10));
-                 pointer-events: none;
-             }
-         /* If you need extra contrast for text-heavy pages, uncomment:
-        body { background: rgba(255,255,255,.85); backdrop-filter: blur(2px); }
-        */
-    </style>
-    <div class="pms-bg" aria-hidden="true"></div>
-
-    <!-- ===== Minimal Navbar (centered + emoji) ===== -->
-    <nav class="min-nav" role="navigation" aria-label="Primary">
-        <a href="index.html" aria-label="Home"><span class="e" aria-hidden="true">🏠</span><span>Home</span></a>
-        <a href="accommodation_slip.html" aria-label="Slip"><span class="e" aria-hidden="true">📝</span><span>Slip</span></a>
-        <a href="vacancy_forecast.html" aria-label="Forecast"><span class="e" aria-hidden="true">📈</span><span>Forecast</span></a>
-        <a href="building_legend_grid.html" aria-label="Legend Grid"><span class="e" aria-hidden="true">🧩</span><span>Legend Grid</span></a>
-        <a href="checkins_checkouts.html" aria-label="Checkins and Checkouts"><span class="e" aria-hidden="true">🗓️</span><span>Checkins/Checkouts</span></a>
-        <a href="print_slip_a5.html" aria-label="Print"><span class="e" aria-hidden="true">🖨️</span><span>Print</span></a>
-        <a href="slip_admin.html" aria-label="Admin"><span class="e" aria-hidden="true">🗄️</span><span>Admin</span></a>
-        <a href="pms_instructions.html" aria-label="Instructions"><span class="e" aria-hidden="true">📖</span><span>Instructions</span></a>
-    </nav>
-
-    <style>
-        .min-nav {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center; /* centered */
-            padding: 10px 12px;
-            border-bottom: 1px solid #e5e7eb;
-            background: rgba(255,255,255,.75);
-            backdrop-filter: blur(6px);
-        }
-
-            .min-nav a {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px; /* emoji + text */
-                color: #0b1220;
-                text-decoration: none;
-                padding: 6px 10px;
-                border-radius: 10px;
-            }
-
-                .min-nav a:hover {
-                    text-decoration: underline
-                }
-
-                .min-nav a[aria-current="page"] {
-                    font-weight: 700;
-                    background: #f3f4f6;
-                }
-
-            .min-nav .e {
-                font-size: 1.05em;
-                line-height: 1
-            }
-        /* emojis aligned nicely */
-
-        @media (prefers-color-scheme: dark) {
-            .min-nav {
-                background: rgba(15,18,22,.6);
-                border-color: #1f2937
-            }
-
-                .min-nav a {
-                    color: #e5e7eb
-                }
-
-                    .min-nav a[aria-current="page"] {
-                        background: #0f172a
-                    }
-        }
-    </style>
-
-    <script>
-        (function () {
-            var here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-            document.querySelectorAll('.min-nav a').forEach(function (a) {
-                if ((a.getAttribute('href') || '').toLowerCase() === here) {
-                    a.setAttribute('aria-current', 'page');
-                }
-            });
-        })();
-    </script>
-    <!-- ===== /Minimal Navbar ===== -->
-
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="/components/site-nav.js"></script>
 
     <div class="wrap">
         <h1>Slip Admin — Delete & Backup</h1>
@@ -213,8 +226,7 @@
         <p class="muted" id="status"></p>
     </div>
 
-    <script>
-        /* --------------------- IndexedDB plumbing (v2) --------------------- */
+    <script>/* --------------------- IndexedDB plumbing (v2) --------------------- */
         const DB_NAME = 'pms_accommodation_db';
         const STORE = 'slips';
         const DB_VERSION = 2;
@@ -476,7 +488,6 @@
         refresh().catch(err => {
             console.error(err);
             $('status').textContent = 'Could not open the local DB. Open your slip page first and save something.';
-        });
-    </script>
+        });</script>
 </body>
 </html>

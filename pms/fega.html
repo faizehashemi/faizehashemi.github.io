@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>KG</title>
+    <style>
+        :root {
+            --ink: #0b1220;
+            --muted: #6b7280;
+            --bg: #f8fafc;
+            --card: #fff;
+            --border: #e5e7eb;
+            --accent: #0ea5e9;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #ffffff url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto; /* larger tile = calmer page */
+            margin: 15px;
+            color: #111;
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 16px;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 20px;
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 10px 30px rgba(2,6,23,.06);
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: end;
+        }
+
+        label {
+            font-size: 12px;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        input, button, select {
+            font: inherit;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        button {
+            cursor: pointer
+        }
+
+            button.primary {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: #fff
+            }
+
+            button.ghost {
+                background: #fff
+            }
+
+            button:disabled {
+                opacity: .6;
+                cursor: not-allowed
+            }
+
+        .grid {
+            margin-top: 12px;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        th, td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            font-size: 14px
+        }
+
+        th {
+            font-weight: 700;
+            white-space: nowrap;
+            background: #f9fafb
+        }
+
+        td .small {
+            color: var(--muted);
+            font-size: 12px
+        }
+
+        .tools {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        /* Assignment list */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        @media (max-width:1000px) {
+            .two-col {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .list-tools {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+
+        /* Print: A4 landscape, each sticker = its own page */
+        @page {
+            size: A4 landscape;
+            margin: 8mm;
+        }
+
+        @media print {
+            body {
+                background: #fff
+            }
+
+            .no-print {
+                display: none !important
+            }
+
+            .printable {
+                display: block !important
+            }
+
+            .sticker {
+                page-break-after: always;
+            }
+
+                .sticker:last-child {
+                    page-break-after: auto;
+                }
+        }
+
+        .printable {
+            display: block;
+        }
+
+        .sticker {
+            width: 100%;
+            height: 185mm; /* roughly A4 landscape printable height minus margins */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            margin: 0 auto 8mm;
+        }
+
+            .sticker .tour {
+                font-size: 48px;
+                font-weight: 800;
+                line-height: 1.15;
+            }
+
+            .sticker .leader {
+                font-size: 32px;
+                margin-top: 10px;
+            }
+
+            .sticker .pax {
+                font-size: 22px;
+                margin-top: 6px;
+                letter-spacing: .5px;
+            }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="/components/site-nav.js"></script>
+
+    <div class="wrap">
+        <h1>Fakkul Ehraam — Group Assignment</h1>
+
+        <!-- Filters -->
+        <div class="panel no-print">
+            <div class="row">
+                <div>
+                    <label for="dateFrom">Arrivals from (date)</label>
+                    <input id="dateFrom" type="date">
+                </div>
+                <div>
+                    <label for="dateTo">Arrivals to (date)</label>
+                    <input id="dateTo" type="date">
+                </div>
+                <div>
+                    <label for="timeFrom">Time from (optional)</label>
+                    <input id="timeFrom" type="time">
+                </div>
+                <div>
+                    <label for="timeTo">Time to (optional)</label>
+                    <input id="timeTo" type="time">
+                </div>
+                <div>
+                    <label for="building">Building (optional)</label>
+                    <input id="building" type="text" placeholder="exact match or blank">
+                </div>
+                <div class="tools">
+                    <button id="btnSearch" class="primary">Load arrivals</button>
+                    <span class="pill" id="foundInfo">0 found</span>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="grid" id="resultsWrap" style="display:none">
+                <table id="resultsTbl" aria-label="Arrivals">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selAll"></th>
+                            <th>Tour Name</th>
+                            <th>Leader</th>
+                            <th>SH</th>
+                            <th>Check-in</th>
+                            <th>Building</th>
+                            <th>Total</th>
+                            <th>Add</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="list-tools" id="resultsTools" style="display:none">
+                <button id="btnAddSelected">Add selected to assignment</button>
+                <button id="btnBundleSelected" title="Bundle selected arrivals into one slot">Bundle selected</button>
+            </div>
+        </div>
+
+        <!-- Assignment + Stickers -->
+        <div class="two-col">
+            <div class="panel no-print">
+                <div class="row" style="justify-content:space-between;">
+                    <div><strong>Assignment list</strong></div>
+                    <div class="tools">
+                        <button id="btnClearList" class="ghost">Clear</button>
+                    </div>
+                </div>
+                <div class="grid">
+                    <table id="assignTbl" aria-label="Assignment list">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="assignAll"></th>
+                                <th>Tour Name(s)</th>
+                                <th>Leader(s)</th>
+                                <th>Pax limit</th>
+                                <th>Tools</th>
+                            </tr>
+                        </thead>
+                        <tbody><!-- rows --></tbody>
+                    </table>
+                </div>
+
+                <div class="list-tools">
+                    <button id="btnSplit" title="Split one selected slot into two">Split selected</button>
+                    <button id="btnBundleSlots" title="Bundle selected slots into one">Bundle selected</button>
+                    <button id="btnPrint" class="primary">Print stickers (A4 landscape)</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <strong>Sticker preview</strong>
+                    <span class="pill">One page per row</span>
+                </div>
+                <div id="stickers" class="printable"><!-- stickers go here --></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+/* =================== IndexedDB plumbing =================== */
+const DB_NAME = 'pms_accommodation_db';
+const STORE   = 'slips';
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME);
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror   = ()=> reject(req.error);
+  });
+}
+async function getAllSlips(){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    if(!db.objectStoreNames.contains(STORE)){ db.close(); resolve([]); return; }
+    const tx = db.transaction(STORE,'readonly');
+    const st = tx.objectStore(STORE);
+    const rq = st.getAll();
+    rq.onsuccess = ()=>{ resolve(rq.result || []); db.close(); };
+    rq.onerror   = ()=>{ reject(rq.error); db.close(); };
+  });
+}
+
+/* =================== Utilities =================== */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+function pad2(n){ return String(n).padStart(2,'0'); }
+function toDateObj(dstr, tstr){
+  if(!dstr) return null;
+  const [y,m,d] = dstr.split('-').map(Number);
+  let hh=0, mm=0;
+  if(tstr && /^\d{1,2}:\d{2}$/.test(tstr)){ [hh,mm] = tstr.split(':').map(Number); }
+  return new Date(y, (m||1)-1, d||1, hh||0, mm||0, 0, 0);
+}
+function normalize(str){ return (str==null?'':String(str)).trim(); }
+function uniq(arr){ return Array.from(new Set(arr)); }
+function sum(arr){ return arr.reduce((a,b)=>a+Number(b||0),0); }
+
+/* =================== State =================== */
+let ALL = [];                 // all slips in DB
+let RESULTS = [];             // filtered arrivals
+let ASSIGN = [];              // assignment slots: {id, tours:[{tour_name, leader, sh}], pax}
+let idCounter = 1;
+
+/* Slot helpers */
+function makeSlot(fromItems){
+  // fromItems: array of arrivals {tour_name, group_leader, sh_no, total}
+  const tours = fromItems.map(it=>({ tour_name: normalize(it.tour_name), leader: normalize(it.group_leader), sh: normalize(it.sh_no) }));
+  return {
+    id: 'S'+(idCounter++),
+    tours,
+    pax: sum(fromItems.map(it=> Number(it.total||0))) || 0
+  };
+}
+
+/* =================== Renderers =================== */
+function renderResults(){
+  const wrap = $('#resultsWrap'), tools = $('#resultsTools');
+  const tbody = $('#resultsTbl tbody');
+  tbody.innerHTML = '';
+  $('#foundInfo').textContent = `${RESULTS.length} found`;
+  wrap.style.display = RESULTS.length ? '' : 'none';
+  tools.style.display = RESULTS.length ? '' : 'none';
+
+  for(const r of RESULTS){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" class="sel"></td>
+      <td>${r.tour_name || ''}</td>
+      <td>${r.group_leader || ''}</td>
+      <td>${r.sh_no || ''}</td>
+      <td>${r.checkin_date || ''} <span class="small">${r.checkin_time || ''}</span></td>
+      <td>${r.building || ''}</td>
+      <td>${r.total || 0}</td>
+      <td><button class="ghost add">Add</button></td>
+    `;
+    tr.querySelector('.add').addEventListener('click', ()=>{
+      const slot = makeSlot([r]);
+      ASSIGN.push(slot);
+      renderAssign();
+    });
+    tbody.appendChild(tr);
+  }
+
+  // select all hook
+  const selAll = $('#selAll');
+  selAll.checked = false;
+  selAll.onchange = ()=> $$('#resultsTbl tbody .sel').forEach(cb => cb.checked = selAll.checked);
+}
+
+function slotTitle(slot){
+  // Big title: each tour on its own line
+  const names = slot.tours.map(t=>t.tour_name || '(Untitled)');
+  return names.join('\n');
+}
+function slotLeaders(slot){
+  const leaders = uniq(slot.tours.map(t=> t.leader).filter(Boolean));
+  return leaders.length ? leaders.join(' | ') : '';
+}
+function renderAssign(){
+  const tbody = $('#assignTbl tbody');
+  tbody.innerHTML = '';
+  for(const s of ASSIGN){
+    const tr = document.createElement('tr');
+    const names = slotTitle(s).replace(/\n/g,'<br>');
+    const leaders = slotLeaders(s);
+    tr.innerHTML = `
+      <td><input type="checkbox" class="pick"></td>
+      <td>${names}</td>
+      <td>${leaders}</td>
+      <td><input type="number" min="0" value="${s.pax}" class="pax" style="width:90px"></td>
+      <td class="tools">
+        <button class="ghost split">Split</button>
+        <button class="ghost remove">Remove</button>
+      </td>
+    `;
+    tr.querySelector('.pax').addEventListener('change', e=>{
+      s.pax = Math.max(0, Number(e.target.value||0));
+      renderStickers();
+    });
+    tr.querySelector('.split').addEventListener('click', ()=>{
+      // prompt for two numbers that sum to s.pax
+      const tot = Number(s.pax||0);
+      const a = prompt(`Split "${slotTitle(s).replace(/\n/g,' + ')}"\nTotal ${tot}. Enter first half pax:`, Math.floor(tot/2));
+      if(a==null) return;
+      const aNum = Math.max(0, Number(a||0));
+      const bNum = Math.max(0, tot - aNum);
+      const slot1 = { id: 'S'+(idCounter++), tours: JSON.parse(JSON.stringify(s.tours)), pax: aNum };
+      const slot2 = { id: 'S'+(idCounter++), tours: JSON.parse(JSON.stringify(s.tours)), pax: bNum };
+      // replace
+      ASSIGN = ASSIGN.filter(x=> x!==s).concat([slot1, slot2]);
+      renderAssign();
+    });
+    tr.querySelector('.remove').addEventListener('click', ()=>{
+      ASSIGN = ASSIGN.filter(x=> x!==s);
+      renderAssign();
+    });
+    tbody.appendChild(tr);
+  }
+
+  // select all for slots
+  const sel = $('#assignAll');
+  sel.checked = false;
+  sel.onchange = ()=> $$('#assignTbl tbody .pick').forEach(cb => cb.checked = sel.checked);
+
+  renderStickers();
+}
+
+function renderStickers(){
+  const cont = $('#stickers');
+  cont.innerHTML = '';
+  for(const s of ASSIGN){
+    const div = document.createElement('div');
+    div.className = 'sticker';
+    const title = slotTitle(s).split('\n').map(t=> `<div>${t}</div>`).join('');
+    const leaders = slotLeaders(s);
+    div.innerHTML = `
+      <div class="stack">
+        <div class="tour">${title}</div>
+        <div class="leader">${leaders || '&nbsp;'}</div>
+        <div class="pax">PAX LIMIT: <strong>${Number(s.pax||0)}</strong></div>
+      </div>
+    `;
+    cont.appendChild(div);
+  }
+}
+
+/* =================== Actions =================== */
+// Load arrivals by date/time/building
+$('#btnSearch').addEventListener('click', async ()=>{
+  if (!ALL.length) ALL = await getAllSlips();
+  const df = $('#dateFrom').value, dt = $('#dateTo').value;
+  if(!df || !dt){ alert('Pick a date range.'); return; }
+  const tf = $('#timeFrom').value, tt = $('#timeTo').value;
+  const b = normalize($('#building').value);
+
+  const start = toDateObj(df, tf || '00:00');
+  const end   = toDateObj(dt, tt || '23:59');
+
+  const inRange = (s)=>{
+    const d = toDateObj(s.checkin_date, s.checkin_time);
+    if(!d) return false;
+    return d >= start && d <= end;
+  };
+
+  RESULTS = ALL
+    .filter(s => inRange(s))
+    .filter(s => !b || normalize(s.building) === b)
+    .map(s => ({
+      tour_name: s.tour_name || '',
+      group_leader: s.group_leader || '',
+      sh_no: s.sh_no || '',
+      checkin_date: s.checkin_date || '',
+      checkin_time: s.checkin_time || '',
+      building: s.building || '',
+      total: Number(s.total||0)
+    }))
+    .sort((a,b)=> (a.checkin_date+a.checkin_time).localeCompare(b.checkin_date+b.checkin_time));
+
+  renderResults();
+});
+
+// Add selected arrivals
+$('#btnAddSelected').addEventListener('click', ()=>{
+  const rows = $$('#resultsTbl tbody tr');
+  const chosen = rows.filter(r => r.querySelector('.sel').checked).map(tr => {
+    const td = tr.children;
+    return {
+      tour_name: td[1].textContent.trim(),
+      group_leader: td[2].textContent.trim(),
+      sh_no: td[3].textContent.trim(),
+      checkin_date: td[4].textContent.split(' ')[0],
+      checkin_time: td[4].querySelector('.small')?.textContent.trim() || '',
+      building: td[5].textContent.trim(),
+      total: Number(td[6].textContent.trim() || 0)
+    };
+  });
+  if(!chosen.length){ alert('Select arrivals first.'); return; }
+  chosen.forEach(c => ASSIGN.push(makeSlot([c])));
+  renderAssign();
+});
+
+// Bundle selected arrivals into one slot
+$('#btnBundleSelected').addEventListener('click', ()=>{
+  const rows = $$('#resultsTbl tbody tr');
+  const chosen = rows.filter(r => r.querySelector('.sel').checked).map(tr => {
+    const td = tr.children;
+    return {
+      tour_name: td[1].textContent.trim(),
+      group_leader: td[2].textContent.trim(),
+      sh_no: td[3].textContent.trim(),
+      total: Number(td[6].textContent.trim() || 0)
+    };
+  });
+  if(chosen.length < 2){ alert('Select at least two arrivals to bundle.'); return; }
+  ASSIGN.push(makeSlot(chosen));
+  renderAssign();
+});
+
+// Split selected slot into two
+$('#btnSplit').addEventListener('click', ()=>{
+  const rows = $$('#assignTbl tbody tr');
+  const picks = rows.filter(r => r.querySelector('.pick').checked);
+  if(picks.length !== 1){ alert('Pick exactly one slot to split.'); return; }
+  const idx = rows.indexOf(picks[0]);
+  const slot = ASSIGN[idx];
+  const tot = Number(slot.pax||0);
+  const a = prompt(`Split "${slotTitle(slot).replace(/\n/g,' + ')}"\nTotal ${tot}. Enter first half pax:`, Math.floor(tot/2));
+  if(a==null) return;
+  const aNum = Math.max(0, Number(a||0));
+  const bNum = Math.max(0, tot - aNum);
+  const slot1 = { id: 'S'+(idCounter++), tours: JSON.parse(JSON.stringify(slot.tours)), pax: aNum };
+  const slot2 = { id: 'S'+(idCounter++), tours: JSON.parse(JSON.stringify(slot.tours)), pax: bNum };
+  ASSIGN.splice(idx,1, slot1, slot2);
+  renderAssign();
+});
+
+// Bundle selected slots into one
+$('#btnBundleSlots').addEventListener('click', ()=>{
+  const rows = $$('#assignTbl tbody tr');
+  const picks = rows.map((r,i)=>({row:r, idx:i})).filter(p => p.row.querySelector('.pick').checked);
+  if(picks.length < 2){ alert('Pick at least two slots to bundle.'); return; }
+  const items = picks.map(p => ASSIGN[p.idx]);
+  const merged = {
+    id: 'S'+(idCounter++),
+    tours: items.flatMap(s=> s.tours),
+    pax: sum(items.map(s=> s.pax||0))
+  };
+  // remove higher indices first
+  picks.sort((a,b)=> b.idx - a.idx).forEach(p => ASSIGN.splice(p.idx,1));
+  ASSIGN.push(merged);
+  renderAssign();
+});
+
+// Clear assignment list
+$('#btnClearList').addEventListener('click', ()=>{
+  if(confirm('Clear the assignment list?')){ ASSIGN = []; renderAssign(); }
+});
+
+// Print
+$('#btnPrint').addEventListener('click', ()=>{
+  if(!ASSIGN.length){ alert('Nothing to print. Add slots first.'); return; }
+  window.print();
+});
+
+/* =================== Boot defaults =================== */
+(function initDefaults(){
+  // default range = today
+  const now = new Date();
+  const yyyy = now.getFullYear(), mm = pad2(now.getMonth()+1), dd = pad2(now.getDate());
+  $('#dateFrom').value = `${yyyy}-${mm}-${dd}`;
+  $('#dateTo').value   = `${yyyy}-${mm}-${dd}`;
+})();
+    </script>
+</body>
+</html>
