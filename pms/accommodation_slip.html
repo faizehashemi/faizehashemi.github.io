@@ -25,7 +25,7 @@
         }
 
         .wrap {
-            max-width: 1500px;
+            max-width: 1700px;
             margin: 10px auto;
             background: #fff;
             padding: 12px;
@@ -232,7 +232,9 @@
                             <option>HUSN</option>
                         </select>
                     </td>
+                    <th>G</th>
                     <td><input placeholder="Gents" id="gents" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>L</th>
                     <td><input placeholder="Ladies" id="ladies" type="number" inputmode="numeric" min="0" step="1" /></td>
 
                 </tr>
@@ -244,9 +246,9 @@
                     <th>CHECK OUT</th>
                     <td><input id="checkout_date" type="date" /></td>
                     <td><input id="checkout_time" type="time" /></td>
-                    <td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>T</th><td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>I</th><td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>C</th><td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
                 </tr>
 
             </tbody>
@@ -847,7 +849,6 @@ function setRows(group, arr) {
                 const id = await addRecord(data);
                 CURRENT_ID = id;
                 $('status').textContent = `Saved as #${id}`;
-                await refreshSavedList();
             } catch (err) {
                 $('status').textContent = 'Save failed. Check console.';
                 console.error('Save error:', err);
@@ -864,7 +865,6 @@ function setRows(group, arr) {
                 delete data.createdAt; // keep original
                 const id = await updateRecord(CURRENT_ID, data);
                 $('status').textContent = `Updated #${id}`;
-                await refreshSavedList();
             } catch (err) {
                 $('status').textContent = 'Edit failed. See console.';
                 console.error('Edit error:', err);

@@ -16,11 +16,10 @@ class SiteNav extends HTMLElement {
               { href: "vacancy_forecast.html",     text: "Forecast" },
               { href: "building_legend_grid.html", text: "Legend Grid" },
               { href: "checkins_checkouts.html",   text: "Checkins/Checkouts" },
-              { href: "fea.html",                  text: "FE Group" },  /* fea = FE Group */
-              { href: "fega.html",                 text: "FE KG" },     /* fega = FE KG   */
+              { href: "fega.html",                  text: "FE Group" }, 
+              { href: "fea.html",                 text: "FE KG" },     
               { href: "print_slip_a5.html",        text: "Print" },
               { href: "slip_admin.html",           text: "Admin" },
-              { href: "pms_instructions.html",     text: "Instructions" }
             ].map(l => `
               <a class="item" role="menuitem" href="${l.href}">
                 <span class="t">${l.text}</span>

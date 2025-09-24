@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" href="./logo.png">
-    <title>KG</title>
+    <title>Groups</title>
     <style>
         :root {
             --ink: #0b1220;
@@ -198,18 +198,18 @@
         }
 
             .sticker .tour {
-                font-size: 48px;
+                font-size: 100px;
                 font-weight: 800;
                 line-height: 1.15;
             }
 
             .sticker .leader {
-                font-size: 32px;
+                font-size: 50px;
                 margin-top: 10px;
             }
 
             .sticker .pax {
-                font-size: 22px;
+                font-size: 25px;
                 margin-top: 6px;
                 letter-spacing: .5px;
             }
@@ -226,8 +226,6 @@
     <script type="module" src="./site-nav.js"></script>
 
     <div class="wrap">
-        <h1>Fakkul Ehraam — Group Assignment</h1>
-
         <!-- Filters -->
         <div class="panel no-print">
             <div class="row">
@@ -315,8 +313,6 @@
 
             <div class="panel">
                 <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <strong>Sticker preview</strong>
-                    <span class="pill">One page per row</span>
                 </div>
                 <div id="stickers" class="printable"><!-- stickers go here --></div>
             </div>
@@ -370,7 +366,7 @@ let idCounter = 1;
 /* Slot helpers */
 function makeSlot(fromItems){
   // fromItems: array of arrivals {tour_name, group_leader, sh_no, total}
-  const tours = fromItems.map(it=>({ tour_name: normalize(it.tour_name), leader: normalize(it.group_leader), sh: normalize(it.sh_no) }));
+  const tours = fromItems.map(it=>({ tour_name: normalize(it.tour_name), group_leader: normalize(it.group_leader), sh: normalize(it.sh_no) }));
   return {
     id: 'S'+(idCounter++),
     tours,
@@ -419,7 +415,7 @@ function slotTitle(slot){
   return names.join('\n');
 }
 function slotLeaders(slot){
-  const leaders = uniq(slot.tours.map(t=> t.leader).filter(Boolean));
+  const leaders = uniq(slot.tours.map(t=> t.group_leader).filter(Boolean));
   return leaders.length ? leaders.join(' | ') : '';
 }
 function renderAssign(){
