@@ -7,16 +7,20 @@
     <title>FEA</title>
     <style>
         :root {
-            --bg: #f6f8fb; /* page background */
-            --panel: #ffffff; /* cards/panels */
-            --muted: #5b6b7a; /* secondary text */
-            --accent: #0ea5e9; /* links/buttons */
-            --ok: #16a34a; /* success */
-            --warn: #d97706; /* warning */
-            --bad: #dc2626; /* error */
-            --text: #0b1220; /* body text */
-            --chip: #eef2f7; /* chip bg */
-            --chipb: #e3eaf2; /* chip border/alt */
+            /* palette */
+            --bg: #f7efe1; /* page background (cream) */
+            --panel: #fffaf1; /* cards/panels (warm off-white) */
+            --text: #2b1e15; /* body text (deep brown) */
+            --muted: #6b5e4a; /* secondary text (tobacco) */
+            --gold: #d4af37; /* golden accent */
+            --ok: #2f7d32;
+            --warn: #a86a00;
+            --bad: #a12a2a;
+            --chip: #f3e6ca; /* chip bg */
+            --chipb: #efe0bd; /* chip border/alt */
+            --edge: #dcc7a4; /* soft border */
+            --edge2: #cdb492; /* stronger border */
+            --shade: rgba(92,64,28,.10); /* shadows */
         }
 
         * {
@@ -26,7 +30,7 @@
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
             background: var(--bg) url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto;
+            background-size: 160px auto;
             margin: 15px;
             color: var(--text);
         }
@@ -42,7 +46,7 @@
         h1 {
             margin: 0;
             font-size: 20px;
-            letter-spacing: .25px;
+            letter-spacing: .25px
         }
 
         .row {
@@ -51,15 +55,20 @@
             flex-wrap: wrap
         }
 
+        .grid {
+            display: grid;
+            gap: 12px
+        }
+
         .card {
             background: var(--panel);
-            border: 1px solid #d7e0ea;
+            border: 1px solid var(--edge);
             border-radius: 14px;
             padding: 14px;
         }
 
         .shadow {
-            box-shadow: 0 8px 22px rgba(10, 20, 30, .10)
+            box-shadow: 0 8px 22px var(--shade)
         }
 
         .people {
@@ -73,7 +82,7 @@
             align-items: center;
             gap: 8px;
             background: var(--chip);
-            border: 1px solid #d0dbe6;
+            border: 1px solid var(--edge);
             border-radius: 12px;
             padding: 8px;
         }
@@ -89,30 +98,27 @@
             padding: 2px 8px;
             border-radius: 999px;
             background: var(--chipb);
-            border: 1px solid #c7d4e2;
+            border: 1px solid var(--edge);
             color: var(--muted);
             font-size: 12px;
         }
 
-        .grid {
-            display: grid;
-            gap: 12px
-        }
-
-        .actions button,
-        button.copy {
+        .actions button, button.copy, button, .btn {
             cursor: pointer;
-            border: 1px solid var(--accent);
-            background: #ffffff;
-            color: var(--accent);
+            border: 1px solid var(--gold);
+            background: #fff;
+            color: #7a5b13;
             padding: 10px 14px;
             border-radius: 12px;
-            transition: background .15s ease, color .15s ease, filter .15s ease;
+            transition: background .15s ease, color .15s ease, filter .15s ease, transform .1s ease;
         }
 
-            .actions button:hover,
-            button.copy:hover {
-                background: color-mix(in oklab, var(--accent) 8%, white);
+            .actions button:hover, button.copy:hover, button:hover {
+                background: #fff6dd
+            }
+
+            .actions button:active, button:active {
+                transform: translateY(1px)
             }
 
         .switch {
@@ -126,23 +132,17 @@
                 height: 18px
             }
 
-        .select,
-        input[type=text] {
+        .select, input[type=text], input[type=number], input[type=date], input[type=time], select {
             width: 100%;
             background: #fff;
             color: var(--text);
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--edge2);
             border-radius: 10px;
             padding: 8px;
         }
 
-            .select:focus,
-            input[type=text]:focus,
-            select:focus,
-            input[type=number]:focus,
-            input[type=date]:focus,
-            input[type=time]:focus {
-                outline: 2px solid color-mix(in oklab, var(--accent) 65%, white);
+            .select:focus, input:focus, select:focus {
+                outline: 2px solid color-mix(in oklab, var(--gold) 65%, white);
                 outline-offset: 1px;
             }
 
@@ -165,9 +165,9 @@
         .log {
             max-height: 320px;
             overflow: auto;
-            border: 1px solid #d7e0ea;
+            border: 1px solid var(--edge);
             border-radius: 12px;
-            background: #fff;
+            background: #fff
         }
 
         table {
@@ -176,63 +176,29 @@
         }
 
         th, td {
-            border-bottom: 1px solid #e3ebf3;
+            border-bottom: 1px solid var(--edge);
             padding: 8px 10px;
             text-align: left;
-            white-space: nowrap;
+            white-space: nowrap
         }
 
         th {
-            top: 0;
-            background: var(--chipb);
-            z-index: 1;
-        }
-
-        .sr {
-            opacity: .6
+            background: #f6ecd6;
+            z-index: 1
         }
 
         .sticky-actions {
-            top: 0;
             z-index: 5;
-            background: linear-gradient(to bottom, rgba(255,255,255,.96), rgba(255,255,255,.92));
+            background: linear-gradient(to bottom, rgba(255,250,241,.96), rgba(255,250,241,.92));
             padding: 10px;
             border-radius: 12px;
-            border: 1px solid #dbe6f0;
-            box-shadow: 0 6px 18px rgba(10,20,30,.10);
+            border: 1px solid var(--edge);
+            box-shadow: 0 6px 18px var(--shade);
         }
-
-        .notice {
-            color: color-mix(in oklab, var(--accent) 80%, black)
-        }
-
-        .mono {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
-        }
-
-        .hint {
-            color: var(--muted);
-            font-size: 12px
-        }
-
-        .kpi {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(120px,1fr));
-            gap: 10px;
-        }
-
-            .kpi .card {
-                padding: 10px 12px
-            }
-
-            .kpi h3 {
-                margin: 2px 0 4px;
-                font-size: 22px
-            }
 
         .divider {
             height: 1px;
-            background: #e4ebf3;
+            background: var(--edge);
             margin: 10px 0
         }
 
@@ -246,20 +212,46 @@
         }
 
             .del:hover {
-                background: #ffecec;
+                background: #fff1f1
             }
 
         canvas {
             width: 100%;
             height: 260px;
-            background: #f9fbfd;
-            border: 1px solid #d7e0ea;
+            background: #fffdf8;
+            border: 1px solid var(--edge);
             border-radius: 10px;
         }
 
         .balanced {
-            border: 1px dashed #4aa164;
-            background: #eff8f1;
+            border: 1px dashed #2f7d32;
+            background: #eef7ef
+        }
+
+        /* icon toggles */
+        .iconbar {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-bottom: 8px
+        }
+
+        .iconbtn {
+            width: 38px;
+            height: 38px;
+            display: inline-grid;
+            place-items: center;
+            border-radius: 10px;
+            border: 1px solid var(--edge);
+            background: #fff9e8;
+        }
+
+            .iconbtn:hover {
+                background: #fff3cf
+            }
+
+        .hidden {
+            display: none !important
         }
     </style>
 
@@ -271,7 +263,12 @@
     <header>
         <h1>Fakkul Ehraam & Atraaf — Assignment Console</h1>
         <div class="row" style="align-items:center">
-            <input id="sessionTitle" class="select" style="width:210px" value="Aaje Raate Haram" />
+            <label for="sessionTitle" class="sr-only">Session</label>
+            <select id="sessionTitle" class="select" style="width:210px">
+                <option value="Aaje Raate Haram" selected>Aaje Raate Haram</option>
+                <option value="Kaale Fajare Haram">Kaale Fajare Haram</option>
+                <option value="Aaje Dupehre Atraaf">Aaje Dupehre Atraaf</option>
+            </select>
             <input id="sessionDate" class="select" type="datetime-local" style="width:210px" />
             <button class="copy" id="btnCopy">Copy to clipboard</button>
             <button id="btnExportExcel">Export Excel (.xls)</button>
@@ -308,9 +305,17 @@
         </section>
 
         <aside class="grid" style="width:560px; min-width:440px">
+            <!-- ICONS -->
+            <div class="iconbar">
+                <button id="toggleDash" class="iconbtn" title="Show dashboard">📊</button>
+                <button id="toggleHistory" class="iconbtn" title="Show assignment history">🕘</button>
+            </div>
+
+            <!-- Session preview -->
             <div class="card shadow">
                 <p class="panel-title">Session preview (clipboard output)</p>
-                <div id="preview" class="mono small notice" style="white-space:pre; background:#ffffff; border:1px solid #1b2a38; border-radius:10px; padding:8px; min-height:120px"></div>
+                <div id="preview" class="mono small notice"
+                     style="white-space:pre; background:#ffffff; border:1px solid var(--edge2); border-radius:10px; padding:8px; min-height:120px"></div>
                 <div class="chips" style="margin-top:8px">
                     <span class="tag">Groups by <strong>location</strong></span>
                     <span class="tag">No FE1/FE2 shown</span>
@@ -318,17 +323,36 @@
                 </div>
             </div>
 
+            <!-- FE1 balance helper with BOOKMARK ROTA -->
             <div class="card shadow">
                 <p class="panel-title">FE1 balance helper</p>
+
+                <!-- existing “lowest FE1” recommender -->
                 <div class="row" style="align-items:center">
                     <button id="btnRecommendFE1">Recommend lowest FE1</button>
                     <input id="recCount" type="number" min="1" step="1" value="3" class="select" style="width:90px" />
                     <span class="small">ticks FE1 for N most under-served people (ties by least recent FE1)</span>
                 </div>
+
+                <div class="divider"></div>
+
+                <!-- NEW: bookmark-based rota -->
+                <div class="row" style="align-items:center">
+                    <select id="feBookmark" class="select" style="width:220px"></select>
+                    <button id="btnSetBookmark">Set bookmark</button>
+                    <span id="bookmarkDisplay" class="small" style="margin-left:6px">Bookmark: —</span>
+                </div>
+                <div class="row" style="align-items:center; margin-top:8px">
+                    <button id="btnNextFromBookmark">Next N from bookmark</button>
+                    <input id="recCount2" type="number" min="1" step="1" value="3" class="select" style="width:90px" />
+                    <span class="small">assigns FE1 to next N names after the bookmark (rotates & updates bookmark)</span>
+                </div>
+
                 <div class="chips" id="fe1Leaderboard" style="margin-top:8px"></div>
             </div>
 
-            <div class="card shadow">
+            <!-- DASHBOARD (hidden by default) -->
+            <div id="cardDashboard" class="card shadow hidden">
                 <p class="panel-title">Dashboard</p>
                 <div class="kpi">
                     <div class="card"><div class="small">FE1 today</div><h3 id="kpiFE1Today">0</h3></div>
@@ -338,17 +362,16 @@
                 </div>
                 <div class="divider"></div>
                 <canvas id="histPeople" height="260"></canvas>
-                <div class="small" style="margin-top:6px">Histogram: per-person counts for FE1, FE2, Atraaf. It’s basic, but it doesn’t crash in front of guests.</div>
+                <div class="small" style="margin-top:6px">Histogram: per-person counts for FE1, FE2, Atraaf.</div>
             </div>
 
-            <div class="card shadow cols">
+            <!-- HISTORY + DATA (hidden by default) -->
+            <div id="cardHistory" class="card shadow cols hidden">
                 <div>
                     <p class="panel-title">Assignment history</p>
                     <div class="log">
                         <table id="logTable">
-                            <thead>
-                                <tr><th>Date/Time</th><th>Type</th><th>Person</th><th>Location</th></tr>
-                            </thead>
+                            <thead><tr><th>Date/Time</th><th>Type</th><th>Person</th><th>Location</th></tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>
@@ -364,6 +387,7 @@
                 </div>
             </div>
         </aside>
+
     </main>
 
     <script>
@@ -377,6 +401,9 @@ const TYPES = ["FE1","FE2","Atraaf"]; // FE split
 
 const LS_PEOPLE = "umrah-atraaf-people-v2";
 const LS_LOG    = "umrah-atraaf-log-v2";
+const LS_FE1_BOOKMARK = "umrah-fe1-bookmark-v1";
+let fe1Bookmark = loadBookmark();
+
 
 let people = loadPeople();
 let history = loadLog();
@@ -441,22 +468,40 @@ function renderPeople(){
   renderFE1Leaderboard();
 }
 
-function statsBadge(name){
-  const c = countByPerson(name);
-  return `FE1:${c.FE1||0} · FE2:${c.FE2||0} · AT:${c.Atraaf||0}`;
-}
+        function statsBadge(name) {
+            const c = countByPerson(name);
+            const feTotal = (c.FE1 || 0) + (c.FE2 || 0);
+            return `T:${feTotal} · FE1:${c.FE1 || 0} · FE2:${c.FE2 || 0} · AT:${c.Atraaf || 0}`;
+        }
+
 
 /* ====== PREVIEW (SECRET-FRIENDLY) ====== */
-function headerText(){
-  const title = $("#sessionTitle").value.trim() || "Aaje Raate Haram";
-  const dt = ($("#sessionDate").value ? new Date($("#sessionDate").value) : new Date());
-  const dd = String(dt.getDate()).padStart(2,"0");
-  const mm = String(dt.getMonth()+1).padStart(2,"0");
-  const wk = dt.toLocaleDateString(undefined,{weekday:"long"});
-  const hh = String(dt.getHours()).padStart(2,"0");
-  const mi = String(dt.getMinutes()).padStart(2,"0");
-  return `${title}\n${mm} ${dd} ${wk}${hh+mi!=="0000" ? " " + hh + ":" + mi : ""}\n`;
-}
+        function headerText() {
+            const elTitle = $("#sessionTitle");
+            const title = (
+                elTitle?.selectedOptions?.[0]?.text ||  // select label text
+                elTitle?.value ||                       // input/select value
+                ""
+            ).trim();
+
+            const elDate = $("#sessionDate");
+            // Parse yyyy-mm-dd as LOCAL date to avoid timezone shifting
+            let dt = new Date();
+            if (elDate?.value) {
+                const [y, m, d] = elDate.value.split("-").map(Number);
+                dt = new Date(y, (m || 1) - 1, d || 1, dt.getHours(), dt.getMinutes());
+            }
+
+            const dd = String(dt.getDate()).padStart(2, "0");
+            const mm = String(dt.getMonth() + 1).padStart(2, "0");
+            const wk = dt.toLocaleDateString(undefined, { weekday: "long" });
+            const hh = String(dt.getHours()).padStart(2, "0");
+            const mi = String(dt.getMinutes()).padStart(2, "0");
+            const timePart = (hh + mi !== "0000") ? ` ${hh}:${mi}` : "";
+
+            return `${title}\n${mm} ${dd} ${wk}${timePart}\n`;
+        }
+
 
 function buildGroups(){
   const groups = {};
@@ -804,6 +849,63 @@ function exportExcelLikeSheet(){
 /* wire up the new button */
 document.getElementById("btnExportExcel").addEventListener("click", exportExcelLikeSheet);
 
+        function loadBookmark() { try { return localStorage.getItem(LS_FE1_BOOKMARK) || ""; } catch { return ""; } }
+        function saveBookmark(name) { fe1Bookmark = name || ""; localStorage.setItem(LS_FE1_BOOKMARK, fe1Bookmark); renderBookmarkUI(); }
+        function renderBookmarkUI() {
+            const disp = document.getElementById("bookmarkDisplay");
+            if (disp) disp.textContent = fe1Bookmark ? `Bookmark: ${fe1Bookmark}` : "Bookmark: —";
+            const sel = document.getElementById("feBookmark");
+            if (sel) sel.innerHTML = `<option value="">— choose —</option>` + people.map(n => `<option ${n === fe1Bookmark ? 'selected' : ''}>${n}</option>`).join("");
+        }
+
+        function tickFE1ByName(name) {
+            const row = document.querySelector(`.person[data-person="${cssEscape(name)}"]`);
+            if (!row) return;
+            const cb = row.querySelector('input[data-type="FE1"]');
+            cb.checked = true;
+            const t = transient.get(name) || { type: new Set(), location: "" };
+            t.type.add("FE1"); transient.set(name, t);
+            row.classList.add("balanced");
+            setTimeout(() => row.classList.remove("balanced"), 1200);
+        }
+
+        function assignNextFromBookmark(n) {
+            if (!people.length) return flash("No people to assign.");
+            let start = fe1Bookmark ? people.indexOf(fe1Bookmark) : -1;
+            if (start === -1) start = -1;
+            const chosen = [];
+            for (let i = 1; i <= people.length && chosen.length < n; i++) {
+                const name = people[(start + i) % people.length];
+                chosen.push(name);
+            }
+            chosen.forEach(tickFE1ByName);
+            if (chosen.length) saveBookmark(chosen[chosen.length - 1]); // advance pointer
+            updatePreview();
+        }
+
+        // Bookmark UI buttons
+        document.getElementById("btnSetBookmark").addEventListener("click", () => {
+            const val = (document.getElementById("feBookmark").value || "").trim();
+            if (!val) return flash("Pick a name to bookmark.");
+            if (!people.includes(val)) return flash("That name is not in the list.");
+            saveBookmark(val);
+        });
+
+        document.getElementById("btnNextFromBookmark").addEventListener("click", () => {
+            const n = Math.max(1, parseInt(document.getElementById("recCount2").value || "3", 10));
+            assignNextFromBookmark(n);
+        });
+
+        // Icon toggles
+        const cardDash = document.getElementById("cardDashboard");
+        const cardHist = document.getElementById("cardHistory");
+        document.getElementById("toggleDash").addEventListener("click", () => {
+            cardDash.classList.toggle("hidden");
+        });
+        document.getElementById("toggleHistory").addEventListener("click", () => {
+            cardHist.classList.toggle("hidden");
+        });
+
 
 /* ====== INIT ====== */
 (function init(){
@@ -812,7 +914,8 @@ document.getElementById("btnExportExcel").addEventListener("click", exportExcelL
   renderEverything();
 })();
 function renderEverything(){
-  renderPeople(); renderHistory(); renderKPIs(); drawHistogram(); updatePreview();
+    renderPeople(); renderHistory(); renderKPIs(); drawHistogram(); updatePreview(); renderBookmarkUI();
+
 }
     </script>
 </body>

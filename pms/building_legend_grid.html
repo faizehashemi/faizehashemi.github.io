@@ -7,30 +7,42 @@
     <title>Grid</title>
     <style>
         :root {
-            --ink: #0b1220;
-            --muted: #64748b;
-            --card: #ffffff;
-            --border: #e5e7eb;
-            --ok: #16a34a;
-            --warn: #f59e0b;
-            --bad: #ef4444;
-            --vacant: #ffffff;
-            --occupied: #ef4444;
+            /* Cream • Gold • Brown palette */
+            --ink: #2b1e15; /* body text (deep brown) */
+            --muted: #6b5e4a; /* secondary text */
+            --card: #fffaf1; /* panels/cards (warm off-white) */
+            --border: #dcc7a4; /* soft border */
+            --hdrBg: #f3e6ca; /* table/headers (light cream) */
+
+            --gold: #d4af37; /* accent */
+            --gold2: #f3d984; /* softer accent */
+
+            --ok: #2f7d32; /* success */
+            --warn: #a86a00; /* warning */
+            --bad: #a12a2a; /* error */
+
+            --vacant: #fffdf5; /* cell vacant */
+            --occupied: #e8c765; /* cell occupied (muted gold) */
+
             --cellW: 60px;
             --cellH: 45px;
             --fs: 24px;
-            --hdrBg: #f8fafc;
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --ink: #e5e7eb;
-                --muted: #9aa4b2;
-                --card: #0f1216;
-                --border: #1f2937;
-                --hdrBg: #0f172a;
-                --vacant: #0b1220;
-                --occupied: #dc2626;
+                --ink: #f3eadf;
+                --muted: #b9a992;
+                --card: #1f1711;
+                --border: #3d2d20;
+                --hdrBg: #2a1e14;
+                --gold: #e0c457;
+                --gold2: #f0d989;
+                --ok: #48b65b;
+                --warn: #d1901a;
+                --bad: #d05a5a;
+                --vacant: #16100b;
+                --occupied: #6f5419;
             }
         }
 
@@ -38,16 +50,13 @@
             box-sizing: border-box
         }
 
-
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
+            background: #f7efe1 url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
             margin: 15px;
-            color: #111;
+            color: var(--ink);
         }
-
-
 
         /* Full viewport layout */
         .wrap {
@@ -62,7 +71,7 @@
             align-items: flex-end;
             padding: 10px 12px;
             border-bottom: 1px solid var(--border);
-            background: #fff
+            background: var(--card);
         }
 
             .toolbar .group {
@@ -83,13 +92,26 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 6px 10px;
-            background: #fff;
-            color: var(--ink)
+            background: #fffdf5;
+            color: var(--ink);
         }
 
+        button {
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease, filter .15s ease
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
             button.primary {
-                border-color: #99f6e4;
-                background: linear-gradient(0deg,rgba(34,211,238,.12),rgba(34,211,238,.12))
+                border-color: var(--gold2);
+                background: linear-gradient(0deg, color-mix(in oklab, var(--gold) 16%, transparent) 0%, color-mix(in oklab, var(--gold) 16%, transparent) 100%), #fffaf1;
             }
 
         .spacer {
@@ -102,7 +124,7 @@
             gap: 6px;
             padding: 8px 12px;
             border-bottom: 1px solid var(--border);
-            background: #fff
+            background: var(--card);
         }
 
         .tab {
@@ -110,22 +132,28 @@
             border: 1px solid var(--border);
             border-radius: 999px;
             cursor: pointer;
-            background: #fff;
-            color: var(--ink)
+            background: #fffdf5;
+            color: var(--ink);
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
         }
 
+            .tab:hover {
+                background: #fff6dd
+            }
+
             .tab[aria-selected="true"] {
-                background: #0ea5e9;
-                border-color: #0ea5e9;
-                color: #fff;
-                font-weight: 700
+                background: var(--gold);
+                border-color: var(--gold);
+                color: #2b1e15;
+                font-weight: 700;
+                text-shadow: 0 0 .01px currentColor;
             }
 
         /* Matrix */
         .stage {
             flex: 1 1 auto;
             min-height: 0;
-            background: #fff
+            background: var(--card)
         }
 
         .matrix-wrap {
@@ -138,12 +166,12 @@
             display: grid;
             border-top: 1px solid var(--border);
             border-left: 1px solid var(--border);
-            background: #fff
+            background: #fff;
         }
 
         .hcell, .rcell, .cell {
             border-right: 1px solid var(--border);
-            border-bottom: 1px solid var(--border)
+            border-bottom: 1px solid var(--border);
         }
 
         .hcell {
@@ -154,7 +182,8 @@
             text-align: center;
             font-weight: 800;
             padding: 6px;
-            font-size: calc(var(--fs) + 1px)
+            font-size: calc(var(--fs) + 1px);
+            color: var(--ink);
         }
 
         .rcell {
@@ -165,7 +194,8 @@
             font-weight: 800;
             padding: 6px;
             text-align: center;
-            font-size: calc(var(--fs) + 1px)
+            font-size: calc(var(--fs) + 1px);
+            color: var(--ink);
         }
 
         .corner {
@@ -185,7 +215,8 @@
             justify-items: center;
             padding: 6px;
             font-size: var(--fs);
-            background: var(--vacant)
+            background: var(--vacant);
+            color: var(--ink);
         }
 
             .cell .cap {
@@ -196,34 +227,35 @@
             .cell .meta {
                 font-size: calc(var(--fs) - 1px);
                 text-align: center;
-                line-height: 1.1
+                line-height: 1.1;
+                color: var(--muted)
             }
 
             .cell.occ {
                 background: var(--occupied);
-                color: #fff
+                color: #2b1e15;
             }
 
                 .cell.occ .cap {
-                    color: #fff
+                    color: currentColor
                 }
 
-            /* Under-assigned override: orange only when occupied & assigned < capacity */
+            /* Under-assigned override: gold warning */
             .cell.under {
                 background: var(--warn) !important;
-                color: #111 !important
+                color: #663300 !important;
             }
 
                 .cell.under .cap {
-                    color: #111 !important
+                    color: #663300 !important
                 }
 
         .legend {
             padding: 6px 12px;
             font-size: 12px;
             color: var(--muted);
-            background: #fff;
-            border-top: 1px solid var(--border)
+            background: var(--card);
+            border-top: 1px solid var(--border);
         }
 
         /* size bar */
@@ -252,13 +284,144 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             background: #fff0;
-            cursor: pointer
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
         }
 
             .iconbtn:hover {
-                background: #f1f5f9
+                background: #fff3cf
             }
+
+            .iconbtn:active {
+                transform: translateY(1px)
+            }
+
+        /* Global darkest-brown typography override */
+        :root {
+            --ink: #663300; /* darkest brown for ALL text */
+            --muted: #663300; /* no timid grays */
+            /* keep the rest as-is, but nudge warn bg for contrast */
+            --warn: #a86a00;
+            --warnBG: #ffe7b3; /* pale gold so dark text is readable */
+        }
+
+        /* Kill any local color overrides trying to be clever */
+        body,
+        .toolbar, .tabs, .tab,
+        .hcell, .rcell, .cell, .cell .meta,
+        .legend, table, th, td, label,
+        input, select, button, textarea {
+            color: var(--ink) !important;
+        }
+
+            /* Selected tab uses brown text too */
+            .tab[aria-selected="true"] {
+                color: var(--ink) !important;
+            }
+
+            /* Occupied/under cells keep dark text */
+            .cell.occ {
+                color: var(--ink) !important;
+            }
+
+            .cell.under {
+                background: var(--warnBG) !important;
+                color: var(--ink) !important;
+            }
+
+            .cell .cap {
+                color: var(--ink) !important;
+            }
+
+        /* Dark mode: keep cream/brown vibe instead of flipping to gray-on-black */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ink: #663300;
+                --muted: #663300;
+                --card: #fffaf1;
+                --border: #dcc7a4;
+                --hdrBg: #f3e6ca;
+                --vacant: #663300;
+                --occupied: #663300;
+            }
+        }
+        /* ===== Exact-color, exact-layout printing for the grid ===== */
+        @media print {
+            /* Scope printing to the element you tag as .print-scope */
+            body {
+                margin: 0
+            }
+
+                body * {
+                    visibility: hidden !important
+                }
+
+            .print-scope,
+            .print-scope * {
+                visibility: visible !important;
+            }
+
+            /* Keep the element in normal flow so the grid dimensions don’t mutate */
+            .print-scope {
+                position: static !important;
+                inset: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+                /* If your grid sits inside a scroll container, open it up */
+                .print-scope .matrix-wrap {
+                    height: auto !important;
+                    overflow: visible !important;
+                }
+
+                /* Sticky headers don’t “stick” on paper; render them as static */
+                .print-scope .hcell,
+                .print-scope .rcell,
+                .print-scope .corner {
+                    position: static !important;
+                    top: auto !important;
+                    left: auto !important;
+                    z-index: auto !important;
+                }
+
+            /* Color fidelity across browsers */
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact !important; /* Chrome/Edge/Safari */
+                print-color-adjust: exact !important; /* Modern spec */
+                color-adjust: exact !important; /* Legacy */
+            }
+
+            /* Borders and backgrounds should match on-screen */
+            .print-scope .matrix,
+            .print-scope .hcell,
+            .print-scope .rcell,
+            .print-scope .cell {
+                background: inherit; /* keep your current bg */
+                border-color: inherit; /* keep your current border color */
+                box-shadow: none !important; /* shadows waste toner and can band */
+            }
+
+            /* Avoid page breaks slicing through rows/columns */
+            .print-scope,
+            .print-scope .matrix,
+            .print-scope .row,
+            .print-scope .cell {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+
+            /* Optional: edge-to-edge */
+            @page {
+                size: auto;
+                margin: 8mm
+            }
+            /* tweak if you want tighter margins */
+        }
+
+
     </style>
+
 </head>
 <body>
     <!-- Navbar --> <site-nav></site-nav>
@@ -278,19 +441,20 @@
                 </div>
                 <button id="btnRecalc" class="primary">Recalculate</button>
                 <button id="btnRefresh">Refresh DB</button>
+                <button id="btnPrintGrid">Print grid</button>
             </div>
             <div class="spacer"></div>
             <div class="sizebar">
                 <div class="sizegrp" title="Cell width">
                     <span class="small">Width</span>
                     <button class="iconbtn" id="wMinus">–</button>
-                    <input id="wRange" type="range" min="1" max="240" step="2" value="70">
+                    <input id="wRange" type="range" min="1" max="240" step="2" value="65">
                     <button class="iconbtn" id="wPlus">+</button>
                 </div>
                 <div class="sizegrp" title="Cell height">
                     <span class="small">Height</span>
                     <button class="iconbtn" id="hMinus">–</button>
-                    <input id="hRange" type="range" min="1" max="200" step="2" value="40">
+                    <input id="hRange" type="range" min="1" max="200" step="2" value="35">
                     <button class="iconbtn" id="hPlus">+</button>
                 </div>
                 <div class="sizegrp" title="Text size">
@@ -616,7 +780,24 @@ function wireSizeControls(){
   });
 
   wireSizeControls();
-})();
+        })();
+        function printOnlyById(id) {
+            const el = document.getElementById(id);
+            if (!el) return alert('Matrix not found.');
+            el.classList.add('print-scope');
+            const cleanup = () => {
+                el.classList.remove('print-scope');
+                window.removeEventListener('afterprint', cleanup);
+            };
+            window.addEventListener('afterprint', cleanup);
+            setTimeout(() => window.print(), 0);
+        }
+
+        // Example wiring:
+        document.getElementById('btnPrintGrid')
+            ?.addEventListener('click', () => printOnlyById('matrix'));
+
+
     </script>
 </body>
 </html>

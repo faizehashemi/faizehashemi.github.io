@@ -7,12 +7,13 @@
     <title>Groups</title>
     <style>
         :root {
-            --ink: #0b1220;
-            --muted: #6b7280;
-            --bg: #f8fafc;
-            --card: #fff;
-            --border: #e5e7eb;
-            --accent: #0ea5e9;
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for all text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --bg: #f7efe1; /* page background (cream) */
+            --card: #fffaf1; /* panels */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --accent: #d4af37; /* gold accent */
         }
 
         * {
@@ -21,10 +22,10 @@
 
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
             margin: 15px;
-            color: #111;
+            color: var(--ink);
         }
 
         .wrap {
@@ -36,6 +37,7 @@
         h1 {
             margin: 0 0 12px;
             font-size: 20px;
+            color: var(--ink);
         }
 
         .panel {
@@ -43,7 +45,7 @@
             border: 1px solid var(--border);
             border-radius: 14px;
             padding: 12px;
-            box-shadow: 0 10px 30px rgba(2,6,23,.06);
+            box-shadow: 0 10px 30px rgba(92,64,28,.12);
         }
 
         .row {
@@ -65,26 +67,36 @@
             padding: 8px 10px;
             border: 1px solid var(--border);
             border-radius: 10px;
-            background: #fff;
+            background: #fffdf5;
+            color: var(--ink);
         }
 
         button {
-            cursor: pointer
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease
         }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
 
             button.primary {
                 background: var(--accent);
                 border-color: var(--accent);
-                color: #fff
+                color: #2b1e15;
             }
 
             button.ghost {
-                background: #fff
+                background: #fffdf5
             }
 
             button:disabled {
                 opacity: .6;
-                cursor: not-allowed
+                cursor: not-allowed;
             }
 
         .grid {
@@ -92,6 +104,7 @@
             overflow: auto;
             border: 1px solid var(--border);
             border-radius: 12px;
+            background: #fff;
         }
 
         table {
@@ -103,13 +116,14 @@
             padding: 8px 10px;
             border-bottom: 1px solid var(--border);
             text-align: left;
-            font-size: 14px
+            font-size: 14px;
+            color: var(--ink);
         }
 
         th {
             font-weight: 700;
             white-space: nowrap;
-            background: #f9fafb
+            background: #f3e6ca; /* light cream header */
         }
 
         td .small {
@@ -120,7 +134,7 @@
         .tools {
             display: flex;
             gap: 8px;
-            flex-wrap: wrap;
+            flex-wrap: wrap
         }
 
         .pill {
@@ -129,7 +143,8 @@
             border: 1px solid var(--border);
             border-radius: 999px;
             font-size: 12px;
-            color: var(--muted)
+            color: var(--muted);
+            background: #fffaf1;
         }
 
         /* Assignment list */
@@ -156,7 +171,7 @@
         /* Print: A4 landscape, each sticker = its own page */
         @page {
             size: A4 landscape;
-            margin: 8mm;
+            margin: 8mm
         }
 
         @media print {
@@ -173,21 +188,21 @@
             }
 
             .sticker {
-                page-break-after: always;
+                page-break-after: always
             }
 
                 .sticker:last-child {
-                    page-break-after: auto;
+                    page-break-after: auto
                 }
         }
 
         .printable {
-            display: block;
+            display: block
         }
 
         .sticker {
             width: 100%;
-            height: 185mm; /* roughly A4 landscape printable height minus margins */
+            height: 185mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -195,31 +210,37 @@
             border: 1px dashed var(--border);
             border-radius: 12px;
             margin: 0 auto 8mm;
+            background: #fffdf7;
+            color: var(--ink);
         }
 
             .sticker .tour {
                 font-size: 100px;
                 font-weight: 800;
                 line-height: 1.15;
+                color: var(--ink);
             }
 
             .sticker .leader {
                 font-size: 50px;
                 margin-top: 10px;
+                color: var(--ink);
             }
 
             .sticker .pax {
                 font-size: 25px;
                 margin-top: 6px;
                 letter-spacing: .5px;
+                color: var(--ink);
             }
 
         .stack {
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 2px
         }
     </style>
+
 </head>
 <body>
     <!-- Navbar --> <site-nav></site-nav>

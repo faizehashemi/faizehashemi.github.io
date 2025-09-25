@@ -7,27 +7,32 @@
     <title>PMS</title>
     <style>
         :root {
-            --ink: #0b1220;
-            --muted: #6b7280;
-            --bg: #f8fafc;
-            --card: #fff;
-            --border: #e5e7eb;
-            --ok: #16a34a;
-            --warn: #f59e0b;
-            --bad: #dc2626;
-            --shadow: 0 20px 60px rgba(2,6,23,.12);
-            --fill: #10b981;
-            --fill-warn: #f59e0b;
-            --fill-bad: #ef4444;
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --bg: #f7efe1; /* page background (cream) */
+            --card: #fffaf1; /* panels/cards */
+            --border: #dcc7a4; /* soft cream-gold border */
+
+            --ok: #2f7d32; /* success */
+            --warn: #a86a00; /* warning gold-brown */
+            --bad: #a12a2a; /* error red-brown */
+
+            --shadow: 0 20px 60px rgba(92,64,28,.12);
+            /* meters/fills */
+            --fill: #d4af37; /* gold */
+            --fill-warn: #d1901a; /* warm amber */
+            --fill-bad: #c24a3a; /* muted brick */
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --ink: #e5e7eb;
-                --muted: #9aa4b2;
-                --bg: #0b0f14;
-                --card: #0f1216;
-                --border: #1f2937;
+                /* keep the cream/brown vibe, just deepen surfaces */
+                --ink: #1a0f0a;
+                --muted: #4a3a2d;
+                --bg: #efe4cf;
+                --card: #f6ead3;
+                --border: #cdb492;
                 --shadow: none;
             }
         }
@@ -42,12 +47,12 @@
 
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
             margin: 15px;
-            color: #111;
+            color: var(--ink);
         }
-      
+
         .wrap {
             max-width: 1200px;
             margin: 0 auto;
@@ -76,13 +81,14 @@
             .panel h2 {
                 margin: 0 0 8px;
                 font-size: 18px;
-                letter-spacing: .2px
+                letter-spacing: .2px;
+                color: var(--ink);
             }
 
         .sub {
             color: var(--muted);
             font-size: 12px;
-            margin-bottom: 10px
+            margin-bottom: 10px;
         }
 
         .battery-grid {
@@ -97,20 +103,22 @@
             padding: 10px;
             display: grid;
             gap: 8px;
+            background: #fffdf7;
         }
 
         .b-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px
+            gap: 8px;
         }
 
         .b-name {
             font-weight: 700;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap
+            white-space: nowrap;
+            color: var(--ink);
         }
 
         .b-cap {
@@ -131,7 +139,7 @@
                 border-radius: 10px;
                 font: inherit;
                 background: var(--card);
-                color: var(--ink)
+                color: var(--ink);
             }
 
             .cap-edit button {
@@ -139,16 +147,18 @@
                 border: 1px solid var(--border);
                 border-radius: 10px;
                 background: var(--card);
+                color: var(--ink);
                 cursor: pointer;
+                transition: background .15s ease, transform .08s ease;
             }
 
                 .cap-edit button:hover {
-                    background: #f3f4f6
+                    background: #fff6dd
                 }
 
         @media (prefers-color-scheme: dark) {
             .cap-edit button:hover {
-                background: #0f172a
+                background: #efe4cf
             }
         }
 
@@ -161,6 +171,7 @@
             overflow: hidden;
             display: flex;
             align-items: center;
+            background: #fff;
         }
 
             .battery::after {
@@ -176,7 +187,7 @@
         .fill {
             height: 100%;
             transition: width .3s ease;
-            background: linear-gradient(90deg, #34d399, #10b981);
+            background: linear-gradient(90deg, #f0d989, var(--fill));
         }
 
         .meter {
@@ -187,15 +198,16 @@
             justify-content: center;
             font-variant-numeric: tabular-nums;
             font-weight: 700;
-            text-shadow: 0 1px 0 rgba(0,0,0,.05);
+            color: var(--ink);
+            text-shadow: 0 1px 0 rgba(255,255,255,.4);
         }
 
         .bad .fill {
-            background: linear-gradient(90deg, #f97316, #ef4444)
+            background: linear-gradient(90deg, #e78b7e, var(--fill-bad))
         }
 
         .warn .fill {
-            background: linear-gradient(90deg, #f59e0b, #f97316)
+            background: linear-gradient(90deg, #f3c260, var(--fill-warn))
         }
 
         .b-stats {
@@ -203,7 +215,7 @@
             gap: 8px;
             justify-content: space-between;
             font-size: 12px;
-            color: var(--muted)
+            color: var(--muted);
         }
 
             .b-stats b {
@@ -215,7 +227,8 @@
             margin-top: 14px;
             border: 1px dashed var(--border);
             border-radius: 14px;
-            padding: 10px
+            padding: 10px;
+            background: #fffdf7;
         }
 
         .chart-toolbar {
@@ -224,14 +237,14 @@
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 8px
+            margin-bottom: 8px;
         }
 
             .chart-toolbar .left {
                 display: flex;
                 gap: 8px;
                 flex-wrap: wrap;
-                align-items: center
+                align-items: center;
             }
 
         .chip {
@@ -240,40 +253,46 @@
             padding: 4px 10px;
             cursor: pointer;
             background: var(--card);
+            color: var(--ink);
+            transition: background .15s ease;
         }
 
             .chip[aria-pressed="true"] {
                 font-weight: 700;
-                text-decoration: underline
+                text-decoration: underline;
+            }
+
+            .chip:hover {
+                background: #fff6dd
             }
 
         svg.chart {
             width: 100%;
             height: 220px;
-            display: block
+            display: block;
         }
 
         .axis {
-            stroke: #94a3b8;
-            stroke-width: 1;
+            stroke: var(--muted);
+            stroke-width: 1
         }
 
         .bar {
-            fill: #60a5fa;
+            fill: var(--fill)
         }
 
         .grid line {
-            stroke: #e5e7eb;
+            stroke: var(--border);
             stroke-width: .8
         }
 
         @media (prefers-color-scheme: dark) {
             .grid line {
-                stroke: #1f2937
+                stroke: #cdb492
             }
         }
 
-        /* Right column (DB health) kept from your file */
+        /* Right column (DB health) */
         .db-card {
             border: 1px solid var(--border);
             border-radius: 18px;
@@ -284,7 +303,8 @@
 
             .db-card h3 {
                 margin: 0 0 8px;
-                font-size: 16px
+                font-size: 16px;
+                color: var(--ink)
             }
 
         .list {
@@ -299,7 +319,8 @@
             gap: 12px;
             border: 1px dashed var(--border);
             border-radius: 12px;
-            padding: 8px 10px
+            padding: 8px 10px;
+            background: #fffdf7;
         }
 
         .name {
@@ -317,25 +338,27 @@
             padding: 3px 8px;
             border-radius: 999px;
             font-size: 12px;
-            border: 1px solid var(--border)
+            border: 1px solid var(--border);
+            color: var(--ink);
+            background: #fffaf1;
         }
 
             .pill.ok {
-                background: #ecfdf5;
-                color: #065f46;
-                border-color: #a7f3d0
+                background: #eef7ef;
+                color: #2f7d32;
+                border-color: #bfe3c6
             }
 
             .pill.fail {
-                background: #fef2f2;
+                background: #fff1f1;
                 color: #7f1d1d;
-                border-color: #fecaca
+                border-color: #e6bcbc
             }
 
             .pill.wait {
-                background: #fffbeb;
-                color: #78350f;
-                border-color: #fde68a
+                background: #fff8e6;
+                color: #7a5b13;
+                border-color: #f3d984
             }
 
         .actions {
@@ -350,16 +373,18 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             background: var(--card);
-            cursor: pointer
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
         }
 
             button:hover {
-                background: #f3f4f6
+                background: #fff6dd
             }
 
         @media (prefers-color-scheme: dark) {
             button:hover {
-                background: #0f172a
+                background: #efe4cf
             }
         }
 
@@ -369,6 +394,7 @@
             margin-top: 6px
         }
     </style>
+
 </head>
 <body>
     <!-- Navbar --> <site-nav></site-nav>

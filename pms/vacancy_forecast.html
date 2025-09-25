@@ -7,31 +7,39 @@
     <title>Forecast</title>
     <style>
         :root {
-            --b: #222;
-            --m: #666;
-            --bg: #f7f7f9;
+            /* Cream • Gold • Brown palette */
+            --b: #dcc7a4; /* border */
+            --m: #5e4a39; /* muted text */
+            --bg: #f7efe1; /* page background */
+            --gold: #d4af37; /* accent gold */
+        }
+
+        * {
+            box-sizing: border-box
         }
 
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
             margin: 15px;
-            color: #111;
+            color: #1a0f0a; /* darkest brown text */
         }
 
         .wrap {
             max-width: 1200px;
             margin: 22px auto;
-            background: #fff;
+            background: #fffaf1; /* warm off-white */
             padding: 18px;
-            border-radius: 10px;
-            box-shadow: 0 6px 20px rgba(0,0,0,.08);
+            border-radius: 12px;
+            border: 1px solid var(--b);
+            box-shadow: 0 6px 20px rgba(92,64,28,.12);
         }
 
         h1 {
             margin: 0 0 12px;
             text-align: center;
+            color: #1a0f0a;
         }
 
         .controls {
@@ -55,29 +63,38 @@
 
         input, select, textarea, button {
             font: inherit;
+            color: #1a0f0a;
         }
 
-            input[type="date"], input[type="time"], select, textarea {
-                border: 1px solid #ccc;
-                border-radius: 8px;
+            input[type="date"],
+            input[type="time"],
+            select,
+            textarea {
+                border: 1px solid var(--b);
+                border-radius: 10px;
                 padding: 8px;
-                background: #fff;
+                background: #fffdf7;
             }
 
         textarea {
-            min-height: 44px;
+            min-height: 44px
         }
 
         button {
             padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            background: #fff;
+            border: 1px solid var(--b);
+            border-radius: 10px;
+            background: #fffdf5;
             cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
         }
 
             button:hover {
-                background: #f0f0f0;
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
             }
 
         .summary {
@@ -88,39 +105,44 @@
         }
 
         .pill {
-            border: 1px solid #ddd;
+            border: 1px solid var(--b);
             border-radius: 999px;
             padding: 6px 12px;
-            background: #fafafa;
+            background: #fffaf1;
+            color: var(--m);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
+            background: #fff;
         }
 
         th, td {
             border: 1px solid var(--b);
             padding: 8px;
             vertical-align: top;
+            color: #1a0f0a;
         }
 
         th {
-            background: #fafafa;
+            background: #f3e6ca; /* light cream header */
             text-align: left;
+            font-weight: 700;
+            white-space: nowrap;
         }
 
         .muted {
-            color: var(--m);
+            color: var(--m)
         }
 
         .right {
-            text-align: right;
+            text-align: right
         }
 
         .nowrap {
-            white-space: nowrap;
+            white-space: nowrap
         }
 
         .two {
@@ -130,37 +152,40 @@
         }
 
         .delta-pos {
-            color: #16a34a;
+            color: #2f7d32; /* deep green that fits the palette */
             font-weight: 700;
         }
 
         .delta-neg {
-            color: #ef4444;
+            color: #a12a2a; /* brick red-brown */
             font-weight: 700;
         }
 
         @media (max-width: 900px) {
             .controls {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr 1fr
             }
 
             .two {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr
             }
         }
 
         @media print {
             .controls, .muted, #status {
-                display: none !important;
+                display: none !important
             }
 
             .wrap {
                 box-shadow: none;
                 padding: 0;
                 margin: 0;
+                border: none;
+                background: #fff;
             }
         }
     </style>
+
 </head>
 <body>
     <!-- Navbar --> <site-nav></site-nav>

@@ -7,24 +7,26 @@
     <title>Checkins</title>
     <style>
         :root {
-            --ink: #0b1220;
-            --muted: #64748b;
-            --card: #ffffff;
-            --border: #e5e7eb;
-            --accent: #0f766e;
-            --shadow: 0 10px 28px rgba(2,6,23,.08);
-            --chip: #ecfeff;
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for all text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --card: #fffaf1; /* warm off-white panels */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --accent: #d4af37; /* gold accent */
+            --shadow: 0 10px 28px rgba(92,64,28,.12);
+            --chip: #f7ecd1; /* pale gold chip hover/base */
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --ink: #e5e7eb;
-                --muted: #9aa4b2;
-                --card: #0f1216;
-                --border: #1f2937;
-                --accent: #22d3ee;
+                /* Keep cream/brown vibe in dark mode, just deepen surfaces */
+                --ink: #1a0f0a;
+                --muted: #4a3a2d;
+                --card: #f9f1e3;
+                --border: #cdb492;
+                --accent: #e0c457;
                 --shadow: none;
-                --chip: #062e2e;
+                --chip: #f3e6ca;
             }
         }
 
@@ -33,25 +35,25 @@
         }
 
         body {
-            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
+            font: 14px/1.45 system-ui,-apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: #f7efe1 url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
             margin: 15px;
-            color: #111;
+            color: var(--ink);
         }
 
         .wrap {
             max-width: 1200px;
             margin: 22px auto;
-            padding: 0 14px 40px
+            padding: 0 14px 40px;
         }
 
         header.hero {
-            background: linear-gradient(0deg,rgba(15,118,110,.10),rgba(15,118,110,.06));
+            background: linear-gradient(0deg, color-mix(in oklab, var(--accent) 18%, transparent) 0%, color-mix(in oklab, var(--accent) 10%, transparent) 100%);
             border-radius: 16px;
             padding: 14px;
             box-shadow: var(--shadow);
-            border: 1px solid var(--border)
+            border: 1px solid var(--border);
         }
 
         h1 {
@@ -64,10 +66,10 @@
 
         .controls {
             display: grid;
-            grid-template-columns: repeat(12,1fr);
+            grid-template-columns: repeat(12, 1fr);
             gap: 10px;
             align-items: end;
-            margin-top: 10px
+            margin-top: 10px;
         }
 
             .controls .col {
@@ -88,9 +90,9 @@
                 grid-column: span 4
             }
 
-        @media (max-width:900px) {
+        @media (max-width: 900px) {
             .controls {
-                grid-template-columns: repeat(6,1fr)
+                grid-template-columns: repeat(6, 1fr)
             }
 
                 .controls .col-3 {
@@ -114,8 +116,8 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 8px 10px;
-            background: #fff0;
-            color: var(--ink)
+            background: #fffdf5;
+            color: var(--ink);
         }
 
         button {
@@ -123,12 +125,22 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             background: var(--card);
-            cursor: pointer
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
         }
 
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
             button.primary {
-                border-color: #99f6e4;
-                background: linear-gradient(0deg,rgba(34,211,238,.12),rgba(34,211,238,.12))
+                border-color: color-mix(in oklab, var(--accent) 55%, #fff);
+                background: linear-gradient(0deg, color-mix(in oklab, var(--accent) 20%, transparent) 0%, color-mix(in oklab, var(--accent) 12%, transparent) 100%), var(--card);
             }
 
         .chips {
@@ -143,7 +155,9 @@
             border-radius: 999px;
             padding: 6px 10px;
             font-size: 13px;
-            cursor: pointer
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease;
         }
 
             .chip:hover {
@@ -161,14 +175,15 @@
             border: 1px solid var(--border);
             border-radius: 14px;
             padding: 12px;
-            box-shadow: var(--shadow)
+            box-shadow: var(--shadow);
         }
 
             .panel h3 {
                 margin: 0 0 6px;
                 display: flex;
                 justify-content: space-between;
-                align-items: center
+                align-items: center;
+                color: var(--ink);
             }
 
             .panel .toolbar {
@@ -179,18 +194,20 @@
 
         table {
             width: 100%;
-            border-collapse: collapse
+            border-collapse: collapse;
+            background: #fffdf7
         }
 
         th, td {
             border: 1px solid var(--border);
             padding: 8px;
-            vertical-align: top
+            vertical-align: top;
+            color: var(--ink);
         }
 
         th {
-            background: rgba(15,118,110,.08);
-            text-align: left
+            background: color-mix(in oklab, var(--accent) 14%, #fff8e6);
+            text-align: left;
         }
 
         .right {
@@ -205,7 +222,29 @@
             margin-top: 8px;
             color: var(--muted)
         }
+        /* print only the element that has .print-scope */
+        @media print {
+            body {
+                margin: 0
+            }
+
+                body * {
+                    visibility: hidden !important
+                }
+
+            .print-scope, .print-scope * {
+                visibility: visible !important;
+            }
+
+            .print-scope {
+                position: absolute;
+                inset: 0;
+                margin: 0; /* use full page area for the table */
+            }
+        }
+
     </style>
+
 </head>
 <body>
 
@@ -268,7 +307,9 @@
                     <span class="toolbar">
                         <span class="muted" id="sumIn">0 slips • 0 guests</span>
                         <button id="csvIn">Export CSV</button>
+                        <button id="printIn">Print table</button>
                     </span>
+
                 </h3>
                 <table id="tblIn">
                     <thead>
@@ -297,7 +338,9 @@
                     <span class="toolbar">
                         <span class="muted" id="sumOut">0 slips • 0 guests</span>
                         <button id="csvOut">Export CSV</button>
+                        <button id="printOut">Print table</button>
                     </span>
+
                 </h3>
                 <table id="tblOut">
                     <thead>
@@ -443,6 +486,29 @@
             const a = document.createElement('a'); a.href = url; a.download = filename;
             document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
         }
+
+        function printTableOnly(tableId) {
+            const el = document.getElementById(tableId);
+            if (!el) return alert('Table not found.');
+            // scope print to just this table
+            el.classList.add('print-scope');
+            const cleanup = () => {
+                el.classList.remove('print-scope');
+                window.removeEventListener('afterprint', cleanup);
+            };
+            window.addEventListener('afterprint', cleanup);
+            // give layout a tick, then print
+            setTimeout(() => window.print(), 0);
+        }
+
+        // wire the buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnIn = document.getElementById('printIn');
+            const btnOut = document.getElementById('printOut');
+            btnIn && btnIn.addEventListener('click', () => printTableOnly('tblIn'));
+            btnOut && btnOut.addEventListener('click', () => printTableOnly('tblOut'));
+        });
+
 
         /* ===== Boot ===== */
         async function refresh() {

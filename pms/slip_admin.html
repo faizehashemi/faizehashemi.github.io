@@ -7,32 +7,45 @@
     <title>Admin</title>
     <style>
         :root {
-            --b: #222;
-            --m: #666;
-            --bg: #f7f7f9;
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown, all text */
+            --muted: #5e4a39; /* softer brown */
+            --bg: #f7efe1; /* page background (cream) */
+            --card: #fffaf1; /* panels/cards */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --gold: #d4af37; /* accent gold */
+            --shadow: 0 6px 20px rgba(92,64,28,.12);
         }
+
+        * {
+            box-sizing: border-box
+        }
+
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
             margin: 15px;
-            color: #111;
+            color: var(--ink);
         }
 
         .wrap {
             max-width: 1200px;
             margin: 22px auto;
-            background: #fff;
+            background: var(--card);
             padding: 18px;
-            border-radius: 10px;
-            box-shadow: 0 6px 20px rgba(0,0,0,.08);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
         }
 
         h1 {
             margin: 0 0 12px;
             text-align: center;
+            color: var(--ink);
         }
 
+        /* Controls */
         .controls {
             display: grid;
             grid-template-columns: repeat(9, minmax(120px, 1fr));
@@ -49,102 +62,123 @@
 
         label {
             font-size: 12px;
-            color: var(--m);
+            color: var(--muted);
         }
 
         input, select, button {
             font: inherit;
+            color: var(--ink);
         }
 
-            input[type="date"], input[type="text"], select {
-                border: 1px solid #ccc;
-                border-radius: 8px;
+            input[type="date"],
+            input[type="text"],
+            select {
+                border: 1px solid var(--border);
+                border-radius: 10px;
                 padding: 8px;
-                background: #fff;
+                background: #fffdf7;
             }
 
-        body {
-            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
-            margin: 15px;
-            color: #111;
+        button {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fffdf5;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
         }
 
             button:hover {
-                background: #f0f0f0;
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
             }
 
         .danger {
-            border-color: #c33;
-            color: #c33;
+            border-color: #b86a5e;
+            color: #7f1d1d;
+            background: #fff5f3;
         }
 
             .danger:hover {
-                background: #fff1f1;
+                background: #ffeceb
             }
 
+        /* Table */
         table {
             width: 100%;
             border-collapse: collapse;
+            background: #fff
         }
 
         th, td {
-            border: 1px solid var(--b);
+            border: 1px solid var(--border);
             padding: 8px;
             vertical-align: top;
+            color: var(--ink);
         }
 
         th {
-            background: #fafafa;
+            background: #f3e6ca; /* light cream header */
             text-align: left;
+            font-weight: 700;
+            white-space: nowrap;
         }
 
         .right {
-            text-align: right;
+            text-align: right
         }
 
         .muted {
-            color: var(--m);
+            color: var(--muted)
         }
 
+        /* Split layout */
         .split {
             display: grid;
             grid-template-columns: 2fr 1fr;
             gap: 16px;
         }
 
-        @media (max-width: 1000px) {
-            .controls {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .split {
-                grid-template-columns: 1fr;
-            }
-        }
-
+        /* Cards & pills */
         .card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 10px;
-            background: #fafafa;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            background: #fffdf7;
         }
 
         .pill {
             display: inline-block;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             border-radius: 999px;
             padding: 4px 10px;
             margin: 0 6px 6px 0;
-            background: #fff;
+            background: #fffaf1;
             font-size: 12px;
+            color: var(--muted);
         }
 
         #status {
             margin-top: 10px;
+            color: var(--muted)
+        }
+
+        /* Responsive */
+        @media (max-width:1000px) {
+            .controls {
+                grid-template-columns: 1fr 1fr
+            }
+
+            .split {
+                grid-template-columns: 1fr
+            }
         }
     </style>
+
 </head>
 <body>
     <!-- Navbar --> <site-nav></site-nav>

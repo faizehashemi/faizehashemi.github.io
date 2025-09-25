@@ -7,32 +7,43 @@
     <link rel="icon" type="image/png" href="./logo.png">
     <style>
         :root {
-            --border: #d6d6d6;
-            --muted: #7a7a7a;
+            /* Cream • Gold • Brown palette */
+            --bg: #f7efe1; /* page background (cream) */
+            --panel: #fffaf1; /* cards/panels (warm off-white) */
+            --text: #2b1e15; /* deep brown */
+            --muted: #6b5e4a; /* tobacco */
+            --gold: #d4af37; /* accent */
+            --gold2: #f3d984; /* light accent */
+            --edge: #dcc7a4; /* soft border */
+            --edge2: #cdb492; /* stronger border */
+            --shade: rgba(92,64,28,.10);
+            --ok: #2f7d32; /* success */
+            --warn: #a86a00; /* warning */
             --pad: 5px;
-            --warn: #b91c1c;
-            --ok: #0f766e;
         }
 
-
         /* Base */
+        * {
+            box-sizing: border-box
+        }
+
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: #ffffff url("./pattern_gold_2x.png") repeat;
-            background-size: 150px auto; /* larger tile = calmer page */
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
             margin: 15px;
-            color: #111;
+            color: var(--text);
         }
 
         .wrap {
-            max-width: 2000px;
+            max-width: 1700px;
             margin: 10px auto;
-            background: #fff;
+            background: var(--panel);
             padding: 12px;
-            border-radius: 8px;
-            box-shadow: 0 3px 12px rgba(0,0,0,.06);
+            border-radius: 10px;
+            border: 1px solid var(--edge);
+            box-shadow: 0 6px 20px var(--shade);
         }
-
 
         /* Controls */
         .controls {
@@ -45,33 +56,47 @@
 
         button, select {
             padding: 6px 8px;
-            border: 1px solid #c9c9c9;
-            border-radius: 6px;
-            background: #fff;
+            border: 1px solid var(--gold);
+            border-radius: 8px;
+            background: #fffdf5;
             cursor: pointer;
             font: inherit;
             font-size: 14px;
+            color: #7a5b13;
+            transition: background .15s ease, transform .08s ease, filter .15s ease;
         }
 
             button:hover {
-                background: #f0f0f0
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+            button:focus-visible, select:focus-visible,
+            input:focus-visible, textarea:focus-visible {
+                outline: 2px solid color-mix(in oklab, var(--gold) 70%, #ffffff);
+                outline-offset: 1px;
             }
 
         /* Tables */
         .grid {
             width: 100%;
             border-collapse: collapse;
+            background: #fff
         }
 
             .grid th, .grid td {
-                border: 1px solid var(--border);
+                border: 1px solid var(--edge);
                 padding: var(--pad) 8px;
                 vertical-align: middle;
                 font-size: 13px;
+                color: var(--text);
             }
 
             .grid th {
-                background: #fafafa;
+                background: #f6ecd6; /* light cream header */
                 text-align: left;
                 font-weight: 700;
             }
@@ -80,6 +105,7 @@
                 caption-side: top;
                 font-weight: 800;
                 padding: 6px 0 8px;
+                color: #7a5b13;
             }
 
         .kv th {
@@ -96,26 +122,28 @@
         input[type="date"],
         input[type="time"] {
             width: 80%;
-            padding: 6px;
-            border: 1px solid #bbb;
-            border-radius: 6px;
+            padding: 6px 8px;
+            border: 1px solid var(--edge2);
+            border-radius: 8px;
             font: inherit;
             font-size: 14px;
             background: #fff;
+            color: var(--text);
         }
 
         select {
             width: 100%;
-            padding: 6px;
-            border: 1px solid #bbb;
-            border-radius: 6px;
+            padding: 6px 8px;
+            border: 1px solid var(--edge2);
+            border-radius: 8px;
             background: #fff;
+            color: var(--text);
         }
 
         .inline {
             display: flex;
             gap: 6px;
-            align-items: center;
+            align-items: center
         }
 
             .inline > * {
@@ -129,39 +157,41 @@
         /* Two minis side-by-side */
         .subtables {
             display: flex;
-            gap: 8px;
+            gap: 8px
         }
 
         .mini {
             width: 50%;
             border-collapse: collapse;
+            background: #fff
         }
 
             .mini th, .mini td {
-                border: 1px solid var(--border);
-                padding: var(--pad);
+                border: 1px solid var(--edge);
+                padding: var(--pad)
             }
 
             .mini th {
-                background: #f6f6f6;
+                background: #f6ecd6;
                 text-align: left
             }
 
             .mini tfoot td {
-                background: #fafafa
+                background: #fff8e6
             }
 
         .row-btn {
             padding: 4px 8px;
-            border-radius: 6px;
-            border: 1px solid #bbb;
-            background: #fff;
+            border-radius: 8px;
+            border: 1px solid var(--gold);
+            background: #fffdf5;
             cursor: pointer;
             font: inherit;
+            color: #7a5b13;
         }
 
             .row-btn:hover {
-                background: #f0f0f0
+                background: #fff6dd
             }
 
         .help {
@@ -178,26 +208,23 @@
             margin-top: 8px;
             display: flex;
             gap: 6px;
-            flex-wrap: wrap;
+            flex-wrap: wrap
         }
 
         /* Availability highlights */
         .conflict input[type="text"],
         .conflict input[type="number"] {
             border-color: var(--warn);
-            background: #fff7f7;
+            background: #fff3e0;
         }
 
         .okfill input[type="text"],
         .okfill input[type="number"] {
             border-color: var(--ok);
-            background: #f3fcfa;
+            background: #eef7ef;
         }
-       
-
-
-
     </style>
+
 </head>
 <body>
 
@@ -915,4 +942,3 @@ function setRows(group, arr) {
     </script>
 </body>
 </html>
-
