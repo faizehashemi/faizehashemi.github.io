@@ -39,12 +39,12 @@
         h1 {
             margin: 0 0 12px;
             text-align: center;
-            color: #1a0f0a;
+            color: #1a0f0a
         }
 
         .controls {
             display: grid;
-            grid-template-columns: repeat(6, minmax(140px, 1fr));
+            grid-template-columns: repeat(6, minmax(140px,1fr));
             gap: 10px;
             align-items: end;
             margin: 10px 0 16px;
@@ -53,23 +53,20 @@
             .controls > div {
                 display: flex;
                 flex-direction: column;
-                gap: 6px;
+                gap: 6px
             }
 
         label {
             font-size: 12px;
-            color: var(--m);
+            color: var(--m)
         }
 
         input, select, textarea, button {
             font: inherit;
-            color: #1a0f0a;
+            color: #1a0f0a
         }
 
-            input[type="date"],
-            input[type="time"],
-            select,
-            textarea {
+            input[type="date"], input[type="time"], select, textarea {
                 border: 1px solid var(--b);
                 border-radius: 10px;
                 padding: 8px;
@@ -101,7 +98,7 @@
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
-            margin: 6px 0 14px;
+            margin: 6px 0 14px
         }
 
         .pill {
@@ -116,18 +113,18 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
-            background: #fff;
+            background: #fff
         }
 
         th, td {
             border: 1px solid var(--b);
             padding: 8px;
             vertical-align: top;
-            color: #1a0f0a;
+            color: #1a0f0a
         }
 
         th {
-            background: #f3e6ca; /* light cream header */
+            background: #f3e6ca;
             text-align: left;
             font-weight: 700;
             white-space: nowrap;
@@ -148,20 +145,20 @@
         .two {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            gap: 16px
         }
 
         .delta-pos {
-            color: #2f7d32; /* deep green that fits the palette */
-            font-weight: 700;
+            color: #2f7d32;
+            font-weight: 700
         }
 
         .delta-neg {
-            color: #a12a2a; /* brick red-brown */
-            font-weight: 700;
+            color: #a12a2a;
+            font-weight: 700
         }
 
-        @media (max-width: 900px) {
+        @media (max-width:900px) {
             .controls {
                 grid-template-columns: 1fr 1fr
             }
@@ -181,16 +178,15 @@
                 padding: 0;
                 margin: 0;
                 border: none;
-                background: #fff;
+                background: #fff
             }
         }
     </style>
-
 </head>
 <body>
-    <!-- Navbar --> <site-nav></site-nav>
+    <!-- Navbar -->
+    <site-nav></site-nav>
     <script type="module" src="./site-nav.js"></script>
-
 
     <div class="wrap">
         <h1>Vacancy Forecast</h1>
@@ -293,310 +289,386 @@
     </div>
 
     <script>
-    /* -------------------------- DB plumbing (v2) -------------------------- */
-    const DB_NAME = 'pms_accommodation_db';
-    const STORE = 'slips';
-    const DB_VERSION = 2;
+        /* -------------------------- DB plumbing (v2) -------------------------- */
+        const DB_NAME = 'pms_accommodation_db';
+        const STORE = 'slips';
+        const DB_VERSION = 2;
 
-    function openDB() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          let s;
-          if (!db.objectStoreNames.contains(STORE)) {
-            s = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-          } else {
-            s = e.target.transaction.objectStore(STORE);
-          }
-          if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt', 'createdAt', { unique: false });
-          if (!s.indexNames.contains('sh_no')) s.createIndex('sh_no', 'sh_no', { unique: false });
-          if (!s.indexNames.contains('building')) s.createIndex('building', 'building', { unique: false });
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    }
-
-    async function getAllRecords() {
-      const db = await openDB();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, 'readonly');
-        const st = tx.objectStore(STORE);
-        const rq = st.getAll();
-        rq.onsuccess = () => resolve(rq.result || []);
-        rq.onerror = () => reject(rq.error);
-        tx.oncomplete = () => db.close();
-      });
-    }
-
-    /* ---------------------------- Helpers ---------------------------- */
-    function capacityOnlyFor(building, room, maps) {
-  const key = `${building}|${room}`;
-  const c = maps.cap.get(key);
-  return (c != null && !Number.isNaN(c)) ? c : null;
-}
-
-    function $(id) { return document.getElementById(id); }
-    const CANON_BUILDINGS = [];
-    function parseDT(d, t) {
-      if (!d) return null;
-      const time = t && t.length ? t : '00:00';
-      const v = new Date(`${d}T${time}`);
-      return isNaN(v.getTime()) ? null : v;
-    }
-    function fmt(dt) {
-      if (!dt) return '';
-      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(dt);
-    }
-    function unique(arr) { return Array.from(new Set(arr)); }
-    function cleanRoom(x) { return String(x ?? '').trim(); }
-
-    /* Build latest-known capacity and assigned maps (per building|room) */
-    function buildCapacityMaps(recs, buildingFilter) {
-      const cap = new Map(); // key = building|room -> capacity
-      const asg = new Map(); // key = building|room -> assigned
-      const items = [...recs].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1)); // newest first
-      for (const r of items) {
-        const b = (r.building || '').trim();
-        if (buildingFilter && buildingFilter !== 'ALL' && b !== buildingFilter) continue;
-        for (const g of (r.rooms?.gents || [])) {
-          const key = `${b}|${cleanRoom(g.room_no)}`;
-          if (!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
-          if (!asg.has(key) && g.assigned !== '' && g.assigned != null) asg.set(key, Number(g.assigned));
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    let s;
+                    if (!db.objectStoreNames.contains(STORE)) {
+                        s = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+                    } else {
+                        s = e.target.transaction.objectStore(STORE);
+                    }
+                    if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt', 'createdAt', { unique: false });
+                    if (!s.indexNames.contains('sh_no')) s.createIndex('sh_no', 'sh_no', { unique: false });
+                    if (!s.indexNames.contains('building')) s.createIndex('building', 'building', { unique: false });
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
         }
-        for (const g of (r.rooms?.ladies || [])) {
-          const key = `${b}|${cleanRoom(g.room_no)}`;
-          if (!cap.has(key) && g.capacity !== '' && g.capacity != null) cap.set(key, Number(g.capacity));
-          if (!asg.has(key) && g.assigned !== '' && g.assigned != null) asg.set(key, Number(g.assigned));
+
+        async function getAllRecords() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readonly');
+                const st = tx.objectStore(STORE);
+                const rq = st.getAll();
+                rq.onsuccess = () => resolve(rq.result || []);
+                rq.onerror = () => reject(rq.error);
+                tx.oncomplete = () => db.close();
+            });
         }
-      }
-      return { cap, asg };
-    }
-    function effectiveCapFor(building, room, maps) {
-      const key = `${building}|${room}`;
-      const a = maps.asg.get(key);
-      if (a != null && !Number.isNaN(a)) return a;
-      const c = maps.cap.get(key);
-      return (c != null && !Number.isNaN(c)) ? c : null;
-    }
 
-    /* Inventory from manual textarea or inferred from DB */
-    function getInventoryRooms(mode, manualText, recs, buildingFilter) {
-      if (mode === 'manual') {
-        const raw = manualText.split(/[\n,]+/).map(s => cleanRoom(s)).filter(Boolean);
-        return unique(raw).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-      }
-      const bag = [];
-      for (const r of recs) {
-        if (buildingFilter && buildingFilter !== 'ALL' && (r.building || '').trim() !== buildingFilter) continue;
-        (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no)));
-        (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no)));
-      }
-      return unique(bag.filter(Boolean)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    }
+        /* ---------------------------- Helpers ---------------------------- */
+        function $(id) { return document.getElementById(id) }
+        const CANON_BUILDINGS = [];
 
-    /* ---------------------------- UI wiring --------------------------- */
-    let DB_CACHE = [];
-
-    function populateBuildingFilter() {
-      const sel = $('building');
-      const present = unique(DB_CACHE.map(r => (r.building || '').trim()).filter(Boolean));
-      const merged = unique(['ALL', ...CANON_BUILDINGS, ...present]).filter(Boolean);
-      sel.innerHTML = '';
-      merged.forEach(v => {
-        const o = document.createElement('option'); o.value = v; o.textContent = v === 'ALL' ? 'ALL BUILDINGS' : v;
-        sel.appendChild(o);
-      });
-      sel.value = 'ALL';
-    }
-
-    async function refreshDB() {
-      DB_CACHE = await getAllRecords();
-      $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`;
-      populateBuildingFilter();
-    }
-
-    function currentWhen() {
-      const d = $('when_date').value;
-      const t = $('when_time').value;
-      return parseDT(d, t);
-    }
-
-    function runForecast() {
-      const when = currentWhen();
-      if (!when) { alert('Choose a valid date and time.'); return; }
-
-      const building = $('building').value || 'ALL';
-      const mode = $('inventory_mode').value;
-      const manualText = $('inventory_text').value || '';
-
-      const maps = buildCapacityMaps(DB_CACHE, building);
-      const inventory = getInventoryRooms(mode, manualText, DB_CACHE, building);
-
-      // Active records at "when"
-      const active = DB_CACHE.filter(r => {
-        if (building !== 'ALL' && (r.building || '').trim() !== building) return false;
-        const ci = parseDT(r.checkin_date, r.checkin_time);
-        const co = parseDT(r.checkout_date, r.checkout_time);
-        if (!ci || !co) return false;
-        return when >= ci && when < co; // [checkin, checkout)
-      });
-
-      // Occupancy map room -> list of stays (with assigned AND capacity)
-      const occ = new Map(); // room -> [entries]
-      function pushOcc(room, entry) {
-        const key = cleanRoom(room);
-        if (!key) return;
-        if (!occ.has(key)) occ.set(key, []);
-        occ.get(key).push(entry);
-      }
-
-      for (const r of active) {
-        const base = {
-          tour: r.tour_name || '',
-          leader: r.group_leader || '',
-          sh_no: r.sh_no ?? '',
-          building: (r.building || '').trim(),
-          window: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}`
-        };
-        (r.rooms?.gents || []).forEach(x => {
-          const cap = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
-          const asg = (x.assigned === '' || x.assigned == null) ? null : Number(x.assigned);
-          pushOcc(x.room_no, { ...base, gender: 'Gents', capacity: cap, assigned: asg, effCap: (asg!=null?asg:cap) });
-        });
-        (r.rooms?.ladies || []).forEach(x => {
-          const cap = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
-          const asg = (x.assigned === '' || x.assigned == null) ? null : Number(x.assigned);
-          pushOcc(x.room_no, { ...base, gender: 'Ladies', capacity: cap, assigned: asg, effCap: (asg!=null?asg:cap) });
-        });
-      }
-
-      // Render occupied table
-      const tbodyOcc = $('tblOcc').querySelector('tbody');
-      tbodyOcc.innerHTML = '';
-      let occCount = 0, occCap = 0;
-
-      const occRooms = Array.from(occ.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-      for (const room of occRooms) {
-        const entries = occ.get(room);
-        for (const e of entries) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="nowrap">${room}</td>
-            <td>${e.tour || ''}</td>
-            <td>${e.leader || ''}</td>
-            <td>${e.gender}</td>
-            <td class="right">${e.effCap == null ? '' : e.effCap}</td>
-            <td>${e.window}</td>
-            <td>${e.building || ''}</td>
-            <td>${e.sh_no ?? ''}</td>
-          `;
-          tbodyOcc.appendChild(tr);
+        function parseDT(d, t) {
+            if (!d) return null;
+            const time = t && t.length ? t : '00:00';
+            const v = new Date(`${d}T${time}`);
+            return isNaN(v.getTime()) ? null : v;
         }
-        occCount += 1;
-        const best = entries.find(x => x.effCap != null)?.effCap;
-        if (best != null) occCap += best;
-      }
+        function fmt(dt) {
+            if (!dt) return '';
+            return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(dt);
+        }
+        function unique(arr) { return Array.from(new Set(arr)) }
+        function cleanRoom(x) { return String(x ?? '').trim() }
 
-      // Free rooms = inventory minus occupied keys
-      const occSet = new Set(occRooms);
-      const freeRooms = inventory.filter(r => !occSet.has(r));
+        // Normalize a room for matching across typos/variants
+        const normRoom = s => String(s || '')
+            .toUpperCase()
+            .replace(/\s+/g, '')
+            .replace(/[-_.]/g, '')
+            .replace(/^0+(?=\d)/, '');
 
-      const tbodyFree = $('tblFree').querySelector('tbody');
-      tbodyFree.innerHTML = '';
-      let freeCap = 0;
-      for (const room of freeRooms) {
-        let cap = null, note = '';
-        if (building !== 'ALL') {
-  cap = capacityOnlyFor(building, room, maps);    // capacity only
-  note = cap == null ? 'capacity unknown' : '';
-} else {
-  note = 'building=ALL (cap not shown)';
-}
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="nowrap">${room}</td>
-          <td class="right">${cap == null ? '' : cap}</td>
-          <td class="muted">${note}</td>
-        `;
-        tbodyFree.appendChild(tr);
-        if (cap != null) freeCap += cap;
-      }
+        /* Build cumulative capacity and assigned maps across ALL mentions
+           key = `${building}|${room}` (raw), values are SUMMED for duplicates. */
+        function buildCapacityMaps(recs, buildingFilter) {
+            const cap = new Map(), asg = new Map();
+            for (const r of recs) {
+                const b = (r.building || '').trim();
+                if (buildingFilter && buildingFilter !== 'ALL' && b !== buildingFilter) continue;
+                const take = (x) => {
+                    const room = cleanRoom(x.room_no); if (!room) return;
+                    const key = `${b}|${room}`;
+                    const c = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
+                    const a = (x.assigned === '' || x.assigned == null) ? null : Number(x.assigned);
+                    if (Number.isFinite(c)) cap.set(key, (cap.get(key) || 0) + c);
+                    if (Number.isFinite(a)) asg.set(key, (asg.get(key) || 0) + a);
+                };
+                (r.rooms?.gents || []).forEach(take);
+                (r.rooms?.ladies || []).forEach(take);
+            }
+            return { cap, asg };
+        }
 
-      // Under-assigned table (latest known values)
-      const tbodyUnder = $('tblUnder').querySelector('tbody');
-      tbodyUnder.innerHTML = '';
-      let underCount = 0;
+        /* Inventory from manual textarea or inferred from DB */
+        function getInventoryRooms(mode, manualText, recs, buildingFilter) {
+            if (mode === 'manual') {
+                const raw = manualText.split(/[\n,]+/).map(s => cleanRoom(s)).filter(Boolean);
+                return unique(raw).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+            }
+            const bag = [];
+            for (const r of recs) {
+                if (buildingFilter && buildingFilter !== 'ALL' && (r.building || '').trim() !== buildingFilter) continue;
+                (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+                (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no)));
+            }
+            return unique(bag.filter(Boolean)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        }
 
-      // Build maps across current building scope
-      const scanScope = buildCapacityMaps(DB_CACHE, building);
-      const keys = new Set([...scanScope.cap.keys(), ...scanScope.asg.keys()]);
-      const sortedKeys = Array.from(keys).sort((a,b)=>a.localeCompare(b, undefined, { numeric:true }));
+        // Average capacity across all mentions of the same room (by normalized ID)
+        function normalizedCapacityFor(building, room) {
+            const target = normRoom(room);
+            let sum = 0, seen = 0;
+            for (const rec of DB_CACHE) {
+                const b = (rec.building || '').trim();
+                if (b !== building) continue;
+                const take = (x) => {
+                    const raw = cleanRoom(x.room_no);
+                    if (!raw || normRoom(raw) !== target) return;
+                    const c = Number(x.capacity);
+                    if (Number.isFinite(c)) { sum += c; seen += 1; }
+                };
+                (rec.rooms?.gents || []).forEach(take);
+                (rec.rooms?.ladies || []).forEach(take);
+            }
+            return seen > 0 ? (sum / seen) : null; // normalize duplicates
+        }
 
-      for (const key of sortedKeys) {
-        const [bld, room] = key.split('|');
-        const cap = scanScope.cap.get(key);
-        const asg = scanScope.asg.get(key);
-        if (cap == null || asg == null) continue;           // need both to compare
-        if (asg === cap) continue;                          // only show where different
-        const delta = asg - cap;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${bld || ''}</td>
-          <td class="nowrap">${room || ''}</td>
-          <td class="right">${asg}</td>
-          <td class="right">${cap}</td>
-          <td class="right ${delta<0?'delta-neg':'delta-pos'}">${delta>0? '+'+delta : delta}</td>
-          <td class="muted">${delta<0?'under-assigned':'over-assigned'}</td>
-        `;
-        tbodyUnder.appendChild(tr);
-        if (delta < 0) underCount += 1;
-      }
+        // Sum of assigned for THIS time window only (overlapping "when"), across all mentions of the room
+        function activeAssignedFor(building, room, when) {
+            const target = normRoom(room);
+            let sum = 0;
+            for (const rec of DB_CACHE) {
+                const b = (rec.building || '').trim();
+                if (b !== building) continue;
+                const ci = parseDT(rec.checkin_date, rec.checkin_time);
+                const co = parseDT(rec.checkout_date, rec.checkout_time);
+                if (!ci || !co || !(when >= ci && when < co)) continue;
+                const take = (x) => {
+                    const raw = cleanRoom(x.room_no);
+                    if (!raw || normRoom(raw) !== target) return;
+                    const a = Number(x.assigned);
+                    if (Number.isFinite(a)) sum += a;
+                };
+                (rec.rooms?.gents || []).forEach(take);
+                (rec.rooms?.ladies || []).forEach(take);
+            }
+            return sum; // active assigned right now
+        }
 
-      // Totals
-      $('sum_total').textContent = inventory.length;
-      $('sum_occ').textContent = occCount;
-      $('sum_free').textContent = freeRooms.length;
-      $('sum_occ_cap').textContent = occCap;
-      $('sum_free_cap').textContent = freeCap;
-      $('sum_under').textContent = underCount;
+        /* ---------------------------- UI wiring --------------------------- */
+        let DB_CACHE = [];
 
-      // Headcount now (from active slips)
-      const sums = active.reduce((acc, r) => {
-        const g = Number(r.gents) || 0, l = Number(r.ladies) || 0, c = Number(r.children) || 0, i = Number(r.infants) || 0, t = Number(r.total) || 0;
-        acc.g += g; acc.l += l; acc.c += c; acc.i += i; acc.t += t || (g + l + c + i);
-        return acc;
-      }, { g: 0, l: 0, c: 0, i: 0, t: 0 });
-      $('sum_head').textContent = sums.t;
-      $('sum_head_break').textContent = `(G ${sums.g} / L ${sums.l} / C ${sums.c} / I ${sums.i})`;
+        function populateBuildingFilter() {
+            const sel = $('building');
+            const present = unique(DB_CACHE.map(r => (r.building || '').trim()).filter(Boolean));
+            const merged = unique(['ALL', ...CANON_BUILDINGS, ...present]).filter(Boolean);
+            sel.innerHTML = '';
+            merged.forEach(v => {
+                const o = document.createElement('option'); o.value = v; o.textContent = (v === 'ALL' ? 'ALL BUILDINGS' : v);
+                sel.appendChild(o);
+            });
+            sel.value = 'ALL';
+        }
 
-      $('status').textContent = `Forecast run for ${fmt(when)} in ${building === 'ALL' ? 'all buildings' : 'building ' + building}. Using assigned where available.`;
-    }
+        async function refreshDB() {
+            DB_CACHE = await getAllRecords();
+            $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`;
+            populateBuildingFilter();
+        }
 
-    /* ------------------------------ Boot ------------------------------- */
-    (function init() {
-      const now = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      $('when_date').value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-      $('when_time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        function currentWhen() {
+            const d = $('when_date').value;
+            const t = $('when_time').value;
+            return parseDT(d, t);
+        }
 
-      $('inventory_mode').addEventListener('change', () => {
-        const on = $('inventory_mode').value === 'manual';
-        $('inventory_text').disabled = !on;
-        $('inventory_text').style.opacity = on ? '1' : '.6';
-      });
-      $('inventory_text').disabled = true;
+        function runForecast() {
+            const when = currentWhen();
+            if (!when) { alert('Choose a valid date and time.'); return; }
 
-      $('btnRefresh').addEventListener('click', refreshDB);
-      $('btnRun').addEventListener('click', runForecast);
-      $('btnPrint').addEventListener('click', () => window.print());
+            const building = $('building').value || 'ALL';
+            const mode = $('inventory_mode').value;
+            const manualText = $('inventory_text').value || '';
 
-      refreshDB().then(runForecast).catch(err => {
-        console.error(err);
-        $('status').textContent = 'Could not read local DB. Open the slip page first in this browser and save at least one slip.';
-      });
-    })();
+            const maps = buildCapacityMaps(DB_CACHE, building);
+            const inventory = getInventoryRooms(mode, manualText, DB_CACHE, building);
+
+            // Active records at "when"
+            const active = DB_CACHE.filter(r => {
+                if (building !== 'ALL' && (r.building || '').trim() !== building) return false;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                const co = parseDT(r.checkout_date, r.checkout_time);
+                if (!ci || !co) return false;
+                return when >= ci && when < co; // [checkin, checkout)
+            });
+
+            // Occupancy map: room -> list of entries
+            const occ = new Map();
+            function pushOcc(room, entry) {
+                const key = cleanRoom(room); if (!key) return;
+                if (!occ.has(key)) occ.set(key, []);
+                occ.get(key).push(entry);
+            }
+
+            for (const r of active) {
+                const base = {
+                    tour: r.tour_name || '',
+                    leader: r.group_leader || '',
+                    sh_no: r.sh_no ?? '',
+                    building: (r.building || '').trim(),
+                    window: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}`
+                };
+                (r.rooms?.gents || []).forEach(x => {
+                    const cap = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
+                    const asg = (x.assigned === '' || x.assigned == null) ? null : Number(x.assigned);
+                    pushOcc(x.room_no, { ...base, gender: 'Gents', capacity: cap, assigned: asg, effCap: (asg != null ? asg : cap) });
+                });
+                (r.rooms?.ladies || []).forEach(x => {
+                    const cap = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
+                    const asg = (x.assigned === '' || x.assigned == null) ? null : Number(x.assigned);
+                    pushOcc(x.room_no, { ...base, gender: 'Ladies', capacity: cap, assigned: asg, effCap: (asg != null ? asg : cap) });
+                });
+            }
+
+            // Render occupied table
+            const tbodyOcc = $('tblOcc').querySelector('tbody');
+            tbodyOcc.innerHTML = '';
+            let occCount = 0, occCap = 0;
+
+            const occRooms = Array.from(occ.keys()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+            for (const room of occRooms) {
+                const entries = occ.get(room);
+                for (const e of entries) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                <td class="nowrap">${room}</td>
+                <td>${e.tour || ''}</td>
+                <td>${e.leader || ''}</td>
+                <td>${e.gender}</td>
+                <td class="right">${e.effCap == null ? '' : e.effCap}</td>
+                <td>${e.window}</td>
+                <td>${e.building || ''}</td>
+                <td>${e.sh_no ?? ''}</td>
+              `;
+                    tbodyOcc.appendChild(tr);
+                }
+                occCount += 1;
+                // CUMULATIVE effective cap for this room across concurrent entries
+                const sumEff = entries.reduce((s, x) => s + (Number.isFinite(+x.effCap) ? +x.effCap : 0), 0);
+                occCap += sumEff;
+            }
+
+            // Free rooms = inventory minus occupied keys
+            const occSet = new Set(occRooms);
+            const freeRooms = inventory.filter(r => !occSet.has(r));
+
+            // Vacant table with normalized capacity
+            const tbodyFree = $('tblFree').querySelector('tbody');
+            tbodyFree.innerHTML = '';
+            for (const room of freeRooms) {
+                let cap = null, note = '';
+                if (building !== 'ALL') {
+                    cap = normalizedCapacityFor(building, room); // normalized, no duplicate inflation
+                    note = cap == null ? 'capacity unknown' : '';
+                } else {
+                    note = 'building=ALL (cap not shown)';
+                }
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+              <td class="nowrap">${room}</td>
+              <td class="right">${cap == null ? '' : cap}</td>
+              <td class="muted">${note}</td>
+            `;
+                tbodyFree.appendChild(tr);
+            }
+
+            // Under-assigned table (aggregate across ALL instances; normalize capacity; ignore assigned=0)
+            {
+                const tbodyUnder = $('tblUnder').querySelector('tbody');
+                tbodyUnder.innerHTML = '';
+                let underCount = 0;
+
+                const filtered = DB_CACHE.filter(r => (building === 'ALL') ? true : ((r.building || '').trim() === building));
+
+                // key: "BUILDING|NORM_ROOM" → { bld, names:Set(raw), capSum, capSeen, asgSum }
+                const agg = new Map();
+                for (const r of filtered) {
+                    const b = (r.building || '').trim();
+                    const take = (x) => {
+                        const raw = cleanRoom(x.room_no); if (!raw) return;
+                        const k = `${b}|${normRoom(raw)}`;
+                        const cap = Number.isFinite(+x.capacity) ? +x.capacity : null;
+                        const asg = Number.isFinite(+x.assigned) ? +x.assigned : null;
+                        let o = agg.get(k);
+                        if (!o) { o = { bld: b, names: new Set(), capSum: 0, capSeen: 0, asgSum: 0 }; agg.set(k, o); }
+                        o.names.add(raw);
+                        if (cap != null) { o.capSum += cap; o.capSeen += 1; }
+                        if (asg != null) { o.asgSum += asg; }
+                    };
+                    (r.rooms?.gents || []).forEach(take);
+                    (r.rooms?.ladies || []).forEach(take);
+                }
+
+                const rows = Array.from(agg.values())
+                    .map(o => ({
+                        bld: o.bld,
+                        room: Array.from(o.names).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(' | '),
+                        cap: (o.capSeen > 0) ? (o.capSum / o.capSeen) : null,   // normalized capacity
+                        asg: o.asgSum                                    // cumulative assigned
+                    }))
+                    .filter(o => Number.isFinite(+o.cap) && o.cap > 0 && Number.isFinite(+o.asg) && o.asg > 0 && o.asg !== o.cap)
+                    .sort((a, b) => a.bld.localeCompare(b.bld) || a.room.localeCompare(b.room, undefined, { numeric: true }));
+
+                for (const r of rows) {
+                    const delta = r.asg - r.cap;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                <td>${r.bld}</td>
+                <td class="nowrap">${r.room}</td>
+                <td class="right">${r.asg}</td>
+                <td class="right">${r.cap}</td>
+                <td class="right ${delta < 0 ? 'delta-neg' : 'delta-pos'}">${delta > 0 ? ('+' + delta) : delta}</td>
+                <td class="muted">${delta < 0 ? 'under-assigned' : 'over-assigned'}</td>
+              `;
+                    tbodyUnder.appendChild(tr);
+                    if (delta < 0) underCount++;
+                }
+                $('sum_under').textContent = underCount;
+            }
+
+            // Known free capacity now = capacity of vacant rooms + leftover in partially occupied rooms
+            let freeCapTotal = 0;
+            if (building !== 'ALL') {
+                // 1) capacity from rooms that are vacant now
+                for (const room of freeRooms) {
+                    const cap = normalizedCapacityFor(building, room);
+                    freeCapTotal += Number.isFinite(+cap) ? +cap : 0;
+                }
+                // 2) leftover capacity in occupied-but-not-full rooms
+                for (const room of occRooms) {
+                    const cap = normalizedCapacityFor(building, room) || 0;
+                    const asg = activeAssignedFor(building, room, when) || 0;
+                    if (cap > asg) freeCapTotal += (cap - asg);
+                }
+            } else {
+                // Optional: sum per-building if you need ALL support later.
+                // Keeping consistent with table notes for ALL.
+            }
+
+            // Totals
+            $('sum_total').textContent = inventory.length;
+            $('sum_occ').textContent = occCount;
+            $('sum_free').textContent = freeRooms.length;
+            $('sum_occ_cap').textContent = occCap;
+            $('sum_free_cap').textContent = freeCapTotal;
+
+            // Headcount now (from active slips)
+            const sums = active.reduce((acc, r) => {
+                const g = Number(r.gents) || 0, l = Number(r.ladies) || 0, c = Number(r.children) || 0, i = Number(r.infants) || 0, t = Number(r.total) || 0;
+                acc.g += g; acc.l += l; acc.c += c; acc.i += i; acc.t += t || (g + l + c + i);
+                return acc;
+            }, { g: 0, l: 0, c: 0, i: 0, t: 0 });
+            $('sum_head').textContent = sums.t;
+            $('sum_head_break').textContent = `(G ${sums.g} / L ${sums.l} / C ${sums.c} / I ${sums.i})`;
+
+            $('status').textContent = `Forecast run for ${fmt(when)} in ${building === 'ALL' ? 'all buildings' : 'building ' + building}. Using assigned where available.`;
+        }
+
+        /* ------------------------------ Boot ------------------------------- */
+        (function init() {
+            const now = new Date(); const pad = n => String(n).padStart(2, '0');
+            const month = pad(now.getMonth() + 1);
+            $('when_date').value = `${now.getFullYear()}-${month}-${pad(now.getDate())}`;
+            $('when_time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+            $('inventory_mode').addEventListener('change', () => {
+                const on = $('inventory_mode').value === 'manual';
+                $('inventory_text').disabled = !on;
+                $('inventory_text').style.opacity = on ? '1' : '.6';
+            });
+            $('inventory_text').disabled = true;
+
+            $('btnRefresh').addEventListener('click', refreshDB);
+            $('btnRun').addEventListener('click', runForecast);
+            $('btnPrint').addEventListener('click', () => window.print());
+
+            refreshDB().then(runForecast).catch(err => {
+                console.error(err);
+                $('status').textContent = 'Could not read local DB. Open the slip page first in this browser and save at least one slip.';
+            });
+        })();
     </script>
 </body>
 </html>

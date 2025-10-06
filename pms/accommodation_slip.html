@@ -229,7 +229,8 @@
 <body>
 
 
-    <!-- Navbar --> <site-nav></site-nav> <script type="module" src="./site-nav.js"></script>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="./site-nav.js"></script>
 
 
 
@@ -243,8 +244,10 @@
                 <tr>
                     <td colspan="2">
                         <div class="inline">
-                            <input placeholder="SH Number" id="sh_no" type="number" inputmode="numeric" min="0" step="1" />
-                            <button id="btnFetchSh" title="Fetch latest slip with this SH">Fetch</button>
+                            <input placeholder="SH Number" id="sh_no" name="sh_no" type="text" />
+                            <button id="btnFetchSh" type="button" title="Fetch latest slip with this SH">Fetch</button>
+
+
                         </div>
                     </td>
                     <td colspan="2"><input placeholder="Tour Name" id="tour_name" type="text" placeholder="" /></td>
@@ -273,9 +276,12 @@
                     <th>CHECK OUT</th>
                     <td><input id="checkout_date" type="date" /></td>
                     <td><input id="checkout_time" type="time" /></td>
-                    <th>T</th><td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <th>I</th><td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <th>C</th><td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>T</th>
+                    <td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>I</th>
+                    <td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>C</th>
+                    <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
                 </tr>
 
             </tbody>
@@ -284,13 +290,15 @@
         <!-- Bulk room import -->
         <div class="bulk-row">
 
-                <input id="gentsBulk" type="text" placeholder="Gents Rooms: 501-502-503" />
-                <input id="ladiesBulk" type="text" placeholder="Ladies Rooms: 401-402-403" />
-                <button id="btnBulkLoad" type="button">Load</button>
-                <span id="bulkReport" class="muted"></span>
+            <input id="gentsBulk" type="text" placeholder="Gents Rooms: 501-502-503" />
+            <input id="ladiesBulk" type="text" placeholder="Ladies Rooms: 401-402-403" />
+            <button id="btnBulkLoad" type="button">Load</button>
+            <span id="bulkReport" class="muted"></span>
         </div>
-     
+
         <script>
+
+
             /* ========= Bulk Rooms: multi-separator + bold big beds count ========= */
 
             /* Split by: comma, slash, asterisk, dash, any whitespace (space/newline/tab) */
@@ -437,6 +445,7 @@
     </div>
 
     <script>
+
         /* -------------------------- IndexedDB setup -------------------------- */
         const DB_NAME = 'pms_accommodation_db';
         const STORE = 'slips';
@@ -589,81 +598,81 @@
             DB_CACHE = await getAllRecords();
         }
 
-function addRow(group, data = { room_no: '', capacity: '', assigned: '' }) {
-  const tbody = $(group + '-tbody');
-  const tr = document.createElement('tr');
+        function addRow(group, data = { room_no: '', capacity: '', assigned: '' }) {
+            const tbody = $(group + '-tbody');
+            const tr = document.createElement('tr');
 
-  // Room
-  const tdRoom = document.createElement('td');
-  const inpRoom = document.createElement('input');
-  inpRoom.type = 'text';
-  inpRoom.placeholder = '';
-  inpRoom.value = data.room_no || '';
-  tdRoom.appendChild(inpRoom);
+            // Room
+            const tdRoom = document.createElement('td');
+            const inpRoom = document.createElement('input');
+            inpRoom.type = 'text';
+            inpRoom.placeholder = '';
+            inpRoom.value = data.room_no || '';
+            tdRoom.appendChild(inpRoom);
 
-  // Capacity (reference/nominal)
-  const tdCap = document.createElement('td');
-  const inpCap = document.createElement('input');
-  inpCap.type = 'number';
-  inpCap.min = '0';
-  inpCap.step = '1';
-  inpCap.inputMode = 'numeric';
-  inpCap.value = data.capacity ?? '';
-  tdCap.appendChild(inpCap);
+            // Capacity (reference/nominal)
+            const tdCap = document.createElement('td');
+            const inpCap = document.createElement('input');
+            inpCap.type = 'number';
+            inpCap.min = '0';
+            inpCap.step = '1';
+            inpCap.inputMode = 'numeric';
+            inpCap.value = data.capacity ?? '';
+            tdCap.appendChild(inpCap);
 
-  // Assigned (what you actually assign right now)
-  const tdAsg = document.createElement('td');
-  const inpAsg = document.createElement('input');
-  inpAsg.type = 'number';
-  inpAsg.min = '0';
-  inpAsg.step = '1';
-  inpAsg.inputMode = 'numeric';
-  inpAsg.placeholder = 'assigned';
-  inpAsg.value = data.assigned ?? '';
-  tdAsg.appendChild(inpAsg);
+            // Assigned (what you actually assign right now)
+            const tdAsg = document.createElement('td');
+            const inpAsg = document.createElement('input');
+            inpAsg.type = 'number';
+            inpAsg.min = '0';
+            inpAsg.step = '1';
+            inpAsg.inputMode = 'numeric';
+            inpAsg.placeholder = 'assigned';
+            inpAsg.value = data.assigned ?? '';
+            tdAsg.appendChild(inpAsg);
 
-  // Delete
-  const tdDel = document.createElement('td');
-  const btnDel = document.createElement('button');
-  btnDel.className = 'row-btn';
-  btnDel.type = 'button';
-  btnDel.textContent = 'X';
-  btnDel.title = 'Delete row';
-  btnDel.onclick = () => tr.remove();
-  tdDel.appendChild(btnDel);
+            // Delete
+            const tdDel = document.createElement('td');
+            const btnDel = document.createElement('button');
+            btnDel.className = 'row-btn';
+            btnDel.type = 'button';
+            btnDel.textContent = 'X';
+            btnDel.title = 'Delete row';
+            btnDel.onclick = () => tr.remove();
+            tdDel.appendChild(btnDel);
 
-  tr.append(tdRoom, tdCap, tdAsg, tdDel);
-  tbody.appendChild(tr);
-}
-
-
-function collectRows(group) {
-  const rows = [];
-  document.querySelectorAll(`#${group}-tbody tr`).forEach(tr => {
-    const [roomNoEl, capEl, asgEl] = tr.querySelectorAll('input');
-    const room_no = (roomNoEl?.value || '').trim();
-
-    const capRaw = (capEl?.value || '').trim();
-    const capacity = /^\d+$/.test(capRaw) ? Number(capRaw) : '';
-
-    const asgRaw = (asgEl?.value || '').trim();
-    const assigned = /^\d+$/.test(asgRaw) ? Number(asgRaw) : '';
-
-    // Only push if anything is filled
-    if (room_no !== '' || capRaw !== '' || asgRaw !== '') {
-      rows.push({ room_no, capacity, assigned });
-    }
-  });
-  return rows;
-}
+            tr.append(tdRoom, tdCap, tdAsg, tdDel);
+            tbody.appendChild(tr);
+        }
 
 
-function setRows(group, arr) {
-  const tbody = $(group + '-tbody');
-  tbody.innerHTML = '';
-  if (!arr || !arr.length) { addRow(group); return; }
-  arr.forEach(r => addRow(group, r)); // r may include r.assigned
-}
+        function collectRows(group) {
+            const rows = [];
+            document.querySelectorAll(`#${group}-tbody tr`).forEach(tr => {
+                const [roomNoEl, capEl, asgEl] = tr.querySelectorAll('input');
+                const room_no = (roomNoEl?.value || '').trim();
+
+                const capRaw = (capEl?.value || '').trim();
+                const capacity = /^\d+$/.test(capRaw) ? Number(capRaw) : '';
+
+                const asgRaw = (asgEl?.value || '').trim();
+                const assigned = /^\d+$/.test(asgRaw) ? Number(asgRaw) : '';
+
+                // Only push if anything is filled
+                if (room_no !== '' || capRaw !== '' || asgRaw !== '') {
+                    rows.push({ room_no, capacity, assigned });
+                }
+            });
+            return rows;
+        }
+
+
+        function setRows(group, arr) {
+            const tbody = $(group + '-tbody');
+            tbody.innerHTML = '';
+            if (!arr || !arr.length) { addRow(group); return; }
+            arr.forEach(r => addRow(group, r)); // r may include r.assigned
+        }
 
 
         function getFormData() {
@@ -718,7 +727,7 @@ function setRows(group, arr) {
         }
 
         /* ------------------------ Saved list UI ------------------------ */
-       
+
 
         /* ---------------- Capacity lookup (most recent per building|room) --------------- */
         function buildCapacityMap(buildingFilter) {
@@ -809,11 +818,28 @@ function setRows(group, arr) {
                 return false;
             }
 
-            const rooms = [...collectRows('gents'), ...collectRows('ladies')].map(r => cleanRoom(r.room_no)).filter(Boolean);
-            const uniqRooms = uniq(rooms);
-            //commented if(!uniqRooms.length){ alert('Enter at least one room number.'); return false; }
+            // Collect current rows with per-room wanted assignment and local capacity
+            const rowsAll = [...collectRows('gents'), ...collectRows('ladies')];
+            const roomInfo = new Map(); // room -> { want, capLocal }
+            for (const r of rowsAll) {
+                const room = cleanRoom(r.room_no);
+                if (!room) continue;
+                const want = Number.isFinite(+r.assigned) ? +r.assigned : 0;
+                const capLocal = Number.isFinite(+r.capacity) ? +r.capacity : 0;
+                const prev = roomInfo.get(room) || { want: 0, capLocal: 0 };
+                roomInfo.set(room, {
+                    want: prev.want + want,
+                    capLocal: prev.capLocal || capLocal
+                });
+            }
+            const uniqRooms = Array.from(roomInfo.keys());
+            // if you want to force at least one room, uncomment:
+            // if (!uniqRooms.length){ alert('Enter at least one room number.'); return false; }
 
-            const conflicts = new Map(); // room -> {freeAt: Date, stays: [rec]}
+            // Per-room stats from overlapping OTHER slips
+            const stats = new Map(); // room -> { existing: number, freeAt: Date|null }
+            for (const room of uniqRooms) stats.set(room, { existing: 0, freeAt: null });
+
             for (const r of DB_CACHE) {
                 if (CURRENT_ID && r.id === CURRENT_ID) continue; // ignore self
                 const rb = (r.building || '').trim();
@@ -822,49 +848,85 @@ function setRows(group, arr) {
                 const rci = parseDT(r.checkin_date, r.checkin_time);
                 const rco = parseDT(r.checkout_date, r.checkout_time);
                 if (!rci || !rco) continue;
+                if (!overlaps(ci, co, rci, rco)) continue; // no overlap with our window
 
-                // if no overlap with our overall window, skip
-                if (!overlaps(ci, co, rci, rco)) continue;
+                const used = [
+                    ...(r.rooms?.gents || []),
+                    ...(r.rooms?.ladies || [])
+                ];
 
-                const usedRooms = [
-                    ...(r.rooms?.gents || []).map(x => cleanRoom(x.room_no)),
-                    ...(r.rooms?.ladies || []).map(x => cleanRoom(x.room_no))
-                ].filter(Boolean);
-
-                for (const room of uniqRooms) {
-                    if (usedRooms.includes(room)) {
-                        const entry = conflicts.get(room) || { freeAt: rco, stays: [] };
-                        // latest checkout among overlapping stays decides "free at"
-                        entry.freeAt = entry.freeAt && entry.freeAt > rco ? entry.freeAt : rco;
-                        entry.stays.push({
-                            tour: r.tour_name || '',
-                            leader: r.group_leader || '',
-                            sh: r.sh_no ?? '',
-                            win: `${fmt(rci)} → ${fmt(rco)}`
-                        });
-                        conflicts.set(room, entry);
-                    }
+                for (const x of used) {
+                    const room = cleanRoom(x.room_no);
+                    if (!room || !roomInfo.has(room)) continue; // only care about rooms we’re assigning now
+                    const s = stats.get(room);
+                    const a = Number.isFinite(+x.assigned) ? +x.assigned : 0;
+                    s.existing += a;
+                    // latest checkout among overlapping stays decides "free at"
+                    if (!s.freeAt || s.freeAt < rco) s.freeAt = rco;
                 }
             }
 
-            const confRooms = new Set(conflicts.keys());
-            highlightConflicts(confRooms);
-
-            if (confRooms.size) {
-                const lines = [];
-                for (const room of confRooms) {
-                    const c = conflicts.get(room);
-                    lines.push(`${room} is occupied; will be empty at ${fmt(c.freeAt)}.`);
+            // Helper: resolve capacity from current row first, otherwise read last-known from history
+            function resolveCapacity(room) {
+                const local = roomInfo.get(room)?.capLocal || 0;
+                if (local > 0) return local;
+                // fallback scan: most recent non-zero capacity in DB history for this building+room
+                for (let i = DB_CACHE.length - 1; i >= 0; i--) {
+                    const rec = DB_CACHE[i];
+                    const rb = (rec.building || '').trim();
+                    if (rb !== bld) continue;
+                    const arr = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])];
+                    const hit = arr.find(z => cleanRoom(z.room_no) === room);
+                    const histCap = Number.isFinite(+hit?.capacity) ? +hit.capacity : 0;
+                    if (histCap > 0) return histCap;
                 }
-                alert(lines.join('\n') + '\nEnter another room to proceed.');
-                $('status').textContent = `${confRooms.size} room(s) in conflict.`;
+                return 0; // unknown
+            }
+
+            // Decide per room: allowed when (existing + want) < capacity
+            const blocked = new Set();
+            const lines = [];
+
+            for (const room of uniqRooms) {
+                const { want } = roomInfo.get(room);
+                const existing = stats.get(room)?.existing || 0;
+                const freeAt = stats.get(room)?.freeAt || null;
+                const cap = resolveCapacity(room);
+
+                if (!cap) {
+                    blocked.add(room);
+                    lines.push(`${room}: capacity unknown. Enter capacity for this slip.`);
+                    continue;
+                }
+
+                const after = existing + (Number.isFinite(+want) ? +want : 0);
+                const remaining = Math.max(0, cap - existing);
+
+                if (after < cap + 1) {
+                    // Allowed even if overlaps exist; tell how much room is left
+                    const remainingNow = Math.max(0, cap - after);
+                    lines.push(`${room}: OK. Before Assigned: ${existing}/${cap}. After Assignment: ${after}/${cap}. Remaining now ${remainingNow}.`);
+                } else {
+                    // Block when total would meet or exceed capacity
+                    blocked.add(room);
+                    const freeStr = freeAt ? fmt(freeAt) : '(checkout unknown)';
+                    lines.push(`${room}: BLOCKED. Existing ${existing}/${cap}, assigning ${want || 0} would be ${after}/${cap}. Expected chechout after ${freeStr}.`);
+                }
+            }
+
+            highlightConflicts(blocked);
+
+            if (blocked.size) {
+                alert(lines.join('\n'));
+                $('status').textContent = `${blocked.size} room(s) at or over capacity.`;
                 return false;
             } else {
-                alert('All entered rooms are available in the selected window.');
+                alert(lines.join('\n') + '\nAll entered rooms are available within capacity.');
                 $('status').textContent = 'Availability OK.';
                 return true;
             }
         }
+
 
         /* ---------------------------- Events --------------------------- */
 
@@ -899,7 +961,7 @@ function setRows(group, arr) {
             }
         });
 
-    
+
 
         $('btnNew').addEventListener('click', () => {
             clearForm();
@@ -940,5 +1002,124 @@ function setRows(group, arr) {
             await refreshDBCache();
         })();
     </script>
+    <script>
+        (function () {
+            const SH_PARAM = new URLSearchParams(location.search).get('sh_no');
+            if (!SH_PARAM) return;
+
+            const $ = id => document.getElementById(id) || document.querySelector(`[name="${id}"]`);
+            const setVal = (el, val) => { if (!el) return; el.value = val ?? ''; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+
+            function formHasSlipData() {
+                const keys = ['tour_name', 'group_leader', 'building', 'total', 'gents', 'ladies', 'children', 'infants'];
+                return keys.some(k => { const el = $(k); return el && String(el.value || '').trim().length > 0; });
+            }
+
+            function ensureButtonType() {
+                const btn = $('btnFetchSh');
+                if (btn && (!btn.type || btn.type.toLowerCase() === 'submit')) btn.type = 'button';
+            }
+
+            // Reuse YOUR handlers if present; otherwise click the button as backup
+            function tryUserFetch(sh) {
+                if (typeof window.doFetch === 'function') { window.doFetch(); return true; }
+                if (typeof window.fetchBySH === 'function') { window.fetchBySH(sh); return true; }
+                if (typeof window.getLatestBySh === 'function') { window.getLatestBySh(sh); return true; }
+                const btn = $('btnFetchSh');
+                if (btn) { ensureButtonType(); btn.click(); return true; }
+                return false;
+            }
+
+            // Open existing DB without touching schema
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('pms_accommodation_db');
+                    req.onupgradeneeded = () => { req.transaction.abort(); reject(new Error('DB not initialized on this origin')); };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error || new Error('Failed to open DB'));
+                });
+            }
+
+            // Grab latest slip by sh_no (uses index if present)
+            async function fetchLatestSlipBySH(sh) {
+                const db = await openDB();
+                try {
+                    const tx = db.transaction('slips', 'readonly');
+                    const st = tx.objectStore('slips');
+                    const pick = arr => {
+                        if (!arr || !arr.length) return null;
+                        return arr.sort((a, b) => {
+                            const ta = new Date(a.createdAt || 0).getTime();
+                            const tb = new Date(b.createdAt || 0).getTime();
+                            if (tb !== ta) return tb - ta;
+                            return (b.id || 0) - (a.id || 0);
+                        })[0];
+                    };
+                    const result = await new Promise((res, rej) => {
+                        if (st.indexNames.contains('sh_no')) {
+                            const rq = st.index('sh_no').getAll(IDBKeyRange.only(String(sh)));
+                            rq.onsuccess = () => res(pick(rq.result || []));
+                            rq.onerror = () => rej(rq.error);
+                        } else {
+                            const rq = st.getAll();
+                            rq.onsuccess = () => res(pick((rq.result || []).filter(r => String(r.sh_no || '') === String(sh))));
+                            rq.onerror = () => rej(rq.error);
+                        }
+                    });
+                    return result;
+                } finally { db.close(); }
+            }
+
+            // Apply slip into your form. If you already have setFormData/loadRooms, we call them.
+            function applySlipToForm(rec) {
+                if (!rec) return false;
+                if (typeof window.setFormData === 'function') { window.setFormData(rec); return true; }
+
+                const map = {
+                    sh_no: 'sh_no', tour_name: 'tour_name', group_leader: 'group_leader', building: 'building',
+                    checkin_date: 'checkin_date', checkin_time: 'checkin_time',
+                    checkout_date: 'checkout_date', checkout_time: 'checkout_time',
+                    total: 'total', gents: 'gents', ladies: 'ladies', children: 'children', infants: 'infants'
+                };
+                for (const [field, id] of Object.entries(map)) { const el = $(id); if (el) setVal(el, rec[field] ?? ''); }
+
+                if (typeof window.loadRooms === 'function') {
+                    window.loadRooms(rec.rooms?.gents || [], 'gents');
+                    window.loadRooms(rec.rooms?.ladies || [], 'ladies');
+                }
+                return true;
+            }
+
+            function start() {
+                const inp = $('sh_no');
+                if (!inp) return;
+
+                setVal(inp, SH_PARAM);     // fill the field
+                ensureButtonType();        // keep the button from submitting the page
+                tryUserFetch(SH_PARAM);    // let your own code run
+
+                // If your code didn’t populate anything within 500ms, do a direct DB fetch
+                setTimeout(async () => {
+                    if (formHasSlipData()) return;
+                    try {
+                        const rec = await fetchLatestSlipBySH(SH_PARAM);
+                        if (rec) applySlipToForm(rec);
+                        else console.warn('No slip found for SH', SH_PARAM);
+                    } catch (err) {
+                        console.error('Fallback fetch failed', err);
+                    }
+                }, 500);
+            }
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                setTimeout(start, 0);
+            } else {
+                document.addEventListener('DOMContentLoaded', () => setTimeout(start, 0));
+            }
+        })();
+    </script>
+
+
+
 </body>
 </html>

@@ -5,45 +5,24 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="icon" type="image/png" href="./logo.png">
     <title>Grid</title>
+
     <style>
         :root {
-            /* Cream • Gold • Brown palette */
-            --ink: #2b1e15; /* body text (deep brown) */
-            --muted: #6b5e4a; /* secondary text */
-            --card: #fffaf1; /* panels/cards (warm off-white) */
-            --border: #dcc7a4; /* soft border */
-            --hdrBg: #f3e6ca; /* table/headers (light cream) */
-
+            /* Cream • Gold • Brown */
+            --ink: #2b1e15; /* text */
+            --muted: #6b5e4a; /* secondary */
+            --card: #fffaf1; /* panels */
+            --border: #dcc7a4; /* lines */
+            --hdrBg: #f3e6ca; /* headers */
             --gold: #d4af37; /* accent */
-            --gold2: #f3d984; /* softer accent */
-
-            --ok: #2f7d32; /* success */
-            --warn: #a86a00; /* warning */
-            --bad: #a12a2a; /* error */
 
             --vacant: #fffdf5; /* cell vacant */
-            --occupied: #e8c765; /* cell occupied (muted gold) */
-
+            --occupied: #e8c765; /* cell occupied */
+            --warn: #F7C131; /* under-assigned bg */
+            --warnText: #663300;
             --cellW: 60px;
             --cellH: 45px;
             --fs: 24px;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ink: #f3eadf;
-                --muted: #b9a992;
-                --card: #1f1711;
-                --border: #3d2d20;
-                --hdrBg: #2a1e14;
-                --gold: #e0c457;
-                --gold2: #f0d989;
-                --ok: #48b65b;
-                --warn: #d1901a;
-                --bad: #d05a5a;
-                --vacant: #16100b;
-                --occupied: #6f5419;
-            }
         }
 
         * {
@@ -58,11 +37,10 @@
             color: var(--ink);
         }
 
-        /* Full viewport layout */
         .wrap {
             height: calc(100vh - 58px);
             display: flex;
-            flex-direction: column;
+            flex-direction: column
         }
 
         .toolbar {
@@ -92,13 +70,13 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 6px 10px;
-            background: #fffdf5;
+            background: #fffdf7;
             color: var(--ink);
         }
 
         button {
             cursor: pointer;
-            transition: background .15s ease, transform .08s ease, filter .15s ease
+            transition: background .15s ease, transform .08s ease
         }
 
             button:hover {
@@ -110,15 +88,14 @@
             }
 
             button.primary {
-                border-color: var(--gold2);
-                background: linear-gradient(0deg, color-mix(in oklab, var(--gold) 16%, transparent) 0%, color-mix(in oklab, var(--gold) 16%, transparent) 100%), #fffaf1;
+                border-color: #f3d984;
+                background: linear-gradient(0deg, color-mix(in oklab, var(--gold) 16%, transparent), color-mix(in oklab, var(--gold) 16%, transparent));
             }
 
         .spacer {
             flex: 1 1 auto
         }
 
-        /* Tabs */
         .tabs {
             display: flex;
             gap: 6px;
@@ -131,9 +108,9 @@
             padding: 6px 10px;
             border: 1px solid var(--border);
             border-radius: 999px;
-            cursor: pointer;
             background: #fffdf5;
             color: var(--ink);
+            cursor: pointer;
             transition: background .15s ease, color .15s ease, border-color .15s ease;
         }
 
@@ -146,10 +123,8 @@
                 border-color: var(--gold);
                 color: #2b1e15;
                 font-weight: 700;
-                text-shadow: 0 0 .01px currentColor;
             }
 
-        /* Matrix */
         .stage {
             flex: 1 1 auto;
             min-height: 0;
@@ -171,7 +146,7 @@
 
         .hcell, .rcell, .cell {
             border-right: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid var(--border)
         }
 
         .hcell {
@@ -220,8 +195,7 @@
         }
 
             .cell .cap {
-                font-weight: 700;
-                color: var(--ok)
+                font-weight: 700
             }
 
             .cell .meta {
@@ -233,21 +207,16 @@
 
             .cell.occ {
                 background: var(--occupied);
-                color: #2b1e15;
+                color: #2b1e15
             }
 
-                .cell.occ .cap {
-                    color: currentColor
-                }
-
-            /* Under-assigned override: gold warning */
             .cell.under {
                 background: var(--warn) !important;
-                color: #663300 !important;
+                color: var(--warnText) !important
             }
 
                 .cell.under .cap {
-                    color: #663300 !important
+                    color: var(--warnText) !important
                 }
 
         .legend {
@@ -255,10 +224,9 @@
             font-size: 12px;
             color: var(--muted);
             background: var(--card);
-            border-top: 1px solid var(--border);
+            border-top: 1px solid var(--border)
         }
 
-        /* size bar */
         .sizebar {
             display: flex;
             gap: 10px;
@@ -296,58 +264,8 @@
                 transform: translateY(1px)
             }
 
-        /* Global darkest-brown typography override */
-        :root {
-            --ink: #663300; /* darkest brown for ALL text */
-            --muted: #663300; /* no timid grays */
-            /* keep the rest as-is, but nudge warn bg for contrast */
-            --warn: #a86a00;
-            --warnBG: #ffe7b3; /* pale gold so dark text is readable */
-        }
-
-        /* Kill any local color overrides trying to be clever */
-        body,
-        .toolbar, .tabs, .tab,
-        .hcell, .rcell, .cell, .cell .meta,
-        .legend, table, th, td, label,
-        input, select, button, textarea {
-            color: var(--ink) !important;
-        }
-
-            /* Selected tab uses brown text too */
-            .tab[aria-selected="true"] {
-                color: var(--ink) !important;
-            }
-
-            /* Occupied/under cells keep dark text */
-            .cell.occ {
-                color: var(--ink) !important;
-            }
-
-            .cell.under {
-                background: var(--warnBG) !important;
-                color: var(--ink) !important;
-            }
-
-            .cell .cap {
-                color: var(--ink) !important;
-            }
-
-        /* Dark mode: keep cream/brown vibe instead of flipping to gray-on-black */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ink: #663300;
-                --muted: #663300;
-                --card: #fffaf1;
-                --border: #dcc7a4;
-                --hdrBg: #f3e6ca;
-                --vacant: #663300;
-                --occupied: #663300;
-            }
-        }
-        /* ===== Exact-color, exact-layout printing for the grid ===== */
+        /* Print the grid with exact colors and layout */
         @media print {
-            /* Scope printing to the element you tag as .print-scope */
             body {
                 margin: 0
             }
@@ -356,77 +274,58 @@
                     visibility: hidden !important
                 }
 
-            .print-scope,
-            .print-scope * {
-                visibility: visible !important;
+            .print-scope, .print-scope * {
+                visibility: visible !important
             }
 
-            /* Keep the element in normal flow so the grid dimensions don’t mutate */
             .print-scope {
                 position: static !important;
                 inset: auto !important;
                 margin: 0 !important;
-                padding: 0 !important;
+                padding: 0 !important
             }
 
-                /* If your grid sits inside a scroll container, open it up */
                 .print-scope .matrix-wrap {
                     height: auto !important;
-                    overflow: visible !important;
+                    overflow: visible !important
                 }
 
-                /* Sticky headers don’t “stick” on paper; render them as static */
-                .print-scope .hcell,
-                .print-scope .rcell,
-                .print-scope .corner {
+                .print-scope .hcell, .print-scope .rcell, .print-scope .corner {
                     position: static !important;
                     top: auto !important;
                     left: auto !important;
-                    z-index: auto !important;
+                    z-index: auto !important
                 }
 
-            /* Color fidelity across browsers */
             *, *::before, *::after {
-                -webkit-print-color-adjust: exact !important; /* Chrome/Edge/Safari */
-                print-color-adjust: exact !important; /* Modern spec */
-                color-adjust: exact !important; /* Legacy */
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important
             }
 
-            /* Borders and backgrounds should match on-screen */
-            .print-scope .matrix,
-            .print-scope .hcell,
-            .print-scope .rcell,
-            .print-scope .cell {
-                background: inherit; /* keep your current bg */
-                border-color: inherit; /* keep your current border color */
-                box-shadow: none !important; /* shadows waste toner and can band */
+            .print-scope .matrix, .print-scope .hcell, .print-scope .rcell, .print-scope .cell {
+                background: inherit;
+                border-color: inherit;
+                box-shadow: none !important;
             }
 
-            /* Avoid page breaks slicing through rows/columns */
-            .print-scope,
-            .print-scope .matrix,
-            .print-scope .row,
-            .print-scope .cell {
+            .print-scope, .print-scope .matrix, .print-scope .row, .print-scope .cell {
                 break-inside: avoid !important;
                 page-break-inside: avoid !important;
             }
 
-            /* Optional: edge-to-edge */
             @page {
                 size: auto;
                 margin: 8mm
             }
-            /* tweak if you want tighter margins */
         }
-
-
     </style>
-
 </head>
 <body>
-    <!-- Navbar --> <site-nav></site-nav>
-    <script type="module" src="./site-nav.js"></script>
 
+    <!-- Navbar -->
+    <site-nav></site-nav>
+    <script type="module" src="components/site-nav.js"></script>
 
     <div class="wrap">
         <div class="toolbar">
@@ -477,327 +376,368 @@
     </div>
 
     <script>
-/* ===================== IndexedDB v2 ===================== */
-const DB_NAME='pms_accommodation_db', STORE='slips', DB_VERSION=2;
-function openDB(){
-  return new Promise((resolve,reject)=>{
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      const has = db.objectStoreNames.contains(STORE);
-      const st = has ? e.target.transaction.objectStore(STORE)
-                     : db.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});
-      if (!st.indexNames.contains('createdAt')) st.createIndex('createdAt','createdAt',{unique:false});
-      if (!st.indexNames.contains('sh_no'))     st.createIndex('sh_no','sh_no',{unique:false});
-      if (!st.indexNames.contains('building'))  st.createIndex('building','building',{unique:false});
-    };
-    req.onsuccess=()=>resolve(req.result);
-    req.onerror =()=>reject(req.error);
-  });
-}
-async function getAllRecords(){
-  const db = await openDB();
-  return new Promise((resolve,reject)=>{
-    const tx = db.transaction(STORE,'readonly'); const st = tx.objectStore(STORE);
-    const rq = st.getAll();
-    rq.onsuccess=()=>resolve(rq.result||[]);
-    rq.onerror =()=>reject(rq.error);
-    tx.oncomplete=()=>db.close();
-  });
-}
+        /* ================= IndexedDB ================= */
+        const DB_NAME = 'pms_accommodation_db', STORE = 'slips', DB_VERSION = 2;
 
-/* ===================== Helpers ===================== */
-function $(id){ return document.getElementById(id); }
-function pad(n){ return String(n).padStart(2,'0'); }
-function parseDT(d,t){ if(!d) return null; const tt=t&&t.length?t:'00:00'; const v=new Date(`${d}T${tt}`); return isNaN(v)?null:v; }
-function fmtDT(dt){ try{ return dt.toLocaleString([], {month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'}) }catch(e){ return dt.toISOString().slice(5,16).replace('T',' ') } }
-function uniq(a){ return Array.from(new Set(a)); }
-function cleanRoom(x){ return String(x??'').trim(); }
-
-/* Parse room token to floor + column */
-function parseRoomToken(room){
-  const r = cleanRoom(room);
-  const m = r.match(/^(\d+)([A-Za-z]*)$/);
-  if(!m) return {floor:'?', col:r};
-  const digits=m[1], suf=m[2]||'';
-  if(digits.length<=2) return {floor:'0', col:digits+suf};
-  return {floor:digits.slice(0,-2), col:digits.slice(-2)+suf};
-}
-
-/* Room lists */
-function roomsFromSlip(rec){
-  const bag=[];
-  (rec.rooms?.gents||[]).forEach(x=>bag.push(cleanRoom(x.room_no)));
-  (rec.rooms?.ladies||[]).forEach(x=>bag.push(cleanRoom(x.room_no)));
-  return bag.filter(Boolean);
-}
-
-function buildInventoryPerBuilding(records, building){
-  const rooms=[];
-  records.forEach(r=>{
-    if((r.building||'').trim()!==building) return;
-    rooms.push(...roomsFromSlip(r));
-  });
-  const uniqRooms=uniq(rooms);
-  const floors=new Map(), cellToRoom=new Map();
-  uniqRooms.forEach(room=>{
-    const {floor,col}=parseRoomToken(room);
-    if(!floors.has(floor)) floors.set(floor,new Set());
-    floors.get(floor).add(col);
-    cellToRoom.set(`${floor}|${col}`, room);
-  });
-  const flist=Array.from(floors.keys()).sort((a,b)=>Number(a)-Number(b));
-  const allCols=new Set(); flist.forEach(f=>floors.get(f).forEach(c=>allCols.add(c)));
-  const clist=Array.from(allCols).sort((a,b)=>{
-    const an=parseInt(a,10), bn=parseInt(b,10);
-    if(!isNaN(an)&&!isNaN(bn)&&an!==bn) return an-bn;
-    return a.localeCompare(b,undefined,{sensitivity:'base',numeric:true});
-  });
-  return {flist, clist, cellToRoom};
-}
-
-/* Occupancy helpers */
-let CACHE=[];
-function overlapsIn(when,ci,co){ return when>=ci && when<co; }
-
-function activeStay(when,building,room){
-  const out=[];
-  for(const r of CACHE){
-    if((r.building||'').trim()!==building) continue;
-    const ci=parseDT(r.checkin_date,r.checkin_time);
-    const co=parseDT(r.checkout_date,r.checkout_time);
-    if(!ci||!co) continue;
-    if(!overlapsIn(when,ci,co)) continue;
-    const rms=roomsFromSlip(r);
-    if(rms.includes(room)) out.push(r);
-  }
-  if(!out.length) return null;
-  out.sort((a,b)=>parseDT(a.checkout_date,a.checkout_time)-parseDT(b.checkout_date,b.checkout_time));
-  return out[0];
-}
-function nextStay(when,building,room){
-  const out=[];
-  for(const r of CACHE){
-    if((r.building||'').trim()!==building) continue;
-    const ci=parseDT(r.checkin_date,r.checkin_time);
-    if(!ci || !(ci>when)) continue;
-    const rms=roomsFromSlip(r);
-    if(rms.includes(room)) out.push(r);
-  }
-  if(!out.length) return null;
-  out.sort((a,b)=>parseDT(a.checkin_date,a.checkin_time)-parseDT(b.checkin_date,b.checkin_time));
-  return out[0];
-}
-
-/* Latest known capacity map (fallback if slip has none) */
-function buildCapacityMap(building){
-  const cap=new Map();
-  const sorted=[...CACHE].sort((a,b)=>(a.createdAt>b.createdAt?-1:1));
-  for(const r of sorted){
-    if((r.building||'').trim()!==building) continue;
-    (r.rooms?.gents||[]).forEach(x=>{
-      const key=`${building}|${cleanRoom(x.room_no)}`;
-      const c=(x.capacity===''||x.capacity==null)?null:Number(x.capacity);
-      if(!cap.has(key) && c!=null) cap.set(key,c);
-    });
-    (r.rooms?.ladies||[]).forEach(x=>{
-      const key=`${building}|${cleanRoom(x.room_no)}`;
-      const c=(x.capacity===''||x.capacity==null)?null:Number(x.capacity);
-      if(!cap.has(key) && c!=null) cap.set(key,c);
-    });
-  }
-  return cap;
-}
-
-/* Find the per-room entry inside a slip to read assigned/capacity */
-function roomEntryFromSlip(rec, room){
-  const rn = cleanRoom(room);
-  let hit = (rec.rooms?.gents||[]).find(x=>cleanRoom(x.room_no)===rn);
-  if(!hit) hit = (rec.rooms?.ladies||[]).find(x=>cleanRoom(x.room_no)===rn);
-  return hit || null;
-}
-
-/* ===================== UI: tabs and matrix ===================== */
-const CANON_BUILDINGS=[];
-
-function renderTabs(buildings){
-  const tabs=$('tabs'); tabs.innerHTML='';
-  buildings.forEach((b,i)=>{
-    const btn=document.createElement('button');
-    btn.className='tab'; btn.textContent=b;
-    btn.setAttribute('role','tab');
-    btn.setAttribute('aria-selected', String(i===0));
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected','false'));
-      btn.setAttribute('aria-selected','true');
-      renderMatrix(b);
-    });
-    tabs.appendChild(btn);
-  });
-}
-
-function renderMatrix(building){
-  const dateStr=$('asof_date').value, timeStr=$('asof_time').value;
-  if(!dateStr||!timeStr){ alert('Choose date and time'); return; }
-  const when=new Date(`${dateStr}T${timeStr}`); if(isNaN(when)){ alert('Invalid date/time'); return; }
-
-  const mx=$('matrix'); mx.innerHTML='';
-  const {flist, clist, cellToRoom}=buildInventoryPerBuilding(CACHE, building);
-  if(!flist.length){ mx.textContent='No rooms found for this building.'; return; }
-
-  mx.style.gridTemplateColumns = `repeat(${clist.length + 1}, max-content)`;
-
-  const corner=document.createElement('div');
-  corner.className='hcell corner'; corner.style.width='84px'; corner.style.height='44px'; corner.textContent=building;
-  mx.appendChild(corner);
-
-  clist.forEach(col=>{
-    const h=document.createElement('div');
-    h.className='hcell'; h.style.width='var(--cellW)'; h.style.height='44px'; h.textContent=col;
-    mx.appendChild(h);
-  });
-
-  const capMap=buildCapacityMap(building);
-
-  flist.forEach(floor=>{
-    const rhead=document.createElement('div');
-    rhead.className='rcell'; rhead.style.width='84px'; rhead.style.height='var(--cellH)'; rhead.textContent=`FLOOR ${floor}`;
-    mx.appendChild(rhead);
-
-    clist.forEach(col=>{
-      const key=`${floor}|${col}`;
-      const room=cellToRoom.get(key)||null;
-
-      const cell=document.createElement('div');
-      cell.className='cell';
-      cell.style.width='var(--cellW)'; cell.style.height='var(--cellH)';
-
-      if(!room){
-        cell.innerHTML = `<div class="cap">—</div><div class="meta">&nbsp;</div>`;
-      } else {
-        const occ  = activeStay(when, building, room);
-        const next = occ ? null : nextStay(when, building, room);
-
-        // Resolve capacity and assigned, preferring the ACTIVE SLIP's room entry
-        const entry = occ ? roomEntryFromSlip(occ, room) : null;
-        let cap = null, assigned = null;
-
-        if (entry){
-          cap      = (entry.capacity===''||entry.capacity==null) ? null : Number(entry.capacity);
-          assigned = (entry.assigned===''||entry.assigned==null) ? null : Number(entry.assigned);
-        }
-        if (cap==null) {
-          const fallback = capMap.get(`${building}|${room}`);
-          cap = Number.isFinite(fallback) ? fallback : null;
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    const has = db.objectStoreNames.contains(STORE);
+                    const st = has ? e.target.transaction.objectStore(STORE)
+                        : db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+                    if (!st.indexNames.contains('createdAt')) st.createIndex('createdAt', 'createdAt', { unique: false });
+                    if (!st.indexNames.contains('sh_no')) st.createIndex('sh_no', 'sh_no', { unique: false });
+                    if (!st.indexNames.contains('building')) st.createIndex('building', 'building', { unique: false });
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
         }
 
-        const capTxt = Number.isFinite(cap) ? String(cap) : '—';
-
-        if (occ){
-          const co = parseDT(occ.checkout_date, occ.checkout_time);
-          const sh = occ.sh_no ?? '';
-
-          // Under-assigned only when both numbers exist and assigned < capacity
-          const under = (assigned!=null && cap!=null && assigned < cap);
-          const vacBeds = under ? (cap - assigned) : null;
-
-          cell.classList.add('occ');
-          if (under) cell.classList.add('under');
-
-          cell.innerHTML = `
-            <div class="cap">${capTxt}${under ? ' · Vac ' + vacBeds : ''}</div>
-            <div class="meta">SH ${sh || '—'} • Out ${co ? fmtDT(co) : '—'}</div>
-          `;
-        } else {
-          const ci = next ? parseDT(next.checkin_date, next.checkin_time) : null;
-          const nsh = next ? (next.sh_no ?? '') : '';
-          cell.innerHTML = `
-            <div class="cap">${capTxt}</div>
-            <div class="meta">${next ? ('Next ' + fmtDT(ci) + (nsh ? ' • SH ' + nsh : '')) : 'Vacant'}</div>
-          `;
+        async function getAllRecords() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readonly'), st = tx.objectStore(STORE);
+                const rq = st.getAll();
+                rq.onsuccess = () => resolve(rq.result || []);
+                rq.onerror = () => reject(rq.error);
+                tx.oncomplete = () => db.close();
+            });
         }
-      }
-      mx.appendChild(cell);
-    });
-  });
 
-  $('status').textContent = `${building} • Floors ${flist.join(', ')} • ${clist.length} columns • ${CACHE.length} slip(s)`;
-}
+        /* ================= Helpers ================= */
+        const $ = id => document.getElementById(id);
+        const pad = n => String(n).padStart(2, '0');
+        function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
+        function fmtDT(dt) {
+            try { return dt.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }
+            catch (e) { return dt.toISOString().slice(5, 16).replace('T', ' ') }
+        }
+        const uniq = a => Array.from(new Set(a));
+        const cleanRoom = x => String(x ?? '').trim();
+        const normRoom = x => cleanRoom(x).replace(/\s+/g, '').toUpperCase();
 
-/* ===================== Size controls ===================== */
-function setVar(name,val){ document.documentElement.style.setProperty(name,val); }
-function clamp(n,lo,hi){ return Math.max(lo, Math.min(hi, n)); }
-function wireSizeControls(){
-  const wR=$('wRange'), hR=$('hRange'), fR=$('fRange');
-  const wM=$('wMinus'), wP=$('wPlus'), hM=$('hMinus'), hP=$('hPlus'), fM=$('fMinus'), fP=$('fPlus');
-  const apply=()=>{ setVar('--cellW', wR.value+'px'); setVar('--cellH', hR.value+'px'); setVar('--fs', fR.value+'px'); };
-  [wR,hR,fR].forEach(el=>el.addEventListener('input', apply));
-  const step=(el,d,min,max)=>{ el.value = clamp(Number(el.value)+d, min, max); el.dispatchEvent(new Event('input')); };
-  if(wM) wM.onclick=()=>step(wR,-8,80,240);
-  if(wP) wP.onclick=()=>step(wR, 8,80,240);
-  if(hM) hM.onclick=()=>step(hR,-8,60,200);
-  if(hP) hP.onclick=()=>step(hR, 8,60,200);
-  if(fM) fM.onclick=()=>step(fR,-1,9,20);
-  if(fP) fP.onclick=()=>step(fR, 1,9,20);
-  apply();
-}
+        function roomsFromSlip(rec) {
+            const g = (rec.rooms?.gents || []).map(x => normRoom(x.room_no ?? x));
+            const l = (rec.rooms?.ladies || []).map(x => normRoom(x.room_no ?? x));
+            return [...g, ...l].filter(Boolean);
+        }
 
-/* ===================== Boot ===================== */
-(async function boot(){
-  try{
-    CACHE = await getAllRecords();
-  }catch(e){
-    $('status').textContent='Could not open local DB (IndexedDB blocked?).';
-    console.error(e); return;
-  }
-  const now=new Date();
-  const y=now.getFullYear(), m=pad(now.getMonth()+1), d=pad(now.getDate());
-  const h=pad(now.getHours()), n=pad(now.getMinutes());
-  if(!$('asof_date').value) $('asof_date').value = `${y}-${m}-${d}`;
-  if(!$('asof_time').value) $('asof_time').value = `${h}:${n}`;
+        /* floor/column from a room token like 1203A -> floor 12, col 03A */
+        function parseRoomToken(room) {
+            const r = normRoom(room);
+            const m = r.match(/^(\d+)([A-Z]*)$/i);
+            if (!m) return { floor: '?', col: r };
+            const digits = m[1], suf = m[2] || '';
+            if (digits.length <= 2) return { floor: '0', col: digits + suf };
+            return { floor: digits.slice(0, -2), col: digits.slice(-2) + suf };
+        }
 
-  const fromData = uniq(CACHE.map(r=>(r.building||'').trim()).filter(Boolean));
-  const buildings = uniq([...CANON_BUILDINGS, ...fromData]).filter(Boolean);
-  renderTabs(buildings);
-  if(buildings.length) renderMatrix(buildings[0]);
+        /* All rooms present across slips for a building, deduped by normalized token */
+        function buildInventoryPerBuilding(records, building) {
+            const b = (building || '').trim();
+            const roomSet = new Set();
+            records.forEach(r => {
+                if ((r.building || '').trim() !== b) return;
+                roomsFromSlip(r).forEach(rr => roomSet.add(rr));
+            });
+            const rooms = [...roomSet];
 
-  $('btnRecalc').addEventListener('click', ()=>{
-    const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
-    renderMatrix(sel);
-  });
-  $('btnRefresh').addEventListener('click', async ()=>{
-    CACHE = await getAllRecords();
-    const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
-    renderMatrix(sel);
-  });
-  $('asof_date').addEventListener('change', ()=>{
-    const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
-    renderMatrix(sel);
-  });
-  $('asof_time').addEventListener('change', ()=>{
-    const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
-    renderMatrix(sel);
-  });
+            const floors = new Map(), cellToRoom = new Map();
+            rooms.forEach(room => {
+                const { floor, col } = parseRoomToken(room);
+                if (!floors.has(floor)) floors.set(floor, new Set());
+                floors.get(floor).add(col);
+                cellToRoom.set(`${floor}|${col}`, room); // map grid cell to normalized room
+            });
 
-  wireSizeControls();
-        })();
+            const flist = [...floors.keys()].sort((a, b) => Number(a) - Number(b));
+            const allCols = new Set(); flist.forEach(f => floors.get(f).forEach(c => allCols.add(c)));
+            const clist = [...allCols].sort((a, b) => {
+                const an = parseInt(a, 10), bn = parseInt(b, 10);
+                if (!isNaN(an) && !isNaN(bn) && an !== bn) return an - bn;
+                return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            return { flist, clist, cellToRoom };
+        }
+
+        /* Occupancy logic */
+        let CACHE = [];
+        const overlapsIn = (when, ci, co) => when >= ci && when < co;
+
+        function getActiveSlipsForRoom(when, building, roomNorm) {
+            const out = [];
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                const co = parseDT(r.checkout_date, r.checkout_time);
+                if (!ci || !co) continue;
+                if (!overlapsIn(when, ci, co)) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) out.push(r);
+            }
+            return out;
+        }
+
+        function getNextSlip(when, building, roomNorm) {
+            const out = [];
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                if (!ci || !(ci > when)) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) out.push(r);
+            }
+            if (!out.length) return null;
+            out.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
+            return out[0];
+        }
+
+        /* Build a capacity map per physical room (latest non-null wins) */
+        function buildCapacityMap(building) {
+            const cap = new Map();
+            const b = (building || '').trim();
+            const sorted = [...CACHE].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+            for (const r of sorted) {
+                if ((r.building || '').trim() !== b) continue;
+                for (const side of ['gents', 'ladies']) {
+                    for (const it of (r.rooms?.[side] || [])) {
+                        const rn = normRoom(it.room_no ?? it);
+                        const c = (it.capacity === '' || it.capacity == null) ? null : Number(it.capacity);
+                        if (!cap.has(rn) && c != null) cap.set(rn, c);
+                    }
+                }
+            }
+            return cap; // Map<roomNorm, capacity>
+        }
+
+        function assignedInSlipForRoom(rec, roomNorm) {
+            let sum = 0;
+            for (const side of ['gents', 'ladies']) {
+                for (const it of (rec.rooms?.[side] || [])) {
+                    const rn = normRoom(it.room_no ?? it);
+                    if (rn !== roomNorm) continue;
+                    const a = Number(it.assigned ?? it.pax ?? it.count ?? 0);
+                    if (!Number.isNaN(a)) sum += a;
+                }
+            }
+            return sum;
+        }
+
+        function aggregateRoomTotals(building, roomNorm, when, capMap) {
+            const active = getActiveSlipsForRoom(when, building, roomNorm);
+            let assigned = 0, shNos = [], coTimes = [];
+            for (const rec of active) {
+                assigned += assignedInSlipForRoom(rec, roomNorm);
+                if (rec.sh_no != null) shNos.push(String(rec.sh_no));
+                const co = parseDT(rec.checkout_date, rec.checkout_time);
+                if (co) coTimes.push(co);
+            }
+            const capacity = capMap.get(roomNorm) ?? null;
+            const earliestOut = coTimes.length ? new Date(Math.min(...coTimes.map(t => t.getTime()))) : null;
+            return { assigned, capacity, earliestOut, shNos };
+        }
+
+        function roomInstanceCount(building, roomNorm) {
+            let count = 0;
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) count++;
+            }
+            return count;
+        }
+
+        function activeInstanceCount(when, building, roomNorm) {
+            let count = 0;
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                const co = parseDT(r.checkout_date, r.checkout_time);
+                if (!ci || !co) continue;
+                if (!overlapsIn(when, ci, co)) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) count++;
+            }
+            return count;
+        }
+
+        const summarizeSH = (list, max = 3) => {
+            const u = [...new Set(list)];
+            return u.length <= max ? u.join(', ') : u.slice(0, max).join(', ') + ` (+${u.length - max})`;
+        };
+
+        /* ================= UI: tabs & matrix ================= */
+        function renderTabs(buildings) {
+            const tabs = $('tabs'); tabs.innerHTML = '';
+            buildings.forEach((b, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'tab'; btn.textContent = b;
+                btn.setAttribute('role', 'tab');
+                btn.setAttribute('aria-selected', String(i === 0));
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+                    btn.setAttribute('aria-selected', 'true');
+                    renderMatrix(b);
+                });
+                tabs.appendChild(btn);
+            });
+        }
+
+        function renderMatrix(building) {
+            const dateStr = $('asof_date').value, timeStr = $('asof_time').value;
+            if (!dateStr || !timeStr) { alert('Choose date and time'); return; }
+            const when = new Date(`${dateStr}T${timeStr}`); if (isNaN(when)) { alert('Invalid date/time'); return; }
+
+            const mx = $('matrix'); mx.innerHTML = '';
+            const { flist, clist, cellToRoom } = buildInventoryPerBuilding(CACHE, building);
+            if (!flist.length) { mx.textContent = 'No rooms found for this building.'; return; }
+
+            mx.style.gridTemplateColumns = `repeat(${clist.length + 1}, max-content)`;
+
+            const corner = document.createElement('div');
+            corner.className = 'hcell corner'; corner.style.width = '84px'; corner.style.height = '44px';
+            corner.textContent = building; mx.appendChild(corner);
+
+            clist.forEach(col => {
+                const h = document.createElement('div');
+                h.className = 'hcell'; h.style.width = 'var(--cellW)'; h.style.height = '44px'; h.textContent = col;
+                mx.appendChild(h);
+            });
+
+            const capMap = buildCapacityMap(building);
+
+            flist.forEach(floor => {
+                const rhead = document.createElement('div');
+                rhead.className = 'rcell'; rhead.style.width = '84px'; rhead.style.height = 'var(--cellH)';
+                rhead.textContent = `FLOOR ${floor}`; mx.appendChild(rhead);
+
+                clist.forEach(col => {
+                    const key = `${floor}|${col}`;
+                    const roomNorm = cellToRoom.get(key) || null;
+
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.width = 'var(--cellW)'; cell.style.height = 'var(--cellH)';
+
+                    if (!roomNorm) {
+                        cell.innerHTML = `<div class="cap">—</div><div class="meta">&nbsp;</div>`;
+                    } else {
+                        const active = getActiveSlipsForRoom(when, building, roomNorm);
+
+                        if (active.length) {
+                            const agg = aggregateRoomTotals(building, roomNorm, when, capMap);
+                            const capVal = (agg.capacity != null && !Number.isNaN(agg.capacity)) ? agg.capacity : null;
+                            const asgVal = Number.isFinite(agg.assigned) ? agg.assigned : 0;
+                            const under = (capVal != null) && (asgVal < capVal);
+                            const vacBeds = (capVal != null) ? Math.max(0, capVal - asgVal) : null;
+
+                            const capTxt = (capVal != null) ? `${asgVal}/${capVal}` : `${asgVal}/—`;
+                            const shText = agg.shNos.length ? summarizeSH(agg.shNos) : '—';
+                            const outText = agg.earliestOut ? fmtDT(agg.earliestOut) : '—';
+
+                            cell.classList.add('occ');
+                            if (under) cell.classList.add('under');
+
+                            cell.innerHTML = `
+                    <div class="cap">${capTxt}${under && vacBeds != null ? ' · Vac ' + vacBeds : ''}</div>
+                    <div class="meta">SH ${shText} • Out ${outText}</div>
+                  `;
+                        } else {
+                            const next = getNextSlip(when, building, roomNorm);
+                            const ci = next ? parseDT(next.checkin_date, next.checkin_time) : null;
+                            const nsh = next ? (next.sh_no ?? '') : '';
+
+                            const totalInst = roomInstanceCount(building, roomNorm);
+                            const activeInst = 0; // currently zero by branch
+                            const vacInst = Math.max(0, totalInst - activeInst);
+                            const vacLabel = vacInst > 1 ? `Upcoming ${vacInst} pax` : 'Vacant';
+
+                            const capVal = capMap.get(roomNorm) ?? null;
+                            const capTxt = (capVal != null) ? String(capVal) : '—';
+
+                            cell.innerHTML = `
+                    <div class="cap">${capTxt}</div>
+                    <div class="meta">
+                      ${next ? `${vacLabel} • Next ${fmtDT(ci)}${nsh ? ' • SH ' + nsh : ''}` : `${vacLabel}`}
+                    </div>
+                  `;
+                        }
+                    }
+                    mx.appendChild(cell);
+                });
+            });
+
+            $('status').textContent = `${building} • Floors ${flist.join(', ')} • ${clist.length} columns • ${CACHE.length} slip(s)`;
+        }
+
+        /* ================= Size controls ================= */
+        function setVar(name, val) { document.documentElement.style.setProperty(name, val); }
+        const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+        function wireSizeControls() {
+            const wR = $('wRange'), hR = $('hRange'), fR = $('fRange');
+            const wM = $('wMinus'), wP = $('wPlus'), hM = $('hMinus'), hP = $('hPlus'), fM = $('fMinus'), fP = $('fPlus');
+            const apply = () => { setVar('--cellW', wR.value + 'px'); setVar('--cellH', hR.value + 'px'); setVar('--fs', fR.value + 'px'); };
+            [wR, hR, fR].forEach(el => el.addEventListener('input', apply));
+            const step = (el, d, min, max) => { el.value = clamp(Number(el.value) + d, min, max); el.dispatchEvent(new Event('input')); };
+            wM.onclick = () => step(wR, -8, 80, 240);
+            wP.onclick = () => step(wR, +8, 80, 240);
+            hM.onclick = () => step(hR, -8, 60, 200);
+            hP.onclick = () => step(hR, +8, 60, 200);
+            fM.onclick = () => step(fR, -1, 9, 20);
+            fP.onclick = () => step(fR, +1, 9, 20);
+            apply();
+        }
+
+        /* ================= Print only the grid ================= */
         function printOnlyById(id) {
             const el = document.getElementById(id);
             if (!el) return alert('Matrix not found.');
             el.classList.add('print-scope');
-            const cleanup = () => {
-                el.classList.remove('print-scope');
-                window.removeEventListener('afterprint', cleanup);
-            };
+            const cleanup = () => { el.classList.remove('print-scope'); window.removeEventListener('afterprint', cleanup); };
             window.addEventListener('afterprint', cleanup);
             setTimeout(() => window.print(), 0);
         }
 
-        // Example wiring:
-        document.getElementById('btnPrintGrid')
-            ?.addEventListener('click', () => printOnlyById('matrix'));
+        /* ================= Boot ================= */
+        (async function boot() {
+            try {
+                CACHE = await getAllRecords();
+            } catch (e) {
+                $('status').textContent = 'Could not open local DB (IndexedDB blocked?).';
+                console.error(e); return;
+            }
 
+            const now = new Date();
+            const y = now.getFullYear(), m = pad(now.getMonth() + 1), d = pad(now.getDate());
+            const h = pad(now.getHours()), n = pad(now.getMinutes());
+            if (!$('asof_date').value) $('asof_date').value = `${y}-${m}-${d}`;
+            if (!$('asof_time').value) $('asof_time').value = `${h}:${n}`;
 
+            const buildings = uniq(CACHE.map(r => (r.building || '').trim()).filter(Boolean));
+            renderTabs(buildings);
+            if (buildings.length) renderMatrix(buildings[0]);
+
+            $('btnRecalc').addEventListener('click', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('btnRefresh').addEventListener('click', async () => {
+                CACHE = await getAllRecords();
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('asof_date').addEventListener('change', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('asof_time').addEventListener('change', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            wireSizeControls();
+
+            $('btnPrintGrid').addEventListener('click', () => printOnlyById('matrix'));
+        })();
     </script>
 </body>
 </html>

@@ -243,6 +243,34 @@
             }
         }
 
+        /* Open Slip button */
+        .btn-open {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--ink);
+            text-decoration: none;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            .btn-open:hover {
+                background: #fff6dd
+            }
+
+            .btn-open:active {
+                transform: translateY(1px)
+            }
+
+            .btn-open[aria-disabled="true"] {
+                opacity: .5;
+                pointer-events: none;
+            }
+
+
     </style>
 
 </head>
@@ -326,8 +354,10 @@
                             <th class="right">I</th>
                             <th class="nowrap">Check-out</th>
                             <th class="right">Nights</th>
+                            <th class="nowrap">Slip</th> <!-- NEW -->
                         </tr>
                     </thead>
+
                     <tbody></tbody>
                 </table>
             </div>
@@ -357,6 +387,7 @@
                             <th class="right">I</th>
                             <th class="nowrap">Check-in</th>
                             <th class="right">Nights</th>
+                            <th class="nowrap">Slip</th> <!-- NEW -->
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -441,24 +472,34 @@
                 const ci = parseDT(r.checkin_date, r.checkin_time);
                 const co = parseDT(r.checkout_date, r.checkout_time);
                 const t = key === 'checkin' ? fmtDT(ci) : fmtDT(co);
+
+                const sh = String(r.sh_no || '').trim();
+                const href = sh ? `accommodation_slip.html?sh_no=${encodeURIComponent(sh)}` : `accommodation_slip.html`;
+
+                const openCell = sh
+                    ? `<a class="btn-open" href="${href}" target="_blank" rel="noopener">Open</a>`
+                    : `<a class="btn-open" aria-disabled="true" title="No SH number">Open</a>`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-          <td class="nowrap">${t}</td>
-          <td>${escapeHTML(r.sh_no || '')}</td>
-          <td>${escapeHTML(r.tour_name || '')}</td>
-          <td>${escapeHTML((r.building || '').trim())}</td>
-          <td>${escapeHTML(roomsFromSlip(r).join(', '))}</td>
-          <td class="right">${guests(r)}</td>
-          <td class="right">${Number(r.gents) || 0}</td>
-          <td class="right">${Number(r.ladies) || 0}</td>
-          <td class="right">${Number(r.children) || 0}</td>
-          <td class="right">${Number(r.infants) || 0}</td>
-          <td class="nowrap">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
-          <td class="right">${nights(r)}</td>
-        `;
+      <td class="nowrap">${t}</td>
+      <td>${escapeHTML(r.sh_no || '')}</td>
+      <td>${escapeHTML(r.tour_name || '')}</td>
+      <td>${escapeHTML((r.building || '').trim())}</td>
+      <td>${escapeHTML(roomsFromSlip(r).join(', '))}</td>
+      <td class="right">${guests(r)}</td>
+      <td class="right">${Number(r.gents) || 0}</td>
+      <td class="right">${Number(r.ladies) || 0}</td>
+      <td class="right">${Number(r.children) || 0}</td>
+      <td class="right">${Number(r.infants) || 0}</td>
+      <td class="nowrap">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
+      <td class="right">${nights(r)}</td>
+      <td class="nowrap">${openCell}</td>
+    `;
                 tbody.appendChild(tr);
             }
         }
+
 
         function escapeHTML(s) { return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])) }
 

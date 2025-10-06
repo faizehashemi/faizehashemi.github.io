@@ -7,7 +7,7 @@ class SiteNav extends HTMLElement {
       <nav class="rk-nav" role="navigation" aria-label="Primary">
         <div class="bar">
           <a class="brand" href="index.html" aria-label="Home">
-            <span class="b1">PMS</span><span class="b2">SUITE</span>
+            <span class="b1">Faiz E Hashemi</span><span class="b2">PMS</span>
           </a>
           <div class="links" role="menubar">
             ${[
@@ -19,7 +19,8 @@ class SiteNav extends HTMLElement {
               { href: "fega.html",                  text: "FE Group" }, 
               { href: "fea.html",                 text: "FE KG" },     
               { href: "print_slip_a5.html",        text: "Print" },
-              { href: "slip_admin.html",           text: "Admin" },
+        { href: "slip_admin.html", text: "Admin" },
+        { href: "mawaid.html", text: "Mawaid" },
             ].map(l => `
               <a class="item" role="menuitem" href="${l.href}">
                 <span class="t">${l.text}</span>
