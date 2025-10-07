@@ -256,7 +256,7 @@
 
         :root {
             /* height of your top bar + breathing room */
-            --rail-top: 75px;
+            --rail-top: 150px;
         }
 
         /* the two-column shell must not sabotage sticky */
@@ -462,7 +462,7 @@ const DEFAULT_PEOPLE = [
 
 ];
 
-const LOCATIONS = ["MP","DH","UG","Snood","Mizab", "LG"];
+        const LOCATIONS = ["*MP FLOOR*", "*DH FLOOR*", "*UG FLOOR*", "*SNOOD HOTEL*", "*MIZAB HOTEL*", "*LG FLOOR*"];
 const TYPES = ["FE1","FE2","Atraaf"]; // FE split
 
 const LS_PEOPLE = "umrah-atraaf-people-v2";
@@ -541,41 +541,51 @@ function renderPeople(){
         }
 
 
-/* ====== PREVIEW (SECRET-FRIENDLY) ====== */
+        /* ====== PREVIEW (SECRET-FRIENDLY) ====== */
         function headerText() {
             const elTitle = $("#sessionTitle");
-            const title =
-                (elTitle?.selectedOptions?.[0]?.text || elTitle?.value || "").trim();
+            const raw = (elTitle?.selectedOptions?.[0]?.text || elTitle?.value || "").trim();
 
+            // pull time from end, e.g. "… 9:00 PM" or "… 2:30 am"
+            let sessionTime = "";
+            let sessionHead = raw;
+            const m = raw.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+            if (m) {
+                sessionTime = m[1].toUpperCase();
+                sessionHead = raw.replace(m[0], "").trim().replace(/\s+/g, " ");
+            }
+
+            // date only from #sessionDate (type="date")
             const el = $("#sessionDate");
-            // Use ONLY the date part; ignore any time entirely
             let dt = new Date();
             if (el?.value) {
-                const [d] = el.value.split("T");              // yyyy-mm-dd
-                const [y, m, dd] = (d || "").split("-").map(Number);
-                if (y && m && dd) dt = new Date(y, (m || 1) - 1, dd || 1); // local midnight
+                const [d] = el.value.split("T"); // yyyy-mm-dd
+                const [y, m2, dd] = (d || "").split("-").map(Number);
+                if (y && m2 && dd) dt = new Date(y, (m2 || 1) - 1, dd || 1); // local midnight
             }
 
             const DD = String(dt.getDate()).padStart(2, "0");
             const MM = String(dt.getMonth() + 1).padStart(2, "0");
             const YYYY = dt.getFullYear();
-
-            // Weekday on its own line, lowercase (e.g., "monday")
             const WK = dt.toLocaleDateString(undefined, { weekday: "long" });
 
-            // Three header lines: title, date only, weekday
-            return `${title}\n${DD}/${MM}/${YYYY} ${WK}`;
+            // Three header lines: session head, date, time (+ weekday)
+            const line1 = `*${sessionHead}*`;
+            const line2 = `${DD}/${MM}/${YYYY} ${WK}`;
+            const line3 = sessionTime ? `${sessionTime}` : WK;
+
+            return `${line1}\n${line2}\n${line3}`;
         }
 
         function applyHeaderToPreview() {
-            const headerLines = headerText().split("\n"); // [title, dd/mm/yyyy, weekday]
+            const headerLines = headerText().split("\n"); // [head, date, time+weekday]
             const prev = $("#preview");
             const lines = (prev.textContent || "").split("\n");
 
-            // Ensure there are at least three lines to replace
             if (lines.length < 3) {
                 const body = lines.join("\n");
-                prev.textContent = `${headerLines[0] || ""}\n${headerLines[1] || ""}\n${headerLines[2] || ""}\n\n${body}`.trim();
+                prev.textContent =
+                    `${headerLines[0] || ""}\n${headerLines[1] || ""}\n${headerLines[2] || ""}\n\n${body}`.trim();
             } else {
                 lines[0] = headerLines[0] || "";
                 lines[1] = headerLines[1] || "";
@@ -583,9 +593,6 @@ function renderPeople(){
                 prev.textContent = lines.join("\n");
             }
         }
-
-
-
 
 
 function buildGroups(){

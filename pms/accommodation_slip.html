@@ -97,7 +97,7 @@
 
             .grid th {
                 background: #f6ecd6; /* light cream header */
-                text-align: left;
+                text-align: center;
                 font-weight: 700;
             }
 
@@ -109,19 +109,21 @@
             }
 
         .kv th {
-            width: 5%
+            width: 5%;
+            text-align: center;
         }
 
         .kv td[colspan="1"] input,
         .kv td[colspan="1"] select {
-            width: 80%
+            width: 100%;
+            text-align: center;
         }
 
         input[type="text"],
         input[type="number"],
         input[type="date"],
         input[type="time"] {
-            width: 80%;
+            width: 100%;
             padding: 6px 8px;
             border: 1px solid var(--edge2);
             border-radius: 8px;
@@ -129,6 +131,7 @@
             font-size: 14px;
             background: #fff;
             color: var(--text);
+            text-align: center;
         }
 
         select {
@@ -250,8 +253,15 @@
 
                         </div>
                     </td>
-                    <td colspan="2"><input placeholder="Tour Name" id="tour_name" type="text" placeholder="" /></td>
-                    <td colspan="2"><input placeholder="Group Leader Name" id="group_leader" type="text" placeholder="" /></td>
+                    <td colspan="4"><input placeholder="Tour Name" id="tour_name" type="text" placeholder="" /></td>
+                    <td colspan="4"><input placeholder="Group Leader Name" id="group_leader" type="text" placeholder="" /></td>
+
+                    </td>
+
+                    <th>G</th>
+                    <td><input placeholder="Gents" id="gents" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>L</th>
+                    <td><input placeholder="Ladies" id="ladies" type="number" inputmode="numeric" min="0" step="1" /></td>
                     <td colspan="2">
                         <select placeholder="Building" id="building">
                             <option value="">Select building…</option>
@@ -261,27 +271,31 @@
                             <option>BAHA</option>
                             <option>HUSN</option>
                         </select>
-                    </td>
-                    <th>G</th>
-                    <td><input placeholder="Gents" id="gents" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <th>L</th>
-                    <td><input placeholder="Ladies" id="ladies" type="number" inputmode="numeric" min="0" step="1" /></td>
+
 
                 </tr>
                 <tr>
 
                     <th>CHECK IN</th>
                     <td><input id="checkin_date" type="date" /></td>
-                    <td><input id="checkin_time" type="time" /></td>
+                    <td colspan="2"><input id="checkin_time" type="time" /></td>
                     <th>CHECK OUT</th>
                     <td><input id="checkout_date" type="date" /></td>
-                    <td><input id="checkout_time" type="time" /></td>
+                    <td colspan="2"><input id="checkout_time" type="time" /></td>
+
                     <th>T</th>
                     <td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
                     <th>I</th>
                     <td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
                     <th>C</th>
                     <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
+
+                </tr>
+                <tr>
+
+                   
+                  
+                   
                 </tr>
 
             </tbody>
@@ -362,7 +376,7 @@
                     const val = document.getElementById("bedsAssignedVal");
                     rep.style.fontWeight = "700";
                     rep.style.fontSize = "22px";
-                    rep.style.color = "blue";
+                    rep.style.color = "#654321";
                     if (val) { val.style.fontWeight = "800"; val.style.fontSize = "26px"; }
                 }
 
@@ -427,7 +441,7 @@
         </div>
 
         <div class="toolbar no-print">
-            <button id="btnFetchCap">Fetch capacity data</button>
+            <button id="btnFetchCap">Fetch &amp; Assign</button>
             <button id="btnCheckAvail">Check room availability</button>
         </div>
 
@@ -617,10 +631,10 @@
             inpCap.min = '0';
             inpCap.step = '1';
             inpCap.inputMode = 'numeric';
-            inpCap.value = data.capacity ?? '';
+            inpCap.value = (data.capacity ?? '') === '' ? '' : String(data.capacity);
             tdCap.appendChild(inpCap);
 
-            // Assigned (what you actually assign right now)
+            // Assigned (mirrors capacity until the user edits it)
             const tdAsg = document.createElement('td');
             const inpAsg = document.createElement('input');
             inpAsg.type = 'number';
@@ -628,8 +642,58 @@
             inpAsg.step = '1';
             inpAsg.inputMode = 'numeric';
             inpAsg.placeholder = 'assigned';
-            inpAsg.value = data.assigned ?? '';
             tdAsg.appendChild(inpAsg);
+
+            // Wire mirroring
+            bindAssignedToCapacity(inpCap, inpAsg, data.assigned);
+
+            // ========= helper =========
+            function bindAssignedToCapacity(cap, asg, initialAssigned) {
+                // if you already have an explicit assigned value, respect it and stop auto-sync
+                const hasAssigned = initialAssigned != null && initialAssigned !== '';
+                let dirty = hasAssigned;
+
+                asg.value = hasAssigned ? String(initialAssigned) : String(cap.value ?? '');
+
+                const sync = () => { if (!dirty) asg.value = cap.value; };
+
+                // user-driven changes on capacity
+                cap.addEventListener('input', sync);
+                cap.addEventListener('change', sync);
+
+                // first edit on assigned makes it user-owned
+                asg.addEventListener('input', () => { dirty = true; });
+
+                // catch programmatic cap.value = '...' (no input event fired)
+                patchValueSetter(cap, sync);
+            }
+
+            // fire `input` whenever .value is set programmatically on this element
+            function patchValueSetter(input, onSet) {
+                if (input.__patchedValueSetter) return; // don’t double-patch
+                input.__patchedValueSetter = true;
+
+                const proto = Object.getPrototypeOf(input);
+                const desc = Object.getOwnPropertyDescriptor(proto, 'value')
+                    || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+                const _get = desc.get;
+                const _set = desc.set;
+
+                Object.defineProperty(input, 'value', {
+                    configurable: true,
+                    enumerable: desc.enumerable,
+                    get() { return _get.call(this); },
+                    set(v) {
+                        _set.call(this, v);
+                        try { onSet && onSet(); } catch (_) { }
+                        // also emit a synthetic input so any of your other listeners notice
+                        this.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                });
+            }
+
+
 
             // Delete
             const tdDel = document.createElement('td');

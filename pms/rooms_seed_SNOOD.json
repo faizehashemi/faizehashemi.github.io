@@ -1,0 +1,865 @@
+{
+  "exportedAt": "2025-10-06T20:33:49.687Z",
+  "count": 1,
+  "slips": [
+    {
+      "tour_name": "",
+      "group_leader": "",
+      "checkin_date": "1995-12-08",
+      "checkin_time": "00:00",
+      "checkout_date": "1995-12-09",
+      "checkout_time": "00:00",
+      "building": "SNOOD",
+      "sh_no": "",
+      "total": "",
+      "gents": "",
+      "ladies": "",
+      "infants": "",
+      "children": "",
+      "rooms": {
+        "gents": [
+          {
+            "room_no": "1101",
+            "capacity": 2
+          },
+          {
+            "room_no": "1102",
+            "capacity": 3
+          },
+          {
+            "room_no": "1103",
+            "capacity": 3
+          },
+          {
+            "room_no": "1104",
+            "capacity": 3
+          },
+          {
+            "room_no": "1105",
+            "capacity": 4
+          },
+          {
+            "room_no": "1106",
+            "capacity": 4
+          },
+          {
+            "room_no": "1107",
+            "capacity": 3
+          },
+          {
+            "room_no": "1108",
+            "capacity": 3
+          },
+          {
+            "room_no": "1109",
+            "capacity": 3
+          },
+          {
+            "room_no": "1110",
+            "capacity": 2
+          },
+          {
+            "room_no": "1111",
+            "capacity": 2
+          },
+          {
+            "room_no": "1112",
+            "capacity": 3
+          },
+          {
+            "room_no": "1113",
+            "capacity": 3
+          },
+          {
+            "room_no": "1114",
+            "capacity": 3
+          },
+          {
+            "room_no": "1115",
+            "capacity": 4
+          },
+          {
+            "room_no": "1116",
+            "capacity": 4
+          },
+          {
+            "room_no": "1117",
+            "capacity": 3
+          },
+          {
+            "room_no": "1118",
+            "capacity": 3
+          },
+          {
+            "room_no": "1119",
+            "capacity": 3
+          },
+          {
+            "room_no": "1120",
+            "capacity": 2
+          },
+          {
+            "room_no": "1201",
+            "capacity": 2
+          },
+          {
+            "room_no": "1202",
+            "capacity": 3
+          },
+          {
+            "room_no": "1203",
+            "capacity": 3
+          },
+          {
+            "room_no": "1204",
+            "capacity": 3
+          },
+          {
+            "room_no": "1205",
+            "capacity": 4
+          },
+          {
+            "room_no": "1206",
+            "capacity": 4
+          },
+          {
+            "room_no": "1207",
+            "capacity": 3
+          },
+          {
+            "room_no": "1208",
+            "capacity": 3
+          },
+          {
+            "room_no": "1209",
+            "capacity": 3
+          },
+          {
+            "room_no": "1210",
+            "capacity": 2
+          },
+          {
+            "room_no": "1211",
+            "capacity": 2
+          },
+          {
+            "room_no": "1212",
+            "capacity": 3
+          },
+          {
+            "room_no": "1213",
+            "capacity": 3
+          },
+          {
+            "room_no": "1214",
+            "capacity": 3
+          },
+          {
+            "room_no": "1215",
+            "capacity": 4
+          },
+          {
+            "room_no": "1216",
+            "capacity": 4
+          },
+          {
+            "room_no": "1217",
+            "capacity": 3
+          },
+          {
+            "room_no": "1218",
+            "capacity": 3
+          },
+          {
+            "room_no": "1219",
+            "capacity": 3
+          },
+          {
+            "room_no": "1220",
+            "capacity": 2
+          },
+          {
+            "room_no": "1301",
+            "capacity": 2
+          },
+          {
+            "room_no": "1302",
+            "capacity": 3
+          },
+          {
+            "room_no": "1303",
+            "capacity": 3
+          },
+          {
+            "room_no": "1304",
+            "capacity": 3
+          },
+          {
+            "room_no": "1305",
+            "capacity": 4
+          },
+          {
+            "room_no": "1306",
+            "capacity": 4
+          },
+          {
+            "room_no": "1307",
+            "capacity": 3
+          },
+          {
+            "room_no": "1308",
+            "capacity": 3
+          },
+          {
+            "room_no": "1309",
+            "capacity": 3
+          },
+          {
+            "room_no": "1310",
+            "capacity": 2
+          },
+          {
+            "room_no": "1311",
+            "capacity": 2
+          },
+          {
+            "room_no": "1312",
+            "capacity": 3
+          },
+          {
+            "room_no": "1313",
+            "capacity": 3
+          },
+          {
+            "room_no": "1314",
+            "capacity": 3
+          },
+          {
+            "room_no": "1315",
+            "capacity": 4
+          },
+          {
+            "room_no": "1316",
+            "capacity": 4
+          },
+          {
+            "room_no": "1317",
+            "capacity": 3
+          },
+          {
+            "room_no": "1318",
+            "capacity": 3
+          },
+          {
+            "room_no": "1319",
+            "capacity": 3
+          },
+          {
+            "room_no": "1320",
+            "capacity": 2
+          },
+          {
+            "room_no": "1401",
+            "capacity": 2
+          },
+          {
+            "room_no": "1402",
+            "capacity": 3
+          },
+          {
+            "room_no": "1403",
+            "capacity": 3
+          },
+          {
+            "room_no": "1404",
+            "capacity": 3
+          },
+          {
+            "room_no": "1405",
+            "capacity": 4
+          },
+          {
+            "room_no": "1406",
+            "capacity": 4
+          },
+          {
+            "room_no": "1407",
+            "capacity": 3
+          },
+          {
+            "room_no": "1408",
+            "capacity": 3
+          },
+          {
+            "room_no": "1409",
+            "capacity": 3
+          },
+          {
+            "room_no": "1410",
+            "capacity": 2
+          },
+          {
+            "room_no": "1411",
+            "capacity": 2
+          },
+          {
+            "room_no": "1412",
+            "capacity": 3
+          },
+          {
+            "room_no": "1413",
+            "capacity": 3
+          },
+          {
+            "room_no": "1414",
+            "capacity": 3
+          },
+          {
+            "room_no": "1415",
+            "capacity": 4
+          },
+          {
+            "room_no": "1416",
+            "capacity": 4
+          },
+          {
+            "room_no": "1417",
+            "capacity": 3
+          },
+          {
+            "room_no": "1418",
+            "capacity": 3
+          },
+          {
+            "room_no": "1419",
+            "capacity": 3
+          },
+          {
+            "room_no": "1420",
+            "capacity": 2
+          },
+          {
+            "room_no": "1501",
+            "capacity": 2
+          },
+          {
+            "room_no": "1502",
+            "capacity": 3
+          },
+          {
+            "room_no": "1503",
+            "capacity": 3
+          },
+          {
+            "room_no": "1504",
+            "capacity": 3
+          },
+          {
+            "room_no": "1505",
+            "capacity": 4
+          },
+          {
+            "room_no": "1506",
+            "capacity": 4
+          },
+          {
+            "room_no": "1507",
+            "capacity": 3
+          },
+          {
+            "room_no": "1508",
+            "capacity": 3
+          },
+          {
+            "room_no": "1509",
+            "capacity": 3
+          },
+          {
+            "room_no": "1510",
+            "capacity": 2
+          },
+          {
+            "room_no": "1511",
+            "capacity": 2
+          },
+          {
+            "room_no": "1512",
+            "capacity": 3
+          },
+          {
+            "room_no": "1513",
+            "capacity": 3
+          },
+          {
+            "room_no": "1514",
+            "capacity": 3
+          },
+          {
+            "room_no": "1515",
+            "capacity": 4
+          },
+          {
+            "room_no": "1516",
+            "capacity": 4
+          },
+          {
+            "room_no": "1517",
+            "capacity": 3
+          },
+          {
+            "room_no": "1518",
+            "capacity": 3
+          },
+          {
+            "room_no": "1519",
+            "capacity": 3
+          },
+          {
+            "room_no": "1520",
+            "capacity": 2
+          },
+          {
+            "room_no": "1601",
+            "capacity": 2
+          },
+          {
+            "room_no": "1602",
+            "capacity": 3
+          },
+          {
+            "room_no": "1603",
+            "capacity": 3
+          },
+          {
+            "room_no": "1604",
+            "capacity": 3
+          },
+          {
+            "room_no": "1605",
+            "capacity": 4
+          },
+          {
+            "room_no": "1606",
+            "capacity": 4
+          },
+          {
+            "room_no": "1607",
+            "capacity": 3
+          },
+          {
+            "room_no": "1608",
+            "capacity": 3
+          },
+          {
+            "room_no": "1609",
+            "capacity": 3
+          },
+          {
+            "room_no": "1610",
+            "capacity": 2
+          },
+          {
+            "room_no": "1611",
+            "capacity": 2
+          },
+          {
+            "room_no": "1612",
+            "capacity": 3
+          },
+          {
+            "room_no": "1613",
+            "capacity": 3
+          },
+          {
+            "room_no": "1614",
+            "capacity": 3
+          },
+          {
+            "room_no": "1615",
+            "capacity": 4
+          },
+          {
+            "room_no": "1616",
+            "capacity": 4
+          },
+          {
+            "room_no": "1617",
+            "capacity": 3
+          },
+          {
+            "room_no": "1618",
+            "capacity": 3
+          },
+          {
+            "room_no": "1619",
+            "capacity": 3
+          },
+          {
+            "room_no": "1620",
+            "capacity": 2
+          },
+          {
+            "room_no": "1701",
+            "capacity": 2
+          },
+          {
+            "room_no": "1702",
+            "capacity": 3
+          },
+          {
+            "room_no": "1703",
+            "capacity": 3
+          },
+          {
+            "room_no": "1704",
+            "capacity": 3
+          },
+          {
+            "room_no": "1705",
+            "capacity": 4
+          },
+          {
+            "room_no": "1706",
+            "capacity": 4
+          },
+          {
+            "room_no": "1707",
+            "capacity": 3
+          },
+          {
+            "room_no": "1708",
+            "capacity": 3
+          },
+          {
+            "room_no": "1709",
+            "capacity": 3
+          },
+          {
+            "room_no": "1710",
+            "capacity": 2
+          },
+          {
+            "room_no": "1711",
+            "capacity": 2
+          },
+          {
+            "room_no": "1712",
+            "capacity": 3
+          },
+          {
+            "room_no": "1713",
+            "capacity": 3
+          },
+          {
+            "room_no": "1714",
+            "capacity": 3
+          },
+          {
+            "room_no": "1715",
+            "capacity": 4
+          },
+          {
+            "room_no": "1716",
+            "capacity": 4
+          },
+          {
+            "room_no": "1717",
+            "capacity": 3
+          },
+          {
+            "room_no": "1718",
+            "capacity": 3
+          },
+          {
+            "room_no": "1719",
+            "capacity": 3
+          },
+          {
+            "room_no": "1720",
+            "capacity": 2
+          },
+          {
+            "room_no": "1801",
+            "capacity": 2
+          },
+          {
+            "room_no": "1802",
+            "capacity": 3
+          },
+          {
+            "room_no": "1803",
+            "capacity": 3
+          },
+          {
+            "room_no": "1804",
+            "capacity": 3
+          },
+          {
+            "room_no": "1805",
+            "capacity": 4
+          },
+          {
+            "room_no": "1806",
+            "capacity": 4
+          },
+          {
+            "room_no": "1807",
+            "capacity": 3
+          },
+          {
+            "room_no": "1808",
+            "capacity": 3
+          },
+          {
+            "room_no": "1809",
+            "capacity": 3
+          },
+          {
+            "room_no": "1810",
+            "capacity": 2
+          },
+          {
+            "room_no": "1811",
+            "capacity": 2
+          },
+          {
+            "room_no": "1812",
+            "capacity": 3
+          },
+          {
+            "room_no": "1813",
+            "capacity": 3
+          },
+          {
+            "room_no": "1814",
+            "capacity": 3
+          },
+          {
+            "room_no": "1815",
+            "capacity": 4
+          },
+          {
+            "room_no": "1816",
+            "capacity": 4
+          },
+          {
+            "room_no": "1817",
+            "capacity": 3
+          },
+          {
+            "room_no": "1818",
+            "capacity": 3
+          },
+          {
+            "room_no": "1819",
+            "capacity": 3
+          },
+          {
+            "room_no": "1820",
+            "capacity": 2
+          },
+          {
+            "room_no": "1901",
+            "capacity": 2
+          },
+          {
+            "room_no": "1902",
+            "capacity": 3
+          },
+          {
+            "room_no": "1903",
+            "capacity": 3
+          },
+          {
+            "room_no": "1904",
+            "capacity": 3
+          },
+          {
+            "room_no": "1905",
+            "capacity": 4
+          },
+          {
+            "room_no": "1906",
+            "capacity": 4
+          },
+          {
+            "room_no": "1907",
+            "capacity": 3
+          },
+          {
+            "room_no": "1908",
+            "capacity": 3
+          },
+          {
+            "room_no": "1909",
+            "capacity": 3
+          },
+          {
+            "room_no": "1910",
+            "capacity": 2
+          },
+          {
+            "room_no": "1911",
+            "capacity": 2
+          },
+          {
+            "room_no": "1912",
+            "capacity": 3
+          },
+          {
+            "room_no": "1913",
+            "capacity": 3
+          },
+          {
+            "room_no": "1914",
+            "capacity": 3
+          },
+          {
+            "room_no": "1915",
+            "capacity": 4
+          },
+          {
+            "room_no": "1916",
+            "capacity": 4
+          },
+          {
+            "room_no": "1917",
+            "capacity": 3
+          },
+          {
+            "room_no": "1918",
+            "capacity": 3
+          },
+          {
+            "room_no": "1919",
+            "capacity": 3
+          },
+          {
+            "room_no": "1920",
+            "capacity": 2
+          },
+          {
+            "room_no": "2001",
+            "capacity": 2
+          },
+          {
+            "room_no": "2002",
+            "capacity": 3
+          },
+          {
+            "room_no": "2003",
+            "capacity": 3
+          },
+          {
+            "room_no": "2004",
+            "capacity": 3
+          },
+          {
+            "room_no": "2005",
+            "capacity": 4
+          },
+          {
+            "room_no": "2006",
+            "capacity": 4
+          },
+          {
+            "room_no": "2007",
+            "capacity": 3
+          },
+          {
+            "room_no": "2008",
+            "capacity": 3
+          },
+          {
+            "room_no": "2009",
+            "capacity": 3
+          },
+          {
+            "room_no": "2010",
+            "capacity": 2
+          },
+          {
+            "room_no": "2011",
+            "capacity": 2
+          },
+          {
+            "room_no": "2012",
+            "capacity": 3
+          },
+          {
+            "room_no": "2013",
+            "capacity": 3
+          },
+          {
+            "room_no": "2014",
+            "capacity": 3
+          },
+          {
+            "room_no": "2015",
+            "capacity": 4
+          },
+          {
+            "room_no": "2016",
+            "capacity": 4
+          },
+          {
+            "room_no": "2017",
+            "capacity": 3
+          },
+          {
+            "room_no": "2018",
+            "capacity": 3
+          },
+          {
+            "room_no": "2019",
+            "capacity": 3
+          },
+          {
+            "room_no": "2020",
+            "capacity": 2
+          },
+          {
+            "room_no": "2101",
+            "capacity": 4
+          },
+          {
+            "room_no": "2102",
+            "capacity": 3
+          },
+          {
+            "room_no": "2103",
+            "capacity": 3
+          },
+          {
+            "room_no": "2104",
+            "capacity": 3
+          },
+          {
+            "room_no": "2105",
+            "capacity": 2
+          },
+          {
+            "room_no": "2106",
+            "capacity": 2
+          },
+          {
+            "room_no": "2107",
+            "capacity": 3
+          },
+          {
+            "room_no": "2108",
+            "capacity": 3
+          },
+          {
+            "room_no": "2109",
+            "capacity": 3
+          },
+          {
+            "room_no": "2110",
+            "capacity": 4
+          }
+        ]
+      }
+    }
+  ]
+}
