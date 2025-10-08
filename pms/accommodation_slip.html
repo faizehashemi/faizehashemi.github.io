@@ -1182,7 +1182,7 @@
         /* ===== LAN backup: push IndexedDB to a local collector ===== */
         (() => {
             const DB_NAME = 'pms_accommodation_db';
-            const COLLECTOR = 'http://172.16.18.191:8787/upload'; // <-- change if server runs elsewhere
+            const COLLECTOR = 'https://pms.local:8788/upload';  // new HTTPS endpoint
             const SHARED_SECRET = 'supersecret123';               // must match PMS_SECRET on the server
             const CLIENT_ID = (navigator.userAgentData?.platform || navigator.platform || 'web')
                 + '-' + (crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
