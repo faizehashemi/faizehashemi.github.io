@@ -998,6 +998,7 @@
                 const id = await addRecord(data);
                 CURRENT_ID = id;
                 $('status').textContent = `Saved as #${id}`;
+                postDbToTelegram('edit').catch(console.warn);
             } catch (err) {
                 $('status').textContent = 'Save failed. Check console.';
                 console.error('Save error:', err);
