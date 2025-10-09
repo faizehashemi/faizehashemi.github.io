@@ -1311,7 +1311,7 @@
                 page: location.href,
                 db: await window.dumpIndexedDB(DB_NAME)
             };
-            window.telegramSendDocument(`pms_accommodation_${riyadhStamp()}.json`, snapshot, riyadhStamp());
+            window.telegramSendDocument(`pms_accommodation_${Date.now()}.json`, snapshot);
             const s = document.getElementById("status");
 
         };
