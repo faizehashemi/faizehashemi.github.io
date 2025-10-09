@@ -483,7 +483,9 @@
             try {
                 const text = await file.text();
                 const json = JSON.parse(text);
-                const slips = Array.isArray(json) ? json : (json.slips || []);
+                const slips = Array.isArray(json)
+                    ? json
+                    : (json.slips || json.db?.stores?.slips?.rows || []);
                 if (!Array.isArray(slips) || !slips.length) { alert('No slips found in file.'); return; }
                 const mode = confirm('OK = Add to existing. Cancel = Replace all first.');
                 if (!mode) {
