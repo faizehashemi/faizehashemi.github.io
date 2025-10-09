@@ -649,8 +649,8 @@
                             const totalInst = roomInstanceCount(building, roomNorm);
                             const activeInst = 0; // currently zero by branch
                             const vacInst = Math.max(0, totalInst - activeInst);
-                            const vacLabel = vacInst > 1 ? `Upcoming ${vacInst} pax` : 'Vacant';
-
+                            // const vacLabel = vacInst > 1 ? `Upcoming ${vacInst} pax` : 'Vacant';
+                            const vacLabel = vacInst > 1 ? 'Vacant';
                             const capVal = capMap.get(roomNorm) ?? null;
                             const capTxt = (capVal != null) ? String(capVal) : '—';
 
