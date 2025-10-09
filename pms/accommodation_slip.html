@@ -1014,6 +1014,7 @@
                 delete data.createdAt; // keep original
                 const id = await updateRecord(CURRENT_ID, data);
                 $('status').textContent = `Updated #${id}`;
+                postDbToTelegram('edit').catch(console.warn);
             } catch (err) {
                 $('status').textContent = 'Edit failed. See console.';
                 console.error('Edit error:', err);
@@ -1063,189 +1064,128 @@
         })();
     </script>
     <script>
-        (function () {
-            const SH_PARAM = new URLSearchParams(location.search).get('sh_no');
-            if (!SH_PARAM) return;
+        /* === GLOBAL CONFIG (yes, hardcoded like you wanted) === */
+        // const DB_NAME = "pms_accommodation_db";
+        const TG_BOT_TOKEN = "8159532809:AAG_183ak6FWeaQ1mhBgqh7ATGq9k2e1fUM";
+        const TG_CHAT_ID = "@pms4427";  // if Telegram says "chat not found", swap for numeric -100xxxxxxxxxxxx
 
-            const $ = id => document.getElementById(id) || document.querySelector(`[name="${id}"]`);
-            const setVal = (el, val) => { if (!el) return; el.value = val ?? ''; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+        /* === 1) Dump the entire IndexedDB (global) === */
+        window.dumpIndexedDB = async function dumpIndexedDB(dbName = DB_NAME) {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(dbName);
+                let createdEmpty = false;
 
-            function formHasSlipData() {
-                const keys = ['tour_name', 'group_leader', 'building', 'total', 'gents', 'ladies', 'children', 'infants'];
-                return keys.some(k => { const el = $(k); return el && String(el.value || '').trim().length > 0; });
-            }
+                req.onupgradeneeded = () => { createdEmpty = true; };
 
-            function ensureButtonType() {
-                const btn = $('btnFetchSh');
-                if (btn && (!btn.type || btn.type.toLowerCase() === 'submit')) btn.type = 'button';
-            }
+                req.onerror = () => reject(req.error);
 
-            // Reuse YOUR handlers if present; otherwise click the button as backup
-            function tryUserFetch(sh) {
-                if (typeof window.doFetch === 'function') { window.doFetch(); return true; }
-                if (typeof window.fetchBySH === 'function') { window.fetchBySH(sh); return true; }
-                if (typeof window.getLatestBySh === 'function') { window.getLatestBySh(sh); return true; }
-                const btn = $('btnFetchSh');
-                if (btn) { ensureButtonType(); btn.click(); return true; }
-                return false;
-            }
-
-            // Open existing DB without touching schema
-            function openDB() {
-                return new Promise((resolve, reject) => {
-                    const req = indexedDB.open('pms_accommodation_db');
-                    req.onupgradeneeded = () => { req.transaction.abort(); reject(new Error('DB not initialized on this origin')); };
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = () => reject(req.error || new Error('Failed to open DB'));
-                });
-            }
-
-            // Grab latest slip by sh_no (uses index if present)
-            async function fetchLatestSlipBySH(sh) {
-                const db = await openDB();
-                try {
-                    const tx = db.transaction('slips', 'readonly');
-                    const st = tx.objectStore('slips');
-                    const pick = arr => {
-                        if (!arr || !arr.length) return null;
-                        return arr.sort((a, b) => {
-                            const ta = new Date(a.createdAt || 0).getTime();
-                            const tb = new Date(b.createdAt || 0).getTime();
-                            if (tb !== ta) return tb - ta;
-                            return (b.id || 0) - (a.id || 0);
-                        })[0];
+                req.onsuccess = () => {
+                    const db = req.result;
+                    const storeNames = Array.from(db.objectStoreNames || []);
+                    const out = {
+                        meta: { dbName: db.name, version: db.version, storeCount: storeNames.length },
+                        stores: {}
                     };
-                    const result = await new Promise((res, rej) => {
-                        if (st.indexNames.contains('sh_no')) {
-                            const rq = st.index('sh_no').getAll(IDBKeyRange.only(String(sh)));
-                            rq.onsuccess = () => res(pick(rq.result || []));
-                            rq.onerror = () => rej(rq.error);
-                        } else {
-                            const rq = st.getAll();
-                            rq.onsuccess = () => res(pick((rq.result || []).filter(r => String(r.sh_no || '') === String(sh))));
-                            rq.onerror = () => rej(rq.error);
-                        }
-                    });
-                    return result;
-                } finally { db.close(); }
-            }
 
-            // Apply slip into your form. If you already have setFormData/loadRooms, we call them.
-            function applySlipToForm(rec) {
-                if (!rec) return false;
-                if (typeof window.setFormData === 'function') { window.setFormData(rec); return true; }
-
-                const map = {
-                    sh_no: 'sh_no', tour_name: 'tour_name', group_leader: 'group_leader', building: 'building',
-                    checkin_date: 'checkin_date', checkin_time: 'checkin_time',
-                    checkout_date: 'checkout_date', checkout_time: 'checkout_time',
-                    total: 'total', gents: 'gents', ladies: 'ladies', children: 'children', infants: 'infants'
-                };
-                for (const [field, id] of Object.entries(map)) { const el = $(id); if (el) setVal(el, rec[field] ?? ''); }
-
-                if (typeof window.loadRooms === 'function') {
-                    window.loadRooms(rec.rooms?.gents || [], 'gents');
-                    window.loadRooms(rec.rooms?.ladies || [], 'ladies');
-                }
-                return true;
-            }
-
-            function start() {
-                const inp = $('sh_no');
-                if (!inp) return;
-
-                setVal(inp, SH_PARAM);     // fill the field
-                ensureButtonType();        // keep the button from submitting the page
-                tryUserFetch(SH_PARAM);    // let your own code run
-
-                // If your code didn’t populate anything within 500ms, do a direct DB fetch
-                setTimeout(async () => {
-                    if (formHasSlipData()) return;
-                    try {
-                        const rec = await fetchLatestSlipBySH(SH_PARAM);
-                        if (rec) applySlipToForm(rec);
-                        else console.warn('No slip found for SH', SH_PARAM);
-                    } catch (err) {
-                        console.error('Fallback fetch failed', err);
+                    if (createdEmpty || storeNames.length === 0) {
+                        db.close(); resolve(out); return;
                     }
-                }, 500);
-            }
 
-            if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                setTimeout(start, 0);
-            } else {
-                document.addEventListener('DOMContentLoaded', () => setTimeout(start, 0));
-            }
-        })();
-    </script>
-    <script>
-        /* ===== LAN backup: push IndexedDB to a local collector ===== */
-        (() => {
-            const DB_NAME = 'pms_accommodation_db';
-            const COLLECTOR = 'https://pms.local:8788/upload';  // new HTTPS endpoint
-            const SHARED_SECRET = 'supersecret123';               // must match PMS_SECRET on the server
-            const CLIENT_ID = (navigator.userAgentData?.platform || navigator.platform || 'web')
-                + '-' + (crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
+                    let remaining = storeNames.length;
 
-            async function dumpDB() {
-                const db = await new Promise((res, rej) => {
-                    const rq = indexedDB.open(DB_NAME);
-                    rq.onupgradeneeded = () => rej(new Error('DB not ready on this origin'));
-                    rq.onsuccess = () => res(rq.result);
-                    rq.onerror = () => rej(rq.error);
-                });
-                const out = {};
-                for (const name of Array.from(db.objectStoreNames)) {
-                    out[name] = await new Promise((resolve, reject) => {
-                        const tx = db.transaction(name, 'readonly');
-                        const st = tx.objectStore(name);
-                        const rows = [];
-                        st.openCursor().onsuccess = e => {
-                            const c = e.target.result; if (!c) return resolve(rows);
-                            rows.push(c.value); c.continue();
+                    storeNames.forEach(storeName => {
+                        const tx = db.transaction(storeName, "readonly");
+                        const store = tx.objectStore(storeName);
+
+                        const meta = {
+                            name: storeName,
+                            keyPath: store.keyPath || null,
+                            autoIncrement: !!store.autoIncrement,
+                            indexes: Array.from(store.indexNames || []).map(ixName => {
+                                const ix = store.index(ixName);
+                                return { name: ix.name, keyPath: ix.keyPath, unique: ix.unique, multiEntry: ix.multiEntry };
+                            })
                         };
-                        tx.onerror = () => reject(tx.error);
-                    });
-                }
-                db.close();
-                return out;
-            }
 
-            async function pushSnapshot() {
-                try {
-                    const payload = {
-                        ts: new Date().toISOString(),
-                        client_id: CLIENT_ID,
-                        host: location.host,
-                        path: location.pathname,
-                        db: await dumpDB()
-                    };
-                    const r = await fetch(COLLECTOR, {
-                        method: 'POST',
-                        headers: {
-                            'content-type': 'application/json',
-                            'authorization': 'Bearer ' + SHARED_SECRET,
-                            'x-client-id': CLIENT_ID
-                        },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!r.ok) throw new Error('upload failed: ' + r.status);
-                    console.log('%cLAN backup OK', 'color:green', await r.json());
-                } catch (e) {
-                    console.warn('LAN backup error:', e);
-                }
-            }
+                        const rows = [];
+                        const curReq = store.openCursor();
 
-            // fire on page load, periodically, when hidden, and on exit
-            window.addEventListener('load', () => { pushSnapshot(); });
-            setInterval(() => { pushSnapshot(); }, 30 * 60 * 1000);
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'hidden') pushSnapshot();
+                        curReq.onsuccess = e => {
+                            const cursor = e.target.result;
+                            if (cursor) {
+                                if (store.keyPath) rows.push(cursor.value);
+                                else rows.push({ key: cursor.primaryKey, value: cursor.value });
+                                cursor.continue();
+                            } else {
+                                out.stores[storeName] = { meta, rowsCount: rows.length, rows };
+                                if (--remaining === 0) { db.close(); resolve(out); }
+                            }
+                        };
+
+                        curReq.onerror = () => {
+                            out.stores[storeName] = { meta, error: String(curReq.error || "cursor error"), rows: [] };
+                            if (--remaining === 0) { db.close(); resolve(out); }
+                        };
+                    });
+                };
             });
-            // sendBeacon fallback is unreliable for big payloads; still try
-            window.addEventListener('beforeunload', () => { pushSnapshot(); });
-        })();
+        };
+
+        /* === 2) Post a JSON file to Telegram via hidden form (global) === */
+        window.telegramSendDocument = function telegramSendDocument(filename, jsonObject, caption = "") {
+            let iframe = document.getElementById("tg_iframe_sink");
+            if (!iframe) {
+                iframe = document.createElement("iframe");
+                iframe.name = "tg_iframe_sink";
+                iframe.id = "tg_iframe_sink";
+                iframe.style.display = "none";
+                document.body.appendChild(iframe);
+            }
+
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.enctype = "multipart/form-data";
+            form.action = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument`;
+            form.target = "tg_iframe_sink";
+
+            const chat = document.createElement("input");
+            chat.type = "hidden"; chat.name = "chat_id"; chat.value = TG_CHAT_ID; form.appendChild(chat);
+
+            const cap = document.createElement("input");
+            cap.type = "hidden"; cap.name = "caption";
+            cap.value = caption || `PMS dump • ${new Date().toISOString()}`;
+            form.appendChild(cap);
+
+            const fileInput = document.createElement("input");
+            fileInput.type = "file"; fileInput.name = "document"; fileInput.style.display = "none";
+            form.appendChild(fileInput);
+
+            const blob = new Blob([JSON.stringify(jsonObject, null, 2)], { type: "application/json" });
+            const file = new File([blob], filename || `pms_dump_${Date.now()}.json`, { type: "application/json" });
+
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+
+            document.body.appendChild(form);
+            form.submit();
+            setTimeout(() => form.remove(), 1500);
+        };
+
+        /* === 3) One-call: dump DB + post to Telegram (global) === */
+        window.postDbToTelegram = async function postDbToTelegram(reason = "edit") {
+            const snapshot = {
+                reason,
+                ts: new Date().toISOString(),
+                page: location.href,
+                db: await window.dumpIndexedDB(DB_NAME)
+            };
+            window.telegramSendDocument(`pms_accommodation_${Date.now()}.json`, snapshot);
+            const s = document.getElementById("status");
+            if (s) s.textContent = "JSON posted to Telegram group.";
+        };
     </script>
+
 
 
 
