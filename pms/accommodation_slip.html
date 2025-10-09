@@ -1065,6 +1065,123 @@
         })();
     </script>
     <script>
+        // sh query wiring from checkin checkout page
+        (function () {
+            const SH_PARAM = new URLSearchParams(location.search).get('sh_no');
+            if (!SH_PARAM) return;
+
+            const $ = id => document.getElementById(id) || document.querySelector(`[name="${id}"]`);
+            const setVal = (el, val) => { if (!el) return; el.value = val ?? ''; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+
+            function formHasSlipData() {
+                const keys = ['tour_name', 'group_leader', 'building', 'total', 'gents', 'ladies', 'children', 'infants'];
+                return keys.some(k => { const el = $(k); return el && String(el.value || '').trim().length > 0; });
+            }
+
+            function ensureButtonType() {
+                const btn = $('btnFetchSh');
+                if (btn && (!btn.type || btn.type.toLowerCase() === 'submit')) btn.type = 'button';
+            }
+
+            // Reuse YOUR handlers if present; otherwise click the button as backup
+            function tryUserFetch(sh) {
+                if (typeof window.doFetch === 'function') { window.doFetch(); return true; }
+                if (typeof window.fetchBySH === 'function') { window.fetchBySH(sh); return true; }
+                if (typeof window.getLatestBySh === 'function') { window.getLatestBySh(sh); return true; }
+                const btn = $('btnFetchSh');
+                if (btn) { ensureButtonType(); btn.click(); return true; }
+                return false;
+            }
+
+            // Open existing DB without touching schema
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('pms_accommodation_db');
+                    req.onupgradeneeded = () => { req.transaction.abort(); reject(new Error('DB not initialized on this origin')); };
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error || new Error('Failed to open DB'));
+                });
+            }
+
+            // Grab latest slip by sh_no (uses index if present)
+            async function fetchLatestSlipBySH(sh) {
+                const db = await openDB();
+                try {
+                    const tx = db.transaction('slips', 'readonly');
+                    const st = tx.objectStore('slips');
+                    const pick = arr => {
+                        if (!arr || !arr.length) return null;
+                        return arr.sort((a, b) => {
+                            const ta = new Date(a.createdAt || 0).getTime();
+                            const tb = new Date(b.createdAt || 0).getTime();
+                            if (tb !== ta) return tb - ta;
+                            return (b.id || 0) - (a.id || 0);
+                        })[0];
+                    };
+                    const result = await new Promise((res, rej) => {
+                        if (st.indexNames.contains('sh_no')) {
+                            const rq = st.index('sh_no').getAll(IDBKeyRange.only(String(sh)));
+                            rq.onsuccess = () => res(pick(rq.result || []));
+                            rq.onerror = () => rej(rq.error);
+                        } else {
+                            const rq = st.getAll();
+                            rq.onsuccess = () => res(pick((rq.result || []).filter(r => String(r.sh_no || '') === String(sh))));
+                            rq.onerror = () => rej(rq.error);
+                        }
+                    });
+                    return result;
+                } finally { db.close(); }
+            }
+
+            // Apply slip into your form. If you already have setFormData/loadRooms, we call them.
+            function applySlipToForm(rec) {
+                if (!rec) return false;
+                if (typeof window.setFormData === 'function') { window.setFormData(rec); return true; }
+
+                const map = {
+                    sh_no: 'sh_no', tour_name: 'tour_name', group_leader: 'group_leader', building: 'building',
+                    checkin_date: 'checkin_date', checkin_time: 'checkin_time',
+                    checkout_date: 'checkout_date', checkout_time: 'checkout_time',
+                    total: 'total', gents: 'gents', ladies: 'ladies', children: 'children', infants: 'infants'
+                };
+                for (const [field, id] of Object.entries(map)) { const el = $(id); if (el) setVal(el, rec[field] ?? ''); }
+
+                if (typeof window.loadRooms === 'function') {
+                    window.loadRooms(rec.rooms?.gents || [], 'gents');
+                    window.loadRooms(rec.rooms?.ladies || [], 'ladies');
+                }
+                return true;
+            }
+
+            function start() {
+                const inp = $('sh_no');
+                if (!inp) return;
+
+                setVal(inp, SH_PARAM);     // fill the field
+                ensureButtonType();        // keep the button from submitting the page
+                tryUserFetch(SH_PARAM);    // let your own code run
+
+                // If your code didn’t populate anything within 500ms, do a direct DB fetch
+                setTimeout(async () => {
+                    if (formHasSlipData()) return;
+                    try {
+                        const rec = await fetchLatestSlipBySH(SH_PARAM);
+                        if (rec) applySlipToForm(rec);
+                        else console.warn('No slip found for SH', SH_PARAM);
+                    } catch (err) {
+                        console.error('Fallback fetch failed', err);
+                    }
+                }, 500);
+            }
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                setTimeout(start, 0);
+            } else {
+                document.addEventListener('DOMContentLoaded', () => setTimeout(start, 0));
+            }
+        })();
+    </script>
+    <script>
         /* === GLOBAL CONFIG (yes, hardcoded like you wanted) === */
         // const DB_NAME = "pms_accommodation_db";
         const TG_BOT_TOKEN = "8159532809:AAG_183ak6FWeaQ1mhBgqh7ATGq9k2e1fUM";
