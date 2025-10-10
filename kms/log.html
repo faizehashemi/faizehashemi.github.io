@@ -1,0 +1,38 @@
+<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<link rel=stylesheet href=styles.css><script defer src=db.js></script>
+<script defer>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await kmsOpenDB(); await kmsEnsureSeeds();
+  const workers = await kmsGetAll('workers'); const tasks = await kmsGetAll('task_catalog'); const stations = await kmsGetAll('stations');
+  const opt=(list,k,l)=>list.map(i=>`<option value="${i[k]}">${i[l]}</option>`).join('');
+  worker.innerHTML=opt(workers,'worker_id','full_name'); task.innerHTML=opt(tasks,'task_id','name'); station.innerHTML=opt(stations,'station_id','name');
+  entry_date.value = new Date().toISOString().slice(0,10); hour_24.value = new Date().getHours(); start_minute.value = new Date().getMinutes();
+  document.getElementById('logForm').addEventListener('submit', async e=>{
+    e.preventDefault(); const f=e.target;
+    await kmsAdd('timesheet_entries',{entry_date:f.entry_date.value,hour_24:Number(f.hour_24.value),worker_id:Number(f.worker.value),task_id:Number(f.task.value),station_id:f.station.value?Number(f.station.value):null,status:f.status.value, start_minute:Number(f.start_minute.value)||0,end_minute:Number(f.end_minute.value)||59,quantity:f.quantity.value?Number(f.quantity.value):null,unit:f.unit.value||null});
+    f.reset(); entry_date.value=new Date().toISOString().slice(0,10);
+  });
+});
+</script>
+<title>Log</title></head><body>
+<div class=container>
+  <h1>Quick Log</h1>
+  <div class=card>
+    <form id=logForm>
+      <label>Date</label><input type=date id=entry_date name=entry_date required>
+      <label>Hour</label><input type=number id=hour_24 name=hour_24 min=0 max=23 required>
+      <label>Worker</label><select id=worker name=worker required></select>
+      <label>Task</label><select id=task name=task required></select>
+      <label>Station</label><select id=station name=station><option value=''>—</option></select>
+      <label>Start min</label><input type=number id=start_minute name=start_minute min=0 max=59>
+      <label>End min</label><input type=number id=end_minute name=end_minute min=0 max=59 value=59>
+      <label>Status</label><select id=status name=status><option>recorded</option><option>verified</option><option>void</option></select>
+      <label>Qty</label><input type=number id=quantity name=quantity step=0.01><label>Unit</label><input id=unit name=unit>
+      <button type=submit>Save</button>
+    </form>
+  </div>
+</div>
+<nav class=bottom>
+  <a href=index.html>🏠</a><a href=init.html>⚙️</a><a class=active href=log.html>📝</a><a href=reports.html>📊</a><a href=behavior.html>⭐</a><a href=edit.html>✏️</a>
+</nav><div style="height:72px"></div>
+</body></html>

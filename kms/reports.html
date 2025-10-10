@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<link rel=stylesheet href=styles.css><script defer src=db.js></script>
+<script defer>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await kmsOpenDB(); const workers=await kmsGetAll('workers'); const tasks=await kmsGetAll('task_catalog'); const stations=await kmsGetAll('stations');
+  worker.innerHTML = '<option value="">All</option>' + workers.map(w=>`<option value="${w.worker_id}">${w.full_name}</option>`).join('');
+  task.innerHTML = '<option value="">All</option>' + tasks.map(t=>`<option value="${t.task_id}">${t.name}</option>`).join('');
+  station.innerHTML = '<option value="">All</option>' + stations.map(s=>`<option value="${s.station_id}">${s.name}</option>`).join('');
+  reportForm.addEventListener('submit', async e=>{
+    e.preventDefault(); const f=e.target; let rows=await kmsGetAll('timesheet_entries');
+    const from=f.from.value||'0000-01-01', to=f.to.value||'9999-12-31'; rows=rows.filter(r=>r.entry_date>=from && r.entry_date<=to);
+    if(f.worker.value) rows=rows.filter(r=>String(r.worker_id)===f.worker.value);
+    if(f.task.value) rows=rows.filter(r=>String(r.task_id)===f.task.value);
+    if(f.station.value) rows=rows.filter(r=>String(r.station_id)===f.station.value);
+    const total=rows.length; document.getElementById('sum1').textContent=total;
+    const tbody=document.querySelector('#tbl tbody'); tbody.innerHTML='';
+    rows.sort((a,b)=>a.entry_date.localeCompare(b.entry_date) || a.hour_24-b.hour_24);
+    for(const r of rows){ const tr=document.createElement('tr'); tr.innerHTML = `<td>${r.entry_date}</td><td>${r.hour_24}</td><td>${r.worker_id}</td><td>${r.task_id}</td><td>${r.station_id||''}</td><td>${r.quantity||''} ${r.unit||''}</td><td>${r.status}</td>`; tbody.appendChild(tr); }
+  });
+});
+</script>
+<title>Reports</title></head><body>
+<div class=container>
+  <h1>Reports</h1>
+  <div class=card>
+    <form id=reportForm>
+      <label>From</label><input type=date name=from>
+      <label>To</label><input type=date name=to>
+      <label>Worker</label><select id=worker name=worker></select>
+      <label>Task</label><select id=task name=task></select>
+      <label>Station</label><select id=station name=station></select>
+      <button type=submit>Run</button>
+    </form>
+  </div>
+  <div class=card><b>Entries:</b> <span id=sum1>0</span></div>
+  <div class=card>
+    <table class=table id=tbl><thead><tr><th>Date</th><th>Hour</th><th>Worker</th><th>Task</th><th>Station</th><th>Output</th><th>Status</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<nav class=bottom>
+  <a href=index.html>🏠</a><a href=init.html>⚙️</a><a href=log.html>📝</a><a class=active href=reports.html>📊</a><a href=behavior.html>⭐</a><a href=edit.html>✏️</a>
+</nav><div style="height:72px"></div>
+</body></html>
