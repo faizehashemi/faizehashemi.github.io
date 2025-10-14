@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>Admin</title>
+    <style>
+        :root {
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown, all text */
+            --muted: #5e4a39; /* softer brown */
+            --bg: #f7efe1; /* page background (cream) */
+            --card: #fffaf1; /* panels/cards */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --gold: #d4af37; /* accent gold */
+            --shadow: 0 6px 20px rgba(92,64,28,.12);
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            margin: 15px;
+            color: var(--ink);
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 22px auto;
+            background: var(--card);
+            padding: 18px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            text-align: center;
+            color: var(--ink);
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(9, minmax(120px, 1fr));
+            gap: 10px;
+            align-items: end;
+            margin: 10px 0 16px;
+        }
+
+            .controls > div {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+        label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        input, select, button {
+            font: inherit;
+            color: var(--ink);
+        }
+
+            input[type="date"],
+            input[type="text"],
+            select {
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 8px;
+                background: #fffdf7;
+            }
+
+        button {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fffdf5;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+        .danger {
+            border-color: #b86a5e;
+            color: #7f1d1d;
+            background: #fff5f3;
+        }
+
+            .danger:hover {
+                background: #ffeceb
+            }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            vertical-align: top;
+            color: var(--ink);
+        }
+
+        th {
+            background: #f3e6ca; /* light cream header */
+            text-align: left;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .right {
+            text-align: right
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        /* Split layout */
+        .split {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+        }
+
+        /* Cards & pills */
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            background: #fffdf7;
+        }
+
+        .pill {
+            display: inline-block;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 10px;
+            margin: 0 6px 6px 0;
+            background: #fffaf1;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        #status {
+            margin-top: 10px;
+            color: var(--muted)
+        }
+
+        /* Responsive */
+        @media (max-width:1000px) {
+            .controls {
+                grid-template-columns: 1fr 1fr
+            }
+
+            .split {
+                grid-template-columns: 1fr
+            }
+        }
+    </style>
+
+</head>
+<body>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="./site-nav.js"></script>
+
+    <div class="wrap">
+        <h1>Slip Admin — Delete & Backup</h1>
+
+        <div class="controls">
+            <div>
+                <label for="q">Search (tour / leader / building / SH)</label>
+                <input id="q" type="text" placeholder="type to filter…">
+            </div>
+            <div>
+                <label for="roomq">Search by room</label>
+                <input id="roomq" type="text" placeholder="e.g., 501 or 12A">
+            </div>
+            <div>
+                <label for="bld">Building</label>
+                <select id="bld"></select>
+            </div>
+            <div>
+                <label for="from">Created from</label>
+                <input id="from" type="date">
+            </div>
+            <div>
+                <label for="to">Created to</label>
+                <input id="to" type="date">
+            </div>
+            <div>
+                <button id="btnRefresh">Refresh</button>
+            </div>
+            <div>
+                <button id="btnExport">Export JSON</button>
+            </div>
+            <div>
+                <input id="fileImport" type="file" accept="application/json" style="display:none">
+                <button id="btnImport">Import JSON</button>
+            </div>
+            <div>
+                <button id="btnPrint">Print List</button>
+            </div>
+        </div>
+
+        <div class="split">
+            <div>
+                <table id="tbl">
+                    <thead>
+                        <tr>
+                            <th style="width:34px;"><input type="checkbox" id="chkAll"></th>
+                            <th style="width:70px;">ID</th>
+                            <th>Tour</th>
+                            <th>Leader</th>
+                            <th>Building</th>
+                            <th>SH</th>
+                            <th>Check-in</th>
+                            <th>Check-out</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+
+                <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <button id="btnDeleteSel" class="danger">Delete selected</button>
+                    <button id="btnDeleteAll" class="danger">Delete ALL</button>
+                    <span class="muted" id="count"></span>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h3 style="margin:0 0 8px;">Preview</h3>
+                    <div id="preview" class="muted">Select a row to preview its details. I’ll wait.</div>
+                </div>
+            </div>
+        </div>
+
+        <p class="muted" id="status"></p>
+    </div>
+
+    <script>/* --------------------- IndexedDB plumbing (v2) --------------------- */
+
+
+/* =================== IndexedDB plumbing =================== */
+/* ====== Rewired to fetch hardcoded Gist (read-only) ====== */
+const DB_NAME = 'pms_accommodation_db';
+const STORE = 'slips';
+
+// Return a small dummy DB-like object so existing callers that check
+// db.objectStoreNames.contains(STORE) keep behaving without changes.
+function openExistingDB(name) {
+  return new Promise((resolve) => {
+    // very small stand-in that implements objectStoreNames.contains and close()
+    const fakeDb = {
+      objectStoreNames: {
+        contains: (s) => String(s) === STORE
+      },
+      close: () => { /* noop for compatibility */ }
+    };
+    resolve(fakeDb);
+  });
+}
+
+async function getAllRecords() {
+  // raw gist URL (hardcoded by your request)
+  const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/4d98eb35d2f88b099a1eb099a510dfed/raw';
+  // keep same error behavior as original when something fails
+  let db;
+  try {
+    // keep the openExistingDB call so callers that expect it still see it run
+    db = await openExistingDB(DB_NAME);
+    if (!db || !db.objectStoreNames || typeof db.objectStoreNames.contains !== 'function') {
+      throw new Error('IndexedDB compatibility object not available');
+    }
+    if (!db.objectStoreNames.contains(STORE)) {
+      // mimic original error for missing store
+      db.close && db.close();
+      throw new Error('Object store "' + STORE + '" not found');
+    }
+
+    const resp = await fetch(RAW_GIST + '?cb=' + Date.now(), { cache: 'no-store' });
+    if (!resp.ok) {
+      const err = new Error('Failed to fetch slips from gist: ' + resp.status + ' ' + resp.statusText);
+      db.close && db.close();
+      throw err;
+    }
+
+    const payload = await resp.json();
+
+    // normalize shapes:
+    // - raw array []
+    // - { slips: [...] }
+    // - { db: { stores: { slips: { rows: [...] } } } }
+    let slips = [];
+    if (Array.isArray(payload)) {
+      slips = payload;
+    } else if (Array.isArray(payload.slips)) {
+      slips = payload.slips;
+    } else {
+      slips = payload?.db?.stores?.slips?.rows || [];
+    }
+
+    db.close && db.close();
+    return slips;
+  } catch (err) {
+    // keep the original throwing behavior so calling code's catch blocks work
+    try { db && db.close && db.close(); } catch (_) {}
+    console.error('getAllSlips():', err);
+    throw err;
+  }
+}
+        async function deleteRecord(id) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).delete(Number(id)).onsuccess = () => resolve();
+                tx.onerror = () => reject(tx.error);
+                tx.oncomplete = () => db.close();
+            });
+        }
+        async function clearAllRecords() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).clear().onsuccess = () => resolve();
+                tx.onerror = () => reject(tx.error);
+                tx.oncomplete = () => db.close();
+            });
+        }
+        async function addRecord(obj) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).add(obj).onsuccess = (e) => resolve(e.target.result);
+                tx.onerror = () => reject(tx.error);
+                tx.oncomplete = () => db.close();
+            });
+        }
+
+        /* -------------------------- UI helpers ------------------------- */
+        function $(id) { return document.getElementById(id); }
+        function fmt(dt) {
+            const d = new Date(dt);
+            return isNaN(d) ? '' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+        }
+        function td(text, cls) { const e = document.createElement('td'); e.textContent = text; if (cls) e.className = cls; return e; }
+        function roomList(r) {
+            const a = (r.rooms?.gents || []).map(x => String(x.room_no || '').trim());
+            const b = (r.rooms?.ladies || []).map(x => String(x.room_no || '').trim());
+            return Array.from(new Set([...a, ...b].filter(Boolean)));
+        }
+
+        /* ------------------------- State & render ------------------------ */
+        let CACHE = [];
+        let FILTERED = [];
+
+        function populateBuildings() {
+            const sel = $('bld');
+            const names = Array.from(new Set(CACHE.map(r => (r.building || '').trim()).filter(Boolean))).sort();
+            sel.innerHTML = '';
+            const optAll = document.createElement('option'); optAll.value = ''; optAll.textContent = 'All buildings';
+            sel.appendChild(optAll);
+            names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+        }
+
+        function applyFilters() {
+            const q = $('q').value.trim().toLowerCase();
+            const roomq = $('roomq').value.trim().toLowerCase();
+            const b = $('bld').value;
+            const from = $('from').value;
+            const to = $('to').value;
+            const fromDt = from ? new Date(from + 'T00:00') : null;
+            const toDt = to ? new Date(to + 'T23:59:59') : null;
+
+            FILTERED = CACHE.filter(r => {
+                if (b && (r.building || '').trim() !== b) return false;
+                if (fromDt && new Date(r.createdAt) < fromDt) return false;
+                if (toDt && new Date(r.createdAt) > toDt) return false;
+
+                // Text query over tour/leader/building/SH
+                if (q) {
+                    const hay = [
+                        r.tour_name || '', r.group_leader || '', r.building || '',
+                        String(r.sh_no || ''), String(r.total || '')
+                    ].join(' ').toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+
+                // Room query: partial match against any room_no in gents/ladies
+                if (roomq) {
+                    const rooms = roomList(r).map(x => x.toLowerCase());
+                    if (!rooms.some(x => x.includes(roomq))) return false;
+                }
+
+                return true;
+            }).sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+        }
+
+        function renderTable() {
+            applyFilters();
+            const tb = $('tbl').querySelector('tbody');
+            tb.innerHTML = '';
+            FILTERED.forEach(r => {
+                const tr = document.createElement('tr');
+                const chk = document.createElement('input'); chk.type = 'checkbox'; chk.dataset.id = r.id;
+                const tdChk = document.createElement('td'); tdChk.appendChild(chk);
+
+                tr.appendChild(tdChk);
+                tr.appendChild(td(r.id));
+                tr.appendChild(td(r.tour_name || ''));
+                tr.appendChild(td(r.group_leader || ''));
+                tr.appendChild(td((r.building || '').trim()));
+                tr.appendChild(td(r.sh_no ?? ''));
+                const ci = r.checkin_date ? new Date(`${r.checkin_date}T${r.checkin_time || '00:00'}`) : null;
+                const co = r.checkout_date ? new Date(`${r.checkout_date}T${r.checkout_time || '00:00'}`) : null;
+                tr.appendChild(td(ci ? fmt(ci) : ''));
+                tr.appendChild(td(co ? fmt(co) : ''));
+                tr.appendChild(td(fmt(r.createdAt)));
+                tr.addEventListener('click', (ev) => {
+                    if (ev.target.tagName.toLowerCase() === 'input') return; // ignore checkbox
+                    showPreview(r);
+                });
+                tb.appendChild(tr);
+            });
+            $('count').textContent = `${FILTERED.length} slip(s) shown`;
+            $('chkAll').checked = false;
+        }
+
+        function showPreview(r) {
+            const div = $('preview');
+            const rooms = roomList(r);
+            const roomsG = (r.rooms?.gents || []).map(x => `${x.room_no || ''} (cap ${x.capacity ?? '?'})`).filter(Boolean).join(', ') || '—';
+            const roomsL = (r.rooms?.ladies || []).map(x => `${x.room_no || ''} (cap ${x.capacity ?? '?'})`).filter(Boolean).join(', ') || '—';
+
+            div.classList.remove('muted');
+            div.innerHTML = `
+        <div class="pill"><b>ID</b> #${r.id}</div>
+        <div class="pill"><b>Created</b> ${fmt(r.createdAt)}</div>
+        ${r.updatedAt ? `<div class="pill"><b>Updated</b> ${fmt(r.updatedAt)}</div>` : ''}
+        <div style="margin-top:8px;"><b>Tour:</b> ${r.tour_name || ''}</div>
+        <div><b>Leader:</b> ${r.group_leader || ''}</div>
+        <div><b>Building:</b> ${(r.building || '').trim()} &nbsp; <b>SH:</b> ${r.sh_no ?? ''}</div>
+        <div><b>Check-in:</b> ${r.checkin_date || ''} ${r.checkin_time || ''}</div>
+        <div><b>Check-out:</b> ${r.checkout_date || ''} ${r.checkout_time || ''}</div>
+        <div style="margin-top:8px;"><b>Rooms:</b> ${rooms.join(', ') || '—'}</div>
+        <div style="margin-top:8px;"><b>Gents rooms:</b> ${roomsG}</div>
+        <div><b>Ladies rooms:</b> ${roomsL}</div>
+        <div style="margin-top:8px;"><b>Totals:</b> Total ${r.total ?? ''} | Gents ${r.gents ?? ''} | Ladies ${r.ladies ?? ''} | Children ${r.children ?? ''} | Infants ${r.infants ?? ''}</div>
+      `;
+        }
+
+        /* ---------------------------- Actions ---------------------------- */
+        function selectedIds() {
+            return Array.from(document.querySelectorAll('#tbl tbody input[type=checkbox]:checked'))
+                .map(x => Number(x.dataset.id));
+        }
+
+        $('chkAll').addEventListener('change', () => {
+            const on = $('chkAll').checked;
+            document.querySelectorAll('#tbl tbody input[type=checkbox]').forEach(c => c.checked = on);
+        });
+
+        $('btnDeleteSel').addEventListener('click', async () => {
+            const ids = selectedIds();
+            if (ids.length === 0) { alert('Select at least one slip to delete.'); return; }
+            if (!confirm(`Delete ${ids.length} selected slip(s)? This cannot be undone.`)) return;
+            let ok = 0, fail = 0;
+            for (const id of ids) {
+                try { await deleteRecord(id); ok++; } catch { fail++; }
+            }
+            $('status').textContent = `Deleted ${ok} slip(s). ${fail ? fail + ' failed.' : ''}`;
+            await refresh();
+        });
+
+        $('btnDeleteAll').addEventListener('click', async () => {
+            const msg = prompt('Type DELETE to erase ALL slips. No backsies.');
+            if (msg !== 'DELETE') return;
+            await clearAllRecords();
+            $('status').textContent = 'All slips deleted.';
+            await refresh();
+        });
+
+        $('btnExport').addEventListener('click', async () => {
+            const data = await getAllRecords();
+            const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), count: data.length, slips: data }, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `pms_slips_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+        });
+
+        $('btnImport').addEventListener('click', () => $('fileImport').click());
+        $('fileImport').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const json = JSON.parse(text);
+                const slips = Array.isArray(json)
+                    ? json
+                    : (json.slips || json.db?.stores?.slips?.rows || []);
+                if (!Array.isArray(slips) || !slips.length) { alert('No slips found in file.'); return; }
+                const mode = confirm('OK = Add to existing. Cancel = Replace all first.');
+                if (!mode) {
+                    const msg = prompt('Type REPLACE to clear DB then import.');
+                    if (msg !== 'REPLACE') return;
+                    await clearAllRecords();
+                }
+                for (const s of slips) {
+                    const { id, ...rest } = s; // let IndexedDB assign fresh IDs
+                    await addRecord(rest);
+                }
+                $('status').textContent = `Imported ${slips.length} slip(s).`;
+                await refresh();
+            } catch (err) {
+                console.error(err);
+                alert('Import failed. Check console.');
+            } finally {
+                e.target.value = '';
+            }
+        });
+
+        $('btnRefresh').addEventListener('click', refresh);
+        $('btnPrint').addEventListener('click', () => window.print());
+        ['q', 'roomq', 'bld', 'from', 'to'].forEach(id => $(id).addEventListener('input', renderTable));
+
+        /* ------------------------------ Boot ------------------------------ */
+        async function refresh() {
+            CACHE = await getAllRecords();
+            populateBuildings();
+            renderTable();
+            $('preview').classList.add('muted');
+            $('preview').textContent = 'Select a row to preview its details. I’m not psychic.';
+            $('status').textContent = `${CACHE.length} slip(s) in DB.`;
+        }
+
+        refresh().catch(err => {
+            console.error(err);
+            $('status').textContent = 'Could not open the local DB. Open your slip page first and save something.';
+        });</script>
+</body>
+</html>

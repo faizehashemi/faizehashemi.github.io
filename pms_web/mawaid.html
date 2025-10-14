@@ -1,0 +1,670 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mawaid Stats</title>
+    <link rel="icon" href="logo.png" type="image/png" />
+
+    <style>
+        :root {
+            /* Cream • Gold • Brown */
+            --ink: #25170c; /* darkest brown text */
+            --muted: #5e4a39; /* soft brown */
+            --bg: #f7efe1; /* warm cream */
+            --card: #fffaf1; /* card bg */
+            --border: #dcc7a4; /* light brown border */
+            --gold: #d4af37; /* accent */
+            --shadow: 0 12px 30px rgba(92,64,28,.12);
+            --r: 14px;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            color: var(--ink);
+            margin: 0;
+        }
+
+        site-nav {
+            display: block;
+            margin: 12px 12px 0
+        }
+
+        .wrap {
+            max-width: 1750px;
+            margin: 18px auto 36px;
+            padding: 0 12px
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            box-shadow: var(--shadow);
+        }
+
+        header.hero {
+            padding: 14px;
+            background: radial-gradient(120% 160% at 10% 10%, rgba(212,175,55,.12), transparent 60%), var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            box-shadow: var(--shadow);
+            margin-bottom: 12px;
+        }
+
+            header.hero h1 {
+                margin: 0 0 6px;
+                font-size: 20px
+            }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .controls {
+            display: grid;
+            gap: 10px;
+            align-items: end;
+            grid-template-columns: repeat(12,1fr);
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+            gap: 6px
+        }
+
+        .c2 {
+            grid-column: span 1
+        }
+
+        .c3 {
+            grid-column: span 2
+        }
+
+        .c4 {
+            grid-column: span 4
+        }
+
+        label {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        input, select, button {
+            font: inherit;
+            color: var(--ink);
+            background: #fffdf7;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+
+        button {
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+        .btn-gold {
+            background: linear-gradient(0deg, rgba(212,175,55,.15), rgba(212,175,55,.15));
+            border-color: #e7d7a8
+        }
+
+        .summary {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 10px 12px
+        }
+
+        .pill {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 12px;
+            background: #fffaf1;
+            color: var(--muted);
+            font-size: 12px
+        }
+
+        .table-wrap {
+            overflow: auto
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            vertical-align: middle;
+            text-align: center
+        }
+
+        th {
+            background: #f3e6ca;
+            white-space: nowrap;
+            font-weight: 700
+        }
+
+        tfoot td {
+            font-weight: 700;
+            background: #fbf2dc
+        }
+
+        .thal {
+            font-weight: 700
+        }
+        /* bold thal counts */
+        .small {
+            font-size: 12px
+        }
+
+        @media (max-width:900px) {
+            .controls {
+                grid-template-columns: 1fr 1fr
+            }
+
+            .c4, .c3, .c2 {
+                grid-column: span 2
+            }
+        }
+
+        @media print {
+            .controls, .summary, .no-print {
+                display: none !important
+            }
+
+            body {
+                background: #fff
+            }
+
+            .panel {
+                box-shadow: none
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <site-nav></site-nav>
+    <script type="module" src="./site-nav.js"></script>
+
+    <div class="wrap">
+        <header class="hero panel">
+            <h1>Mawaid Stats (Building wise)</h1>
+            <div class="summary">
+                <span class="pill">Date: <b id="pillDate">—</b></span>
+                <span class="pill">Breakfast: <b id="pillB">—</b></span>
+                <span class="pill">Lunch: <b id="pillL">—</b></span>
+                <span class="pill">Dinner: <b id="pillD">—</b></span>
+                <span class="pill">Thal size: <b id="pillThal">8</b></span>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="controls">
+                <div class="col c3">
+                    <label for="statDate">Select date</label>
+                    <input id="statDate" type="date" />
+                </div>
+
+                <!-- Breakfast range -->
+                <div class="col c2">
+                    <label for="timeBStart">Breakfast start</label>
+                    <input id="timeBStart" type="time" value="04:00" />
+                </div>
+                <div class="col c2">
+                    <label for="timeBEnd">Breakfast end</label>
+                    <input id="timeBEnd" type="time" value="09:30" />
+                </div>
+
+                <!-- Lunch range -->
+                <div class="col c2">
+                    <label for="timeLStart">Lunch start</label>
+                    <input id="timeLStart" type="time" value="11:00" />
+                </div>
+                <div class="col c2">
+                    <label for="timeLEnd">Lunch end</label>
+                    <input id="timeLEnd" type="time" value="16:00" />
+                </div>
+
+                <!-- Dinner range -->
+                <div class="col c2">
+                    <label for="timeDStart">Dinner start</label>
+                    <input id="timeDStart" type="time" value="18:00" />
+                </div>
+                <div class="col c2">
+                    <label for="timeDEnd">Dinner end</label>
+                    <input id="timeDEnd" type="time" value="23:00" />
+                </div>
+
+                <div class="col c2">
+                    <label for="thalSize">Thal size</label>
+                    <input id="thalSize" type="number" min="1" step="1" value="8" />
+                </div>
+
+                <!-- Inclusion toggles (affect total Pax only) -->
+                <div class="col c4">
+                    <label>Include in Pax totals</label>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                        <label class="small"><input id="incAdults" type="checkbox" checked /> Adults</label>
+                        <label class="small"><input id="incChildren" type="checkbox" checked /> Children</label>
+                        <label class="small"><input id="incInfants" type="checkbox" checked /> Infants</label>
+                    </div>
+                </div>
+
+                <!-- Visibility toggles (default ON) -->
+                <div class="col c4">
+                    <label>Show breakdown columns</label>
+                    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                        <label class="small"><input id="showG" type="checkbox" checked /> Gents</label>
+                        <label class="small"><input id="showL" type="checkbox" checked /> Ladies</label>
+                        <label class="small"><input id="showC" type="checkbox" checked /> Children</label>
+                        <label class="small"><input id="showI" type="checkbox" checked /> Infants</label>
+                    </div>
+                </div>
+
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnRefresh" class="btn-gold no-print">Refresh DB</button>
+                </div>
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnRun" class="no-print">Run</button>
+                </div>
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnPrint" class="no-print">Print</button>
+                </div>
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnCSV" class="no-print">Export CSV</button>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table id="tbl">
+                    <thead></thead>
+                    <tbody></tbody>
+                    <tfoot></tfoot>
+                </table>
+            </div>
+
+            <div class="small muted" style="padding:10px 12px">
+                A guest is counted for a meal if their stay overlaps the meal window
+                (<code>[check-in, checkout)</code> overlaps <code>[start, end)</code>).
+                Thals = <code>ceil(pax / thalSize)</code>. Breakdown columns reflect raw categories.
+            </div>
+        </section>
+
+        <p id="status" class="muted" style="margin-top:10px"></p>
+    </div>
+
+    <script>
+     /* ====== Rewired to fetch hardcoded Gist (read-only) ====== */
+const DB_NAME = 'pms_accommodation_db';
+const STORE = 'slips';
+
+// Return a small dummy DB-like object so existing callers that check
+// db.objectStoreNames.contains(STORE) keep behaving without changes.
+function openExistingDB(name) {
+  return new Promise((resolve) => {
+    // very small stand-in that implements objectStoreNames.contains and close()
+    const fakeDb = {
+      objectStoreNames: {
+        contains: (s) => String(s) === STORE
+      },
+      close: () => { /* noop for compatibility */ }
+    };
+    resolve(fakeDb);
+  });
+}
+
+async function getAllSlips() {
+  // raw gist URL (hardcoded by your request)
+  const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/4d98eb35d2f88b099a1eb099a510dfed/raw';
+  // keep same error behavior as original when something fails
+  let db;
+  try {
+    // keep the openExistingDB call so callers that expect it still see it run
+    db = await openExistingDB(DB_NAME);
+    if (!db || !db.objectStoreNames || typeof db.objectStoreNames.contains !== 'function') {
+      throw new Error('IndexedDB compatibility object not available');
+    }
+    if (!db.objectStoreNames.contains(STORE)) {
+      // mimic original error for missing store
+      db.close && db.close();
+      throw new Error('Object store "' + STORE + '" not found');
+    }
+
+    const resp = await fetch(RAW_GIST + '?cb=' + Date.now(), { cache: 'no-store' });
+    if (!resp.ok) {
+      const err = new Error('Failed to fetch slips from gist: ' + resp.status + ' ' + resp.statusText);
+      db.close && db.close();
+      throw err;
+    }
+
+    const payload = await resp.json();
+
+    // normalize shapes:
+    // - raw array []
+    // - { slips: [...] }
+    // - { db: { stores: { slips: { rows: [...] } } } }
+    let slips = [];
+    if (Array.isArray(payload)) {
+      slips = payload;
+    } else if (Array.isArray(payload.slips)) {
+      slips = payload.slips;
+    } else {
+      slips = payload?.db?.stores?.slips?.rows || [];
+    }
+
+    db.close && db.close();
+    return slips;
+  } catch (err) {
+    // keep the original throwing behavior so calling code's catch blocks work
+    try { db && db.close && db.close(); } catch (_) {}
+    console.error('getAllSlips():', err);
+    throw err;
+  }
+}
+
+
+        /* ====== Utils ====== */
+        const $ = id => document.getElementById(id);
+        const pad = n => String(n).padStart(2, '0');
+        function parseLocalDateTime(d, t) {
+            if (!d) return null;
+            const s = t && t.length ? t : '00:00';
+            const [y, m, dd] = d.split('-').map(Number);
+            const [hh, mi] = s.split(':').map(Number);
+            const dt = new Date(y, (m || 1) - 1, (dd || 1), hh || 0, mi || 0, 0, 0);
+            return isNaN(dt) ? null : dt;
+        }
+        function overlap(aStart, aEnd, bStart, bEnd) {
+            return aStart < bEnd && bStart < aEnd; // proper interval overlap on [start, end)
+        }
+        function uniq(a) { return Array.from(new Set(a)); }
+
+        /* Pax totals controlled by include toggles */
+        function paxOf(rec, incA, incC, incI) {
+            const total = Number(rec.total);
+            const g = Number(rec.gents) || 0, l = Number(rec.ladies) || 0, c = Number(rec.children) || 0, i = Number(rec.infants) || 0;
+            const wantAll = incA && incC && incI;
+            if (Number.isFinite(total) && total > 0 && wantAll) return total;
+            let s = 0; if (incA) s += g + l; if (incC) s += c; if (incI) s += i;
+            return s || (Number.isFinite(total) ? total : 0);
+        }
+
+        /* ====== Compute over ranges ====== */
+        let DB_CACHE = [];
+
+        function parseRange(dateStr, tStart, tEnd) {
+            const start = parseLocalDateTime(dateStr, tStart);
+            const end = parseLocalDateTime(dateStr, tEnd);
+            if (!start || !end || end <= start) return null;
+            return [start, end];
+        }
+
+        function computeByBuilding(dateStr, ranges, thal, incA, incC, incI) {
+            const bR = parseRange(dateStr, ranges.B.start, ranges.B.end);
+            const lR = parseRange(dateStr, ranges.L.start, ranges.L.end);
+            const dR = parseRange(dateStr, ranges.D.start, ranges.D.end);
+            if (!bR || !lR || !dR) return null;
+
+            const buildings = uniq(DB_CACHE.map(r => (r.building || '').trim()).filter(Boolean)).sort((a, b) => a.localeCompare(b));
+            const agg = new Map();
+            for (const b of buildings) agg.set(b, {
+                bp: 0, lp: 0, dp: 0,
+                b: { g: 0, l: 0, c: 0, i: 0 },
+                l: { g: 0, l: 0, c: 0, i: 0 },
+                d: { g: 0, l: 0, c: 0, i: 0 }
+            });
+
+            for (const rec of DB_CACHE) {
+                const b = (rec.building || '').trim(); if (!b || !agg.has(b)) continue;
+
+                const ci = parseLocalDateTime(rec.checkin_date, rec.checkin_time);
+                const co = parseLocalDateTime(rec.checkout_date, rec.checkout_time);
+                if (!ci || !co) continue;
+
+                const pax = paxOf(rec, incA, incC, incI);
+                const g = Number(rec.gents) || 0, l = Number(rec.ladies) || 0, c = Number(rec.children) || 0, i = Number(rec.infants) || 0;
+                const a = agg.get(b);
+
+                if (overlap(ci, co, bR[0], bR[1])) { a.bp += pax; a.b.g += g; a.b.l += l; a.b.c += c; a.b.i += i; }
+                if (overlap(ci, co, lR[0], lR[1])) { a.lp += pax; a.l.g += g; a.l.l += l; a.l.c += c; a.l.i += i; }
+                if (overlap(ci, co, dR[0], dR[1])) { a.dp += pax; a.d.g += g; a.d.l += l; a.d.c += c; a.d.i += i; }
+            }
+
+            let tBP = 0, tLP = 0, tDP = 0;
+            const rows = [];
+            for (const [b, v] of agg.entries()) {
+                tBP += v.bp; tLP += v.lp; tDP += v.dp;
+                rows.push({
+                    building: b,
+                    bp: v.bp, bt: Math.ceil(v.bp / thal),
+                    lp: v.lp, lt: Math.ceil(v.lp / thal),
+                    dp: v.dp, dt: Math.ceil(v.dp / thal),
+                    b: v.b, l: v.l, d: v.d
+                });
+            }
+            rows.sort((a, b) => a.building.localeCompare(b.building, undefined, { numeric: true }));
+
+            return {
+                rows,
+                totals: { tBP, tLP, tDP, tBT: Math.ceil(tBP / thal), tLT: Math.ceil(tLP / thal), tDT: Math.ceil(tDP / thal) },
+                when: {
+                    B: bR, L: lR, D: dR
+                }
+            };
+        }
+
+        /* ====== Render (dynamic columns) ====== */
+        let CURRENT_COLUMNS = []; // for CSV export
+
+        function buildHeader(show) {
+            const thead = document.querySelector('#tbl thead');
+            const subCols = ['Pax', 'Thals']
+                .concat(show.g ? ['Gents'] : [])
+                .concat(show.l ? ['Ladies'] : [])
+                .concat(show.c ? ['Children'] : [])
+                .concat(show.i ? ['Infants'] : []);
+
+            const top = `<tr>
+          <th rowspan="2">Building</th>
+          <th colspan="${subCols.length}">Breakfast</th>
+          <th colspan="${subCols.length}">Lunch</th>
+          <th colspan="${subCols.length}">Dinner</th>
+        </tr>`;
+
+            const sub = `<tr>${['Breakfast', 'Lunch', 'Dinner'].map(() => subCols.map(s => `<th>${s}</th>`).join('')).join('')}</tr>`;
+            thead.innerHTML = top + sub;
+
+            CURRENT_COLUMNS = ['Building'];
+            for (const meal of ['B', 'L', 'D']) {
+                CURRENT_COLUMNS.push(`${meal}:Pax`, `${meal}:Thals`);
+                if (show.g) CURRENT_COLUMNS.push(`${meal}:Gents`);
+                if (show.l) CURRENT_COLUMNS.push(`${meal}:Ladies`);
+                if (show.c) CURRENT_COLUMNS.push(`${meal}:Children`);
+                if (show.i) CURRENT_COLUMNS.push(`${meal}:Infants`);
+            }
+        }
+
+        function renderBody(stats, show) {
+            const tb = document.querySelector('#tbl tbody');
+            tb.innerHTML = '';
+            for (const r of stats.rows) {
+                const cells = [
+                    `<td>${r.building}</td>`,
+
+                    `<td>${r.bp}</td>`,
+                    `<td class="thal">${r.bt}</td>`,
+                    ...(show.g ? [`<td>${r.b.g}</td>`] : []),
+                    ...(show.l ? [`<td>${r.b.l}</td>`] : []),
+                    ...(show.c ? [`<td>${r.b.c}</td>`] : []),
+                    ...(show.i ? [`<td>${r.b.i}</td>`] : []),
+
+                    `<td>${r.lp}</td>`,
+                    `<td class="thal">${r.lt}</td>`,
+                    ...(show.g ? [`<td>${r.l.g}</td>`] : []),
+                    ...(show.l ? [`<td>${r.l.l}</td>`] : []),
+                    ...(show.c ? [`<td>${r.l.c}</td>`] : []),
+                    ...(show.i ? [`<td>${r.l.i}</td>`] : []),
+
+                    `<td>${r.dp}</td>`,
+                    `<td class="thal">${r.dt}</td>`,
+                    ...(show.g ? [`<td>${r.d.g}</td>`] : []),
+                    ...(show.l ? [`<td>${r.d.l}</td>`] : []),
+                    ...(show.c ? [`<td>${r.d.c}</td>`] : []),
+                    ...(show.i ? [`<td>${r.d.i}</td>`] : [])
+                ];
+                const tr = document.createElement('tr');
+                tr.innerHTML = cells.join('');
+                tb.appendChild(tr);
+            }
+        }
+
+        function renderFoot(stats, thal, show) {
+            const tf = document.querySelector('#tbl tfoot');
+            const sum = (getter) => stats.rows.reduce((a, r) => a + getter(r), 0);
+
+            const row = [
+                `<td>Total</td>`,
+                `<td>${stats.totals.tBP}</td>`,
+                `<td class="thal">${stats.totals.tBT}</td>`,
+                (show.g ? `<td>${sum(r => r.b.g)}</td>` : ''),
+                (show.l ? `<td>${sum(r => r.b.l)}</td>` : ''),
+                (show.c ? `<td>${sum(r => r.b.c)}</td>` : ''),
+                (show.i ? `<td>${sum(r => r.b.i)}</td>` : ''),
+
+                `<td>${stats.totals.tLP}</td>`,
+                `<td class="thal">${stats.totals.tLT}</td>`,
+                (show.g ? `<td>${sum(r => r.l.g)}</td>` : ''),
+                (show.l ? `<td>${sum(r => r.l.l)}</td>` : ''),
+                (show.c ? `<td>${sum(r => r.l.c)}</td>` : ''),
+                (show.i ? `<td>${sum(r => r.l.i)}</td>` : ''),
+
+                `<td>${stats.totals.tDP}</td>`,
+                `<td class="thal">${stats.totals.tDT}</td>`,
+                (show.g ? `<td>${sum(r => r.d.g)}</td>` : ''),
+                (show.l ? `<td>${sum(r => r.d.l)}</td>` : ''),
+                (show.c ? `<td>${sum(r => r.d.c)}</td>` : ''),
+                (show.i ? `<td>${sum(r => r.d.i)}</td>` : '')
+            ].join('');
+            tf.innerHTML = `<tr>${row}</tr>`;
+
+            $('pillThal').textContent = thal;
+        }
+
+        /* ====== CSV Export ====== */
+        function exportCSV() {
+            const lines = [];
+            lines.push(CURRENT_COLUMNS.join(','));
+
+            document.querySelectorAll('#tbl tbody tr').forEach(tr => {
+                const cells = Array.from(tr.children).map(td => td.textContent.replace(/,/g, ''));
+                lines.push(cells.join(','));
+            });
+
+            const tot = Array.from(document.querySelector('#tbl tfoot tr').children)
+                .map(td => td.textContent.replace(/,/g, ''));
+            lines.push(tot.join(','));
+
+            const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `mawaid_${$('statDate').value || 'date'}.csv`;
+            a.click(); URL.revokeObjectURL(a.href);
+        }
+
+        /* ====== Boot ====== */
+        (async function init() {
+            const now = new Date();
+            $('statDate').value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+            $('btnPrint').addEventListener('click', () => window.print());
+            $('btnCSV').addEventListener('click', exportCSV);
+
+            const run = () => {
+                const dateStr = $('statDate').value;
+                const ranges = {
+                    B: { start: $('timeBStart').value || '04:00', end: $('timeBEnd').value || '09:30' },
+                    L: { start: $('timeLStart').value || '11:00', end: $('timeLEnd').value || '16:00' },
+                    D: { start: $('timeDStart').value || '18:00', end: $('timeDEnd').value || '23:00' },
+                };
+                const thal = Math.max(1, Number($('thalSize').value) || 8);
+
+                const incA = $('incAdults').checked;
+                const incC = $('incChildren').checked;
+                const incI = $('incInfants').checked;
+
+                const show = { g: $('showG').checked, l: $('showL').checked, c: $('showC').checked, i: $('showI').checked };
+
+                const stats = computeByBuilding(dateStr, ranges, thal, incA, incC, incI);
+                if (!stats) { alert('Check your start/end times; end must be after start for each meal.'); return; }
+
+                buildHeader(show);
+                renderBody(stats, show);
+                renderFoot(stats, thal, show);
+
+                const fmtR = ([s, e]) => `${pad(s.getHours())}:${pad(s.getMinutes())}–${pad(e.getHours())}:${pad(e.getMinutes())}`;
+                $('pillDate').textContent = `${pad(stats.when.B[0].getDate())}/${pad(stats.when.B[0].getMonth() + 1)}/${stats.when.B[0].getFullYear()}`;
+                $('pillB').textContent = fmtR(stats.when.B);
+                $('pillL').textContent = fmtR(stats.when.L);
+                $('pillD').textContent = fmtR(stats.when.D);
+
+                $('status').textContent = `Computed from ${DB_CACHE.length} slips in ${DB_NAME}/${STORE}. Breakdown visible: `
+                    + Object.entries(show).filter(([, v]) => v).map(([k]) => k.toUpperCase()).join(', ') || 'none';
+            };
+
+            [
+                'statDate', 'timeBStart', 'timeBEnd', 'timeLStart', 'timeLEnd', 'timeDStart', 'timeDEnd',
+                'thalSize', 'incAdults', 'incChildren', 'incInfants', 'showG', 'showL', 'showC', 'showI'
+            ].forEach(id => $(id).addEventListener('input', run));
+
+            $('btnRun').addEventListener('click', run);
+            $('btnRefresh').addEventListener('click', async () => {
+                try {
+                    DB_CACHE = await getAllSlips();
+                    $('status').textContent = `Loaded ${DB_CACHE.length} slips from ${DB_NAME}/${STORE}.`;
+                    run();
+                } catch (e) {
+                    console.error(e);
+                    $('status').textContent = e.message + ' Use the same origin where slips were saved (e.g., http://localhost:8000).';
+                }
+            });
+
+            // initial read
+            try {
+                DB_CACHE = await getAllSlips();
+                $('status').textContent = `Loaded ${DB_CACHE.length} slips from ${DB_NAME}/${STORE}.`;
+            } catch (e) {
+                console.error(e);
+                $('status').textContent = e.message + ' Use the same origin where slips were saved (e.g., http://localhost:8000).';
+            }
+
+            run();
+        })();
+    </script>
+</body>
+</html>
