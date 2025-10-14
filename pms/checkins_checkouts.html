@@ -816,6 +816,154 @@
             window.plusOneDay = plusOneDay;
         })();
     </script>
+    <script>/* ===== Auto "Date To = Date From + 1" wiring, 3am defaults, preset integration ===== */
+        (function () {
+            const $ = id => document.getElementById(id);
+            const pad = n => String(n).padStart(2, "0");
+            const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+            // yyyy-mm-dd -> tomorrow (yyyy-mm-dd), local time
+            function plusOneDay(yyyy_mm_dd) {
+                if (!yyyy_mm_dd) return "";
+                const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
+                const dt = new Date(y, (m || 1) - 1, d || 1);
+                dt.setDate(dt.getDate() + 1);
+                return ymd(dt);
+            }
+
+            // Users can override dateTo; we remember if they did
+            let userEditedDateTo = false;
+            let lastAutoTo = ""; // last automatically set dateTo to avoid fighting the user
+
+            // Ensure inputs exist before poking them
+            function haveInputs() {
+                return $('dateFrom') && $('dateTo') && $('timeFrom') && $('timeTo');
+            }
+
+            // Initialize defaults: today → tomorrow, 03:00 → 03:00
+            function applyDefaults() {
+                const now = new Date();
+                const df = ymd(now);
+                const dt = plusOneDay(df);
+                $('dateFrom').value = $('dateFrom').value || df;
+                $('dateTo').value = $('dateTo').value || dt;
+                $('timeFrom').value = $('timeFrom').value || '03:00';
+                $('timeTo').value = $('timeTo').value || '03:00';
+                lastAutoTo = $('dateTo').value;
+                userEditedDateTo = false;
+            }
+
+            // When user picks a Date From, auto bump Date To to next day unless they already edited it
+            function wireAutoTo() {
+                $('dateFrom').addEventListener('input', () => {
+                    const df = $('dateFrom').value;
+                    if (!df) return;
+                    // only auto-set if dateTo hasn't been manually changed, or still equals our last auto value
+                    if (!userEditedDateTo || $('dateTo').value === lastAutoTo) {
+                        const next = plusOneDay(df);
+                        $('dateTo').value = next;
+                        lastAutoTo = next;
+                        userEditedDateTo = false;
+                    }
+                });
+                $('dateTo').addEventListener('input', () => {
+                    userEditedDateTo = true;
+                });
+            }
+
+            // Make sure inputs represent a valid 24h window if end <= start (e.g. 03:00 to 03:00)
+            function ensureDateRange() {
+                const df = $('dateFrom').value;
+                // If no Date To yet, set it to +1 day
+                if (!$('dateTo').value && df) {
+                    $('dateTo').value = plusOneDay(df);
+                    lastAutoTo = $('dateTo').value;
+                    userEditedDateTo = false;
+                }
+                const tf = $('timeFrom').value || '03:00';
+                const tt = $('timeTo').value || '03:00';
+                const start = df ? new Date(`${df}T${tf}`) : null;
+                const dt = $('dateTo').value;
+                let end = dt ? new Date(`${dt}T${tt}`) : null;
+
+                if (start && end && !(end > start)) {
+                    // bump end by 24h to represent the full-day window
+                    end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+                    $('dateTo').value = ymd(end);
+                    $('timeTo').value = pad(end.getHours()) + ":" + pad(end.getMinutes());
+                    lastAutoTo = $('dateTo').value;
+                    userEditedDateTo = false;
+                }
+                return { start, end };
+            }
+
+            // Help presets behave: they should set 03:00 → 03:00 and use plusOneDay for the "to" date
+            function wirePresets() {
+                const setRange = (df, dt) => {
+                    $('dateFrom').value = df;
+                    $('dateTo').value = dt;
+                    $('timeFrom').value = '03:00';
+                    $('timeTo').value = '03:00';
+                    lastAutoTo = dt; userEditedDateTo = false;
+                    ensureDateRange();
+                    if (typeof window.run === 'function') window.run();
+                };
+
+                $('presetToday')?.addEventListener('click', () => {
+                    const d = new Date(); const df = ymd(d);
+                    setRange(df, plusOneDay(df));
+                });
+
+                $('presetYesterday')?.addEventListener('click', () => {
+                    const d = new Date(); d.setDate(d.getDate() - 1);
+                    const df = ymd(d);
+                    setRange(df, plusOneDay(df));
+                });
+
+                $('preset7')?.addEventListener('click', () => {
+                    const end = new Date();
+                    const start = new Date(); start.setDate(end.getDate() - 6);
+                    setRange(ymd(start), plusOneDay(ymd(end)));
+                });
+
+                $('preset30')?.addEventListener('click', () => {
+                    const end = new Date();
+                    const start = new Date(); start.setDate(end.getDate() - 29);
+                    setRange(ymd(start), plusOneDay(ymd(end)));
+                });
+            }
+
+            // Wrap your existing run() so it always has a sane range
+            function patchRun() {
+                if (typeof window.run !== 'function') return;
+                const orig = window.run;
+                window.run = function patchedRun(...args) {
+                    ensureDateRange();
+                    return orig.apply(this, args);
+                };
+            }
+
+            // If you have export/print handlers that read inputs, they’ll just work after ensureDateRange().
+            // If they run without calling run(), you can patch them similarly, or call ensureDateRange() inside them.
+
+            // Boot
+            function start() {
+                if (!haveInputs()) return;
+                applyDefaults();
+                wireAutoTo();
+                wirePresets();
+                patchRun();
+                // First paint
+                ensureDateRange();
+                if (typeof window.run === 'function') window.run();
+            }
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') start();
+            else document.addEventListener('DOMContentLoaded', start);
+
+            // Expose plusOneDay if you want it elsewhere
+            window.plusOneDay = plusOneDay;
+        })();</script>
 
 </body>
 </html>
