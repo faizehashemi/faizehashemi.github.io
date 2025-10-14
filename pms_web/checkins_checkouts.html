@@ -461,16 +461,17 @@ async function getAllRecords() {
         /* ===== Helpers ===== */
         function $(id) { return document.getElementById(id) }
         function pad(n) { return String(n).padStart(2, '0') }
-        function n(v){ const x = Number(v); return Number.isFinite(x) ? x : 0; }
+        function num(v){ const x = Number(v); return Number.isFinite(x) ? x : 0; }
         function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
         function ymd(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
         function roomsFromSlip(r) { const bag = []; (r.rooms?.gents || []).forEach(x => bag.push(String(x.room_no || '').trim())); (r.rooms?.ladies || []).forEach(x => bag.push(String(x.room_no || '').trim())); return Array.from(new Set(bag.filter(Boolean))); }
-        function guests(r) { const tot = n(r.total); if (tot) return tot; const kids = n(r.children ?? r.child); const inf = n(r.infants ?? r.infant); return n(r.gents) + n(r.ladies) + kids + inf; }
+        function guests(r) { const tot = num(r.total); if (tot) return tot; const kids = num(r.children ?? r.child); const inf = num(r.infants ?? r.infant); return num(r.gents) + num(r.ladies) + kids + inf; }
         function nights(r) { const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time); if (!ci || !co) return ''; const ms = co - ci; return Math.max(0, Math.round(ms / 86400000)); }
         function fmtDT(dt) { if (!dt) return ''; try { return dt.toLocaleString([], { year: '2-digit', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) { return dt.toISOString().slice(0, 16).replace('T', ' ') } }
         function within(dt, start, end) { return dt && dt >= start && dt <= end; }
 
-        // NEW: robust Assigned calculation for your data shape
+        // Assigned guests: sum of per-room assigned across gents and ladies.
+        // Fallbacks: direct numeric fields -> per-room sum -> headcount total.
         function assignedCount(r){
             // Priority 1: explicit numeric fields if present
             const direct = r.assigned ?? r.assigned_count ?? r.assignedGuests ?? r.assignedRoomsCount;
@@ -482,21 +483,13 @@ async function getAllRecords() {
                 const sumAssigned = (arr) => (Array.isArray(arr) ? arr.reduce((s,x)=> s + (Number(x?.assigned) || 0), 0) : 0);
                 const g = sumAssigned(r.rooms.gents);
                 const l = sumAssigned(r.rooms.ladies);
-                return g + l; // if rooms exist, show exactly what has been assigned in rooms
+                return g + l; // exact assigned guests placed into rooms
             }
 
             // Priority 3: no room-level assignment available at all -> fallback to headcount
-            const kids = n(r.children ?? r.child);
-            const inf = n(r.infants ?? r.infant);
-            const tot = n(r.total) || (n(r.gents) + n(r.ladies) + kids + inf);
-            return tot;
-        }
-
-            // Priority 3: fall back to headcount totals when no room-level assignment is available
-            const n = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
-            const kids = n(r.children ?? r.child);
-            const inf = n(r.infants ?? r.infant);
-            const tot = n(r.total) || (n(r.gents) + n(r.ladies) + kids + inf);
+            const kids = num(r.children ?? r.child);
+            const inf = num(r.infants ?? r.infant);
+            const tot = num(r.total) || (num(r.gents) + num(r.ladies) + kids + inf);
             return tot;
         }
 
@@ -564,10 +557,10 @@ async function getAllRecords() {
       <td>${escapeHTML(roomsFromSlip(r).join(', '))}</td>
       <td>${assignedCount(r)}</td>
       <td>${guests(r)}</td>
-      <td>${n(r.gents)}</td>
-      <td>${n(r.ladies)}</td>
-      <td>${n(r.children ?? r.child)}</td>
-      <td>${n(r.infants ?? r.infant)}</td>
+      <td>${num(r.gents)}</td>
+      <td>${num(r.ladies)}</td>
+      <td>${num(r.children ?? r.child)}</td>
+      <td>${num(r.infants ?? r.infant)}</td>
       <td class="nowrap">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
       <td class="nowrap">${openCell}</td>
     `;
@@ -596,11 +589,11 @@ async function getAllRecords() {
                 const row = kind === 'in'
                     ? [fmtDT(ci), r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
                        roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
-                       n(r.gents), n(r.ladies), n(r.children ?? r.child), n(r.infants ?? r.infant),
+                       num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant),
                        fmtDT(co)]
                     : [fmtDT(co), r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
                        roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
-                       n(r.gents), n(r.ladies), n(r.children ?? r.child), n(r.infants ?? r.infant),
+                       num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant),
                        fmtDT(ci)];
 
                 lines.push(row.map(esc).join(sep));
@@ -690,6 +683,27 @@ async function getAllRecords() {
             });
             refresh();
         });
+
+        /* ===== Minimal unit tests (non-intrusive) ===== */
+        (function runUnitTests(){
+            const cases = [
+              {name:'direct assignedGuests', r:{assignedGuests:8}, expect:8},
+              {name:'per-room sum g+l', r:{rooms:{gents:[{room_no:'101',assigned:4}], ladies:[{room_no:'L1',assigned:4}]}}, expect:8},
+              {name:'rooms exist but zero assigned', r:{rooms:{gents:[{assigned:0}], ladies:[{assigned:0}]}, total:9}, expect:0},
+              {name:'fallback total', r:{total:6}, expect:6},
+              {name:'fallback parts with child/infant aliases', r:{gents:2, ladies:3, child:1, infant:1}, expect:7},
+            ];
+            let pass=0, fail=0; const results=[];
+            for(const c of cases){
+              const got = assignedCount(c.r);
+              const ok = got === c.expect;
+              ok ? pass++ : fail++;
+              results.push({case:c.name, got, expect:c.expect, ok});
+            }
+            console.table(results);
+            const st = document.getElementById('status');
+            if (st) st.textContent += ` • tests: ${pass} passed, ${fail} failed`;
+        })();
     </script>
 
     <script>
