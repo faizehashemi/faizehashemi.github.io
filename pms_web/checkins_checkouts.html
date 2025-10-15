@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <link rel="icon" type="image/png" href="./logo.png">
-    <title>Checkins</title>
+    <title>Checkins Web Version</title>
     <style>
         :root {
             /* Cream • Gold • Brown palette */
@@ -353,7 +353,7 @@
                             <th>C</th>
                             <th>I</th>
                             <th class="nowrap">Check-out</th>
-                            <th class="nowrap">Slip</th>
+
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -386,7 +386,7 @@
                             <th>C</th>
                             <th>I</th>
                             <th class="nowrap">Check-in</th>
-                            <th class="nowrap">Slip</th>
+
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -398,70 +398,70 @@
     </div>
 
     <script>
-    /* ===== DB plumbing ===== */
-const DB_NAME = 'pms_accommodation_db';
-const STORE = 'slips';
+        /* ===== DB plumbing ===== */
+        const DB_NAME = 'pms_accommodation_db';
+        const STORE = 'slips';
 
-// Return a small dummy DB-like object so existing callers that check
-// db.objectStoreNames.contains(STORE) keep behaving without changes.
-function openExistingDB(name) {
-  return new Promise((resolve) => {
-    const fakeDb = {
-      objectStoreNames: { contains: (s) => String(s) === STORE },
-      close: () => {}
-    };
-    resolve(fakeDb);
-  });
-}
+        // Return a small dummy DB-like object so existing callers that check
+        // db.objectStoreNames.contains(STORE) keep behaving without changes.
+        function openExistingDB(name) {
+            return new Promise((resolve) => {
+                const fakeDb = {
+                    objectStoreNames: { contains: (s) => String(s) === STORE },
+                    close: () => { }
+                };
+                resolve(fakeDb);
+            });
+        }
 
-async function getAllRecords() {
-  const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/4d98eb35d2f88b099a1eb099a510dfed/raw';
-  let db;
-  try {
-    db = await openExistingDB(DB_NAME);
-    if (!db || !db.objectStoreNames || typeof db.objectStoreNames.contains !== 'function') {
-      throw new Error('IndexedDB compatibility object not available');
-    }
-    if (!db.objectStoreNames.contains(STORE)) {
-      db.close && db.close();
-      throw new Error('Object store "' + STORE + '" not found');
-    }
+        async function getAllRecords() {
+            const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/4d98eb35d2f88b099a1eb099a510dfed/raw';
+            let db;
+            try {
+                db = await openExistingDB(DB_NAME);
+                if (!db || !db.objectStoreNames || typeof db.objectStoreNames.contains !== 'function') {
+                    throw new Error('IndexedDB compatibility object not available');
+                }
+                if (!db.objectStoreNames.contains(STORE)) {
+                    db.close && db.close();
+                    throw new Error('Object store "' + STORE + '" not found');
+                }
 
-    const resp = await fetch(RAW_GIST + '?cb=' + Date.now(), { cache: 'no-store' });
-    if (!resp.ok) {
-      const err = new Error('Failed to fetch slips from gist: ' + resp.status + ' ' + resp.statusText);
-      db.close && db.close();
-      throw err;
-    }
+                const resp = await fetch(RAW_GIST + '?cb=' + Date.now(), { cache: 'no-store' });
+                if (!resp.ok) {
+                    const err = new Error('Failed to fetch slips from gist: ' + resp.status + ' ' + resp.statusText);
+                    db.close && db.close();
+                    throw err;
+                }
 
-    const payload = await resp.json();
+                const payload = await resp.json();
 
-    // normalize shapes:
-    // - raw array []
-    // - { slips: [...] }
-    // - { db: { stores: { slips: { rows: [...] } } } }
-    let slips = [];
-    if (Array.isArray(payload)) {
-      slips = payload;
-    } else if (Array.isArray(payload.slips)) {
-      slips = payload.slips;
-    } else {
-      slips = payload?.db?.stores?.slips?.rows || [];
-    }
+                // normalize shapes:
+                // - raw array []
+                // - { slips: [...] }
+                // - { db: { stores: { slips: { rows: [...] } } } }
+                let slips = [];
+                if (Array.isArray(payload)) {
+                    slips = payload;
+                } else if (Array.isArray(payload.slips)) {
+                    slips = payload.slips;
+                } else {
+                    slips = payload?.db?.stores?.slips?.rows || [];
+                }
 
-    db.close && db.close();
-    return slips;
-  } catch (err) {
-    try { db && db.close && db.close(); } catch (_) {}
-    console.error('getAllSlips():', err);
-    throw err;
-  }
-}
+                db.close && db.close();
+                return slips;
+            } catch (err) {
+                try { db && db.close && db.close(); } catch (_) { }
+                console.error('getAllSlips():', err);
+                throw err;
+            }
+        }
 
         /* ===== Helpers ===== */
         function $(id) { return document.getElementById(id) }
         function pad(n) { return String(n).padStart(2, '0') }
-        function num(v){ const x = Number(v); return Number.isFinite(x) ? x : 0; }
+        function num(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
         function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
         function ymd(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
         function roomsFromSlip(r) { const bag = []; (r.rooms?.gents || []).forEach(x => bag.push(String(x.room_no || '').trim())); (r.rooms?.ladies || []).forEach(x => bag.push(String(x.room_no || '').trim())); return Array.from(new Set(bag.filter(Boolean))); }
@@ -472,15 +472,15 @@ async function getAllRecords() {
 
         // Assigned guests: sum of per-room assigned across gents and ladies.
         // Fallbacks: direct numeric fields -> per-room sum -> headcount total.
-        function assignedCount(r){
+        function assignedCount(r) {
             // Priority 1: explicit numeric fields if present
             const direct = r.assigned ?? r.assigned_count ?? r.assignedGuests ?? r.assignedRoomsCount;
             const directNum = Number(direct);
             if (Number.isFinite(directNum) && directNum >= 0) return directNum;
 
             // Priority 2: if rooms key exists, sum per-room `assigned` for both gents and ladies
-            if (r.rooms && (Array.isArray(r.rooms.gents) || Array.isArray(r.rooms.ladies))){
-                const sumAssigned = (arr) => (Array.isArray(arr) ? arr.reduce((s,x)=> s + (Number(x?.assigned) || 0), 0) : 0);
+            if (r.rooms && (Array.isArray(r.rooms.gents) || Array.isArray(r.rooms.ladies))) {
+                const sumAssigned = (arr) => (Array.isArray(arr) ? arr.reduce((s, x) => s + (Number(x?.assigned) || 0), 0) : 0);
                 const g = sumAssigned(r.rooms.gents);
                 const l = sumAssigned(r.rooms.ladies);
                 return g + l; // exact assigned guests placed into rooms
@@ -543,27 +543,23 @@ async function getAllRecords() {
                 const href = sh ? `accommodation_slip.html?sh_no=${encodeURIComponent(sh)}` : `accommodation_slip.html`;
                 const gl = (r.group_leader && String(r.group_leader).trim()) ? r.group_leader : 'unassigned';
 
-                const openCell = sh
-                    ? `<a class="btn-open" href="${href}" target="_blank" rel="noopener">Open</a>`
-                    : `<a class="btn-open" aria-disabled="true" title="No SH number">Open</a>`;
-
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-      <td class="nowrap">${t}</td>
-      <td>${escapeHTML(r.sh_no || '')}</td>
-      <td>${escapeHTML(r.tour_name || '')}</td>
-      <td>${escapeHTML(gl)}</td>
-      <td>${escapeHTML((r.building || '').trim())}</td>
-      <td>${escapeHTML(roomsFromSlip(r).join(', '))}</td>
-      <td>${assignedCount(r)}</td>
-      <td>${guests(r)}</td>
-      <td>${num(r.gents)}</td>
-      <td>${num(r.ladies)}</td>
-      <td>${num(r.children ?? r.child)}</td>
-      <td>${num(r.infants ?? r.infant)}</td>
-      <td class="nowrap">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
-      <td class="nowrap">${openCell}</td>
-    `;
+          <td class="nowrap">${t}</td>
+          <td>${escapeHTML(r.sh_no || '')}</td>
+          <td>${escapeHTML(r.tour_name || '')}</td>
+          <td>${escapeHTML(gl)}</td>
+          <td>${escapeHTML((r.building || '').trim())}</td>
+          <td>${escapeHTML(roomsFromSlip(r).join(', '))}</td>
+          <td>${assignedCount(r)}</td>
+          <td>${guests(r)}</td>
+          <td>${num(r.gents)}</td>
+          <td>${num(r.ladies)}</td>
+          <td>${num(r.children ?? r.child)}</td>
+          <td>${num(r.infants ?? r.infant)}</td>
+          <td class="nowrap">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
+
+        `;
                 tbody.appendChild(tr);
             }
         }
@@ -574,8 +570,8 @@ async function getAllRecords() {
         function toCSV(rows, kind) {
             // align CSV with table headers: Rooms → As. → T → G → L → C → I
             const head = kind === 'in'
-                ? ['Check-in','SH No','Group','Group Leader','Building','Rooms','As.','T','G','L','C','I','Check-out']
-                : ['Check-out','SH No','Group','Group Leader','Building','Rooms','As.','T','G','L','C','I','Check-in'];
+                ? ['Check-in', 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
+                : ['Check-out', 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
 
             const sep = ',';
             const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -588,13 +584,13 @@ async function getAllRecords() {
 
                 const row = kind === 'in'
                     ? [fmtDT(ci), r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
-                       roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
-                       num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant),
-                       fmtDT(co)]
+                    roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
+                    num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant),
+                    fmtDT(co)]
                     : [fmtDT(co), r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
-                       roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
-                       num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant),
-                       fmtDT(ci)];
+                    roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
+                    num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant),
+                    fmtDT(ci)];
 
                 lines.push(row.map(esc).join(sep));
             }
@@ -685,20 +681,20 @@ async function getAllRecords() {
         });
 
         /* ===== Minimal unit tests (non-intrusive) ===== */
-        (function runUnitTests(){
+        (function runUnitTests() {
             const cases = [
-              {name:'direct assignedGuests', r:{assignedGuests:8}, expect:8},
-              {name:'per-room sum g+l', r:{rooms:{gents:[{room_no:'101',assigned:4}], ladies:[{room_no:'L1',assigned:4}]}}, expect:8},
-              {name:'rooms exist but zero assigned', r:{rooms:{gents:[{assigned:0}], ladies:[{assigned:0}]}, total:9}, expect:0},
-              {name:'fallback total', r:{total:6}, expect:6},
-              {name:'fallback parts with child/infant aliases', r:{gents:2, ladies:3, child:1, infant:1}, expect:7},
+                { name: 'direct assignedGuests', r: { assignedGuests: 8 }, expect: 8 },
+                { name: 'per-room sum g+l', r: { rooms: { gents: [{ room_no: '101', assigned: 4 }], ladies: [{ room_no: 'L1', assigned: 4 }] } }, expect: 8 },
+                { name: 'rooms exist but zero assigned', r: { rooms: { gents: [{ assigned: 0 }], ladies: [{ assigned: 0 }] }, total: 9 }, expect: 0 },
+                { name: 'fallback total', r: { total: 6 }, expect: 6 },
+                { name: 'fallback parts with child/infant aliases', r: { gents: 2, ladies: 3, child: 1, infant: 1 }, expect: 7 },
             ];
-            let pass=0, fail=0; const results=[];
-            for(const c of cases){
-              const got = assignedCount(c.r);
-              const ok = got === c.expect;
-              ok ? pass++ : fail++;
-              results.push({case:c.name, got, expect:c.expect, ok});
+            let pass = 0, fail = 0; const results = [];
+            for (const c of cases) {
+                const got = assignedCount(c.r);
+                const ok = got === c.expect;
+                ok ? pass++ : fail++;
+                results.push({ case: c.name, got, expect: c.expect, ok });
             }
             console.table(results);
             const st = document.getElementById('status');
@@ -835,6 +831,155 @@ async function getAllRecords() {
             window.plusOneDay = plusOneDay;
         })();
     </script>
+    <script>
+    /* ===== Auto "Date To = Date From + 1" wiring, 3am defaults, preset integration ===== */
+        (function () {
+            const $ = id => document.getElementById(id);
+            const pad = n => String(n).padStart(2, "0");
+            const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+            // yyyy-mm-dd -> tomorrow (yyyy-mm-dd), local time
+            function plusOneDay(yyyy_mm_dd) {
+                if (!yyyy_mm_dd) return "";
+                const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
+                const dt = new Date(y, (m || 1) - 1, d || 1);
+                dt.setDate(dt.getDate() + 1);
+                return ymd(dt);
+            }
+
+            // Users can override dateTo; we remember if they did
+            let userEditedDateTo = false;
+            let lastAutoTo = ""; // last automatically set dateTo to avoid fighting the user
+
+            // Ensure inputs exist before poking them
+            function haveInputs() {
+                return $('dateFrom') && $('dateTo') && $('timeFrom') && $('timeTo');
+            }
+
+            // Initialize defaults: today → tomorrow, 03:00 → 03:00
+            function applyDefaults() {
+                const now = new Date();
+                const df = ymd(now);
+                const dt = plusOneDay(df);
+                $('dateFrom').value = $('dateFrom').value || df;
+                $('dateTo').value = $('dateTo').value || dt;
+                $('timeFrom').value = $('timeFrom').value || '03:00';
+                $('timeTo').value = $('timeTo').value || '03:00';
+                lastAutoTo = $('dateTo').value;
+                userEditedDateTo = false;
+            }
+
+            // When user picks a Date From, auto bump Date To to next day unless they already edited it
+            function wireAutoTo() {
+                $('dateFrom').addEventListener('input', () => {
+                    const df = $('dateFrom').value;
+                    if (!df) return;
+                    // only auto-set if dateTo hasn't been manually changed, or still equals our last auto value
+                    if (!userEditedDateTo || $('dateTo').value === lastAutoTo) {
+                        const next = plusOneDay(df);
+                        $('dateTo').value = next;
+                        lastAutoTo = next;
+                        userEditedDateTo = false;
+                    }
+                });
+                $('dateTo').addEventListener('input', () => {
+                    userEditedDateTo = true;
+                });
+            }
+
+            // Make sure inputs represent a valid 24h window if end <= start (e.g. 03:00 to 03:00)
+            function ensureDateRange() {
+                const df = $('dateFrom').value;
+                // If no Date To yet, set it to +1 day
+                if (!$('dateTo').value && df) {
+                    $('dateTo').value = plusOneDay(df);
+                    lastAutoTo = $('dateTo').value;
+                    userEditedDateTo = false;
+                }
+                const tf = $('timeFrom').value || '03:00';
+                const tt = $('timeTo').value || '03:00';
+                const start = df ? new Date(`${df}T${tf}`) : null;
+                const dt = $('dateTo').value;
+                let end = dt ? new Date(`${dt}T${tt}`) : null;
+
+                if (start && end && !(end > start)) {
+                    // bump end by 24h to represent the full-day window
+                    end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+                    $('dateTo').value = ymd(end);
+                    $('timeTo').value = pad(end.getHours()) + ":" + pad(end.getMinutes());
+                    lastAutoTo = $('dateTo').value;
+                    userEditedDateTo = false;
+                }
+                return { start, end };
+            }
+
+            // Help presets behave: they should set 03:00 → 03:00 and use plusOneDay for the "to" date
+            function wirePresets() {
+                const setRange = (df, dt) => {
+                    $('dateFrom').value = df;
+                    $('dateTo').value = dt;
+                    $('timeFrom').value = '03:00';
+                    $('timeTo').value = '03:00';
+                    lastAutoTo = dt; userEditedDateTo = false;
+                    ensureDateRange();
+                    if (typeof window.run === 'function') window.run();
+                };
+
+                $('presetToday')?.addEventListener('click', () => {
+                    const d = new Date(); const df = ymd(d);
+                    setRange(df, plusOneDay(df));
+                });
+
+                $('presetYesterday')?.addEventListener('click', () => {
+                    const d = new Date(); d.setDate(d.getDate() - 1);
+                    const df = ymd(d);
+                    setRange(df, plusOneDay(df));
+                });
+
+                $('preset7')?.addEventListener('click', () => {
+                    const end = new Date();
+                    const start = new Date(); start.setDate(end.getDate() - 6);
+                    setRange(ymd(start), plusOneDay(ymd(end)));
+                });
+
+                $('preset30')?.addEventListener('click', () => {
+                    const end = new Date();
+                    const start = new Date(); start.setDate(end.getDate() - 29);
+                    setRange(ymd(start), plusOneDay(ymd(end)));
+                });
+            }
+
+            // Wrap your existing run() so it always has a sane range
+            function patchRun() {
+                if (typeof window.run !== 'function') return;
+                const orig = window.run;
+                window.run = function patchedRun(...args) {
+                    ensureDateRange();
+                    return orig.apply(this, args);
+                };
+            }
+
+            // If you have export/print handlers that read inputs, they’ll just work after ensureDateRange().
+            // If they run without calling run(), you can patch them similarly, or call ensureDateRange() inside them.
+
+            // Boot
+            function start() {
+                if (!haveInputs()) return;
+                applyDefaults();
+                wireAutoTo();
+                wirePresets();
+                patchRun();
+                // First paint
+                ensureDateRange();
+                if (typeof window.run === 'function') window.run();
+            }
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') start();
+            else document.addEventListener('DOMContentLoaded', start);
+
+            // Expose plusOneDay if you want it elsewhere
+            window.plusOneDay = plusOneDay;
+        })();</script>
 
 </body>
 </html>
