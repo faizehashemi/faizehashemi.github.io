@@ -296,7 +296,7 @@
                 const rows = Math.ceil(pairs.length / cols);
 
                 // base sizes and iterative scaling
-                let tour = 100, leader = 75, lineGap = 1, rowGap = 1, paxSize = 50;
+                let tour = 100, leader = 50, lineGap = 1, rowGap = 1, paxSize = 50;
                 function totalHeight(scale) {
                     const t = tour * scale, l = leader * scale; const rowH = t * 1.08 + (l > 0 ? l * 1.05 : 0) + lineGap * 2; // approx
                     return rows * rowH + 12 + paxSize * scale + 4; // bottom pax + breathing
