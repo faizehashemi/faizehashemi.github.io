@@ -27,6 +27,66 @@
         * {
             box-sizing: border-box
         }
+        /* Paste into your stylesheet. Works with <button id="btnRun">Submit</button> */
+
+        #btnRun {
+            /* core look */
+            color: #fff6dc; /* cream text */
+            background: linear-gradient(180deg,#5a3a2c,#3f271d); /* dark brown */
+            border: 1px solid #352117; /* deep brown border */
+            border-radius: 12px;
+            padding: 10px 16px;
+            font: 700 14px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            letter-spacing: .02em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden; /* for sheen */
+            box-shadow: 0 8px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+            transition: transform .06s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+        }
+
+            /* subtle top sheen */
+            #btnRun::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                background: linear-gradient(to bottom, rgba(255,255,255,.10), rgba(255,255,255,0) 35%);
+            }
+
+            /* hover: brighten + lift */
+            #btnRun:hover {
+                filter: brightness(1.05);
+                box-shadow: 0 10px 22px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.14);
+            }
+
+            /* active: pressed */
+            #btnRun:active {
+                transform: translateY(1px);
+                background: linear-gradient(180deg,#3f271d,#2b1a13);
+                box-shadow: 0 4px 10px rgba(0,0,0,.3), inset 0 2px 6px rgba(0,0,0,.35);
+            }
+
+            /* keyboard focus */
+            #btnRun:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(212,175,55,.35), 0 8px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+            }
+
+            /* disabled */
+            #btnRun:disabled {
+                opacity: .6;
+                cursor: not-allowed;
+                box-shadow: none;
+                filter: none;
+            }
+
 
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
@@ -266,7 +326,7 @@
                     <option>BAHA</option>
                 </select>
             </div>
-            <div style="display:flex;gap:8px;align-items:end"><button id="btnRun">Run</button><button id="btnRefresh">Refresh DB</button></div>
+            <div style="display:flex;gap:8px;align-items:end"><button id="btnRun">Submit</button><button id="btnRefresh" hidden>Refresh DB</button></div>
         </div>
 
         <!-- Column chooser (applies to BOTH tables). Default unchecked for As., G, L, C, I -->
