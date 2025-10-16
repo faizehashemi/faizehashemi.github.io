@@ -12,8 +12,16 @@
             --border: #e4d8c8;
             --t-font: 13; /* table font px */
             --t-pad: 6; /* cell padding px */
-            --t-minw: 720px; /* minimum table width before horiz scroll */
+            --t-minw: 560px; /* smaller min width so wrapping helps on phones */
             --radius: 12px;
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for all text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --card: #fffaf1; /* warm off-white panels */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --accent: #d4af37; /* gold accent */
+            --shadow: 0 10px 28px rgba(92,64,28,.12);
+            --chip: #f7ecd1; /* pale gold chip hover/base */
         }
 
         * {
@@ -23,8 +31,9 @@
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
             color: var(--ink);
-            background: var(--bg);
-            margin: 0
+            margin: 0;
+            background: #f7efe1 url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
         }
 
         .wrap {
@@ -32,6 +41,7 @@
             margin: 0 auto;
             padding: 12px
         }
+
 
         header.hero {
             display: flex;
@@ -58,6 +68,7 @@
             color: var(--muted);
             font-size: 12px
         }
+
 
         .controls {
             display: grid;
@@ -86,6 +97,7 @@
                 cursor: pointer
             }
 
+
         .panel {
             border: 1px solid var(--border);
             border-radius: var(--radius);
@@ -109,6 +121,7 @@
             flex-wrap: wrap
         }
 
+
         /* ===== tables ===== */
         .table-controls {
             display: flex;
@@ -126,25 +139,6 @@
                 width: 110px
             }
 
-        .col-chooser {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin: 8px 0
-        }
-
-            .col-chooser .group {
-                display: flex;
-                gap: 8px;
-                align-items: center;
-                flex-wrap: wrap
-            }
-
-            .col-chooser label {
-                font-size: 12px;
-                color: #333
-            }
 
         .table-wrap {
             position: relative;
@@ -187,6 +181,7 @@
                 opacity: 1
             }
 
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -198,14 +193,16 @@
         .table-inner {
             min-width: var(--t-minw)
         }
-
+        /* WRAP ALL CELL CONTENT — no ellipses, no clipping */
         th, td {
             border-bottom: 1px solid var(--border);
             padding: calc(var(--t-pad)*1px) 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            vertical-align: top
+            white-space: normal; /* allow wrapping */
+            overflow: visible; /* show full content */
+            text-overflow: clip; /* disable ellipsis */
+            vertical-align: top;
+            word-break: break-word; /* break long tokens */
+            overflow-wrap: anywhere; /* wrap anywhere if needed */
         }
 
         th {
@@ -217,16 +214,18 @@
         }
 
         .nowrap {
-            white-space: nowrap
+            white-space: normal
         }
-
+        /* override old nowrap to allow wrapping */
         .right {
             text-align: right
         }
 
+
         .compact th, .compact td {
             padding: calc((var(--t-pad)-2)*1px) 6px
         }
+
 
         @media (max-width: 800px) {
             .controls {
@@ -242,21 +241,6 @@
             .wrap {
                 padding: 8px
             }
-        }
-
-        @media print {
-            .controls, .table-controls, .toolbar button, .col-chooser {
-                display: none !important
-            }
-
-            body {
-                background: #fff
-            }
-
-            .wrap {
-                max-width: none
-            }
-        }
     </style>
 </head>
 <body>
