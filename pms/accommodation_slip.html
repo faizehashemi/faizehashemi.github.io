@@ -999,6 +999,7 @@
                 CURRENT_ID = id;
                 $('status').textContent = `Saved as #${id}`;
                 postDbToTelegram('edit').catch(console.warn);
+                postDbToGistViaWorker('save');
             } catch (err) {
                 $('status').textContent = 'Save failed. Check console.';
                 console.error('Save error:', err);
@@ -1016,6 +1017,7 @@
                 const id = await updateRecord(CURRENT_ID, data);
                 $('status').textContent = `Updated #${id}`;
                 postDbToTelegram('edit').catch(console.warn);
+                postDbToGistViaWorker('save');
             } catch (err) {
                 $('status').textContent = 'Edit failed. See console.';
                 console.error('Edit error:', err);
@@ -1315,6 +1317,27 @@
             const s = document.getElementById("status");
 
         };
+    </script>
+    <script>
+  const WORKER_URL = "https://soft-bush-9b74.tkamlapur.workers.dev/";
+
+  async function postDbToGistViaWorker(reason = "save") {
+    const snap = {
+      reason,
+      ts: new Date().toISOString(),
+      page: location.href,
+      db: await window.dumpIndexedDB(DB_NAME)
+    };
+    // overwrite pms_accommodation_db.json in your gist
+    fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        file: "pms_accommodation_db.json",
+        content: JSON.stringify(snap, null, 2)
+      })
+    }).catch(console.warn);
+  }
     </script>
 
 
