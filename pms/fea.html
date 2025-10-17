@@ -315,6 +315,10 @@
                 overflow: auto;
             }
         }
+        /* center the delete button cell */
+        #logTable td.td-actions {
+            text-align: center;
+        }
 
 
     </style>
@@ -329,9 +333,9 @@
         <div class="row" style="align-items:center">
             <label for="sessionTitle" class="sr-only">Session</label>
             <select id="sessionTitle" class="select" style="width:210px">
-                <option value="Aaje Raate Haram 9:00 PM" selected>Aaje Raate Haram 09:30 PM</option>
-                <option value="Kaale Fajare Haram 7:00 AM">Kaale Fajare Haram 07:30 AM</option>
-                <option value="Aaje Dupehre Atraaf 2:30 PM">Aaje Dupehre Atraaf 02:30 PM</option>
+                <option value="Aaje Raate Haram 08:30 PM" selected>Aaje Raate Haram 08:30 PM</option>
+                <option value="Kaale Fajare Haram 07:00 AM">Kaale Fajare Haram 07:30 AM</option>
+                <option value="Aaje Dupehre Atraaf 02:30 PM">Aaje Dupehre Atraaf 02:30 PM</option>
             </select>
             <input id="sessionDate" class="select" type="date" style="width:210px" />
             <button class="copy" id="btnCopy">Copy to clipboard</button>
@@ -432,7 +436,15 @@
                         <p class="panel-title">Assignment history</p>
                         <div class="log">
                             <table id="logTable">
-                                <thead><tr><th>Date/Time</th><th>Type</th><th>Person</th><th>Location</th></tr></thead>
+                                <thead>
+                                    <tr>
+                                        <th>Date/Time</th>
+                                        <th>Type</th>
+                                        <th>Person</th>
+                                        <th>Location</th>
+                                        <th style="width:64px; text-align:center">Actions</th>
+                                    </tr>
+                                </thead>
                                 <tbody></tbody>
                             </table>
                         </div>
@@ -641,13 +653,43 @@ function saveAssignments(){
 function renderHistory(){
   const tbody = $("#logTable tbody"); tbody.innerHTML = "";
   const sorted = [...history].sort((a,b)=> b.ts.localeCompare(a.ts));
+
   for (const r of sorted){
     const tr = document.createElement("tr");
-    const when = new Date(r.ts).toLocaleString(undefined,{year:"numeric",month:"short",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-    tr.innerHTML = `<td>${when}</td><td>${r.type}</td><td>${r.person}</td><td>${r.location||""}</td>`;
+    const when = new Date(r.ts).toLocaleString(undefined, {
+      year:"numeric", month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit"
+    });
+    const k = histKey(r);
+
+    tr.innerHTML = `
+      <td>${when}</td>
+      <td>${r.type}</td>
+      <td>${r.person}</td>
+      <td>${r.location || ""}</td>
+      <td class="td-actions">
+        <button class="del small" data-del="${k}" title="Delete this assignment">Delete</button>
+      </td>
+    `;
     tbody.append(tr);
   }
 }
+// one listener for all delete buttons
+document.querySelector("#logTable tbody").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-del]");
+  if (!btn) return;
+  const key = btn.dataset.del;
+  // tiny confirm so we don’t rage-delete an entire evening
+  if (!confirm("Delete this assignment entry?")) return;
+  deleteHistoryEntry(key);
+});
+function deleteHistoryEntry(key){
+  const before = history.length;
+  history = history.filter(r => histKey(r) !== key);
+  saveLog();
+  renderHistory(); renderKPIs(); drawHistogram(); renderPeople(); updatePreview();
+  flash(before === history.length ? "Nothing deleted." : "Assignment deleted.");
+}
+
 
 /* ====== KPIs & STATS ====== */
 function renderKPIs(){
@@ -834,6 +876,11 @@ $("#btnAddPerson").addEventListener("click", ()=>{
 
 
 /* ====== UTIL ====== */
+// unique-ish key for a history record
+function histKey(r){
+  return [r.ts, r.person, r.type, r.location || ""].join("|");
+}
+
 function flash(msg){
   const x = document.createElement("div");
   x.textContent = msg;
