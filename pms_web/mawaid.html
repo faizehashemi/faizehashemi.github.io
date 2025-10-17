@@ -233,14 +233,8 @@
 
     <div class="wrap">
         <header class="hero panel">
-            <h1>Mawaid Stats (Building wise)</h1>
-            <div class="summary">
-                <span class="pill">Date: <b id="pillDate">—</b></span>
-                <span class="pill">Breakfast: <b id="pillB">—</b></span>
-                <span class="pill">Lunch: <b id="pillL">—</b></span>
-                <span class="pill">Dinner: <b id="pillD">—</b></span>
-                <span class="pill">Thal size: <b id="pillThal">8</b></span>
-            </div>
+            <h1>Mawaid Counts</h1>
+
         </header>
 
         <section class="panel">
@@ -332,11 +326,6 @@
                 </table>
             </div>
 
-            <div class="small muted" style="padding:10px 12px">
-                A guest is counted for a meal if their stay overlaps the meal window
-                (<code>[check-in, checkout)</code> overlaps <code>[start, end)</code>).
-                Thals = <code>ceil(pax / thalSize)</code>. Breakdown columns reflect raw categories.
-            </div>
         </section>
 
         <p id="status" class="muted" style="margin-top:10px"></p>
@@ -628,7 +617,6 @@ async function getAllSlips() {
             ].join('');
 
             tf.innerHTML = `<tr>${row}</tr>`;
-            $('pillThal').textContent = thal;
         }
 
 
@@ -685,13 +673,9 @@ async function getAllSlips() {
                 renderFoot(stats, thal, show);
 
                 const fmtR = ([s, e]) => `${pad(s.getHours())}:${pad(s.getMinutes())}–${pad(e.getHours())}:${pad(e.getMinutes())}`;
-                $('pillDate').textContent = `${pad(stats.when.B[0].getDate())}/${pad(stats.when.B[0].getMonth() + 1)}/${stats.when.B[0].getFullYear()}`;
-                $('pillB').textContent = fmtR(stats.when.B);
-                $('pillL').textContent = fmtR(stats.when.L);
-                $('pillD').textContent = fmtR(stats.when.D);
 
-                $('status').textContent = `Computed from ${DB_CACHE.length} slips in ${DB_NAME}/${STORE}. Breakdown visible: `
-                    + Object.entries(show).filter(([, v]) => v).map(([k]) => k.toUpperCase()).join(', ') || 'none';
+
+
             };
 
             [
@@ -703,7 +687,7 @@ async function getAllSlips() {
             $('btnRefresh').addEventListener('click', async () => {
                 try {
                     DB_CACHE = await getAllSlips();
-                    $('status').textContent = `Loaded ${DB_CACHE.length} slips from ${DB_NAME}/${STORE}.`;
+
                     run();
                 } catch (e) {
                     console.error(e);
@@ -714,7 +698,7 @@ async function getAllSlips() {
             // initial read
             try {
                 DB_CACHE = await getAllSlips();
-                $('status').textContent = `Loaded ${DB_CACHE.length} slips from ${DB_NAME}/${STORE}.`;
+
             } catch (e) {
                 console.error(e);
                 $('status').textContent = e.message + ' Use the same origin where slips were saved (e.g., http://localhost:8000).';
