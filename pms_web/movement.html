@@ -301,6 +301,48 @@
             .wrap {
                 padding: 8px
             }
+            /* Center all table text (headers + data) */
+            #tblIn th, #tblIn td,
+            #tblOut th, #tblOut td {
+                text-align: center;
+                vertical-align: middle; /* nicer than 'top' for centered look */
+            }
+
+            /* Light cream grid lines for every cell */
+            #tblIn th, #tblIn td,
+            #tblOut th, #tblOut td {
+                border: 1px solid var(--border); /* already a soft cream-gold */
+            }
+
+            /* The "As." column had class="right" in HTML; neutralize it */
+            .right {
+                text-align: center;
+            }
+            /* Kill all shadows inside the tables */
+            #tblIn, #tblOut,
+            #tblIn *, #tblOut * {
+                box-shadow: none !important;
+                text-shadow: none !important;
+                filter: none !important; /* nukes drop-shadow filters */
+            }
+
+                /* If your sticky headers had shadow for "depth", flatten them too */
+                #tblIn thead, #tblOut thead,
+                #tblIn thead th, #tblOut thead th {
+                    box-shadow: none !important;
+                    text-shadow: none !important;
+                    filter: none !important;
+                }
+
+                /* If any row hovers add shadow, stop that */
+                #tblIn tr:hover, #tblOut tr:hover,
+                #tblIn tr:hover *, #tblOut tr:hover * {
+                    box-shadow: none !important;
+                    text-shadow: none !important;
+                    filter: none !important;
+                }
+
+
     </style>
 </head>
 <body>
