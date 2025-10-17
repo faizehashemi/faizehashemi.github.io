@@ -201,6 +201,29 @@
                 box-shadow: none
             }
         }
+        /* Meal band background colors (light, readable) */
+        .mealB {
+            background: #fff8e6;
+        }
+        /* Breakfast = soft sunrise */
+        .mealL {
+            background: #eaf9ff;
+        }
+        /* Lunch = light sky */
+        .mealD {
+            background: #f3e9ff;
+        }
+        /* Dinner = evening lilac */
+
+        /* Building name gets a unique light font color via inline style */
+        .building-name {
+            font-weight: 700;
+        }
+        .building-name {
+            font-weight: 700;
+            color: inherit;
+        }
+
     </style>
 </head>
 <body>
@@ -276,10 +299,10 @@
                 <div class="col c4">
                     <label>Show breakdown columns</label>
                     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                        <label class="small"><input id="showG" type="checkbox" checked /> Gents</label>
-                        <label class="small"><input id="showL" type="checkbox" checked /> Ladies</label>
-                        <label class="small"><input id="showC" type="checkbox" checked /> Children</label>
-                        <label class="small"><input id="showI" type="checkbox" checked /> Infants</label>
+                        <label class="small"><input id="showG" type="checkbox"  /> Gents</label>
+                        <label class="small"><input id="showL" type="checkbox"  /> Ladies</label>
+                        <label class="small"><input id="showC" type="checkbox"  /> Children</label>
+                        <label class="small"><input id="showI" type="checkbox"  /> Infants</label>
                     </div>
                 </div>
 
@@ -387,9 +410,20 @@ async function getAllSlips() {
     throw err;
   }
 }
-
+        /* ====== Color helpers ====== */
+        function pastelColorFromString(s) {
+            // hash string to hue
+            let h = 0;
+            for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+            const hue = h % 360;
+            const sat = 70;   // stronger saturation for boldness
+            const light = 35; // darker (lower lightness value)
+            return `hsl(${hue} ${sat}% ${light}%)`;
+        }
 
         /* ====== Utils ====== */
+
+
         const $ = id => document.getElementById(id);
         const pad = n => String(n).padStart(2, '0');
         function parseLocalDateTime(d, t) {
@@ -491,13 +525,17 @@ async function getAllSlips() {
                 .concat(show.i ? ['Infants'] : []);
 
             const top = `<tr>
-          <th rowspan="2">Building</th>
-          <th colspan="${subCols.length}">Breakfast</th>
-          <th colspan="${subCols.length}">Lunch</th>
-          <th colspan="${subCols.length}">Dinner</th>
-        </tr>`;
+    <th rowspan="2">Building</th>
+    <th class="mealB" colspan="${subCols.length}">Breakfast</th>
+    <th class="mealL" colspan="${subCols.length}">Lunch</th>
+    <th class="mealD" colspan="${subCols.length}">Dinner</th>
+  </tr>`;
 
-            const sub = `<tr>${['Breakfast', 'Lunch', 'Dinner'].map(() => subCols.map(s => `<th>${s}</th>`).join('')).join('')}</tr>`;
+            const sub = `<tr>${['mealB', 'mealL', 'mealD']
+                    .map(mealClass => subCols.map(s => `<th class="${mealClass}">${s}</th>`).join(''))
+                    .join('')
+                }</tr>`;
+
             thead.innerHTML = top + sub;
 
             CURRENT_COLUMNS = ['Building'];
@@ -510,39 +548,55 @@ async function getAllSlips() {
             }
         }
 
+
         function renderBody(stats, show) {
             const tb = document.querySelector('#tbl tbody');
             tb.innerHTML = '';
             for (const r of stats.rows) {
-                const cells = [
-                    `<td>${r.building}</td>`,
+                const bColor = pastelColorFromString(r.building);
 
-                    `<td>${r.bp}</td>`,
-                    `<td class="thal">${r.bt}</td>`,
-                    ...(show.g ? [`<td>${r.b.g}</td>`] : []),
-                    ...(show.l ? [`<td>${r.b.l}</td>`] : []),
-                    ...(show.c ? [`<td>${r.b.c}</td>`] : []),
-                    ...(show.i ? [`<td>${r.b.i}</td>`] : []),
-
-                    `<td>${r.lp}</td>`,
-                    `<td class="thal">${r.lt}</td>`,
-                    ...(show.g ? [`<td>${r.l.g}</td>`] : []),
-                    ...(show.l ? [`<td>${r.l.l}</td>`] : []),
-                    ...(show.c ? [`<td>${r.l.c}</td>`] : []),
-                    ...(show.i ? [`<td>${r.l.i}</td>`] : []),
-
-                    `<td>${r.dp}</td>`,
-                    `<td class="thal">${r.dt}</td>`,
-                    ...(show.g ? [`<td>${r.d.g}</td>`] : []),
-                    ...(show.l ? [`<td>${r.d.l}</td>`] : []),
-                    ...(show.c ? [`<td>${r.d.c}</td>`] : []),
-                    ...(show.i ? [`<td>${r.d.i}</td>`] : [])
+                const bCells = [
+                    `<td class="mealB">${r.bp}</td>`,
+                    `<td class="mealB thal">${r.bt}</td>`,
+                    ...(show.g ? [`<td class="mealB">${r.b.g}</td>`] : []),
+                    ...(show.l ? [`<td class="mealB">${r.b.l}</td>`] : []),
+                    ...(show.c ? [`<td class="mealB">${r.b.c}</td>`] : []),
+                    ...(show.i ? [`<td class="mealB">${r.b.i}</td>`] : []),
                 ];
+
+                const lCells = [
+                    `<td class="mealL">${r.lp}</td>`,
+                    `<td class="mealL thal">${r.lt}</td>`,
+                    ...(show.g ? [`<td class="mealL">${r.l.g}</td>`] : []),
+                    ...(show.l ? [`<td class="mealL">${r.l.l}</td>`] : []),
+                    ...(show.c ? [`<td class="mealL">${r.l.c}</td>`] : []),
+                    ...(show.i ? [`<td class="mealL">${r.l.i}</td>`] : []),
+                ];
+
+                const dCells = [
+                    `<td class="mealD">${r.dp}</td>`,
+                    `<td class="mealD thal">${r.dt}</td>`,
+                    ...(show.g ? [`<td class="mealD">${r.d.g}</td>`] : []),
+                    ...(show.l ? [`<td class="mealD">${r.d.l}</td>`] : []),
+                    ...(show.c ? [`<td class="mealD">${r.d.c}</td>`] : []),
+                    ...(show.i ? [`<td class="mealD">${r.d.i}</td>`] : []),
+                ];
+
                 const tr = document.createElement('tr');
-                tr.innerHTML = cells.join('');
+                tr.innerHTML = [
+                    // removed the inline color on the span
+                    `<td class="building"><span class="building-name">${r.building}</span></td>`,
+                    ...bCells, ...lCells, ...dCells
+                ].join('');
+
+                // new: color the entire row text using the building’s pastel
+                tr.style.color = bColor;
+
                 tb.appendChild(tr);
             }
         }
+
+
 
         function renderFoot(stats, thal, show) {
             const tf = document.querySelector('#tbl tfoot');
@@ -550,31 +604,34 @@ async function getAllSlips() {
 
             const row = [
                 `<td>Total</td>`,
-                `<td>${stats.totals.tBP}</td>`,
-                `<td class="thal">${stats.totals.tBT}</td>`,
-                (show.g ? `<td>${sum(r => r.b.g)}</td>` : ''),
-                (show.l ? `<td>${sum(r => r.b.l)}</td>` : ''),
-                (show.c ? `<td>${sum(r => r.b.c)}</td>` : ''),
-                (show.i ? `<td>${sum(r => r.b.i)}</td>` : ''),
 
-                `<td>${stats.totals.tLP}</td>`,
-                `<td class="thal">${stats.totals.tLT}</td>`,
-                (show.g ? `<td>${sum(r => r.l.g)}</td>` : ''),
-                (show.l ? `<td>${sum(r => r.l.l)}</td>` : ''),
-                (show.c ? `<td>${sum(r => r.l.c)}</td>` : ''),
-                (show.i ? `<td>${sum(r => r.l.i)}</td>` : ''),
+                `<td class="mealB">${stats.totals.tBP}</td>`,
+                `<td class="mealB thal">${stats.totals.tBT}</td>`,
+                (show.g ? `<td class="mealB">${sum(r => r.b.g)}</td>` : ''),
+                (show.l ? `<td class="mealB">${sum(r => r.b.l)}</td>` : ''),
+                (show.c ? `<td class="mealB">${sum(r => r.b.c)}</td>` : ''),
+                (show.i ? `<td class="mealB">${sum(r => r.b.i)}</td>` : ''),
 
-                `<td>${stats.totals.tDP}</td>`,
-                `<td class="thal">${stats.totals.tDT}</td>`,
-                (show.g ? `<td>${sum(r => r.d.g)}</td>` : ''),
-                (show.l ? `<td>${sum(r => r.d.l)}</td>` : ''),
-                (show.c ? `<td>${sum(r => r.d.c)}</td>` : ''),
-                (show.i ? `<td>${sum(r => r.d.i)}</td>` : '')
+                `<td class="mealL">${stats.totals.tLP}</td>`,
+                `<td class="mealL thal">${stats.totals.tLT}</td>`,
+                (show.g ? `<td class="mealL">${sum(r => r.l.g)}</td>` : ''),
+                (show.l ? `<td class="mealL">${sum(r => r.l.l)}</td>` : ''),
+                (show.c ? `<td class="mealL">${sum(r => r.l.c)}</td>` : ''),
+                (show.i ? `<td class="mealL">${sum(r => r.l.i)}</td>` : ''),
+
+                `<td class="mealD">${stats.totals.tDP}</td>`,
+                `<td class="mealD thal">${stats.totals.tDT}</td>`,
+                (show.g ? `<td class="mealD">${sum(r => r.d.g)}</td>` : ''),
+                (show.l ? `<td class="mealD">${sum(r => r.d.l)}</td>` : ''),
+                (show.c ? `<td class="mealD">${sum(r => r.d.c)}</td>` : ''),
+                (show.i ? `<td class="mealD">${sum(r => r.d.i)}</td>` : '')
             ].join('');
-            tf.innerHTML = `<tr>${row}</tr>`;
 
+            tf.innerHTML = `<tr>${row}</tr>`;
             $('pillThal').textContent = thal;
         }
+
+
 
         /* ====== CSV Export ====== */
         function exportCSV() {
