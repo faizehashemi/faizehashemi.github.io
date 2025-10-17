@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Groups</title>
+    <style>
+        :root {
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for all text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --card: #fffaf1; /* warm off-white panels */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --accent: #d4af37; /* gold accent */
+            --shadow: 0 10px 28px rgba(92,64,28,.12);
+            --chip: #f7ecd1; /* pale gold chip hover/base */
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: #f7efe1 url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            margin: 15px;
+            color: var(--ink);
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: 18px
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 10px
+        }
+
+        label {
+            font-size: 12px;
+            color: var(--muted);
+            display: block;
+            margin-bottom: 4px
+        }
+
+        input, button, select {
+            font: inherit;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            color: var(--ink)
+        }
+
+        button {
+            cursor: pointer
+        }
+
+            button.primary {
+                background: #111;
+                color: #fff;
+                border-color: #111
+            }
+
+            button:disabled {
+                opacity: .5;
+                cursor: not-allowed
+            }
+
+        table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            text-align: left;
+            vertical-align: top
+        }
+
+        th {
+            background: #f6f6f6;
+            font-weight: 700
+        }
+
+        .tools {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 8px 0
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            font-size: 12px;
+            color: #444
+        }
+
+        /* No cards, no shadows, no fluff */
+    </style>
+</head>
+<body>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="./fega-nav.js"></script>
+    <h1>Fakkul Ehraam Groups DOCX Only</h1>
+
+    <div class="row">
+        <div><label for="dateFrom">Arrivals from</label><input id="dateFrom" type="date"></div>
+        <div><label for="dateTo">Arrivals to</label><input id="dateTo" type="date"></div>
+        <div><label for="timeFrom">Time from</label><input id="timeFrom" type="time"></div>
+        <div><label for="timeTo">Time to</label><input id="timeTo" type="time"></div>
+        <div><label for="building">Building</label><input id="building" type="text" placeholder="exact match or blank"></div>
+        <div class="tools">
+            <button id="btnSearch" class="primary">Load arrivals</button>
+            <span class="pill" id="foundInfo">0 found</span>
+        </div>
+    </div>
+
+    <div id="resultsWrap" style="display:none">
+        <table id="resultsTbl" aria-label="Arrivals">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selAll"></th>
+                    <th>Tour Name</th>
+                    <th>Leader</th>
+                    <th>SH</th>
+                    <th>Check-in</th>
+                    <th>Building</th>
+                    <th>Total</th>
+                    <th>Add</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="tools" id="resultsTools" style="display:none">
+            <button id="btnAddSelected">Add selected</button>
+            <button id="btnBundleSelected">Bundle selected</button>
+        </div>
+    </div>
+
+    <div class="tools" style="margin-top:14px">
+        <button id="btnBundleSlots">Bundle selected from list</button>
+        <button id="btnClearList">Clear</button>
+        <button id="btnPdf" class="primary" hidden>Download PDF</button>
+    </div>
+
+    <table id="assignTbl" aria-label="Assignment list" style="margin-top:8px">
+        <colgroup>
+            <col style="width:44px" />
+            <col />
+            <col style="width:120px" />
+            <col style="width:160px" />
+        </colgroup>
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="assignAll"></th>
+                <th>Tour & Leader</th>
+                <th>Pax limit</th>
+                <th>Tools</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <!-- jsPDF (client-side PDF, no print dialog). If this fails to load, your browser is offline. -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+    <script>
+        /* ===== Data plumbing (read-only gist like your OG) ===== */
+        const DB_NAME = 'pms_accommodation_db';
+        const STORE = 'slips';
+        function openExistingDB() { return Promise.resolve({ objectStoreNames: { contains: (s) => String(s) === STORE }, close: () => { } }); }
+        async function getAllSlips() {
+            const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/4d98eb35d2f88b099a1eb099a510dfed/raw';
+            let db; try {
+                db = await openExistingDB(DB_NAME);
+                if (!db.objectStoreNames.contains(STORE)) throw new Error('Object store missing');
+                const resp = await fetch(RAW_GIST + '?cb=' + Date.now(), { cache: 'no-store' });
+                if (!resp.ok) throw new Error('Fetch failed ' + resp.status);
+                const payload = await resp.json();
+                let slips = []; if (Array.isArray(payload)) slips = payload; else if (Array.isArray(payload.slips)) slips = payload.slips; else slips = payload?.db?.stores?.slips?.rows || [];
+                return slips;
+            } finally { try { db && db.close() } catch { } }
+        }
+
+        /* ===== Helpers ===== */
+        const $ = sel => document.querySelector(sel);
+        const $$ = sel => Array.from(document.querySelectorAll(sel));
+        const pad2 = n => String(n).padStart(2, '0');
+        const N = v => Number(v || 0);
+        const clean = s => String(s ?? '').trim();
+        function toDateObj(dstr, tstr) { if (!dstr) return null; const [y, m, d] = dstr.split('-').map(Number); let hh = 0, mm = 0; if (tstr && /^\d{1,2}:\d{2}$/.test(tstr)) { [hh, mm] = tstr.split(':').map(Number) } return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0) }
+        function sentenceCase(str) { const s = clean(str).toLowerCase(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : '' }
+        const uniq = a => Array.from(new Set(a));
+
+        function makeSlot(fromItems) {
+            const tours = fromItems.map(it => ({ tour_name: clean(it.tour_name), group_leader: clean(it.group_leader), sh: clean(it.sh_no), total: N(it.total) }));
+            return { id: 'S' + crypto.randomUUID?.().slice(0, 8) || Math.random().toString(36).slice(2, 10), tours, pax: fromItems.reduce((s, x) => s + N(x.total), 0) || fromItems.length };
+        }
+
+        function pairAgg(slot) {
+            const map = new Map();
+            for (const t of slot.tours) {
+                const tour = clean(t.tour_name); const leader = clean(t.group_leader);
+                if (!tour && !leader) continue;
+                const key = tour + '|' + leader;
+                if (!map.has(key)) map.set(key, { tour_name: tour, group_leader: leader, count: 0 });
+                map.get(key).count += (Number.isFinite(N(t.total)) && N(t.total) > 0) ? N(t.total) : 1;
+            }
+            return Array.from(map.values());
+        }
+
+        /* ===== State ===== */
+        \1
+        // expose a getter for outside functions (e.g., downloadPDF) to access the live ASSIGN
+        window.__fega = window.__fega || {};
+        window.__fega.getASSIGN = () => ASSIGN;
+
+
+        /* ===== UI: results and list ===== */
+        function renderResults() {
+            const tbody = $('#resultsTbl tbody'); tbody.innerHTML = '';
+            $('#foundInfo').textContent = `${RESULTS.length} found`;
+            $('#resultsWrap').style.display = RESULTS.length ? '' : 'none';
+            $('#resultsTools').style.display = RESULTS.length ? '' : 'none';
+            for (const r of RESULTS) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                <td><input type="checkbox" class="sel"></td>
+                <td>${r.tour_name}</td>
+                <td>${r.group_leader}</td>
+                <td>${r.sh_no}</td>
+                <td>${r.checkin_date} <span style="color:#777">${r.checkin_time}</span></td>
+                <td>${r.building}</td>
+                <td>${r.total}</td>
+                <td><button class="add">Add</button></td>`;
+                tr.querySelector('.add').addEventListener('click', () => { ASSIGN.push(makeSlot([r])); renderAssign(); });
+                tbody.appendChild(tr);
+            }
+            const selAll = $('#selAll'); selAll.checked = false; selAll.onchange = () => $$('#resultsTbl tbody .sel').forEach(cb => cb.checked = selAll.checked);
+        }
+
+        function renderAssign() {
+            const tbody = $('#assignTbl tbody'); tbody.innerHTML = '';
+            for (const s of ASSIGN) {
+                const pairs = pairAgg(s).map(p => {
+                    const leader = sentenceCase(p.group_leader);
+                    const leaderLine = leader ? `<div style="font-size:12px;color:#444;margin-top:2px">${leader}</div>` : '';
+                    return `<div style="margin-bottom:6px"><div style="font-weight:700">${p.tour_name} <span style="opacity:.75">(${p.count})</span></div>${leaderLine}</div>`;
+                }).join('');
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                <td><input type="checkbox" class="pick"></td>
+                <td>${pairs}</td>
+                <td><input type="number" min="0" value="${N(s.pax)}" class="pax"></td>
+                <td><button class="split">Split</button> <button class="remove">Remove</button></td>`;
+                tr.querySelector('.pax').addEventListener('change', e => { s.pax = Math.max(0, N(e.target.value)); });
+                tr.querySelector('.split').addEventListener('click', () => {
+                    const tot = N(s.pax); const a = prompt(`Split slot (Total ${tot}). Enter first half pax:`, Math.floor(tot / 2)); if (a == null) return;
+                    const aNum = Math.max(0, N(a)); const bNum = Math.max(0, tot - aNum);
+                    const slot1 = { id: 'S' + Math.random().toString(36).slice(2, 10), tours: JSON.parse(JSON.stringify(s.tours)), pax: aNum };
+                    const slot2 = { id: 'S' + Math.random().toString(36).slice(2, 10), tours: JSON.parse(JSON.stringify(s.tours)), pax: bNum };
+                    ASSIGN = ASSIGN.filter(x => x !== s).concat([slot1, slot2]); renderAssign();
+                });
+                tr.querySelector('.remove').addEventListener('click', () => { ASSIGN = ASSIGN.filter(x => x !== s); renderAssign(); });
+                tbody.appendChild(tr);
+            }
+            const sel = $('#assignAll'); sel.checked = false; sel.onchange = () => $$('#assignTbl tbody .pick').forEach(cb => cb.checked = sel.checked);
+        }
+
+        /* ===== PDF generation ===== */
+        function pickCols(n) { if (n >= 9) return 3; if (n >= 4) return 2; return 1; }
+
+        function measureWidth(doc, text, size) { doc.setFontSize(size); return doc.getTextWidth(text); }
+
+        function downloadPDF() {
+            const __list = (window.__fega && typeof window.__fega.getASSIGN === 'function') ? window.__fega.getASSIGN() : (typeof ASSIGN !== 'undefined' ? ASSIGN : []);
+            const ASSIGN = __list;
+            if (!ASSIGN.length) { alert('Add or bundle something first.'); return; }
+            if (!(window.jspdf && window.jspdf.jsPDF)) { alert('PDF engine not loaded. Check your connection.'); return; }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            const margin = 8; const gutter = 6;
+
+            const centerText = (t, x, y, size) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(size); doc.text(t, x, y, { align: 'center', baseline: 'alphabetic' }); };
+            const centerNormal = (t, x, y, size) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.text(t, x, y, { align: 'center', baseline: 'alphabetic' }); };
+
+            ASSIGN.forEach((slot, si) => {
+                if (si > 0) doc.addPage('a4', 'landscape');
+                const pairs = pairAgg(slot);
+                const cols = pickCols(pairs.length);
+                const colW = (pageW - margin * 2 - gutter * (cols - 1)) / cols;
+                const rows = Math.ceil(pairs.length / cols);
+
+                // base sizes and iterative scaling
+                let tour = 100, leader = 50, lineGap = 1, rowGap = 1, paxSize = 50;
+                function totalHeight(scale) {
+                    const t = tour * scale, l = leader * scale; const rowH = t * 1.08 + (l > 0 ? l * 1.05 : 0) + lineGap * 2; // approx
+                    return rows * rowH + 12 + paxSize * scale + 4; // bottom pax + breathing
+                }
+                function widthScale() {
+                    let s = 1;
+                    for (const p of pairs) {
+                        const title = `${p.tour_name} (${p.count})`;
+                        const w = measureWidth(doc, title, tour);
+                        const sc = (colW * 0.96) / w; // 4% padding inside column
+                        s = Math.min(s, sc);
+                    }
+                    return Math.min(1, s);
+                }
+                // fit to width then height
+                let scale = Math.min(1, widthScale());
+                const hAvail = pageH - 2 * margin - paxSize * scale - 6;
+                const hNeed = totalHeight(scale);
+                if (hNeed > (pageH - 2 * margin)) {
+                    scale *= ((pageH - 2 * margin) / hNeed);
+                }
+
+                const tSize = tour * scale, lSize = leader * scale, gap = lineGap * scale, rGap = rowGap * scale, pax = paxSize * scale;
+                const rowH = tSize * 1.08 + (lSize > 0 ? lSize * 1.05 : 0) + gap * 2;
+
+                // grid origin
+                let y0 = margin + ((pageH - 2 * margin - rows * rowH - pax - 6) / 2);
+                if (y0 < margin) y0 = margin;
+
+                for (let i = 0; i < pairs.length; i++) {
+                    const c = i % cols; const r = Math.floor(i / cols);
+                    const x = margin + c * (colW + gutter) + colW / 2;
+                    const y = y0 + r * rowH + tSize; // baseline for title
+                    const p = pairs[i];
+                    const title = `${p.tour_name} (${p.count})`;
+                    centerText(title, x, y, tSize);
+                    const leaderLine = sentenceCase(p.group_leader);
+                    if (leaderLine) { centerNormal(leaderLine, x, y + tSize * 0.15 + lSize + gap, lSize); }
+                }
+
+                // PAX limit at bottom center
+                centerText(`PAX LIMIT: ${N(slot.pax)}`, pageW / 2, pageH - margin - 4, pax);
+            });
+
+            const now = new Date(); const fn = `Groups_${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(now.getMinutes())}.pdf`;
+            doc.save(fn);
+        }
+
+        /* ===== Actions ===== */
+        $('#btnSearch').addEventListener('click', async () => {
+            if (!ALL.length) ALL = await getAllSlips();
+            const df = $('#dateFrom').value, dt = $('#dateTo').value; if (!df || !dt) { alert('Pick a date range.'); return; }
+            const tf = $('#timeFrom').value || '00:00', tt = $('#timeTo').value || '23:59'; const b = clean($('#building').value);
+            const start = toDateObj(df, tf), end = toDateObj(dt, tt);
+            const inRange = s => { const d = toDateObj(s.checkin_date, s.checkin_time); return d && d >= start && d <= end };
+            RESULTS = ALL.filter(s => inRange(s)).filter(s => !b || clean(s.building) === b).map(s => ({
+                tour_name: clean(s.tour_name), group_leader: clean(s.group_leader), sh_no: clean(s.sh_no), checkin_date: s.checkin_date || '', checkin_time: s.checkin_time || '', building: clean(s.building), total: N(s.total)
+            })).sort((a, b) => (a.checkin_date + a.checkin_time).localeCompare(b.checkin_date + b.checkin_time));
+            renderResults();
+        });
+
+        $('#btnAddSelected').addEventListener('click', () => {
+            const rows = $$('#resultsTbl tbody tr');
+            const chosen = rows.filter(r => r.querySelector('.sel').checked).map(tr => { const td = tr.children; return { tour_name: td[1].textContent.trim(), group_leader: td[2].textContent.trim(), sh_no: td[3].textContent.trim(), total: N(td[6].textContent.trim()) } });
+            if (!chosen.length) { alert('Select arrivals first.'); return; }
+            chosen.forEach(c => ASSIGN.push(makeSlot([c]))); renderAssign();
+        });
+
+        $('#btnBundleSelected').addEventListener('click', () => {
+            const rows = $$('#resultsTbl tbody tr');
+            const chosen = rows.filter(r => r.querySelector('.sel').checked).map(tr => { const td = tr.children; return { tour_name: td[1].textContent.trim(), group_leader: td[2].textContent.trim(), sh_no: td[3].textContent.trim(), total: N(td[6].textContent.trim()) } });
+            if (chosen.length < 2) { alert('Select at least two arrivals to bundle.'); return; }
+            ASSIGN.push(makeSlot(chosen)); renderAssign();
+        });
+
+        $('#btnBundleSlots').addEventListener('click', () => {
+            const rows = $$('#assignTbl tbody tr');
+            const picks = rows.map((r, i) => ({ row: r, idx: i })).filter(p => p.row.querySelector('.pick').checked);
+            if (picks.length < 2) { alert('Pick at least two slots.'); return; }
+            const items = picks.map(p => ASSIGN[p.idx]);
+            const merged = { id: 'S' + Math.random().toString(36).slice(2, 10), tours: items.flatMap(s => s.tours), pax: items.reduce((s, x) => s + N(x.pax), 0) };
+            picks.sort((a, b) => b.idx - a.idx).forEach(p => ASSIGN.splice(p.idx, 1)); ASSIGN.push(merged); renderAssign();
+        });
+
+        $('#btnClearList').addEventListener('click', () => { if (confirm('Clear the assignment list?')) { ASSIGN = []; renderAssign(); } });
+        $('#btnPdf').addEventListener('click', downloadPDF);
+
+        // Defaults
+        (function init() { const now = new Date(); const yyyy = now.getFullYear(), mm = pad2(now.getMonth() + 1), dd = pad2(now.getDate()); $('#dateFrom').value = `${yyyy}-${mm}-${dd}`; $('#dateTo').value = `${yyyy}-${mm}-${dd}`; })();
+    </script>
+
+    <!-- begin: injected docx ui from fega.html -->
+    <div id="__docx_ui_injected__">
+        <button id="btnDocx" class="primary">Download DOCX</button>
+    </div>
+    <!-- end: injected docx ui from fega.html -->
+    <!-- begin: injected docx scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
+    <script>
+    (function () {
+
+            /* ===== Data plumbing (read-only gist like your OG) ===== */
+            const DB_NAME = 'pms_accommodation_db';
+            const STORE = 'slips';
+            function openExistingDB() { return Promise.resolve({ objectStoreNames: { contains: (s) => String(s) === STORE }, close: () => { } }); }
+            async function getAllSlips() {
+                const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/4d98eb35d2f88b099a1eb099a510dfed/raw';
+                let db; try {
+                    db = await openExistingDB(DB_NAME);
+                    if (!db.objectStoreNames.contains(STORE)) throw new Error('Object store missing');
+                    const resp = await fetch(RAW_GIST + '?cb=' + Date.now(), { cache: 'no-store' });
+                    if (!resp.ok) throw new Error('Fetch failed ' + resp.status);
+                    const payload = await resp.json();
+                    let slips = []; if (Array.isArray(payload)) slips = payload; else if (Array.isArray(payload.slips)) slips = payload.slips; else slips = payload?.db?.stores?.slips?.rows || [];
+                    return slips;
+                } finally { try { db && db.close() } catch { } }
+            }
+
+            /* ===== Helpers ===== */
+            const $ = sel => document.querySelector(sel);
+            const $$ = sel => Array.from(document.querySelectorAll(sel));
+            const pad2 = n => String(n).padStart(2, '0');
+            const N = v => Number(v || 0);
+            const clean = s => String(s ?? '').trim();
+            function toDateObj(dstr, tstr) { if (!dstr) return null; const [y, m, d] = dstr.split('-').map(Number); let hh = 0, mm = 0; if (tstr && /^\d{1,2}:\d{2}$/.test(tstr)) { [hh, mm] = tstr.split(':').map(Number) } return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0) }
+            function sentenceCase(str) { const s = clean(str).toLowerCase(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : '' }
+
+            function makeSlot(fromItems) {
+                const tours = fromItems.map(it => ({ tour_name: clean(it.tour_name), group_leader: clean(it.group_leader), sh: clean(it.sh_no), total: N(it.total) }));
+                const temp = { id: 'S' + (crypto.randomUUID?.().slice(0, 8) || Math.random().toString(36).slice(2, 10)), tours, pax: fromItems.reduce((s, x) => s + N(x.total), 0) || fromItems.length, showLeaderByKey: {} };
+                // default: show leaders if <=2 lines in that slot
+                const pairs = pairAgg(temp);
+                const defaultShow = pairs.length <= 2;
+                for (const p of pairs) { temp.showLeaderByKey[p.tour_name + '|' + p.group_leader] = defaultShow; }
+                return temp;
+            }
+
+            function pairAgg(slot) {
+                const map = new Map();
+                for (const t of slot.tours) {
+                    const tour = clean(t.tour_name), leader = clean(t.group_leader);
+                    if (!tour && !leader) continue;
+                    const key = tour + '|' + leader;
+                    if (!map.has(key)) map.set(key, { tour_name: tour, group_leader: leader, count: 0 });
+                    map.get(key).count += (Number.isFinite(N(t.total)) && N(t.total) > 0) ? N(t.total) : 1;
+                }
+                return Array.from(map.values());
+            }
+
+            /* ===== State ===== */
+            let ALL = [], RESULTS = [], ASSIGN = [];
+
+            /* ===== UI: results and list ===== */
+            function renderResults() {
+                const tbody = $('#resultsTbl tbody'); tbody.innerHTML = '';
+                $('#foundInfo').textContent = `${RESULTS.length} found`;
+                $('#resultsWrap').style.display = RESULTS.length ? '' : 'none';
+                $('#resultsTools').style.display = RESULTS.length ? '' : 'none';
+                for (const r of RESULTS) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+              <td><input type="checkbox" class="sel"></td>
+              <td>${r.tour_name}</td>
+              <td>${r.group_leader}</td>
+              <td>${r.sh_no}</td>
+              <td>${r.checkin_date} <span style="color:#777">${r.checkin_time}</span></td>
+              <td>${r.building}</td>
+              <td>${r.total}</td>
+              <td><button class="add">Add</button></td>`;
+                    tr.querySelector('.add').addEventListener('click', () => { ASSIGN.push(makeSlot([r])); renderAssign(); });
+                    tbody.appendChild(tr);
+                }
+                const selAll = $('#selAll'); selAll.checked = false; selAll.onchange = () => $$('#resultsTbl tbody .sel').forEach(cb => cb.checked = selAll.checked);
+            }
+
+            function renderAssign() {
+                const tbody = $('#assignTbl tbody'); tbody.innerHTML = '';
+                for (const s of ASSIGN) {
+                    const pairs = pairAgg(s);
+                    const namesHTML = pairs.map(p => {
+                        const key = p.tour_name + '|' + p.group_leader; const show = !!s.showLeaderByKey[key];
+                        const l = sentenceCase(p.group_leader);
+                        const leaderToggle = l ? `<label style=\"display:block;font-size:12px;color:#444\"><input type=\"checkbox\" class=\"toggleL\" data-k=\"${key}\" ${show ? 'checked' : ''}> Show leader: ${l}</label>` : '<span class="muted" style="display:block">No leader</span>';
+                        return `<div style=\"margin-bottom:6px\"><div style=\"font-weight:700\">${p.tour_name} <span style=\"opacity:.75\">(${p.count})</span></div>${leaderToggle}</div>`;
+                    }).join('');
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+              <td><input type="checkbox" class="pick"></td>
+              <td>${namesHTML}</td>
+              <td><input type="number" min="0" value="${N(s.pax)}" class="pax"></td>
+              <td class="muted">Use the checkboxes to include/exclude leader lines in DOCX.</td>`;
+                    tr.querySelectorAll('.toggleL').forEach(cb => cb.addEventListener('change', e => { s.showLeaderByKey[e.target.dataset.k] = e.target.checked; }));
+                    tr.querySelector('.pax').addEventListener('change', e => { s.pax = Math.max(0, N(e.target.value)); });
+                    tbody.appendChild(tr);
+                }
+                $('#statAssign').textContent = `${ASSIGN.length} slot${ASSIGN.length !== 1 ? 's' : ''}`;
+                const sel = $('#assignAll'); sel.checked = false; sel.onchange = () => $$('#assignTbl tbody .pick').forEach(cb => cb.checked = sel.checked);
+            }
+
+            /* ===== DOCX generation ===== */
+            function downloadDOCX() {
+                if (!ASSIGN.length) { alert('Add or bundle something first.'); return; }
+                if (!(window.docx && window.saveAs)) { alert('DOCX engine not loaded.'); return; }
+                const {
+                    Document, Packer, Paragraph, TextRun,
+                    AlignmentType, PageOrientation, convertMillimetersToTwip
+                } = window.docx;
+
+                // Force A4 landscape on every section (consistent)
+                const page = {
+                    size: { width: convertMillimetersToTwip(297), height: convertMillimetersToTwip(210), orientation: PageOrientation.LANDSCAPE },
+                    margin: { top: convertMillimetersToTwip(8), right: convertMillimetersToTwip(8), bottom: convertMillimetersToTwip(8), left: convertMillimetersToTwip(8) }
+                };
+
+                const BASE = { tour: 44, leader: 22, pax: 26 };
+
+                function visiblePairs(slot) {
+                    const pairs = pairAgg(slot);
+                    // reflect per-line leader toggles by attaching a flag
+                    return pairs.map(p => ({ ...p, showLeader: !!slot.showLeaderByKey[p.tour_name + '|' + p.group_leader] }));
+                }
+
+                function computeScaleForPairs(pairs, includePax) {
+                    // If only a single tour line in this slot, no dynamic fonts → return BASE
+                    if (pairs.length <= 1) return { ...BASE };
+                    const mm2pt = mm => mm * 2.83464567;
+                    const contentHeightPt = mm2pt(210 - 16); // A4-landscape minus 8mm margins top+bottom
+                    let lines = 0; let maxTitleLen = 0; let maxLeaderLen = 0;
+                    for (const p of pairs) {
+                        const title = `${p.tour_name} (${p.count})`;
+                        maxTitleLen = Math.max(maxTitleLen, title.length);
+                        lines += 1; // title
+                        if (p.showLeader && (p.group_leader || '').trim()) {
+                            maxLeaderLen = Math.max(maxLeaderLen, p.group_leader.length);
+                            lines += 1;
+                        }
+                    }
+                    if (includePax) lines += 1;
+                    // rough height estimate
+                    const baseHeightPt = lines * (BASE.tour * 1.08 * 0.5 + BASE.leader * 1.08 * 0.5);
+                    const heightScale = Math.min(1, contentHeightPt / Math.max(1, baseHeightPt));
+                    // width estimate by crude char capacity
+                    const titleCap = 32; // chars at 44pt across landscape width
+                    const leaderCap = 48; // chars at 22pt
+                    const widthScale = Math.min(1, maxTitleLen ? (titleCap / maxTitleLen) : 1, maxLeaderLen ? (leaderCap / maxLeaderLen) : 1);
+                    const scale = Math.max(0.35, Math.min(heightScale, widthScale));
+                    return { tour: Math.round(BASE.tour * scale), leader: Math.round(BASE.leader * scale), pax: Math.round(BASE.pax * scale) };
+                }
+
+                function blockFromPairs(pairs, paxValue, sizes) {
+                    const children = [];
+                    for (const p of pairs) {
+                        children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 }, children: [new TextRun({ text: `${p.tour_name} (${p.count})`, bold: true, size: sizes.tour * 2 })] }));
+                        if (p.showLeader && (p.group_leader || '').trim()) {
+                            const leader = p.group_leader.charAt(0).toUpperCase() + p.group_leader.slice(1).toLowerCase();
+                            children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 }, children: [new TextRun({ text: leader, size: sizes.leader * 2 })] }));
+                        }
+                    }
+                    children.push(new Paragraph({ text: "", spacing: { before: 0, after: 0 } }));
+                    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 }, children: [new TextRun({ text: `PAX LIMIT: ${Number(paxValue || 0)}`, bold: true, size: sizes.pax * 2 })] }));
+                    return children;
+                }
+
+                const bundledSlots = ASSIGN.filter(s => (s.tours || []).length > 1);
+                const unbundledSlots = ASSIGN.filter(s => (s.tours || []).length <= 1);
+
+                const sections = [];
+
+                // 1) All bundled slots in ONE section/page (landscape). Dynamic fonts active because multiple lines likely.
+                if (bundledSlots.length) {
+                    const children = [];
+                    bundledSlots.forEach((slot, idx) => {
+                        const pairs = visiblePairs(slot);
+                        const sizes = computeScaleForPairs(pairs, true); // dynamic if >1 pair
+                        if (idx > 0) { children.push(new Paragraph({ text: "", spacing: { before: 80, after: 80 } })); }
+                        children.push(...blockFromPairs(pairs, slot.pax, sizes));
+                    });
+                    sections.push({ properties: { page }, children });
+                }
+
+                // 2) Unbundled slots: section per slot, page break between. No dynamic fonts for single-line slots.
+                for (const slot of unbundledSlots) {
+                    const pairs = visiblePairs(slot);
+                    const sizes = { ...BASE }; // fixed sizes for single tours
+                    const children = blockFromPairs(pairs, slot.pax, sizes);
+                    sections.push({ properties: { page }, children });
+                }
+
+                const doc = new Document({ sections });
+                window.docx.Packer.toBlob(doc).then(blob => {
+                    const now = new Date();
+                    const fn = `Groups_${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}_${pad2(now.getHours())}${pad2(now.getMinutes())}.docx`;
+                    window.saveAs(blob, fn);
+                });
+            }
+
+            /* ===== Actions ===== */
+            $('#btnSearch').addEventListener('click', async () => {
+                if (!ALL.length) ALL = await getAllSlips();
+                const df = $('#dateFrom').value, dt = $('#dateTo').value; if (!df || !dt) { alert('Pick a date range.'); return; }
+                const tf = $('#timeFrom').value || '00:00', tt = $('#timeTo').value || '23:59'; const b = clean($('#building').value);
+                const start = toDateObj(df, tf), end = toDateObj(dt, tt);
+                const inRange = s => { const d = toDateObj(s.checkin_date, s.checkin_time); return d && d >= start && d <= end };
+                RESULTS = ALL.filter(s => inRange(s)).filter(s => !b || clean(s.building) === b).map(s => ({
+                    tour_name: clean(s.tour_name), group_leader: clean(s.group_leader), sh_no: clean(s.sh_no), checkin_date: s.checkin_date || '', checkin_time: s.checkin_time || '', building: clean(s.building), total: N(s.total)
+                })).sort((a, b) => (a.checkin_date + a.checkin_time).localeCompare(b.checkin_date + b.checkin_time));
+                renderResults();
+            });
+
+            $('#btnAddSelected').addEventListener('click', () => {
+                const rows = $$('#resultsTbl tbody tr');
+                const chosen = rows.filter(r => r.querySelector('.sel').checked).map(tr => { const td = tr.children; return { tour_name: td[1].textContent.trim(), group_leader: td[2].textContent.trim(), sh_no: td[3].textContent.trim(), total: N(td[6].textContent.trim()) }; });
+                if (!chosen.length) { alert('Select arrivals first.'); return; }
+                chosen.forEach(c => ASSIGN.push(makeSlot([c]))); renderAssign();
+            });
+
+            $('#btnBundleSelected').addEventListener('click', () => {
+                const rows = $$('#resultsTbl tbody tr');
+                const chosen = rows.filter(r => r.querySelector('.sel').checked).map(tr => { const td = tr.children; return { tour_name: td[1].textContent.trim(), group_leader: td[2].textContent.trim(), sh_no: td[3].textContent.trim(), total: N(td[6].textContent.trim()) }; });
+                if (chosen.length < 2) { alert('Select at least two arrivals to bundle.'); return; }
+                ASSIGN.push(makeSlot(chosen)); renderAssign();
+            });
+
+            $('#btnBundleSlots').addEventListener('click', () => {
+                const rows = $$('#assignTbl tbody tr');
+                const picks = rows.map((r, i) => ({ row: r, idx: i })).filter(p => p.row.querySelector('.pick').checked);
+                if (picks.length < 2) { alert('Pick at least two slots.'); return; }
+                const items = picks.map(p => ASSIGN[p.idx]);
+                const merged = { id: 'S' + Math.random().toString(36).slice(2, 10), tours: items.flatMap(s => s.tours), pax: items.reduce((s, x) => s + N(x.pax), 0), showLeaderByKey: {} };
+                // merge existing leader flags
+                const tmp = makeSlot(merged.tours); merged.showLeaderByKey = tmp.showLeaderByKey;
+                for (const s of items) { for (const k in s.showLeaderByKey) { if (s.showLeaderByKey[k]) merged.showLeaderByKey[k] = true; } }
+                picks.sort((a, b) => b.idx - a.idx).forEach(p => ASSIGN.splice(p.idx, 1)); ASSIGN.push(merged); renderAssign();
+            });
+
+            $('#btnClearList').addEventListener('click', () => { if (confirm('Clear the assignment list?')) { ASSIGN = []; renderAssign(); } });
+            $('#btnDocx').addEventListener('click', downloadDOCX);
+
+            // Defaults
+            (function init() { const now = new Date(); const yyyy = now.getFullYear(), mm = pad2(now.getMonth() + 1), dd = pad2(now.getDate()); $('#dateFrom').value = `${yyyy}-${mm}-${dd}`; $('#dateTo').value = `${yyyy}-${mm}-${dd}`; })();
+
+        })();</script>
+    <!-- end: injected docx scripts -->
+</body>
+</html>
