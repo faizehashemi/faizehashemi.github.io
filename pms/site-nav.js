@@ -1,202 +1,261 @@
-﻿// components/site-nav.js
-class SiteNav extends HTMLElement {
-  constructor(){
-    super();
-    const r = this.attachShadow({mode:'open'});
-    r.innerHTML = `
-      <nav class="rk-nav" role="navigation" aria-label="Primary">
-        <div class="bar">
-          <a class="brand" href="index.html" aria-label="Home">
-            <span class="b1">Faiz E Hashemi</span><span class="b2">PMS</span>
-          </a>
-          <div class="links" role="menubar">
-            ${[
-              { href: "index.html",                text: "Home" },
-              { href: "accommodation_slip.html",   text: "Slip" },
-              { href: "vacancy_forecast.html",     text: "Forecast" },
-              { href: "building_legend_grid.html", text: "Grid" },
-                          { href: "timeline_db.html", text: "Timeline" },
+﻿// site-nav.js — fully rewritten
+// Usage: <site-nav></site-nav>
+// Optional: window.SITE_NAV_ITEMS = [{label:'HOME', href:'./'}, ...]
+// Optional: <site-nav current="TIMELINE"></site-nav> to force active label.
 
-              { href: "checkins_checkouts.html",   text: "Checkins" },
-              { href: "fega.html",                  text: "Grouping" }, 
-              { href: "fea.html",                 text: "KG" },     
-              { href: "print_slip_a5.html",        text: "Print" },
-        { href: "slip_admin.html", text: "Admin" },
-        { href: "mawaid.html", text: "Mawaid" },
-            ].map(l => `
-              <a class="item" role="menuitem" href="${l.href}">
-                <span class="t">${l.text}</span>
-              </a>`).join("")}
-            <span class="hoverline" aria-hidden="true"></span>
-          </div>
-        </div>
-        <div class="progress" aria-hidden="true"></div>
-      </nav>
-      <style>
-        :host{
-          --gold: #e6b422;       /* readable, classy gold */
-          --gold-soft: #f3d984;  /* lighter for hover sheen */
-          --ink: #0b1220;
-          --glass: rgba(255,255,255,.96);
-          --edge: rgba(230,180,34,.28);
-          --shadow: 0 10px 26px rgba(10,20,30,.10);
-          display:block;
-        }
+(() => {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `
+    <style>
+      :host{
+        --ink: #1d2129;
+        --muted: #6b5e4a;
+        --gold: #d4af37;
+        --card: #fffaf1;
+        --border: #dcc7a4;
+        --fade: rgba(0,0,0,.05);
+        display:block;
+      }
+      .bar{
+        display:grid;
+        grid-template-columns:auto 1fr;
+        align-items:center;
+        gap: 18px;
+        padding: 10px 12px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        position: relative;
+      }
+      .brand{
+        display: inline-grid;
+        gap: 2px;
+        color: var(--ink);
+        text-decoration: none;
+        user-select:none;
+        white-space:nowrap;
+      }
+      .brand .t1{ font-weight: 800; text-transform: uppercase; letter-spacing: .12em; font-size: 14px }
+      .brand .t1 .pms{ color: var(--gold) }
+      .brand .t2{ font-weight: 700; letter-spacing:.14em; font-size: 11px; color: var(--muted) }
 
-        .rk-nav{
-          position: sticky; top: 0; z-index: 1000;
-          background:
-            linear-gradient(145deg, var(--edge), transparent 60%),
-            var(--glass);
-          -webkit-backdrop-filter: blur(8px) saturate(120%);
-          backdrop-filter: blur(8px) saturate(120%);
-          box-shadow: var(--shadow);
-          border-bottom: 1px solid #e9eef4;
-        }
+      /* Links container: one line, scroll when needed */
+      .links{
+        position: relative;
+        display:flex;
+        flex-wrap: nowrap;
+        gap: 0 18px;
+        overflow-x: auto; overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-gutter: stable both-edges;
+        white-space: nowrap;
+        align-items:center;
+        padding-bottom: 2px; /* room for underline */
+      }
+      .links::-webkit-scrollbar{ height: 6px }
+      .links::-webkit-scrollbar-track{ background: transparent }
+      .links::-webkit-scrollbar-thumb{ background: rgba(0,0,0,.12); border-radius: 999px }
+      .links:hover::-webkit-scrollbar-thumb{ background: rgba(0,0,0,.22) }
 
-        .bar{
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 10px 14px;
-          display: grid;
-          grid-template-columns: max-content 1fr;
-          align-items: center;
-          gap: 12px;
-        }
+      .item{
+        position: relative;
+        display: inline-flex; align-items:center; justify-content:center;
+        padding: 8px 10px;
+        border-radius: 10px;
+        color: var(--ink);
+        text-decoration: none;
+        text-transform: uppercase;
+        letter-spacing: .11em;
+        font-weight: 800;
+        font-size: 12px;
+        outline: none;
+        white-space: nowrap;
+        transition: transform .25s cubic-bezier(.2,.8,.2,1), color .18s ease;
+        will-change: transform;
+      }
+      .item:hover{ background: var(--fade) }
+      .item[aria-current="page"]{ color: #0c1b2a }
 
-        .brand{
-          display: inline-grid; grid-auto-flow: column; gap: 6px;
-          text-decoration: none; color: var(--ink);
-          font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
-          font-size: 15px; position: relative;
-        }
-        .brand .b2{ color: var(--gold) }
-        .brand::after{
-          content:""; position:absolute; left:-6px; right:-6px; bottom:-6px; height:2px;
-          background: linear-gradient(90deg, transparent, var(--gold), transparent);
-          transform: scaleX(0); transform-origin: 0 50%;
-          transition: transform .45s cubic-bezier(.2,.8,.2,1);
-        }
-        .brand:hover::after{ transform: scaleX(1) }
+      /* underline */
+      .line{
+        position:absolute; left:0; bottom:0;
+        height: 2px; width: 0;
+        background: var(--gold);
+        border-radius: 2px;
+        opacity: 0; transform: translateX(0);
+        transition: transform .22s cubic-bezier(.2,.8,.2,1), width .22s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+        pointer-events:none;
+      }
 
-        .links{ justify-self: end; position: relative; display:flex; flex-wrap:wrap; gap: 2px 10px }
+      /* tiny screens: tighter text */
+      @media (max-width: 860px){
+        .item{ letter-spacing:.06em; font-size: 11px; padding: 7px 8px }
+        .brand .t1{ letter-spacing:.10em }
+      }
+    </style>
 
-        .item{
-          position: relative; display:inline-flex; align-items:center;
-          padding: 8px 10px; border-radius: 10px;
-          color: var(--ink); text-decoration: none;
-          text-transform: uppercase; letter-spacing: .11em; font-weight: 700; font-size: 12px;
-          transition: transform .25s cubic-bezier(.2,.8,.2,1), color .2s ease;
-          outline: none;
-        }
-        .item:hover{ transform: translateY(-1px) }
-        .item[aria-current="page"]{ color: var(--gold) }
+    <div class="bar">
+      <a class="brand" href="#">
+        <div class="t1">FAIZ E HASHEMI <span class="pms">PMS</span></div>
+        <div class="t2">MAWAID</div>
+      </a>
 
-        .item:focus-visible{
-          box-shadow: 0 0 0 2px var(--gold-soft); border-radius: 12px;
-        }
+      <div class="links" part="links"></div>
+      <div class="line" part="line"></div>
+    </div>
+  `;
 
-        .hoverline{
-          position:absolute; left:0; bottom:2px; height:2px; width:0;
-          background: linear-gradient(90deg, transparent, var(--gold), transparent);
-          border-radius:2px; opacity:0;
-          transition:
-            width .35s cubic-bezier(.2,.8,.2,1),
-            transform .35s cubic-bezier(.2,.8,.2,1),
-            opacity .2s ease;
-          pointer-events:none;
-        }
+  class SiteNav extends HTMLElement {
+    constructor(){
+      super();
+      this.attachShadow({mode:'open'}).appendChild(tpl.content.cloneNode(true));
+      this._els = {
+        bar:   this.shadowRoot.querySelector('.bar'),
+        links: this.shadowRoot.querySelector('.links'),
+        line:  this.shadowRoot.querySelector('.line'),
+        brand: this.shadowRoot.querySelector('.brand'),
+      };
+      this._items = [];
+      this._ro = new ResizeObserver(()=> this._syncLine());
+    }
 
-        .progress{
-          position:absolute; inset:auto 0 0 0; height:2px; width:0%;
-          background: linear-gradient(90deg, #ffe9a6, var(--gold), #b88900);
-          box-shadow: 0 0 12px rgba(230,180,34,.35);
-          transition: width .1s linear;
-        }
+    static get observedAttributes(){ return ['current']; }
+    attributeChangedCallback(name){
+      if(name==='current') this._markActiveByLabel(this.getAttribute('current'));
+    }
 
-        @media (max-width: 860px){
-          .item{ letter-spacing:.1em; padding: 7px 8px }
-          .bar{ padding: 8px 10px }
-        }
+    connectedCallback(){
+      this._build();
+      this._wire();
+      this._ro.observe(this._els.links);
+      // initial underline on current item
+      const current = this._els.links.querySelector('.item[aria-current="page"]') || this._els.links.querySelector('.item');
+      if(current) this._moveLine(current, true);
+    }
 
-        @media print{ .rk-nav{ display:none } }
-      </style>
-    `;
-  }
+    disconnectedCallback(){
+      this._ro.disconnect();
+    }
 
-  connectedCallback(){
-    const r = this.shadowRoot;
-    const track = r.querySelector('.links');
-    const line  = r.querySelector('.hoverline');
-    const items = Array.from(r.querySelectorAll('.item'));
-    const brand = r.querySelector('.brand');
-    const prog  = r.querySelector('.progress');
+    _defaults(){
+      return [
+        {label:'HOME',                href:'./'},
+        {label:'SLIP',                href:'./accommodation_slip.html'},
+        {label:'FORECAST',            href:'#'},
+        {label:'LEGEND GRID',         href:'./building_legend_grid.html'},
+        {label:'TIMELINE',            href:'./timeline_db.html'},
+        {label:'CHECKINS/CHECKOUTS',  href:'#'},
+        {label:'FE GROUP',            href:'#'},
+        {label:'FE KG',               href:'#'},
+        {label:'PRINT',               href:'#'},
+        {label:'ADMIN',               href:'#'}
+      ];
+    }
 
-    // mark active by pathname
-    const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
-    (items.find(a => (a.getAttribute('href')||'').toLowerCase() === here) || items[0])
-      .setAttribute('aria-current','page');
+    _build(){
+      const src = Array.isArray(window.SITE_NAV_ITEMS) && window.SITE_NAV_ITEMS.length
+        ? window.SITE_NAV_ITEMS
+        : this._defaults();
 
-    // underline mover
-    const moveLine = (el)=>{
-      if(!el) return;
-      const tb = track.getBoundingClientRect();
-      const eb = el.getBoundingClientRect();
-      line.style.transform = `translateX(${eb.left - tb.left}px)`;
-      line.style.width = `${eb.width}px`;
-      line.style.opacity = '1';
-    };
-    const hideLine = ()=>{ line.style.opacity = '0'; };
-
-    items.forEach(a=>{
-      a.addEventListener('mouseenter', ()=> moveLine(a));
-      a.addEventListener('focus',     ()=> moveLine(a));
-      a.addEventListener('mouseleave', hideLine);
-      a.addEventListener('blur',      hideLine);
-    });
-    track.addEventListener('mouseleave', hideLine);
-
-    // magnetic hover (subtle)
-    const onMouseMove = (e)=>{
-      const mx = e.clientX, my = e.clientY;
-      items.forEach(a=>{
-        const b = a.getBoundingClientRect();
-        const cx = b.left + b.width/2, cy = b.top + b.height/2;
-        const dx = (mx - cx) / Math.max(b.width, 1);
-        const dy = (my - cy) / Math.max(b.height, 1);
-        a.style.transform = `translate(${dx*2}px, ${dy*.5}px)`;
+      // clear links
+      this._els.links.textContent = '';
+      this._items = src.map(item => {
+        const a = document.createElement('a');
+        a.className = 'item';
+        a.textContent = item.label;
+        a.href = item.href || '#';
+        a.setAttribute('data-label', item.label);
+        // auto-mark current using location if it matches last path segment
+        try{
+          const lh = (location.pathname.split('/').pop()||'').toLowerCase();
+          const ih = (new URL(a.href, location.href).pathname.split('/').pop()||'').toLowerCase();
+          if(lh && ih && lh === ih) a.setAttribute('aria-current','page');
+        }catch{ /* relative href with weird base, ignore */ }
+        this._els.links.appendChild(a);
+        return a;
       });
-    };
-    this.addEventListener('mousemove', onMouseMove);
 
-    // brand micro-kerning on hover
-    brand.addEventListener('mousemove', (e)=>{
-      const b = brand.getBoundingClientRect();
-      const t = ((e.clientX - b.left)/b.width - .5)*2;
-      brand.style.letterSpacing = `${.14 + t*.04}em`;
-    });
-    brand.addEventListener('mouseleave', ()=> brand.style.letterSpacing = '.14em');
+      // attribute-based override: current="TIMELINE"
+      if(this.hasAttribute('current')) this._markActiveByLabel(this.getAttribute('current'));
+    }
 
-    // scroll progress
-    const onScroll = ()=>{
-      const sTop = document.documentElement.scrollTop || document.body.scrollTop;
-      const sH = (document.documentElement.scrollHeight - document.documentElement.clientHeight) || 1;
-      prog.style.width = `${Math.max(0, Math.min(1, sTop / sH))*100}%`;
-    };
-    addEventListener('scroll', onScroll, { passive:true });
-    onScroll();
+    _wire(){
+      const track = this._els.links;
+      const line  = this._els.line;
 
-    // clean
-    this._cleanup = ()=>{
-      removeEventListener('scroll', onScroll);
-      this.removeEventListener('mousemove', onMouseMove);
-    };
+      const moveLine = el => {
+        if(!el || !track.isConnected) return;
+        const tb = track.getBoundingClientRect();
+        const eb = el.getBoundingClientRect();
+        const sl = track.scrollLeft;
+        line.style.transform = `translateX(${(eb.left - tb.left) + sl}px)`;
+        line.style.width = `${eb.width}px`;
+        line.style.opacity = '1';
+      };
+      const hideLine = () => { line.style.opacity = '0'; };
+
+      // hover/focus underline
+      this._items.forEach(a => {
+        a.addEventListener('mouseenter', ()=> moveLine(a));
+        a.addEventListener('focus',     ()=> moveLine(a));
+        a.addEventListener('mouseleave', hideLine);
+        a.addEventListener('blur',      hideLine);
+        a.addEventListener('click',     ()=> this._setCurrent(a));
+      });
+
+      // keep underline synced to current while scrolling
+      track.addEventListener('scroll', () => {
+        const cur = track.querySelector('.item[aria-current="page"]');
+        if(cur) moveLine(cur);
+      }, {passive:true});
+
+      // vertical wheel scroll -> horizontal scroll
+      track.addEventListener('wheel', e => {
+        if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){
+          track.scrollLeft += e.deltaY;
+          e.preventDefault();
+        }
+      }, {passive:false});
+
+      // subtle parallax so it feels alive
+      this.addEventListener('mousemove', e => {
+        const mx = e.clientX, my = e.clientY;
+        this._items.forEach(a => {
+          const b = a.getBoundingClientRect();
+          const dx = (mx - (b.left + b.width/2)) / Math.max(b.width, 1);
+          const dy = (my - (b.top  + b.height/2)) / Math.max(b.height, 1);
+          a.style.transform = `translate(${dx*2}px, ${dy*.5}px)`;
+        });
+      });
+
+      // blur cleanup
+      this.addEventListener('mouseleave', () => {
+        this._items.forEach(a => a.style.transform = 'translate(0,0)');
+        hideLine();
+      });
+
+      // expose helpers
+      this._moveLine = moveLine;
+      this._hideLine = hideLine;
+    }
+
+    _setCurrent(a){
+      this._items.forEach(x => x.removeAttribute('aria-current'));
+      a.setAttribute('aria-current','page');
+      this._moveLine(a);
+    }
+
+    _markActiveByLabel(label){
+      if(!label) return;
+      const a = this._items.find(x => (x.dataset.label||'').toLowerCase() === String(label).toLowerCase());
+      if(a) this._setCurrent(a);
+    }
+
+    _syncLine(){
+      const cur = this.shadowRoot.querySelector('.item[aria-current="page"]');
+      if(cur) this._moveLine(cur, true);
+    }
   }
 
-  disconnectedCallback(){ this._cleanup?.() }
-}
-
-// Safe define (prevents “already defined” crash during reloads)
-if(!customElements.get('site-nav')){
   customElements.define('site-nav', SiteNav);
-}
+})();
