@@ -15,6 +15,8 @@ class SiteNav extends HTMLElement {
               { href: "accommodation_slip.html",   text: "Slip" },
               { href: "vacancy_forecast.html",     text: "Forecast" },
               { href: "building_legend_grid.html", text: "Legend Grid" },
+                          { href: "timeline_db.html", text: "Timeline" },
+
               { href: "checkins_checkouts.html",   text: "Checkins/Checkouts" },
               { href: "fega.html",                  text: "FE Group" }, 
               { href: "fea.html",                 text: "FE KG" },     

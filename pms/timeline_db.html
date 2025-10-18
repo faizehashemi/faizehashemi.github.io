@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PMS • Room Timeline (On-Demand Render)</title>
+    <style>
+        /* === theme: cream / gold / brown === */
+        :root {
+            --ink: #2b1e15; /* text */
+            --muted: #6b5e4a; /* secondary */
+            --card: #fffaf1; /* panels/cards */
+            --border: #dcc7a4; /* lines */
+            --hdrBg: #f3e6ca; /* header rows & gutter */
+            --gold: #d4af37; /* accent */
+
+            --bg: #f7efe1; /* page bg */
+            --vacant: #fffdf5; /* unused rows */
+            --rowAlt: #fff9ec; /* zebra */
+            --occupied: #e8c765; /* bar 1 */
+            --occupied2: #d7b047; /* bar 2 */
+            /* legacy tokens kept for JS */
+            --panel: var(--card);
+            --shadow: 0 10px 30px rgba(0,0,0,.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            margin: 15px;
+            background: var(--bg);
+            color: var(--ink);
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+        }
+
+        /* navbar inside the page */
+        .navbar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+
+            .navbar .brand {
+                font-weight: 800;
+                letter-spacing: .2px;
+            }
+
+            .navbar nav {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            .navbar a {
+                text-decoration: none;
+                color: var(--ink);
+                padding: 6px 10px;
+                border-radius: 8px;
+            }
+
+                .navbar a:hover {
+                    background: #fff6dd;
+                }
+
+        /* controls toolbar */
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            padding: 10px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+
+            .toolbar label {
+                font-size: 12px;
+                color: var(--muted);
+                display: block;
+                margin-bottom: 6px;
+            }
+
+        select, input[type=text], input[type=datetime-local], button {
+            font: inherit;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: #fffdf7;
+            color: var(--ink);
+        }
+
+        button {
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            button:hover {
+                background: #fff6dd;
+            }
+
+            button:active {
+                transform: translateY(1px);
+            }
+
+            button.primary {
+                border-color: #f3d984;
+                background: linear-gradient(0deg, color-mix(in oklab, var(--gold) 16%, transparent), color-mix(in oklab, var(--gold) 16%, transparent));
+            }
+
+        /* stage canvas card */
+        .stage {
+            position: relative;
+            min-height: 60vh;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ghost {
+            text-align: center;
+            max-width: 520px;
+            color: var(--muted);
+            padding: 20px;
+        }
+
+        .legend {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            z-index: 3;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: var(--muted);
+            display: none
+        }
+
+        .tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: #fffdf7;
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            box-shadow: var(--shadow);
+            display: none;
+            max-width: min(320px,80vw)
+        }
+
+        canvas {
+            display: none
+        }
+
+        .error {
+            position: fixed;
+            inset: 12px auto auto 12px;
+            z-index: 9999;
+            background: #2b1515;
+            color: #ffdede;
+            border: 1px solid #5a3232;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font: 13px system-ui;
+            max-width: 520px
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #fffdf5;
+            color: var(--muted);
+            border: 1px solid var(--border)
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="./site-nav.js"></script>
+    <!-- in-page navbar -->
+    <div class="navbar" hidden>
+        <div class="brand">Room Timeline</div>
+
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center">
+            <span class="badge" id="rangeInfo">—</span>
+            <span class="badge" id="zoomInfo">Zoom 100%</span>
+        </div>
+    </div>
+
+    <!-- top toolbar -->
+    <div class="toolbar" id="toolbar">
+        <div>
+            <label for="building">Building</label>
+            <select id="building"><option value="">Load DB…</option></select>
+        </div>
+        <div>
+            <label for="room">Room</label>
+            <input id="room" list="roomsList" type="text" placeholder="e.g. 505" />
+            <datalist id="roomsList"></datalist>
+        </div>
+        <div>
+            <label for="start">Start</label>
+            <input id="start" type="datetime-local" />
+        </div>
+        <div>
+            <label for="end">End</label>
+            <input id="end" type="datetime-local" />
+        </div>
+        <!-- granularity handle -->
+        <div>
+            <label for="gran">Granularity</label>
+            <select id="gran">
+                <option value="1" selected>1h</option>
+                <option value="2">2h</option>
+                <option value="3">3h</option>
+                <option value="6">6h</option>
+                <option value="12">12h</option>
+                <option value="24">24h</option>
+            </select>
+        </div>
+        <button id="btnEnter" class="primary">Enter</button>
+        <button id="btnNow" type="button" title="Center on now" disabled>Now</button>
+    </div>
+
+    <section class="stage" id="stage">
+        <div class="ghost" id="ghost">Fill the toolbar, then click <b>Enter</b>. Nothing draws until you do.</div>
+        <div class="legend" id="legend">Filled = occupied<br />Empty = vacant</div>
+        <canvas id="timeline"></canvas>
+        <div class="tooltip" id="tooltip"></div>
+    </section>
+
+    <div id="dbHint" class="ghost" style="padding:8px 0 0 0; text-align:left"></div>
+
+    <script>
+    // Error surfacing
+    function showError(msg){
+      let box=document.querySelector('.error');
+      if(!box){ box=document.createElement('div'); box.className='error'; document.body.appendChild(box); }
+      box.textContent='Timeline error: '+msg;
+      console.error('[timeline]', msg);
+    }
+    window.addEventListener('error', e=>showError(e.message||String(e.error||e)));
+    window.addEventListener('unhandledrejection', e=>showError('Promise rejection: '+String(e.reason||e)));
+
+    // Config (default to hour granularity; can switch up to 24h)
+    const ROW_H=36, HDR_H=48, GUTTER=150, MIN_PX_HR=20, MAX_PX_HR=600;
+
+    // DOM refs
+    const stage=document.getElementById('stage');
+    const ghost=document.getElementById('ghost');
+    const canvas=document.getElementById('timeline');
+    const ctx=canvas.getContext('2d');
+    const legend=document.getElementById('legend');
+    const zoomInfo=document.getElementById('zoomInfo');
+    const rangeInfo=document.getElementById('rangeInfo');
+    const tip=document.getElementById('tooltip');
+    const buildingSel=document.getElementById('building');
+    const roomInp=document.getElementById('room');
+    const roomsList=document.getElementById('roomsList');
+    const startInp=document.getElementById('start');
+    const endInp=document.getElementById('end');
+    const btnEnter=document.getElementById('btnEnter');
+    const btnNow=document.getElementById('btnNow');
+    const dbHint=document.getElementById('dbHint');
+    const granSel=document.getElementById('gran');
+
+    // State
+    let pxPerHr=80, viewStart=null, viewEnd=null;
+    let EVENTS=[], SHS=[], HIT=[];
+    let canvasReady=false;
+
+    // Dynamic granularity
+    let GRAN_H = 1;                  // hours
+    let QUANT_MS = GRAN_H * 3600000; // ms
+    function setGranularity(hours){
+      GRAN_H = Math.max(1, Math.min(24, Number(hours)||1));
+      QUANT_MS = GRAN_H * 3600000;
+      if(viewStart && viewEnd){
+        viewStart = qFloor(viewStart);
+        viewEnd   = qCeil(viewEnd);
+        draw();
+      }
+    }
+    granSel.addEventListener('change', e => setGranularity(e.target.value));
+
+    /* ===== DB plumbing ===== */
+    const DB_NAME = 'pms_accommodation_db', STORE = 'slips', DB_VERSION = 2;
+    function openDB() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open(DB_NAME, DB_VERSION);
+        r.onupgradeneeded = e => {
+          const db = e.target.result;
+          const s = db.objectStoreNames.contains(STORE)
+            ? e.target.transaction.objectStore(STORE)
+            : db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+          if (!s.indexNames.contains('createdAt')) s.createIndex('createdAt', 'createdAt', { unique: false });
+          if (!s.indexNames.contains('sh_no'))     s.createIndex('sh_no', 'sh_no',       { unique: false });
+          if (!s.indexNames.contains('building'))  s.createIndex('building', 'building', { unique: false });
+        };
+        r.onsuccess = () => res(r.result);
+        r.onerror   = () => rej(r.error);
+      });
+    }
+    async function getAllRecords() {
+      const db = await openDB();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const st = tx.objectStore(STORE);
+        const rq = st.getAll();
+        rq.onsuccess = () => res(rq.result || []);
+        rq.onerror   = () => rej(rq.error);
+        tx.oncomplete = () => db.close();
+      });
+    }
+    async function getByBuilding(building) {
+      const db = await openDB();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const st = tx.objectStore(STORE);
+        const idx = st.index('building');
+        const out = [];
+        const range = IDBKeyRange.only(building);
+        const rq = idx.openCursor(range);
+        rq.onsuccess = () => {
+          const cur = rq.result;
+          if (cur) { out.push(cur.value); cur.continue(); }
+          else { res(out); }
+        };
+        rq.onerror = () => rej(rq.error);
+        tx.oncomplete = () => db.close();
+      });
+    }
+
+    // Populate building/rooms
+    (async function hydrate(){
+      try{
+        const all = await getAllRecords();
+        const byB=new Map();
+        for(const r of all){
+          const b=(r.building||'').trim();
+          if(!b) continue;
+          if(!byB.has(b)) byB.set(b,new Set());
+          const eat=arr=>arr?.forEach(x=>{
+            const rm=String(x.room_no||'').trim();
+            if(rm) byB.get(b).add(rm);
+          });
+          eat(r.rooms?.gents); eat(r.rooms?.ladies);
+        }
+        buildingSel.innerHTML=['<option value="">Select building…</option>',...Array.from(byB.keys()).sort().map(b=>`<option>${b}</option>`)].join('');
+        buildingSel.onchange=()=>{
+          const b=buildingSel.value.trim();
+          roomsList.innerHTML='';
+          if(!b||!byB.has(b)) return;
+          const rooms=Array.from(byB.get(b)).sort((a,c)=>String(a).localeCompare(c,undefined,{numeric:true}));
+          roomsList.innerHTML=rooms.map(r=>`<option value="${r}"></option>`).join('');
+        };
+
+        // Prefill range
+        const now=new Date(); const start=new Date(+now-24*3600e3);
+        start.setMinutes(0,0,0); now.setMinutes(0,0,0);
+        startInp.value=toLocalDT(start);
+        endInp.value=toLocalDT(now);
+      }catch(e){
+        dbHint.textContent='DB error: '+e.message;
+        dbHint.style.color='#a3572f';
+      }
+    })();
+
+    // Enter: query and draw once
+    btnEnter.addEventListener('click', async ()=>{
+      const building=buildingSel.value.trim();
+      const room=roomInp.value.trim();
+      if(!building || !room){ alert('Pick a building and enter a room.'); return; }
+      const s=startInp.value; const e=endInp.value;
+      if(!s||!e){ alert('Select a start and end date/time.'); return; }
+
+      viewStart = qFloor(new Date(s));
+      viewEnd   = qCeil(new Date(e));
+      if(!(viewStart<viewEnd)){ alert('Start must be before End.'); return; }
+
+      let all=[];
+      try{ all = await getByBuilding(building); }
+      catch(e){ dbHint.textContent='DB error: '+e.message; dbHint.style.color='#a3572f'; all = []; }
+
+      const out=[];
+      for(const r of all){
+        const ci=parseDT(r.checkin_date, r.checkin_time);
+        const co=parseDT(r.checkout_date, r.checkout_time);
+        if(!ci||!co||co<=ci) continue;
+        const eat=arr=>{
+          for(const x of arr||[]){
+            const rm=String(x.room_no||'').trim();
+            const assigned=Number(x.assigned||0);
+            if(rm===room && assigned>0){
+              // include assigned in the event
+              out.push({ sh_no:r.sh_no, start:ci, end:co, assigned:assigned });
+            }
+          }
+          };
+        eat(r.rooms?.gents); eat(r.rooms?.ladies);
+      }
+
+      EVENTS = out.filter(ev=>ev.end>viewStart && ev.start<viewEnd).sort((a,b)=>a.start-b.start);
+      SHS = Array.from(new Set(EVENTS.map(e=>String(e.sh_no)))).sort();
+
+      prepareCanvas();
+      fitZoomToWindow();
+      draw();
+      enableViewportUI(true);
+    });
+
+    function prepareCanvas(){
+      if(canvasReady) return;
+      canvasReady=true;
+      ghost.style.display='none';
+      legend.style.display='block';
+      canvas.style.display='block';
+      sizeCanvas();
+      window.addEventListener('resize', sizeCanvas);
+
+      // interactions
+      let panning=false, panStartX=0, panStartVS=null;
+      canvas.addEventListener('mousedown',e=>{ panning=true; panStartX=e.clientX; panStartVS=new Date(viewStart); });
+      window.addEventListener('mouseup',()=>{ panning=false; });
+      window.addEventListener('mousemove',e=>{
+        if(!panning) return;
+        const dx=e.clientX-panStartX;
+        const hrs=-dx/pxPerHr;
+        const span=viewEnd-panStartVS;
+        viewStart=new Date(+panStartVS+hrs*36e5);
+        viewEnd=new Date(+viewStart+span);
+        draw();
+      });
+      canvas.addEventListener('wheel',e=>{
+        e.preventDefault();
+        zoomAt(e.clientX - canvas.getBoundingClientRect().left, Math.sign(e.deltaY), Math.abs(e.deltaY));
+      }, {passive:false});
+      canvas.addEventListener('dblclick', centerOnNow);
+      btnNow.addEventListener('click', centerOnNow);
+
+      // hover tooltip
+      window.addEventListener('mousemove',e=>{ if(!canvasReady) return; handleHover(e.clientX,e.clientY); });
+
+      // touch
+      let lastDist=null;
+      canvas.addEventListener('touchstart', e=>{
+        if(e.touches.length===1){ panning=true; panStartX=e.touches[0].clientX; panStartVS=new Date(viewStart); }
+        lastDist=null;
+      }, {passive:true});
+      canvas.addEventListener('touchmove', e=>{
+        if(e.touches.length===1 && panning){
+          const dx=e.touches[0].clientX-panStartX;
+          const hrs=-dx/pxPerHr; const span=viewEnd-panStartVS;
+          viewStart=new Date(+panStartVS+hrs*36e5);
+          viewEnd=new Date(+viewStart+span);
+          draw(); return;
+        }
+        if(e.touches.length===2){
+          e.preventDefault();
+          const [a,b]=e.touches;
+          const dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+          const cx=(a.clientX+b.clientX)/2;
+          if(lastDist!==null){
+            const scale=dist/lastDist;
+            pinchAt(cx - canvas.getBoundingClientRect().left, scale);
+          }
+          lastDist=dist;
+        }
+      }, {passive:false});
+      window.addEventListener('touchend',()=>{ panning=false; lastDist=null; }, {passive:true});
+    }
+
+    function enableViewportUI(on){ btnNow.disabled=!on; }
+
+    // Sizing and draw
+    function sizeCanvas(){
+      const dpr=Math.max(1, window.devicePixelRatio||1);
+      const w=stage.clientWidth, h=stage.clientHeight;
+      if(w<=0||h<=0) return;
+      canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+      canvas.style.width=w+'px'; canvas.style.height=h+'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+
+    function fitZoomToWindow(){
+      const spanH=(viewEnd-viewStart)/36e5;
+      pxPerHr=Math.min(MAX_PX_HR, Math.max(MIN_PX_HR, (stage.clientWidth-GUTTER)/Math.max(1e-6,spanH)));
+    }
+
+    function cssVar(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+    function t2x(t){ return GUTTER + ((t - viewStart)/36e5) * pxPerHr; }
+    function x2t(x){ const hrs=(x-GUTTER)/pxPerHr; return new Date(+viewStart + hrs*36e5); }
+
+    function draw(){
+      const w=stage.clientWidth, h=stage.clientHeight; if(w<=0||h<=0) return;
+      HIT=[]; ctx.clearRect(0,0,w,h);
+
+      // bg and header in cream palette
+      ctx.fillStyle=cssVar('--card'); ctx.fillRect(0,0,w,h);
+      ctx.fillStyle=cssVar('--hdrBg'); ctx.fillRect(0,0,GUTTER,h);
+      ctx.fillStyle=cssVar('--hdrBg'); ctx.fillRect(GUTTER,0,w-GUTTER,HDR_H);
+
+      // time grid (respect current GRAN_H)
+      const target=120;
+      const base=[1,2,3,6,12,24];
+      const steps=base.filter(hh=>hh>=GRAN_H);
+      let step=steps[0];
+      for(const s of steps){ if(s*pxPerHr>=target){ step=s; break; } step=s; }
+      const stepMs = step * 3600000;
+
+      const startMs = +viewStart;
+      const endMs   = +viewEnd;
+      const firstMs = Math.ceil(startMs/stepMs)*stepMs;
+
+      ctx.font='12px system-ui,-apple-system,Segoe UI,Roboto';
+      ctx.textBaseline='top';
+      ctx.fillStyle=cssVar('--muted');
+
+      ctx.strokeStyle=cssVar('--border');
+      for(let tms = firstMs; tms <= endMs; tms += stepMs){
+        const t = new Date(tms);
+        const x = t2x(tms);
+        ctx.beginPath(); ctx.moveTo(x+.5,HDR_H); ctx.lineTo(x+.5,h); ctx.stroke();
+        const label = step>=24
+          ? t.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})
+          : t.toLocaleTimeString(undefined,{hour:'2-digit'})+' '+t.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+        ctx.fillText(label, x+6, 16);
+      }
+
+      // now line
+      const now=new Date();
+      if(+now>=startMs && +now<=endMs){
+        const xn=t2x(+now);
+        ctx.strokeStyle='#1a73e8';
+        ctx.setLineDash([6,4]);
+        ctx.beginPath(); ctx.moveTo(xn+.5,HDR_H); ctx.lineTo(xn+.5,h); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // rows
+      ctx.font='13px system-ui,-apple-system,Segoe UI,Roboto';
+      ctx.textBaseline='middle';
+      for(let i=0;i<SHS.length;i++){
+        const y=HDR_H+i*ROW_H;
+        ctx.fillStyle = i%2 ? cssVar('--vacant') : cssVar('--rowAlt');
+        ctx.fillRect(GUTTER,y,w-GUTTER,ROW_H);
+        ctx.strokeStyle=cssVar('--border');
+        ctx.beginPath(); ctx.moveTo(GUTTER,y+ROW_H+.5); ctx.lineTo(w,y+ROW_H+.5); ctx.stroke();
+        ctx.fillStyle=cssVar('--ink');
+        ctx.fillText(SHS[i], 12, y+ROW_H/2);
+      }
+
+      // bars per SH
+      const cols=[cssVar('--occupied'), cssVar('--occupied2')];
+      for(const [idx,sh] of SHS.entries()){
+        const y=HDR_H+idx*ROW_H+4;
+        const blocks=EVENTS.filter(e=>String(e.sh_no)===String(sh));
+        for(let j=0;j<blocks.length;j++) drawBlock(blocks[j],y,cols[j%cols.length]);
+      }
+
+      // totals footer row (per granularity bucket)
+      const granMs = QUANT_MS;
+      const firstBucket = Math.ceil((+viewStart)/granMs) * granMs;
+      const lastBucket  = Math.floor((+viewEnd)/granMs)  * granMs;
+      const totals = [];
+      for (let tms = firstBucket; tms < lastBucket; tms += granMs){
+        let sum = 0;
+        for (const ev of EVENTS){
+          const s = Math.max(+ev.start, tms);
+          const e = Math.min(+ev.end,   tms + granMs);
+          if (e > s) sum += Number(ev.assigned || 1);
+        }
+        totals.push({ tms, sum });
+      }
+
+      const footerH = 28;
+      const footerY = HDR_H + SHS.length * ROW_H;
+      // footer background + divider
+      ctx.fillStyle = cssVar('--rowAlt');
+      ctx.fillRect(GUTTER, footerY, w - GUTTER, footerH);
+      ctx.strokeStyle = cssVar('--border');
+      ctx.beginPath(); ctx.moveTo(GUTTER, footerY + .5); ctx.lineTo(w, footerY + .5); ctx.stroke();
+      // footer label
+      ctx.fillStyle = cssVar('--ink');
+      ctx.fillText('TOTAL', 12, footerY + footerH/2);
+
+      // footer buckets
+      for (const { tms, sum } of totals){
+        const x1 = t2x(tms);
+        const x2 = t2x(tms + granMs);
+        const bw = Math.max(1, x2 - x1 - 1);
+        ctx.fillStyle = cssVar('--occupied2');
+        ctx.globalAlpha = Math.min(1, 0.15 + sum * 0.08);
+        ctx.fillRect(x1, footerY + 4, bw, footerH - 8);
+        ctx.globalAlpha = 1;
+        if (bw >= 22){
+          ctx.textAlign = 'center';
+          ctx.fillText(String(sum), x1 + bw/2, footerY + footerH/2);
+          ctx.textAlign = 'left';
+        }
+      }
+
+      // badges
+      const hours=(viewEnd-viewStart)/36e5;
+      const zoomPct=Math.round((pxPerHr-MIN_PX_HR)/(MAX_PX_HR-MIN_PX_HR)*100);
+      zoomInfo.textContent=`Zoom ${Math.min(100,Math.max(0,zoomPct))}%`;
+      rangeInfo.textContent=`${fmt(viewStart)} → ${fmt(viewEnd)} (${hours.toFixed(1)}h)`;
+    }
+
+    function drawBlock(b,y,color){
+      let s=new Date(Math.max(+b.start,+viewStart)), e=new Date(Math.min(+b.end,+viewEnd));
+      s = qCeil(s); e = qFloor(e);
+      if(e<=s) return;
+      const x1=t2x(+s), x2=t2x(+e), w=Math.max(1,x2-x1);
+      ctx.fillStyle=color; ctx.globalAlpha=.95; ctx.fillRect(x1,y,w,ROW_H-8);
+      ctx.globalAlpha=1; ctx.strokeStyle='#caa954'; ctx.strokeRect(x1+.5,y+.5,w-1,ROW_H-9);
+      HIT.push({x:x1,y,w,h:ROW_H-8,data:b});
+    }
+
+    function handleHover(clientX, clientY){
+      if(!canvasReady) return;
+      const r=canvas.getBoundingClientRect();
+      const mx=clientX-r.left, my=clientY-r.top;
+      const hit=HIT.find(h=>mx>=h.x && mx<=h.x+h.w && my>=h.y && my<=h.y+h.h);
+      if(hit){
+        const d=hit.data;
+        tip.style.display='block';
+        tip.style.left=(clientX+12)+'px';
+        tip.style.top=(clientY+12)+'px';
+        tip.innerHTML=`<b>SH ${escapeHTML(d.sh_no)}</b><br>${fmt(d.start)} → ${fmt(d.end)}\
+<br>Assigned: ${d.assigned ?? 1}<br>${dur(d.start,d.end)}`;
+      } else {
+        tip.style.display='none';
+      }
+    }
+
+    function zoomAt(localX, wheelSign, wheelAbs){
+      const focus=x2t(localX);
+      const factor=1+(wheelAbs>40? .2 : .1);
+      if(wheelSign<0) pxPerHr=Math.min(MAX_PX_HR, pxPerHr*factor);
+      else pxPerHr=Math.max(MIN_PX_HR, pxPerHr/factor);
+      const frac=(focus-viewStart)/(viewEnd-viewStart);
+      const totalH=(stage.clientWidth-GUTTER)/pxPerHr;
+      let newSpan=totalH*36e5;
+      newSpan = Math.max(QUANT_MS, Math.round(newSpan/QUANT_MS)*QUANT_MS);
+      viewStart=qFloor(new Date(+focus - frac*newSpan));
+      viewEnd=qCeil(new Date(+viewStart+newSpan));
+      draw();
+    }
+
+    function pinchAt(localX, scale){
+      const focus=x2t(localX);
+      const old=pxPerHr;
+      pxPerHr=Math.min(MAX_PX_HR, Math.max(MIN_PX_HR, pxPerHr*scale));
+      if(pxPerHr!==old){
+        const frac=(focus-viewStart)/(viewEnd-viewStart);
+        const totalH=(stage.clientWidth-GUTTER)/pxPerHr;
+        let newSpan=totalH*36e5;
+        newSpan = Math.max(QUANT_MS, Math.round(newSpan/QUANT_MS)*QUANT_MS);
+        viewStart=qFloor(new Date(+focus - frac*newSpan));
+        viewEnd=qCeil(new Date(+viewStart+newSpan));
+        draw();
+      }
+    }
+
+    function centerOnNow(){
+      const now=new Date(); const span=viewEnd-viewStart;
+      viewStart=qFloor(new Date(+now-span/2));
+      viewEnd=qCeil(new Date(+now+span/2));
+      draw();
+    }
+
+    // Utils
+    function fmt(d){ return qFloor(d).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit'}); }
+    function dur(a,b){ const ms=b-a; const h=Math.floor(ms/36e5); const m=Math.round((ms%36e5)/6e4); return `${h}h ${String(m).padStart(2,'0')}m`; }
+    function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+    function parseDT(d,t){
+      if(!d) return null;
+      const tt=t&&t.length?t:'00:00';
+      const v=new Date(`${d}T${tt}`);
+      return isNaN(v)?null:qFloor(v);
+    }
+    function toLocalDT(dt){
+      dt=qFloor(dt);
+      const z=new Date(dt.getTime()-dt.getTimezoneOffset()*60000);
+      return z.toISOString().slice(0,16);
+    }
+    function qFloor(d){ const ms=Math.floor(+d/QUANT_MS)*QUANT_MS; return new Date(ms); }
+    function qCeil(d){ const ms=Math.ceil(+d/QUANT_MS)*QUANT_MS; return new Date(ms); }
+    </script>
+</body>
+</html>
