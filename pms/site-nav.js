@@ -127,7 +127,48 @@ class SiteNav extends HTMLElement {
     const r = this.shadowRoot;
     const track = r.querySelector('.links');
     const line  = r.querySelector('.hoverline');
-    const items = Array.from(r.querySelectorAll('.item'));
+      const items = Array.from(r.querySelectorAll('.item'));
+      // --- Alt+Number shortcuts: 1..9 => tab 1..9, 0 => tab 10 ---
+      const isEditable = (el) => {
+          if (!el) return false;
+          const tag = el.tagName;
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+          if (el.isContentEditable) return true;
+          return false;
+      };
+
+      const goToIndex = (idx) => {
+          const a = items[idx];
+          if (!a) return;
+          const href = a.getAttribute('href');
+          if (href) location.href = href;
+      };
+
+      const onHotkey = (e) => {
+          // Only when Alt is held, and not while typing in a field
+          if (!e.altKey) return;
+          if (isEditable(document.activeElement)) return;
+
+          // Map Alt+1..Alt+9 to indices 0..8, Alt+0 to index 9
+          const k = e.key;
+          if (k >= '1' && k <= '9') {
+              e.preventDefault();
+              goToIndex(Number(k) - 1);
+          } else if (k === '0') {
+              e.preventDefault();
+              goToIndex(9); // 10th tab
+          }
+      };
+
+      window.addEventListener('keydown', onHotkey);
+
+      // ensure cleanup
+      const prevCleanup = this._cleanup;
+      this._cleanup = () => {
+          window.removeEventListener('keydown', onHotkey);
+          prevCleanup?.();
+      };
+
     const brand = r.querySelector('.brand');
     const prog  = r.querySelector('.progress');
 
