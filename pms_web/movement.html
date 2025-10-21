@@ -368,7 +368,7 @@
                     <option>BAHA</option>
                 </select>
             </div>
-            <div style="display:flex;gap:8px;align-items:end"><button id="btnRun">Submit</button><button id="btnRefresh" hidden>Refresh DB</button></div>
+            <div style="display:flex;gap:8px;align-items:end"><button id="btnRun">Submit</button><button id="btnRefresh" >Refresh DB</button></div>
         </div>
 
         <!-- Column chooser (applies to BOTH tables). Default unchecked for As., G, L, C, I -->
@@ -495,7 +495,12 @@
     const $$ = s=>Array.from(document.querySelectorAll(s));
     const pad2 = n=>String(n).padStart(2,'0');
     function parseDT(d,t){ if(!d) return null; const [y,m,day]=String(d).split('-').map(Number); let hh=0,mm=0; if(t && /^\d{1,2}:\d{2}$/.test(t)){[hh,mm]=t.split(':').map(Number)} return new Date(y,(m||1)-1,day||1,hh||0,mm||0,0,0); }
-    const fmt = dt=> dt? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(dt):'';
+        const fmt = dt => dt ? new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            hour12: false    // this is the magic flag
+        }).format(dt) : '';
+
     const nz = v=>Number(v||0);
 
     function roomList(rec){ const all=[]; (rec.rooms?.gents||[]).forEach(x=>all.push(String(x.room_no||'').trim())); (rec.rooms?.ladies||[]).forEach(x=>all.push(String(x.room_no||'').trim())); const uniq=[...new Set(all.filter(Boolean))]; return uniq.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).join(', '); }
