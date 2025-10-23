@@ -1002,199 +1002,292 @@
                 return true;
             }
         }
-        /* ======================= AUTOFILL: suggest vacant rooms ======================= */
-        /* Strategy
-           1) Read building, checkin/out, TOTAL, GENTS, LADIES.
-           2) Build last-known capacity per room for this building.
-           3) For overlapping slips, sum existing assigned per room in that window.
-           4) Available = capacity - existing (>=1 to consider).
-           5) Cluster rooms by floor and pick as few floors as possible to reach TOTAL.
-           6) Within chosen floors, pick largest rooms first to minimize room count.
-           7) Fill tables: if gents+ladies == total, split; else all go to Gents.
-        */
+        /* ========================= DROP-IN REPLACEMENT PACK (Rev: GL+Kids, ignore Infants) =========================
+     Behavior:
+     - Gents need = input#gents
+     - Ladies need = input#ladies + input#children
+     - Infants (input#infants) are ignored (0 beds)
+     - No single room is shared between genders
+     - Still prefers a single floor, then minimal extra floors
+     Requires your existing helpers:
+     DB_CACHE, buildCapacityMap, refreshDBCache, overlaps, parseDT, cleanRoom, setRows,
+     bulkParse, bulkFillGroup, updateTotals?(), fetchCapacities?()
+  =============================================================================================================*/
 
-        function floorOf(roomStr) {
-            const s = String(roomStr || '').trim();
-            const n = Number(s.replace(/\D+/g, '')); // strip non-digits, be forgiving
-            if (!Number.isFinite(n) || n <= 0) return 'NA';
-            if (n >= 1000) return String(Math.floor(n / 100));  // 1203 -> 12th floor block
-            if (n >= 100) return String(Math.floor(n / 100));  // 503 -> 5th floor
-            if (n >= 10) return String(Math.floor(n / 10));   // 58 -> 5
-            return '0';
+        /* ---------- Counter utilities: total assigned + UI renderer ---------- */
+        function sumAssignedBeds() {
+            const pick = sel => Array.from(document.querySelectorAll(sel));
+            const toNum = el => (Number.isFinite(+el.value) ? +el.value : 0);
+            const g = pick('#gentsTable input[name="assigned"]').map(toNum).reduce((a, b) => a + b, 0);
+            const l = pick('#ladiesTable input[name="assigned"]').map(toNum).reduce((a, b) => a + b, 0);
+            return g + l;
         }
 
-        function latestCapacityMapForBuilding(building) {
-            // reuse your DB_CACHE ordering helper via buildCapacityMap if present
-            if (typeof buildCapacityMap === 'function') return buildCapacityMap(building);
-
-            // Fallback: most recent capacity seen per building|room
-            const cap = new Map();
-            const items = [...DB_CACHE].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
-            for (const r of items) {
-                const b = (r.building || '').trim();
-                if (b !== building) continue;
-                const pick = x => {
-                    const key = `${b}|${String(x.room_no || '').trim()}`;
-                    const c = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
-                    if (!cap.has(key) && c != null && Number.isFinite(c) && c > 0) cap.set(key, c);
-                };
-                (r.rooms?.gents || []).forEach(pick);
-                (r.rooms?.ladies || []).forEach(pick);
+        function updateBedsAssignedUI(prefix = 'Updated') {
+            const bedsAssigned = sumAssignedBeds();
+            const rep = document.getElementById('bulkReport');
+            if (rep) {
+                rep.innerHTML = `Beds assigned: <span id="bedsAssignedVal">${bedsAssigned}</span>`;
+                rep.style.fontWeight = '700';
+                rep.style.fontSize = '22px';
+                rep.style.color = '#654321';
+                const val = document.getElementById('bedsAssignedVal');
+                if (val) { val.style.fontWeight = '800'; val.style.fontSize = '26px'; }
             }
-            return cap;
+            const s = document.getElementById('status');
+            if (s) s.textContent = `${prefix}; beds assigned = ${bedsAssigned}.`;
+            if (typeof updateTotals === 'function') updateTotals();
         }
 
-        function roomKey(b, room) { return `${b}|${String(room || '').trim()}`; }
+        /* --------------------- Replace bulkLoadRooms() ---------------------- */
+        async function bulkLoadRooms() {
+            const gRooms = bulkParse(document.getElementById('gentsBulk').value);
+            const lRooms = bulkParse(document.getElementById('ladiesBulk').value);
 
-        function collectOverlappingUsage(building, ci, co) {
-            const use = new Map(); // key -> existing assigned during overlap
+            bulkFillGroup('gents', gRooms);
+            bulkFillGroup('ladies', lRooms);
+
+            if (typeof fetchCapacities === 'function') {
+                await fetchCapacities();
+            }
+
+            updateBedsAssignedUI('Bulk loaded');
+        }
+
+        /* -------------------- AUTOFILL: keep groups together -------------------- */
+        function roomFloor(room) {
+            const n = Number(String(room).replace(/\D+/g, ''));
+            if (!Number.isFinite(n) || n <= 0) return 0;
+            return Math.floor(n / 100);
+        }
+
+        /* NEW RULES: Ladies include Children; Infants ignored */
+        function computeNeeds() {
+            const num = v => Number.isFinite(+v) ? +v : 0;
+
+            const g = num(document.getElementById('gents')?.value);
+            const lCore = num(document.getElementById('ladies')?.value);
+            const children = num(document.getElementById('children')?.value);
+            const infants = num(document.getElementById('infants')?.value); // optional field; ignored
+
+            // Final gender targets
+            const gNeed = Math.max(0, g);
+            const lNeed = Math.max(0, lCore + children);  // children sleep with ladies
+
+            // If a "total" is present, we reconcile but DO NOT reduce gender targets below their inputs.
+            const totalInput = num(document.getElementById('total')?.value);
+            let needTotal = gNeed + lNeed; // infants contribute 0
+            if (totalInput > 0) {
+                // If user typed total that differs, we trust gender targets first.
+                needTotal = Math.max(needTotal, totalInput);
+            }
+            return { needTotal, gNeed, lNeed };
+        }
+
+        /* Build availability for all known rooms in building for [ci,co) */
+        function enumerateAvailability(building, ci, co) {
+            const capMap = buildCapacityMap(building); // "building|room" -> capacity
+            const seenRooms = new Set();
+
             for (const rec of DB_CACHE) {
                 if ((rec.building || '').trim() !== building) continue;
-                const rci = parseDT(rec.checkin_date, rec.checkin_time);
-                const rco = parseDT(rec.checkout_date, rec.checkout_time);
-                if (!rci || !rco) continue;
-                if (!overlaps(ci, co, rci, rco)) continue;
-                const add = x => {
-                    const rm = String(x.room_no || '').trim();
-                    if (!rm) return;
-                    const key = roomKey(building, rm);
-                    const a = Number.isFinite(+x.assigned) ? +x.assigned : 0;
-                    use.set(key, (use.get(key) || 0) + a);
-                };
-                (rec.rooms?.gents || []).forEach(add);
-                (rec.rooms?.ladies || []).forEach(add);
-            }
-            return use;
-        }
-
-        function pickFloors(roomsByFloor, needTotal) {
-            // roomsByFloor: { [floor]: [{room, capAvail}, ...] } with capAvail >= 1
-            // Choose as few floors as possible to cover needTotal, breaking ties by higher single-floor coverage.
-            const floors = Object.keys(roomsByFloor).map(fl => {
-                const sum = roomsByFloor[fl].reduce((s, r) => s + r.capAvail, 0);
-                return { floor: fl, sum };
-            }).sort((a, b) => b.sum - a.sum);
-
-            // If best single floor covers it, take it.
-            if (floors.length && floors[0].sum >= needTotal) return [floors[0].floor];
-
-            // Otherwise greedily add floors until covered.
-            const chosen = [];
-            let acc = 0;
-            for (const f of floors) {
-                chosen.push(f.floor);
-                acc += f.sum;
-                if (acc >= needTotal) break;
-            }
-            return chosen;
-        }
-
-        function pickRoomsWithinFloors(roomsByFloor, chosenFloors, needTotal) {
-            // Greedy: largest rooms first within chosen floors, but keep floors grouped.
-            const pool = [];
-            for (const fl of chosenFloors) {
-                const bucket = (roomsByFloor[fl] || []).slice().sort((a, b) => b.capAvail - a.capAvail);
-                // Preserve per-floor grouping by pushing a separator marker
-                bucket.forEach(r => pool.push({ ...r, floor: fl }));
-            }
-            const picked = [];
-            let got = 0;
-            for (const r of pool) {
-                if (got >= needTotal) break;
-                picked.push(r);
-                got += r.capAvail;
-            }
-            return { picked, got };
-        }
-
-        async function autoFillRooms() {
-            await refreshDBCache();
-
-            const b = ($('building').value || '').trim();
-            const ci = parseDT($('checkin_date').value, $('checkin_time').value);
-            const co = parseDT($('checkout_date').value, $('checkout_time').value);
-            const total = Number($('total').value || 0);
-            const gNeed = Number($('gents').value || 0);
-            const lNeed = Number($('ladies').value || 0);
-
-            if (!b || !ci || !co || !(total > 0)) {
-                alert('Select building, set valid check-in/out, and enter TOTAL. Then hit Autofill.');
-                return;
-            }
-            if (co <= ci) { alert('Checkout must be after check-in. Time is linear, sadly.'); return; }
-
-            const capMap = latestCapacityMapForBuilding(b);
-            const useMap = collectOverlappingUsage(b, ci, co);
-
-            // Build availability catalogue
-            const avail = []; // {room, capAvail, floor}
-            for (const [key, cap] of capMap.entries()) {
-                const [building] = key.split('|');
-                if (building !== b) continue;
-                const room = key.slice(building.length + 1);
-                const used = useMap.get(key) || 0;
-                const capAvail = Math.max(0, cap - used);
-                if (capAvail >= 1) {
-                    avail.push({ room, capAvail, floor: floorOf(room) });
+                const pack = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])];
+                for (const r of pack) {
+                    const room = cleanRoom(r.room_no);
+                    if (room) seenRooms.add(room);
                 }
             }
 
-            if (!avail.length) { alert('No vacant capacity found for that window in this building.'); return; }
+            const candidates = [];
+            for (const room of seenRooms) {
+                const key = `${building}|${room}`;
+                const capacity = Number.isFinite(+capMap.get(key)) ? +capMap.get(key) : 0;
+                if (capacity <= 0) continue;
 
-            // Group by floor
-            const byFloor = {};
-            for (const r of avail) {
-                (byFloor[r.floor] ||= []).push({ room: r.room, capAvail: r.capAvail });
+                let existing = 0;
+                for (const rec of DB_CACHE) {
+                    if ((rec.building || '').trim() !== building) continue;
+                    const rci = parseDT(rec.checkin_date, rec.checkin_time);
+                    const rco = parseDT(rec.checkout_date, rec.checkout_time);
+                    if (!rci || !rco) continue;
+                    if (!overlaps(ci, co, rci, rco)) continue;
+                    const used = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])];
+                    for (const x of used) {
+                        if (cleanRoom(x.room_no) !== room) continue;
+                        const a = Number.isFinite(+x.assigned) ? +x.assigned : 0;
+                        existing += a;
+                    }
+                }
+
+                const available = Math.max(0, capacity - existing);
+                if (available > 0) candidates.push({ room, capacity, available, floor: roomFloor(room) });
+            }
+            return candidates;
+        }
+
+        function chooseRoomsCohesive(candidates, need) {
+            if (need <= 0) return [];
+            const byFloor = new Map();
+            for (const c of candidates) {
+                const pack = byFloor.get(c.floor) || { rooms: [], total: 0 };
+                pack.rooms.push(c);
+                pack.total += c.available;
+                byFloor.set(c.floor, pack);
             }
 
-            // Choose floors, then rooms
-            const chosenFloors = pickFloors(byFloor, total);
-            const { picked, got } = pickRoomsWithinFloors(byFloor, chosenFloors, total);
-            if (got < total) {
-                alert(`Could only find ${got} beds available across floors ${chosenFloors.join(', ')}. Need ${total}.`);
-                // still proceed with best-effort fill rather than abandon
+            // Try one floor first
+            const single = [...byFloor.entries()]
+                .filter(([, v]) => v.total >= need)
+                .sort((a, b) => b[1].total - a[1].total);
+            if (single.length) {
+                const pack = single[0][1];
+                const sorted = pack.rooms.sort((a, b) => b.available - a.available);
+                let left = need, out = [];
+                for (const r of sorted) {
+                    if (left <= 0) break;
+                    const take = Math.min(r.available, left);
+                    out.push({ ...r, take });
+                    left -= take;
+                }
+                return out;
             }
 
-            // Split result into gents/ladies if those add up to TOTAL; else dump into gents.
-            const wantSplit = (gNeed + lNeed) === total && total > 0;
-            const toG = wantSplit ? gNeed : total;
-            const toL = wantSplit ? lNeed : 0;
+            // Otherwise, add floors with most capacity until satisfied
+            const floors = [...byFloor.entries()].sort((a, b) => b[1].total - a[1].total);
+            let required = need;
+            const chosenFloors = [];
+            for (const [f, pack] of floors) {
+                if (required <= 0) break;
+                chosenFloors.push([f, pack]);
+                required -= pack.total;
+            }
+
+            const pool = chosenFloors.flatMap(([, pack]) => pack.rooms)
+                .sort((a, b) => b.available - a.available);
+
+            let left = need, picked = [];
+            for (const r of pool) {
+                if (left <= 0) break;
+                const take = Math.min(r.available, left);
+                picked.push({ ...r, take });
+                left -= take;
+            }
+            return picked;
+        }
+
+        /* STRICT: never share a single room between genders */
+        function divideRoomsByGender(picked, gNeed, lNeed) {
+            let gLeft = Math.max(0, gNeed);
+            let lLeft = Math.max(0, lNeed);
 
             const gRooms = [];
             const lRooms = [];
-            let gLeft = toG, lLeft = toL;
 
             for (const r of picked) {
-                if (gLeft > 0) {
-                    const take = Math.min(r.capAvail, gLeft);
-                    gRooms.push({ room_no: r.room, capacity: r.capAvail, assigned: take });
-                    gLeft -= take;
+                if (gLeft >= lLeft && gLeft > 0) {
+                    const use = Math.min(r.take, gLeft);
+                    gRooms.push({ room_no: r.room, capacity: r.capacity, assigned: use });
+                    gLeft -= use;
+                    // no cross-gender reuse of the same room, even if leftover
                 } else if (lLeft > 0) {
-                    const take = Math.min(r.capAvail, lLeft);
-                    lRooms.push({ room_no: r.room, capacity: r.capAvail, assigned: take });
-                    lLeft -= take;
-                } else {
-                    // extra capacity; place with gents by default but leave assigned blank
-                    gRooms.push({ room_no: r.room, capacity: r.capAvail, assigned: '' });
+                    const use = Math.min(r.take, lLeft);
+                    lRooms.push({ room_no: r.room, capacity: r.capacity, assigned: use });
+                    lLeft -= use;
                 }
             }
-
-            // Apply to UI
-            setRows('gents', gRooms);
-            setRows('ladies', lRooms);
-
-            // Kick capacities sync hooks if any
-            if (typeof updateTotals === 'function') updateTotals();
-
-            const floorsUsed = new Set([...gRooms, ...lRooms].map(r => floorOf(r.room_no)));
-            $('status').textContent =
-                `Autofill: suggested ${gRooms.length + lRooms.length} room(s), covering ${Math.min(got, total)}/${total} beds across floor(s): ${[...floorsUsed].join(', ')}.`;
+            return { gRooms, lRooms, gLeft, lLeft };
         }
 
-        /* Wire the new button */
-        (function wireAutoFill() {
-            const btn = document.getElementById('btnAutoFill');
-            if (btn) btn.addEventListener('click', autoFillRooms);
+        async function autoFillRooms() {
+            if (typeof refreshDBCache === 'function') {
+                await refreshDBCache();
+            }
+
+            const building = (document.getElementById('building')?.value || '').trim();
+            const ci = parseDT(document.getElementById('checkin_date')?.value, document.getElementById('checkin_time')?.value);
+            const co = parseDT(document.getElementById('checkout_date')?.value, document.getElementById('checkout_time')?.value);
+            if (!building || !ci || !co || co <= ci) {
+                alert('Select a building and a valid check-in/check-out first.');
+                return;
+            }
+
+            const { needTotal, gNeed, lNeed } = computeNeeds();
+            if (!needTotal || needTotal <= 0) {
+                alert('Enter Gents / Ladies / Children so I know how many beds to find.');
+                return;
+            }
+
+            const cands = enumerateAvailability(building, ci, co);
+            if (!cands.length) {
+                alert('No rooms with known capacity are available in the selected window for this building.');
+                return;
+            }
+
+            const picked = chooseRoomsCohesive(cands, needTotal);
+            if (!picked.length) {
+                alert('Could not find sufficient vacancy to meet the requested headcount.');
+                return;
+            }
+
+            const { gRooms, lRooms, gLeft, lLeft } = divideRoomsByGender(picked, gNeed, lNeed);
+
+            setRows('gents', gRooms.length ? gRooms : [{ room_no: '', capacity: '', assigned: '' }]);
+            setRows('ladies', lRooms.length ? lRooms : [{ room_no: '', capacity: '', assigned: '' }]);
+
+            if (typeof fetchCapacities === 'function') {
+                await fetchCapacities();
+            }
+
+            const floors = [...new Set(picked.map(p => p.floor))];
+            const floorMsg = floors.length === 1 ? `All on floor ${floors[0]}` : `Floors used: ${floors.join(', ')}`;
+            const missing = (gLeft + lLeft) > 0 ? ` Missing beds: ${gLeft + lLeft}.` : '';
+
+            const status = document.getElementById('status');
+            if (status) status.textContent =
+                `Autofill placed ~${needTotal - (gLeft + lLeft)} beds. ${floorMsg}.${missing}`;
+
+            updateBedsAssignedUI('Autofilled');
+
+            alert([
+                `AUTOFILL SUMMARY`,
+                `Building: ${building}`,
+                `Targets → Gents: ${gNeed}, Ladies+Children: ${lNeed} (Infants ignored)`,
+                `Selected rooms: ${picked.map(p => p.room).join(', ')}`,
+                `${floorMsg}`,
+                missing ? missing.trim() : ' Fully satisfied.'
+            ].join('\n'));
+        }
+
+        /* --------- Ensure AUTOFILL button exists and is wired up ---------- */
+        (function ensureAutofillButton() {
+            let btn = document.getElementById('btnAutoFill');
+            if (!btn) {
+                const loadBtn = document.getElementById('btnBulkLoad');
+                if (loadBtn && loadBtn.parentElement) {
+                    btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.id = 'btnAutoFill';
+                    btn.title = 'Suggest vacant rooms from DB';
+                    btn.textContent = 'AUTOFILL';
+                    loadBtn.insertAdjacentElement('afterend', btn);
+                }
+            }
+            if (btn) {
+                btn.removeEventListener('click', autoFillRooms);
+                btn.addEventListener('click', autoFillRooms);
+            }
+        })();
+
+        /* --------- Live updates when assigned cells are edited ---------- */
+        (function liveAssignedListener() {
+            let t;
+            const handler = () => {
+                clearTimeout(t);
+                t = setTimeout(() => updateBedsAssignedUI('Edited'), 120);
+            };
+            document.addEventListener('input', e => {
+                if (e.target && e.target.name === 'assigned') handler();
+            });
         })();
 
 
