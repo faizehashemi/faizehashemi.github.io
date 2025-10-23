@@ -1002,17 +1002,19 @@
                 return true;
             }
         }
-        /* ========================= DROP-IN REPLACEMENT PACK (Rev: GL+Kids, ignore Infants) =========================
-     Behavior:
-     - Gents need = input#gents
-     - Ladies need = input#ladies + input#children
-     - Infants (input#infants) are ignored (0 beds)
-     - No single room is shared between genders
-     - Still prefers a single floor, then minimal extra floors
-     Requires your existing helpers:
-     DB_CACHE, buildCapacityMap, refreshDBCache, overlaps, parseDT, cleanRoom, setRows,
-     bulkParse, bulkFillGroup, updateTotals?(), fetchCapacities?()
-  =============================================================================================================*/
+        /* =================== DROP-IN PACK: sequential floor-first autofill ===================
+          Rules:
+          - Order: 1st floor first, then 2nd, 3rd... within each floor, ascending room number.
+          - Memory: resumes where it left off (per-building, per-gender) via localStorage.
+          - Gents = input#gents
+          - Ladies = input#ladies + input#children
+          - Infants ignored (0 beds)
+          - Never mix genders in the same room (even if spare capacity remains).
+          - Still updates the big "Beds assigned" counter and status line.
+          Requires your helpers:
+          DB_CACHE, buildCapacityMap, refreshDBCache, overlaps, parseDT, cleanRoom, setRows,
+          bulkParse, bulkFillGroup, updateTotals?(), fetchCapacities?()
+       =======================================================================================*/
 
         /* ---------- Counter utilities: total assigned + UI renderer ---------- */
         function sumAssignedBeds() {
@@ -1054,37 +1056,32 @@
             updateBedsAssignedUI('Bulk loaded');
         }
 
-        /* -------------------- AUTOFILL: keep groups together -------------------- */
+        /* -------------------- AUTOFILL: sequential with memory -------------------- */
         function roomFloor(room) {
             const n = Number(String(room).replace(/\D+/g, ''));
             if (!Number.isFinite(n) || n <= 0) return 0;
-            return Math.floor(n / 100);
+            return Math.floor(n / 100); // 501 -> 5, 1203 -> 12
+        }
+        function roomNumber(room) {
+            return Number(String(room).replace(/\D+/g, '')) || 0;
         }
 
-        /* NEW RULES: Ladies include Children; Infants ignored */
+        /* Ladies include Children; Infants ignored */
         function computeNeeds() {
             const num = v => Number.isFinite(+v) ? +v : 0;
-
             const g = num(document.getElementById('gents')?.value);
             const lCore = num(document.getElementById('ladies')?.value);
             const children = num(document.getElementById('children')?.value);
-            const infants = num(document.getElementById('infants')?.value); // optional field; ignored
-
-            // Final gender targets
+            // infants field is optional; they take 0 beds
             const gNeed = Math.max(0, g);
-            const lNeed = Math.max(0, lCore + children);  // children sleep with ladies
-
-            // If a "total" is present, we reconcile but DO NOT reduce gender targets below their inputs.
+            const lNeed = Math.max(0, lCore + children);
             const totalInput = num(document.getElementById('total')?.value);
-            let needTotal = gNeed + lNeed; // infants contribute 0
-            if (totalInput > 0) {
-                // If user typed total that differs, we trust gender targets first.
-                needTotal = Math.max(needTotal, totalInput);
-            }
+            let needTotal = gNeed + lNeed;
+            if (totalInput > 0) needTotal = Math.max(needTotal, totalInput);
             return { needTotal, gNeed, lNeed };
         }
 
-        /* Build availability for all known rooms in building for [ci,co) */
+        /* Availability: rooms with remaining beds for [ci,co) in this building */
         function enumerateAvailability(building, ci, co) {
             const capMap = buildCapacityMap(building); // "building|room" -> capacity
             const seenRooms = new Set();
@@ -1120,82 +1117,62 @@
                 }
 
                 const available = Math.max(0, capacity - existing);
-                if (available > 0) candidates.push({ room, capacity, available, floor: roomFloor(room) });
+                if (available > 0) {
+                    const floor = roomFloor(room);
+                    candidates.push({ room, capacity, available, floor, num: roomNumber(room) });
+                }
             }
             return candidates;
         }
 
-        function chooseRoomsCohesive(candidates, need) {
-            if (need <= 0) return [];
-            const byFloor = new Map();
-            for (const c of candidates) {
-                const pack = byFloor.get(c.floor) || { rooms: [], total: 0 };
-                pack.rooms.push(c);
-                pack.total += c.available;
-                byFloor.set(c.floor, pack);
-            }
-
-            // Try one floor first
-            const single = [...byFloor.entries()]
-                .filter(([, v]) => v.total >= need)
-                .sort((a, b) => b[1].total - a[1].total);
-            if (single.length) {
-                const pack = single[0][1];
-                const sorted = pack.rooms.sort((a, b) => b.available - a.available);
-                let left = need, out = [];
-                for (const r of sorted) {
-                    if (left <= 0) break;
-                    const take = Math.min(r.available, left);
-                    out.push({ ...r, take });
-                    left -= take;
-                }
-                return out;
-            }
-
-            // Otherwise, add floors with most capacity until satisfied
-            const floors = [...byFloor.entries()].sort((a, b) => b[1].total - a[1].total);
-            let required = need;
-            const chosenFloors = [];
-            for (const [f, pack] of floors) {
-                if (required <= 0) break;
-                chosenFloors.push([f, pack]);
-                required -= pack.total;
-            }
-
-            const pool = chosenFloors.flatMap(([, pack]) => pack.rooms)
-                .sort((a, b) => b.available - a.available);
-
-            let left = need, picked = [];
-            for (const r of pool) {
-                if (left <= 0) break;
-                const take = Math.min(r.available, left);
-                picked.push({ ...r, take });
-                left -= take;
-            }
-            return picked;
+        /* Sort: 1st floor first, then ascending floors; within each floor, ascending room number.
+           Floors <=0 (weird basements) go last because sanity. */
+        function orderCandidatesSequential(cands) {
+            return cands.sort((a, b) => {
+                const fa = a.floor <= 0 ? 1e9 : a.floor;
+                const fb = b.floor <= 0 ? 1e9 : b.floor;
+                if (fa !== fb) return fa - fb;
+                return a.num - b.num;
+            });
         }
 
-        /* STRICT: never share a single room between genders */
-        function divideRoomsByGender(picked, gNeed, lNeed) {
-            let gLeft = Math.max(0, gNeed);
-            let lLeft = Math.max(0, lNeed);
+        /* Cursor memory helpers: per-building + gender */
+        function cursorKey(building, gender) {
+            return `af.cursor.${building}.${gender}`;
+        }
+        function readCursor(building, gender, max) {
+            const k = cursorKey(building, gender);
+            const v = Number(localStorage.getItem(k));
+            if (!Number.isFinite(v) || v < 0) return 0;
+            return v % Math.max(1, max);
+        }
+        function writeCursor(building, gender, idx) {
+            localStorage.setItem(cursorKey(building, gender), String(Math.max(0, idx | 0)));
+        }
 
-            const gRooms = [];
-            const lRooms = [];
+        /* Pick sequentially from ordered list, wrapping if needed.
+           We NEVER share a room between genders, so each room we touch is fully consumed by that gender,
+           even if we don't use all 'available' capacity. */
+        function pickSequential(cands, need, startIdx) {
+            if (need <= 0 || cands.length === 0) return { picked: [], nextIdx: startIdx };
+            let left = need;
+            let i = startIdx % cands.length;
+            const picked = [];
+            let visited = 0;
 
-            for (const r of picked) {
-                if (gLeft >= lLeft && gLeft > 0) {
-                    const use = Math.min(r.take, gLeft);
-                    gRooms.push({ room_no: r.room, capacity: r.capacity, assigned: use });
-                    gLeft -= use;
-                    // no cross-gender reuse of the same room, even if leftover
-                } else if (lLeft > 0) {
-                    const use = Math.min(r.take, lLeft);
-                    lRooms.push({ room_no: r.room, capacity: r.capacity, assigned: use });
-                    lLeft -= use;
+            while (left > 0 && visited < cands.length) {
+                const r = cands[i];
+                // allocate up to 'left', but mark the whole room as used for this gender
+                const take = Math.min(r.available, left);
+                if (take > 0) {
+                    picked.push({ ...r, take });
+                    left -= take;
                 }
+                i = (i + 1) % cands.length;
+                visited++;
             }
-            return { gRooms, lRooms, gLeft, lLeft };
+
+            return { picked, nextIdx: i };
         }
 
         async function autoFillRooms() {
@@ -1217,45 +1194,69 @@
                 return;
             }
 
-            const cands = enumerateAvailability(building, ci, co);
-            if (!cands.length) {
+            // Gather and order candidates
+            const all = orderCandidatesSequential(enumerateAvailability(building, ci, co));
+            if (!all.length) {
                 alert('No rooms with known capacity are available in the selected window for this building.');
                 return;
             }
 
-            const picked = chooseRoomsCohesive(cands, needTotal);
-            if (!picked.length) {
-                alert('Could not find sufficient vacancy to meet the requested headcount.');
-                return;
+            // Read cursors
+            const gCursor0 = readCursor(building, 'gents', all.length);
+            // Pick for Gents first
+            const { picked: gPicked, nextIdx: gCursor1 } = pickSequential(all, gNeed, gCursor0);
+
+            // Exclude any rooms already assigned to gents before picking ladies
+            const usedRooms = new Set(gPicked.map(p => p.room));
+            const ladiesPool = all.filter(r => !usedRooms.has(r.room));
+            const lCursorPoolSize = ladiesPool.length || 1; // avoid mod 0
+            const lCursor0Raw = readCursor(building, 'ladies', all.length);
+            // Map g/l cursors to current ladiesPool index
+            const roomToIndex = new Map(ladiesPool.map((r, idx) => [r.room, idx]));
+            let lStart = 0;
+            // try to align ladies cursor to same numeric position if possible
+            if (lCursorPoolSize && ladiesPool.length) {
+                const lCursorRoom = all[lCursor0Raw % all.length]?.room;
+                if (roomToIndex.has(lCursorRoom)) lStart = roomToIndex.get(lCursorRoom);
             }
 
-            const { gRooms, lRooms, gLeft, lLeft } = divideRoomsByGender(picked, gNeed, lNeed);
+            const { picked: lPicked, nextIdx: lCursor1Local } = pickSequential(ladiesPool, lNeed, lStart);
 
-            setRows('gents', gRooms.length ? gRooms : [{ room_no: '', capacity: '', assigned: '' }]);
-            setRows('ladies', lRooms.length ? lRooms : [{ room_no: '', capacity: '', assigned: '' }]);
+            // Save cursors back (mapped to the master list)
+            writeCursor(building, 'gents', gCursor1);
+            // For ladies, convert pool index to all-index if possible
+            if (ladiesPool.length) {
+                const nextLadiesRoom = ladiesPool[lCursor1Local % ladiesPool.length]?.room;
+                const allNextIdx = Math.max(0, all.findIndex(r => r.room === nextLadiesRoom));
+                writeCursor(building, 'ladies', allNextIdx >= 0 ? allNextIdx : gCursor1);
+            } else {
+                writeCursor(building, 'ladies', gCursor1); // fallback
+            }
+
+            // Translate picked arrays into setRows input and enforce no mixing
+            const gRows = gPicked.map(r => ({ room_no: r.room, capacity: r.capacity, assigned: Math.min(r.take, r.available) }));
+            const lRows = lPicked.map(r => ({ room_no: r.room, capacity: r.capacity, assigned: Math.min(r.take, r.available) }));
+
+            setRows('gents', gRows.length ? gRows : [{ room_no: '', capacity: '', assigned: '' }]);
+            setRows('ladies', lRows.length ? lRows : [{ room_no: '', capacity: '', assigned: '' }]);
 
             if (typeof fetchCapacities === 'function') {
                 await fetchCapacities();
             }
 
-            const floors = [...new Set(picked.map(p => p.floor))];
-            const floorMsg = floors.length === 1 ? `All on floor ${floors[0]}` : `Floors used: ${floors.join(', ')}`;
+            const floorsG = new Set(gPicked.map(p => p.floor));
+            const floorsL = new Set(lPicked.map(p => p.floor));
+            const floorMsgG = floorsG.size ? `Gents floors: ${[...floorsG].sort((a, b) => a - b).join(', ')}` : 'Gents floors: none';
+            const floorMsgL = floorsL.size ? `Ladies floors: ${[...floorsL].sort((a, b) => a - b).join(', ')}` : 'Ladies floors: none';
+
+            const gLeft = Math.max(0, gNeed - gRows.reduce((s, r) => s + (+r.assigned || 0), 0));
+            const lLeft = Math.max(0, lNeed - lRows.reduce((s, r) => s + (+r.assigned || 0), 0));
             const missing = (gLeft + lLeft) > 0 ? ` Missing beds: ${gLeft + lLeft}.` : '';
 
             const status = document.getElementById('status');
-            if (status) status.textContent =
-                `Autofill placed ~${needTotal - (gLeft + lLeft)} beds. ${floorMsg}.${missing}`;
+            if (status) status.textContent = `Autofill sequential: placed ${needTotal - (gLeft + lLeft)} beds. ${floorMsgG}. ${floorMsgL}.${missing}`;
 
-            updateBedsAssignedUI('Autofilled');
-
-            alert([
-                `AUTOFILL SUMMARY`,
-                `Building: ${building}`,
-                `Targets → Gents: ${gNeed}, Ladies+Children: ${lNeed} (Infants ignored)`,
-                `Selected rooms: ${picked.map(p => p.room).join(', ')}`,
-                `${floorMsg}`,
-                missing ? missing.trim() : ' Fully satisfied.'
-            ].join('\n'));
+            updateBedsAssignedUI('Autofilled (sequential)');
         }
 
         /* --------- Ensure AUTOFILL button exists and is wired up ---------- */
@@ -1267,7 +1268,7 @@
                     btn = document.createElement('button');
                     btn.type = 'button';
                     btn.id = 'btnAutoFill';
-                    btn.title = 'Suggest vacant rooms from DB';
+                    btn.title = 'Suggest vacant rooms from DB (sequential)';
                     btn.textContent = 'AUTOFILL';
                     loadBtn.insertAdjacentElement('afterend', btn);
                 }
@@ -1289,7 +1290,6 @@
                 if (e.target && e.target.name === 'assigned') handler();
             });
         })();
-
 
 
         /* ---------------------------- Events --------------------------- */
