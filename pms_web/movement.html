@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -366,7 +366,6 @@
                     <option>MUFADDAL</option>
                     <option>SNOOD</option>
                     <option>BAHA</option>
-                    <option>HUSN</option>
                 </select>
             </div>
             <div style="display:flex;gap:8px;align-items:end"><button id="btnRun">Submit</button><button id="btnRefresh" >Refresh DB</button></div>
@@ -402,10 +401,12 @@
             </h3>
             <div class="table-wrap" id="wrapIn">
                 <table id="tblIn" class="table-inner">
+                    <!-- IN table thead -->
                     <thead>
                         <tr>
-                            <th class="nowrap" data-col="cin">Check‑in</th>
+                            <th class="nowrap" data-col="cin">Check-in</th>
                             <th data-col="sh">SH No</th>
+                            <th data-col="lug">Luggage at</th> <!-- NEW -->
                             <th data-col="group">Group</th>
                             <th data-col="leader">Leader</th>
                             <th data-col="bld">Building</th>
@@ -416,9 +417,10 @@
                             <th data-col="l">L</th>
                             <th data-col="c">C</th>
                             <th data-col="i">I</th>
-                            <th class="nowrap" data-col="cout">Check‑out</th>
+                            <th class="nowrap" data-col="cout">Check-out</th>
                         </tr>
                     </thead>
+
                     <tbody></tbody>
                 </table>
             </div>
@@ -442,10 +444,12 @@
             </h3>
             <div class="table-wrap" id="wrapOut">
                 <table id="tblOut" class="table-inner">
+                    <!-- OUT table thead -->
                     <thead>
                         <tr>
-                            <th class="nowrap" data-col="cout">Check‑out</th>
+                            <th class="nowrap" data-col="cout">Check-out</th>
                             <th data-col="sh">SH No</th>
+                            <th data-col="lug">Luggage at</th> <!-- NEW -->
                             <th data-col="group">Group</th>
                             <th data-col="leader">Leader</th>
                             <th data-col="bld">Building</th>
@@ -456,9 +460,10 @@
                             <th data-col="l">L</th>
                             <th data-col="c">C</th>
                             <th data-col="i">I</th>
-                            <th class="nowrap" data-col="cin">Check‑in</th>
+                            <th class="nowrap" data-col="cin">Check-in</th>
                         </tr>
                     </thead>
+
                     <tbody></tbody>
                 </table>
             </div>
@@ -527,6 +532,32 @@
 
     function download(name, text){ const blob=new Blob([text],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 500); }
 
+        /* ===== Luggage column helpers ===== */
+        let SH_INDEX = new Map();
+
+        function indexBySh(rows) {
+            SH_INDEX = new Map();
+            for (const r of rows) {
+                const key = String(r.sh_no ?? '').trim();
+                if (key && !SH_INDEX.has(key)) SH_INDEX.set(key, r);
+            }
+        }
+
+        // If sh_no is 6 digits and starts with '33', drop the first '3' -> 5 digits.
+        // Otherwise return null (no luggage inference).
+        function normalizeLuggageSH(sh) {
+            const s = String(sh ?? '').replace(/\D/g, ''); // digits only
+            if (/^33\d{4}$/.test(s)) return s.slice(1);   // remove first '3'
+            return null;
+        }
+
+        function luggageAt(sh) {
+            const key = normalizeLuggageSH(sh);
+            if (!key) return '';
+            const rec = SH_INDEX.get(key);
+            return rec?.building ? String(rec.building).trim() : '';
+        }
+
     // ===== column visibility =====
     function applyColumnVisibility(){
       const checks = $$('#colChooser input[type="checkbox"]');
@@ -562,54 +593,62 @@
       $('#status').textContent = `${DB_CACHE.length} slip(s) loaded • range ${fmt(start)} → ${fmt(end)}`;
     }
 
-    function renderIn(rows){
-      const tb=$('#tblIn tbody'); tb.innerHTML=''; let slips=0, guests=0;
-      for(const r of rows){
-        slips++; const g=nz(r.gents), l=nz(r.ladies), c=nz(r.children), i=nz(r.infants); const t = nz(r.total)|| (g+l+c+i); guests += t;
-        const tr=document.createElement('tr'); tr.innerHTML=`
-          <td data-col="cin">${fmt(parseDT(r.checkin_date,r.checkin_time))}</td>
-          <td data-col="sh">${r.sh_no??''}</td>
-          <td data-col="group" title="${r.tour_name||''}">${r.tour_name||''}</td>
-          <td data-col="leader" title="${r.group_leader||''}">${(r.group_leader||'')}</td>
-          <td data-col="bld">${(r.building||'')}</td>
-          <td data-col="rooms" title="${roomList(r)}">${roomList(r)}</td>
-          <td data-col="as" class="right">${assignedSum(r)}</td>
-          <td data-col="t">${t}</td>
-          <td data-col="g">${g}</td>
-          <td data-col="l">${l}</td>
-          <td data-col="c">${c}</td>
-          <td data-col="i">${i}</td>
-          <td data-col="cout">${fmt(parseDT(r.checkout_date,r.checkout_time))}</td>`;
-        tb.appendChild(tr);
-      }
-      $('#sumIn').textContent = `${slips} slip${slips!==1?'s':''} • ${guests} guests`;
-    }
+        function renderIn(rows) {
+            const tb = $('#tblIn tbody'); tb.innerHTML = ''; let slips = 0, guests = 0;
+            for (const r of rows) {
+                slips++; const g = nz(r.gents), l = nz(r.ladies), c = nz(r.children), i = nz(r.infants);
+                const t = nz(r.total) || (g + l + c + i); guests += t;
+                const lug = luggageAt(r.sh_no); // NEW
+                const tr = document.createElement('tr'); tr.innerHTML = `
+      <td data-col="cin">${fmt(parseDT(r.checkin_date, r.checkin_time))}</td>
+      <td data-col="sh">${r.sh_no ?? ''}</td>
+      <td data-col="lug">${lug}</td> <!-- NEW -->
+      <td data-col="group" title="${r.tour_name || ''}">${r.tour_name || ''}</td>
+      <td data-col="leader" title="${r.group_leader || ''}">${(r.group_leader || '')}</td>
+      <td data-col="bld">${(r.building || '')}</td>
+      <td data-col="rooms" title="${roomList(r)}">${roomList(r)}</td>
+      <td data-col="as" class="right">${assignedSum(r)}</td>
+      <td data-col="t">${t}</td>
+      <td data-col="g">${g}</td>
+      <td data-col="l">${l}</td>
+      <td data-col="c">${c}</td>
+      <td data-col="i">${i}</td>
+      <td data-col="cout">${fmt(parseDT(r.checkout_date, r.checkout_time))}</td>`;
+                tb.appendChild(tr);
+            }
+            $('#sumIn').textContent = `${slips} slip${slips !== 1 ? 's' : ''} • ${guests} guests`;
+        }
 
-    function renderOut(rows){
-      const tb=$('#tblOut tbody'); tb.innerHTML=''; let slips=0, guests=0;
-      for(const r of rows){
-        slips++; const g=nz(r.gents), l=nz(r.ladies), c=nz(r.children), i=nz(r.infants); const t=nz(r.total)|| (g+l+c+i); guests+=t;
-        const tr=document.createElement('tr'); tr.innerHTML=`
-          <td data-col="cout">${fmt(parseDT(r.checkout_date,r.checkout_time))}</td>
-          <td data-col="sh">${r.sh_no??''}</td>
-          <td data-col="group" title="${r.tour_name||''}">${r.tour_name||''}</td>
-          <td data-col="leader" title="${r.group_leader||''}">${(r.group_leader||'')}</td>
-          <td data-col="bld">${(r.building||'')}</td>
-          <td data-col="rooms" title="${roomList(r)}">${roomList(r)}</td>
-          <td data-col="as" class="right">${assignedSum(r)}</td>
-          <td data-col="t">${t}</td>
-          <td data-col="g">${g}</td>
-          <td data-col="l">${l}</td>
-          <td data-col="c">${c}</td>
-          <td data-col="i">${i}</td>
-          <td data-col="cin">${fmt(parseDT(r.checkin_date,r.checkin_time))}</td>`;
-        tb.appendChild(tr);
-      }
-      $('#sumOut').textContent = `${slips} slip${slips!==1?'s':''} • ${guests} guests`;
-    }
+
+        function renderOut(rows) {
+            const tb = $('#tblOut tbody'); tb.innerHTML = ''; let slips = 0, guests = 0;
+            for (const r of rows) {
+                slips++; const g = nz(r.gents), l = nz(r.ladies), c = nz(r.children), i = nz(r.infants);
+                const t = nz(r.total) || (g + l + c + i); guests += t;
+                const lug = luggageAt(r.sh_no); // NEW
+                const tr = document.createElement('tr'); tr.innerHTML = `
+      <td data-col="cout">${fmt(parseDT(r.checkout_date, r.checkout_time))}</td>
+      <td data-col="sh">${r.sh_no ?? ''}</td>
+      <td data-col="lug">${lug}</td> <!-- NEW -->
+      <td data-col="group" title="${r.tour_name || ''}">${r.tour_name || ''}</td>
+      <td data-col="leader" title="${r.group_leader || ''}">${(r.group_leader || '')}</td>
+      <td data-col="bld">${(r.building || '')}</td>
+      <td data-col="rooms" title="${roomList(r)}">${roomList(r)}</td>
+      <td data-col="as" class="right">${assignedSum(r)}</td>
+      <td data-col="t">${t}</td>
+      <td data-col="g">${g}</td>
+      <td data-col="l">${l}</td>
+      <td data-col="c">${c}</td>
+      <td data-col="i">${i}</td>
+      <td data-col="cin">${fmt(parseDT(r.checkin_date, r.checkin_time))}</td>`;
+                tb.appendChild(tr);
+            }
+            $('#sumOut').textContent = `${slips} slip${slips !== 1 ? 's' : ''} • ${guests} guests`;
+        }
+
 
     // ===== boot =====
-    async function refresh(){ DB_CACHE = await getAllRecords(); if(!DB_CACHE.length){ $('#status').textContent='No slips found. Open the slip page once to seed local DB.'; } run(); }
+        async function refresh() { DB_CACHE = await getAllRecords(); indexBySh(DB_CACHE); if(!DB_CACHE.length){ $('#status').textContent='No slips found. Open the slip page once to seed local DB.'; } run(); }
 
     document.addEventListener('DOMContentLoaded', ()=>{
       const now=new Date(); const yyyy=now.getFullYear(), mm=pad2(now.getMonth()+1), dd=pad2(now.getDate());
@@ -786,5 +825,4 @@
           window.plusOneDay = plusOneDay;
       })();</script>
 </body>
-
 </html>
