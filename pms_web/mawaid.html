@@ -454,29 +454,54 @@ async function getAllSlips() {
             const dR = parseRange(dateStr, ranges.D.start, ranges.D.end);
             if (!bR || !lR || !dR) return null;
 
-            const buildings = uniq(DB_CACHE.map(r => (r.building || '').trim()).filter(Boolean)).sort((a, b) => a.localeCompare(b));
+            const buildings = uniq(
+                DB_CACHE.map(r => (r.building || '').trim()).filter(Boolean)
+            ).sort((a, b) => a.localeCompare(b));
+
             const agg = new Map();
-            for (const b of buildings) agg.set(b, {
-                bp: 0, lp: 0, dp: 0,
-                b: { g: 0, l: 0, c: 0, i: 0 },
-                l: { g: 0, l: 0, c: 0, i: 0 },
-                d: { g: 0, l: 0, c: 0, i: 0 }
-            });
+            for (const b of buildings) {
+                agg.set(b, {
+                    bp: 0, lp: 0, dp: 0,
+                    b: { g: 0, l: 0, c: 0, i: 0 },
+                    l: { g: 0, l: 0, c: 0, i: 0 },
+                    d: { g: 0, l: 0, c: 0, i: 0 }
+                });
+            }
 
             for (const rec of DB_CACHE) {
-                const b = (rec.building || '').trim(); if (!b || !agg.has(b)) continue;
+                const b = (rec.building || '').trim();
+                if (!b || !agg.has(b)) continue;
 
                 const ci = parseLocalDateTime(rec.checkin_date, rec.checkin_time);
                 const co = parseLocalDateTime(rec.checkout_date, rec.checkout_time);
                 if (!ci || !co) continue;
 
                 const pax = paxOf(rec, incA, incC, incI);
-                const g = Number(rec.gents) || 0, l = Number(rec.ladies) || 0, c = Number(rec.children) || 0, i = Number(rec.infants) || 0;
+                const g = Number(rec.gents) || 0;
+                const l = Number(rec.ladies) || 0;
+                const c = Number(rec.children) || 0;
+                const i = Number(rec.infants) || 0;
+
                 const a = agg.get(b);
 
-                if (overlap(ci, co, bR[0], bR[1])) { a.bp += pax; a.b.g += g; a.b.l += l; a.b.c += c; a.b.i += i; }
-                if (overlap(ci, co, lR[0], lR[1])) { a.lp += pax; a.l.g += g; a.l.l += l; a.l.c += c; a.l.i += i; }
-                if (overlap(ci, co, dR[0], dR[1])) { a.dp += pax; a.d.g += g; a.d.l += l; a.d.c += c; a.d.i += i; }
+                // Breakfast
+                if (overlap(ci, co, bR[0], bR[1])) {
+                    a.bp += pax; a.b.g += g; a.b.l += l; a.b.c += c; a.b.i += i;
+                }
+
+                // Lunch: skip only if today is the check-in date AND time is exactly 15:00
+                const skipLunchToday =
+                    dateStr === (rec.checkin_date || '').trim() &&
+                    ((rec.checkin_time || '').trim() === '15:00');
+
+                if (!skipLunchToday && overlap(ci, co, lR[0], lR[1])) {
+                    a.lp += pax; a.l.g += g; a.l.l += l; a.l.c += c; a.l.i += i;
+                }
+
+                // Dinner
+                if (overlap(ci, co, dR[0], dR[1])) {
+                    a.dp += pax; a.d.g += g; a.d.l += l; a.d.c += c; a.d.i += i;
+                }
             }
 
             let tBP = 0, tLP = 0, tDP = 0;
@@ -491,16 +516,23 @@ async function getAllSlips() {
                     b: v.b, l: v.l, d: v.d
                 });
             }
+
             rows.sort((a, b) => a.building.localeCompare(b.building, undefined, { numeric: true }));
 
             return {
                 rows,
-                totals: { tBP, tLP, tDP, tBT: Math.ceil(tBP / thal), tLT: Math.ceil(tLP / thal), tDT: Math.ceil(tDP / thal) },
-                when: {
-                    B: bR, L: lR, D: dR
-                }
+                totals: {
+                    tBP,
+                    tLP,
+                    tDP,
+                    tBT: Math.ceil(tBP / thal),
+                    tLT: Math.ceil(tLP / thal),
+                    tDT: Math.ceil(tDP / thal)
+                },
+                when: { B: bR, L: lR, D: dR }
             };
         }
+
 
         /* ====== Render (dynamic columns) ====== */
         let CURRENT_COLUMNS = []; // for CSV export
