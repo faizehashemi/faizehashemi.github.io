@@ -585,88 +585,75 @@ async function getAllSlips() {
         // - Merge HUSN and BAHA into one row (all meals).
         // - Add an extra combined row for MUFADDAL+MOHAMMEDI for Lunch & Dinner only.
         function buildCookingFrom(stats) {
-            const rows = [];
+            const MERGE_SET = new Set(['BAHA', 'HUSN', 'MOHAMMEDI', 'MUFADDAL']);
             const byName = new Map(stats.rows.map(r => [r.building, r]));
 
-            // 1) HUSN+BAHA merged row (if either exists)
-            const husn = byName.get('HUSN');
-            const baha = byName.get('BAHA');
-            if (husn || baha) {
-                const merged = {
-                    building: 'HUSN+BAHA',
-                    bp: (husn?.bp || 0) + (baha?.bp || 0),
-                    bt: (husn?.bt || 0) + (baha?.bt || 0),
-                    lp: (husn?.lp || 0) + (baha?.lp || 0),
-                    lt: (husn?.lt || 0) + (baha?.lt || 0),
-                    dp: (husn?.dp || 0) + (baha?.dp || 0),
-                    dt: (husn?.dt || 0) + (baha?.dt || 0),
-                    b: { g: (husn?.b.g || 0) + (baha?.b.g || 0), l: (husn?.b.l || 0) + (baha?.b.l || 0), c: (husn?.b.c || 0) + (baha?.b.c || 0), i: (husn?.b.i || 0) + (baha?.b.i || 0) },
-                    l: { g: (husn?.l.g || 0) + (baha?.l.g || 0), l: (husn?.l.l || 0) + (baha?.l.l || 0), c: (husn?.l.c || 0) + (baha?.l.c || 0), i: (husn?.l.i || 0) + (baha?.l.i || 0) },
-                    d: { g: (husn?.d.g || 0) + (baha?.d.g || 0), l: (husn?.d.l || 0) + (baha?.d.l || 0), c: (husn?.d.c || 0) + (baha?.d.c || 0), i: (husn?.d.i || 0) + (baha?.d.i || 0) }
-                };
-                rows.push(merged);
-            }
-
-            // 2) Keep all other buildings except HUSN/BAHA
+            // Start with all rows EXCEPT the ones we will merge
+            const rows = [];
             for (const r of stats.rows) {
-                if (r.building === 'HUSN' || r.building === 'BAHA') continue;
-                rows.push(cloneRow(r));
+                if (MERGE_SET.has(r.building)) continue; // drop individuals for these four
+                rows.push(JSON.parse(JSON.stringify(r)));
             }
 
-            // 3) Add MUFADDAL+MOHAMMEDI combined row for Lunch & Dinner only
-            const muf = byName.get('MUFADDAL');
-            const moh = byName.get('MOHAMMEDI');
-            if (muf || moh) {
-                const cook = {
-                    building: 'MUFADDAL+MOHAMMEDI',
-                    // Breakfast not merged per spec; keep 0s and 0 thals
-                    bp: 0, bt: 0,
-                    lp: (muf?.lp || 0) + (moh?.lp || 0),
-                    lt: (muf?.lt || 0) + (moh?.lt || 0),
-                    dp: (muf?.dp || 0) + (moh?.dp || 0),
-                    dt: (muf?.dt || 0) + (moh?.dt || 0),
-                    b: { g: 0, l: 0, c: 0, i: 0 },
+            // Build the single merged row across Breakfast, Lunch, Dinner
+            const parts = ['BAHA', 'HUSN', 'MOHAMMEDI', 'MUFADDAL']
+                .map(n => byName.get(n))
+                .filter(Boolean);
+
+            if (parts.length) {
+                // Sum helper
+                const sum = (getter) => parts.reduce((a, p) => a + getter(p), 0);
+
+                const merged = {
+                    building: 'BAHA+HUSN+MOHAMMEDI+MUFADDAL',
+
+                    // Pax per meal (include breakfast too)
+                    bp: sum(p => p.bp),
+                    lp: sum(p => p.lp),
+                    dp: sum(p => p.dp),
+
+                    // Thals will be recomputed below from pax; set placeholders for now
+                    bt: 0, lt: 0, dt: 0,
+
+                    // Breakdown blocks summed across all four for each meal
+                    b: {
+                        g: sum(p => p.b.g), l: sum(p => p.b.l),
+                        c: sum(p => p.b.c), i: sum(p => p.b.i)
+                    },
                     l: {
-                        g: (muf?.l.g || 0) + (moh?.l.g || 0),
-                        l: (muf?.l.l || 0) + (moh?.l.l || 0),
-                        c: (muf?.l.c || 0) + (moh?.l.c || 0),
-                        i: (muf?.l.i || 0) + (moh?.l.i || 0)
+                        g: sum(p => p.l.g), l: sum(p => p.l.l),
+                        c: sum(p => p.l.c), i: sum(p => p.l.i)
                     },
                     d: {
-                        g: (muf?.d.g || 0) + (moh?.d.g || 0),
-                        l: (muf?.d.l || 0) + (moh?.d.l || 0),
-                        c: (muf?.d.c || 0) + (moh?.d.c || 0),
-                        i: (muf?.d.i || 0) + (moh?.d.i || 0)
+                        g: sum(p => p.d.g), l: sum(p => p.d.l),
+                        c: sum(p => p.d.c), i: sum(p => p.d.i)
                     }
                 };
-                rows.push(cook);
+
+                rows.push(merged); // add exactly one merged row
             }
 
-            // Totals for cooking table
-            const totals = rows.reduce((t, r) => ({
-                tBP: t.tBP + r.bp, tLP: t.tLP + r.lp, tDP: t.tDP + r.dp
-            }), { tBP: 0, tLP: 0, tDP: 0 });
+            // Totals and thals recompute for the cooking table from pax
+            const thal = Math.max(1, Number(document.getElementById('thalSize').value) || 8);
 
-            const thal = Math.max(1, Number($('thalSize').value) || 8);
-            const cooked = {
-                rows: rows.map(r => ({
-                    ...r,
-                    bt: Math.ceil(r.bp / thal),
-                    lt: Math.ceil(r.lp / thal),
-                    dt: Math.ceil(r.dp / thal),
-                })),
-                totals: {
-                    tBP: totals.tBP,
-                    tLP: totals.tLP,
-                    tDP: totals.tDP,
-                    tBT: Math.ceil(totals.tBP / thal),
-                    tLT: Math.ceil(totals.tLP / thal),
-                    tDT: Math.ceil(totals.tDP / thal),
-                }
-            };
+            // Compute thals per row based on pax
+            for (const r of rows) {
+                r.bt = Math.ceil(r.bp / thal);
+                r.lt = Math.ceil(r.lp / thal);
+                r.dt = Math.ceil(r.dp / thal);
+            }
 
-            return cooked;
+            // Table totals
+            const totals = rows.reduce((t, r) => {
+                t.tBP += r.bp; t.tLP += r.lp; t.tDP += r.dp;
+                t.tBT += r.bt; t.tLT += r.lt; t.tDT += r.dt;
+                return t;
+            }, { tBP: 0, tLP: 0, tDP: 0, tBT: 0, tLT: 0, tDT: 0 });
+
+            return { rows, totals };
         }
+
+
 
         function buildMandaFrom(stats, multL, multD) {
             const thaled = stats.rows.map(r => ({
