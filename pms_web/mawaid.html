@@ -37,7 +37,7 @@
         }
 
         .wrap {
-            max-width: 1750px;
+            max-width: 1200px;
             margin: 18px auto 36px;
             padding: 0 12px
         }
@@ -284,29 +284,43 @@
                     <label>Include in Pax totals</label>
                     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                         <label class="small"><input id="incAdults" type="checkbox" checked /> Adults</label>
-                        <label class="small"><input id="incChildren" type="checkbox" /> Children</label>
-                        <label class="small"><input id="incInfants" type="checkbox" /> Infants</label>
+                        <label class="small"><input id="incChildren" type="checkbox" checked /> Children</label>
+                        <label class="small"><input id="incInfants" type="checkbox" checked /> Infants</label>
                     </div>
+                </div>
+
+                <!-- Manda multipliers -->
+                <div class="col c3">
+                    <label for="multL">Manda: Lunch thal ×</label>
+                    <input id="multL" type="number" step="0.1" value="3" />
+                </div>
+                <div class="col c3">
+                    <label for="multD">Manda: Dinner thal ×</label>
+                    <input id="multD" type="number" step="0.1" value="2.5" />
                 </div>
 
                 <!-- Visibility toggles (default ON) -->
                 <div class="col c4">
                     <label>Show breakdown columns</label>
                     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                        <label class="small"><input id="showG" type="checkbox"  /> Gents</label>
-                        <label class="small"><input id="showL" type="checkbox"  /> Ladies</label>
-                        <label class="small"><input id="showC" type="checkbox"  /> Children</label>
-                        <label class="small"><input id="showI" type="checkbox"  /> Infants</label>
+                        <label class="small"><input id="showPax" type="checkbox" /> Pax</label>
+                        <label class="small"><input id="showG" type="checkbox" /> Gents</label>
+                        <label class="small"><input id="showL" type="checkbox" /> Ladies</label>
+                        <label class="small"><input id="showC" type="checkbox" /> Children</label>
+                        <label class="small"><input id="showI" type="checkbox" /> Infants</label>
                     </div>
                 </div>
 
+
+
+
                 <div class="col c2">
                     <label>&nbsp;</label>
-                    <button id="btnRefresh" class="btn-gold no-print">Refresh DB</button>
+                    <button id="btnRefresh" class="btn-gold no-print" hidden>Refresh DB</button>
                 </div>
                 <div class="col c2">
                     <label>&nbsp;</label>
-                    <button id="btnRun" class="no-print">Run</button>
+                    <button id="btnRun" class="no-print" hidden>Run</button>
                 </div>
                 <div class="col c2">
                     <label>&nbsp;</label>
@@ -327,6 +341,36 @@
             </div>
 
         </section>
+        <!-- Cooking Count -->
+        <section class="panel" style="margin-top:12px">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+                <strong>Cooking Count</strong>
+                <span class="muted small"> • HUSN+BAHA merged. Lunch & Dinner also merge MUFADDAL+MOHAMMEDI.</span>
+            </div>
+            <div class="table-wrap">
+                <table id="tblCook">
+                    <thead></thead>
+                    <tbody></tbody>
+                    <tfoot></tfoot>
+                </table>
+            </div>
+        </section>
+
+        <!-- Manda Counts -->
+        <section class="panel" style="margin-top:12px">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+                <strong>Manda Counts</strong>
+                <span class="muted small"> • Only Lunch & Dinner thals. Multipliers applied.</span>
+            </div>
+            <div class="table-wrap">
+                <table id="tblManda">
+                    <thead></thead>
+                    <tbody></tbody>
+                    <tfoot></tfoot>
+                </table>
+            </div>
+        </section>
+
 
         <p id="status" class="muted" style="margin-top:10px"></p>
     </div>
@@ -533,13 +577,164 @@ async function getAllSlips() {
             };
         }
 
+        function cloneRow(r) {
+            return JSON.parse(JSON.stringify(r));
+        }
+
+        // Build a derived dataset for Cooking Count:
+        // - Merge HUSN and BAHA into one row (all meals).
+        // - Add an extra combined row for MUFADDAL+MOHAMMEDI for Lunch & Dinner only.
+        function buildCookingFrom(stats) {
+            const rows = [];
+            const byName = new Map(stats.rows.map(r => [r.building, r]));
+
+            // 1) HUSN+BAHA merged row (if either exists)
+            const husn = byName.get('HUSN');
+            const baha = byName.get('BAHA');
+            if (husn || baha) {
+                const merged = {
+                    building: 'HUSN+BAHA',
+                    bp: (husn?.bp || 0) + (baha?.bp || 0),
+                    bt: (husn?.bt || 0) + (baha?.bt || 0),
+                    lp: (husn?.lp || 0) + (baha?.lp || 0),
+                    lt: (husn?.lt || 0) + (baha?.lt || 0),
+                    dp: (husn?.dp || 0) + (baha?.dp || 0),
+                    dt: (husn?.dt || 0) + (baha?.dt || 0),
+                    b: { g: (husn?.b.g || 0) + (baha?.b.g || 0), l: (husn?.b.l || 0) + (baha?.b.l || 0), c: (husn?.b.c || 0) + (baha?.b.c || 0), i: (husn?.b.i || 0) + (baha?.b.i || 0) },
+                    l: { g: (husn?.l.g || 0) + (baha?.l.g || 0), l: (husn?.l.l || 0) + (baha?.l.l || 0), c: (husn?.l.c || 0) + (baha?.l.c || 0), i: (husn?.l.i || 0) + (baha?.l.i || 0) },
+                    d: { g: (husn?.d.g || 0) + (baha?.d.g || 0), l: (husn?.d.l || 0) + (baha?.d.l || 0), c: (husn?.d.c || 0) + (baha?.d.c || 0), i: (husn?.d.i || 0) + (baha?.d.i || 0) }
+                };
+                rows.push(merged);
+            }
+
+            // 2) Keep all other buildings except HUSN/BAHA
+            for (const r of stats.rows) {
+                if (r.building === 'HUSN' || r.building === 'BAHA') continue;
+                rows.push(cloneRow(r));
+            }
+
+            // 3) Add MUFADDAL+MOHAMMEDI combined row for Lunch & Dinner only
+            const muf = byName.get('MUFADDAL');
+            const moh = byName.get('MOHAMMEDI');
+            if (muf || moh) {
+                const cook = {
+                    building: 'MUFADDAL+MOHAMMEDI',
+                    // Breakfast not merged per spec; keep 0s and 0 thals
+                    bp: 0, bt: 0,
+                    lp: (muf?.lp || 0) + (moh?.lp || 0),
+                    lt: (muf?.lt || 0) + (moh?.lt || 0),
+                    dp: (muf?.dp || 0) + (moh?.dp || 0),
+                    dt: (muf?.dt || 0) + (moh?.dt || 0),
+                    b: { g: 0, l: 0, c: 0, i: 0 },
+                    l: {
+                        g: (muf?.l.g || 0) + (moh?.l.g || 0),
+                        l: (muf?.l.l || 0) + (moh?.l.l || 0),
+                        c: (muf?.l.c || 0) + (moh?.l.c || 0),
+                        i: (muf?.l.i || 0) + (moh?.l.i || 0)
+                    },
+                    d: {
+                        g: (muf?.d.g || 0) + (moh?.d.g || 0),
+                        l: (muf?.d.l || 0) + (moh?.d.l || 0),
+                        c: (muf?.d.c || 0) + (moh?.d.c || 0),
+                        i: (muf?.d.i || 0) + (moh?.d.i || 0)
+                    }
+                };
+                rows.push(cook);
+            }
+
+            // Totals for cooking table
+            const totals = rows.reduce((t, r) => ({
+                tBP: t.tBP + r.bp, tLP: t.tLP + r.lp, tDP: t.tDP + r.dp
+            }), { tBP: 0, tLP: 0, tDP: 0 });
+
+            const thal = Math.max(1, Number($('thalSize').value) || 8);
+            const cooked = {
+                rows: rows.map(r => ({
+                    ...r,
+                    bt: Math.ceil(r.bp / thal),
+                    lt: Math.ceil(r.lp / thal),
+                    dt: Math.ceil(r.dp / thal),
+                })),
+                totals: {
+                    tBP: totals.tBP,
+                    tLP: totals.tLP,
+                    tDP: totals.tDP,
+                    tBT: Math.ceil(totals.tBP / thal),
+                    tLT: Math.ceil(totals.tLP / thal),
+                    tDT: Math.ceil(totals.tDP / thal),
+                }
+            };
+
+            return cooked;
+        }
+
+        function buildMandaFrom(stats, multL, multD) {
+            const thaled = stats.rows.map(r => ({
+                building: r.building,
+                // base thals
+                lt: r.lt, dt: r.dt
+            }));
+
+            const rows = thaled.map(r => ({
+                building: r.building,
+                ltx: +(r.lt * multL).toFixed(2),
+                dtx: +(r.dt * multD).toFixed(2)
+            }));
+
+            const totals = rows.reduce((t, r) => ({
+                ltx: t.ltx + r.ltx,
+                dtx: t.dtx + r.dtx
+            }), { ltx: 0, dtx: 0 });
+
+            return { rows, totals, multL, multD };
+        }
+
+        // Simple renderers for the two extra tables
+        function buildMandaHeader(tableId = '#tblManda') {
+            const thead = document.querySelector(`${tableId} thead`);
+            thead.innerHTML = `<tr>
+    <th>Building</th>
+    <th class="mealL">Lunch Thals×</th>
+    <th class="mealD">Dinner Thals×</th>
+    <th>Total</th>
+  </tr>`;
+        }
+
+        function renderMandaBody(manda, tableId = '#tblManda') {
+            const tb = document.querySelector(`${tableId} tbody`);
+            tb.innerHTML = '';
+            for (const r of manda.rows) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+      <td class="building"><span class="building-name">${r.building}</span></td>
+      <td class="mealL thal">${r.ltx}</td>
+      <td class="mealD thal">${r.dtx}</td>
+      <td>${+(r.ltx + r.dtx).toFixed(2)}</td>`;
+                tr.style.color = pastelColorFromString(r.building);
+                tb.appendChild(tr);
+            }
+        }
+
+        function renderMandaFoot(manda, tableId = '#tblManda') {
+            const tf = document.querySelector(`${tableId} tfoot`);
+            const total = +(manda.totals.ltx + manda.totals.dtx).toFixed(2);
+            tf.innerHTML = `<tr>
+    <td>Total</td>
+    <td class="mealL thal">${manda.totals.ltx.toFixed(2)}</td>
+    <td class="mealD thal">${manda.totals.dtx.toFixed(2)}</td>
+    <td>${total.toFixed(2)}</td>
+  </tr>`;
+        }
 
         /* ====== Render (dynamic columns) ====== */
         let CURRENT_COLUMNS = []; // for CSV export
 
-        function buildHeader(show) {
-            const thead = document.querySelector('#tbl thead');
-            const subCols = ['Pax', 'Thals']
+        function buildHeader(show, tableId = '#tbl') {
+            const thead = document.querySelector(`${tableId} thead`);
+
+            const subCols = []
+                .concat(show.p ? ['Pax'] : [])
+                .concat(['Thals'])
                 .concat(show.g ? ['Gents'] : [])
                 .concat(show.l ? ['Ladies'] : [])
                 .concat(show.c ? ['Children'] : [])
@@ -553,15 +748,16 @@ async function getAllSlips() {
   </tr>`;
 
             const sub = `<tr>${['mealB', 'mealL', 'mealD']
-                    .map(mealClass => subCols.map(s => `<th class="${mealClass}">${s}</th>`).join(''))
-                    .join('')
+                .map(mealClass => subCols.map(s => `<th class="${mealClass}">${s}</th>`).join(''))
+                .join('')
                 }</tr>`;
 
             thead.innerHTML = top + sub;
 
             CURRENT_COLUMNS = ['Building'];
             for (const meal of ['B', 'L', 'D']) {
-                CURRENT_COLUMNS.push(`${meal}:Pax`, `${meal}:Thals`);
+                if (show.p) CURRENT_COLUMNS.push(`${meal}:Pax`);
+                CURRENT_COLUMNS.push(`${meal}:Thals`);
                 if (show.g) CURRENT_COLUMNS.push(`${meal}:Gents`);
                 if (show.l) CURRENT_COLUMNS.push(`${meal}:Ladies`);
                 if (show.c) CURRENT_COLUMNS.push(`${meal}:Children`);
@@ -570,86 +766,84 @@ async function getAllSlips() {
         }
 
 
-        function renderBody(stats, show) {
-            const tb = document.querySelector('#tbl tbody');
+
+        function renderBody(stats, show, tableId = '#tbl') {
+            const tb = document.querySelector(`${tableId} tbody`);
             tb.innerHTML = '';
             for (const r of stats.rows) {
                 const bColor = pastelColorFromString(r.building);
 
-                const bCells = [
-                    `<td class="mealB">${r.bp}</td>`,
-                    `<td class="mealB thal">${r.bt}</td>`,
-                    ...(show.g ? [`<td class="mealB">${r.b.g}</td>`] : []),
-                    ...(show.l ? [`<td class="mealB">${r.b.l}</td>`] : []),
-                    ...(show.c ? [`<td class="mealB">${r.b.c}</td>`] : []),
-                    ...(show.i ? [`<td class="mealB">${r.b.i}</td>`] : []),
-                ];
+                const bCells = []
+                    .concat(show.p ? [`<td class="mealB">${r.bp}</td>`] : [])
+                    .concat([`<td class="mealB thal">${r.bt}</td>`])
+                    .concat(show.g ? [`<td class="mealB">${r.b.g}</td>`] : [])
+                    .concat(show.l ? [`<td class="mealB">${r.b.l}</td>`] : [])
+                    .concat(show.c ? [`<td class="mealB">${r.b.c}</td>`] : [])
+                    .concat(show.i ? [`<td class="mealB">${r.b.i}</td>`] : []);
 
-                const lCells = [
-                    `<td class="mealL">${r.lp}</td>`,
-                    `<td class="mealL thal">${r.lt}</td>`,
-                    ...(show.g ? [`<td class="mealL">${r.l.g}</td>`] : []),
-                    ...(show.l ? [`<td class="mealL">${r.l.l}</td>`] : []),
-                    ...(show.c ? [`<td class="mealL">${r.l.c}</td>`] : []),
-                    ...(show.i ? [`<td class="mealL">${r.l.i}</td>`] : []),
-                ];
+                const lCells = []
+                    .concat(show.p ? [`<td class="mealL">${r.lp}</td>`] : [])
+                    .concat([`<td class="mealL thal">${r.lt}</td>`])
+                    .concat(show.g ? [`<td class="mealL">${r.l.g}</td>`] : [])
+                    .concat(show.l ? [`<td class="mealL">${r.l.l}</td>`] : [])
+                    .concat(show.c ? [`<td class="mealL">${r.l.c}</td>`] : [])
+                    .concat(show.i ? [`<td class="mealL">${r.l.i}</td>`] : []);
 
-                const dCells = [
-                    `<td class="mealD">${r.dp}</td>`,
-                    `<td class="mealD thal">${r.dt}</td>`,
-                    ...(show.g ? [`<td class="mealD">${r.d.g}</td>`] : []),
-                    ...(show.l ? [`<td class="mealD">${r.d.l}</td>`] : []),
-                    ...(show.c ? [`<td class="mealD">${r.d.c}</td>`] : []),
-                    ...(show.i ? [`<td class="mealD">${r.d.i}</td>`] : []),
-                ];
+                const dCells = []
+                    .concat(show.p ? [`<td class="mealD">${r.dp}</td>`] : [])
+                    .concat([`<td class="mealD thal">${r.dt}</td>`])
+                    .concat(show.g ? [`<td class="mealD">${r.d.g}</td>`] : [])
+                    .concat(show.l ? [`<td class="mealD">${r.d.l}</td>`] : [])
+                    .concat(show.c ? [`<td class="mealD">${r.d.c}</td>`] : [])
+                    .concat(show.i ? [`<td class="mealD">${r.d.i}</td>`] : []);
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = [
-                    // removed the inline color on the span
                     `<td class="building"><span class="building-name">${r.building}</span></td>`,
                     ...bCells, ...lCells, ...dCells
                 ].join('');
 
-                // new: color the entire row text using the building’s pastel
                 tr.style.color = bColor;
-
                 tb.appendChild(tr);
             }
         }
 
 
 
-        function renderFoot(stats, thal, show) {
-            const tf = document.querySelector('#tbl tfoot');
+
+        function renderFoot(stats, thal, show, tableId = '#tbl') {
+            const tf = document.querySelector(`${tableId} tfoot`);
             const sum = (getter) => stats.rows.reduce((a, r) => a + getter(r), 0);
 
-            const row = [
-                `<td>Total</td>`,
+            const cells = [];
 
-                `<td class="mealB">${stats.totals.tBP}</td>`,
-                `<td class="mealB thal">${stats.totals.tBT}</td>`,
-                (show.g ? `<td class="mealB">${sum(r => r.b.g)}</td>` : ''),
-                (show.l ? `<td class="mealB">${sum(r => r.b.l)}</td>` : ''),
-                (show.c ? `<td class="mealB">${sum(r => r.b.c)}</td>` : ''),
-                (show.i ? `<td class="mealB">${sum(r => r.b.i)}</td>` : ''),
+            // Breakfast
+            if (show.p) cells.push(`<td class="mealB">${stats.totals.tBP}</td>`);
+            cells.push(`<td class="mealB thal">${stats.totals.tBT}</td>`);
+            if (show.g) cells.push(`<td class="mealB">${sum(r => r.b.g)}</td>`);
+            if (show.l) cells.push(`<td class="mealB">${sum(r => r.b.l)}</td>`);
+            if (show.c) cells.push(`<td class="mealB">${sum(r => r.b.c)}</td>`);
+            if (show.i) cells.push(`<td class="mealB">${sum(r => r.b.i)}</td>`);
 
-                `<td class="mealL">${stats.totals.tLP}</td>`,
-                `<td class="mealL thal">${stats.totals.tLT}</td>`,
-                (show.g ? `<td class="mealL">${sum(r => r.l.g)}</td>` : ''),
-                (show.l ? `<td class="mealL">${sum(r => r.l.l)}</td>` : ''),
-                (show.c ? `<td class="mealL">${sum(r => r.l.c)}</td>` : ''),
-                (show.i ? `<td class="mealL">${sum(r => r.l.i)}</td>` : ''),
+            // Lunch
+            if (show.p) cells.push(`<td class="mealL">${stats.totals.tLP}</td>`);
+            cells.push(`<td class="mealL thal">${stats.totals.tLT}</td>`);
+            if (show.g) cells.push(`<td class="mealL">${sum(r => r.l.g)}</td>`);
+            if (show.l) cells.push(`<td class="mealL">${sum(r => r.l.l)}</td>`);
+            if (show.c) cells.push(`<td class="mealL">${sum(r => r.l.c)}</td>`);
+            if (show.i) cells.push(`<td class="mealL">${sum(r => r.l.i)}</td>`);
 
-                `<td class="mealD">${stats.totals.tDP}</td>`,
-                `<td class="mealD thal">${stats.totals.tDT}</td>`,
-                (show.g ? `<td class="mealD">${sum(r => r.d.g)}</td>` : ''),
-                (show.l ? `<td class="mealD">${sum(r => r.d.l)}</td>` : ''),
-                (show.c ? `<td class="mealD">${sum(r => r.d.c)}</td>` : ''),
-                (show.i ? `<td class="mealD">${sum(r => r.d.i)}</td>` : '')
-            ].join('');
+            // Dinner
+            if (show.p) cells.push(`<td class="mealD">${stats.totals.tDP}</td>`);
+            cells.push(`<td class="mealD thal">${stats.totals.tDT}</td>`);
+            if (show.g) cells.push(`<td class="mealD">${sum(r => r.d.g)}</td>`);
+            if (show.l) cells.push(`<td class="mealD">${sum(r => r.d.l)}</td>`);
+            if (show.c) cells.push(`<td class="mealD">${sum(r => r.d.c)}</td>`);
+            if (show.i) cells.push(`<td class="mealD">${sum(r => r.d.i)}</td>`);
 
-            tf.innerHTML = `<tr>${row}</tr>`;
+            tf.innerHTML = `<tr><td>Total</td>${cells.join('')}</tr>`;
         }
+
 
 
 
@@ -695,25 +889,48 @@ async function getAllSlips() {
                 const incC = $('incChildren').checked;
                 const incI = $('incInfants').checked;
 
-                const show = { g: $('showG').checked, l: $('showL').checked, c: $('showC').checked, i: $('showI').checked };
+                const show = {
+                    p: $('showPax').checked,
+                    g: $('showG').checked, l: $('showL').checked,
+                    c: $('showC').checked, i: $('showI').checked
+                };
+
 
                 const stats = computeByBuilding(dateStr, ranges, thal, incA, incC, incI);
                 if (!stats) { alert('Check your start/end times; end must be after start for each meal.'); return; }
 
-                buildHeader(show);
-                renderBody(stats, show);
-                renderFoot(stats, thal, show);
+                // Main table
+                buildHeader(show, '#tbl');
+                renderBody(stats, show, '#tbl');
+                renderFoot(stats, thal, show, '#tbl');
+
+                // Cooking Count
+                const cook = buildCookingFrom(stats);
+                buildHeader(show, '#tblCook');
+                renderBody(cook, show, '#tblCook');
+                renderFoot(cook, thal, show, '#tblCook');
+
+                // Manda
+                const multL = Number($('multL').value) || 3;
+                const multD = Number($('multD').value) || 2.5;
+                const manda = buildMandaFrom(stats, multL, multD);
+                buildMandaHeader('#tblManda');
+                renderMandaBody(manda, '#tblManda');
+                renderMandaFoot(manda, '#tblManda');
+
 
                 const fmtR = ([s, e]) => `${pad(s.getHours())}:${pad(s.getMinutes())}–${pad(e.getHours())}:${pad(e.getMinutes())}`;
 
 
 
             };
-
             [
                 'statDate', 'timeBStart', 'timeBEnd', 'timeLStart', 'timeLEnd', 'timeDStart', 'timeDEnd',
-                'thalSize', 'incAdults', 'incChildren', 'incInfants', 'showG', 'showL', 'showC', 'showI'
+                'thalSize', 'incAdults', 'incChildren', 'incInfants',
+                'showPax', 'showG', 'showL', 'showC', 'showI',
+                'multL', 'multD'
             ].forEach(id => $(id).addEventListener('input', run));
+
 
             $('btnRun').addEventListener('click', run);
             $('btnRefresh').addEventListener('click', async () => {
@@ -741,4 +958,3 @@ async function getAllSlips() {
     </script>
 </body>
 </html>
-
