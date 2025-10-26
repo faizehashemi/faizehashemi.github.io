@@ -284,8 +284,8 @@
                     <label>Include in Pax totals</label>
                     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                         <label class="small"><input id="incAdults" type="checkbox" checked /> Adults</label>
-                        <label class="small"><input id="incChildren" type="checkbox" checked /> Children</label>
-                        <label class="small"><input id="incInfants" type="checkbox" checked /> Infants</label>
+                        <label class="small"><input id="incChildren" type="checkbox"  /> Children</label>
+                        <label class="small"><input id="incInfants" type="checkbox"  /> Infants</label>
                     </div>
                 </div>
 
@@ -654,20 +654,40 @@ async function getAllSlips() {
         }
 
 
-
         function buildMandaFrom(stats, multL, multD) {
-            const thaled = stats.rows.map(r => ({
-                building: r.building,
-                // base thals
-                lt: r.lt, dt: r.dt
-            }));
+            const pairs = [
+                { name: 'MUFADDAL+MOHAMMEDI', members: ['MUFADDAL', 'MOHAMMEDI'] },
+                { name: 'HUSN+BAHA', members: ['HUSN', 'BAHA'] }
+            ];
 
-            const rows = thaled.map(r => ({
-                building: r.building,
-                ltx: +(r.lt * multL).toFixed(2),
-                dtx: +(r.dt * multD).toFixed(2)
-            }));
+            const skip = new Set(pairs.flatMap(p => p.members));
+            const byName = new Map(stats.rows.map(r => [r.building, r]));
 
+            const rows = [];
+
+            // Keep everyone except the merged members, using rounded integers
+            for (const r of stats.rows) {
+                if (skip.has(r.building)) continue;
+                const lInt = Math.round((r.lt || 0) * multL);
+                const dInt = Math.round((r.dt || 0) * multD);
+                rows.push({ building: r.building, ltx: lInt, dtx: dInt });
+            }
+
+            // Add merged rows (rounded to whole numbers)
+            for (const p of pairs) {
+                const parts = p.members.map(n => byName.get(n)).filter(Boolean);
+                if (!parts.length) continue;
+
+                const lt = parts.reduce((a, r) => a + (r.lt || 0), 0);
+                const dt = parts.reduce((a, r) => a + (r.dt || 0), 0);
+
+                const lInt = Math.round(lt * multL);
+                const dInt = Math.round(dt * multD);
+
+                rows.push({ building: p.name, ltx: lInt, dtx: dInt });
+            }
+
+            // Integer totals
             const totals = rows.reduce((t, r) => ({
                 ltx: t.ltx + r.ltx,
                 dtx: t.dtx + r.dtx
@@ -675,6 +695,8 @@ async function getAllSlips() {
 
             return { rows, totals, multL, multD };
         }
+
+
 
         // Simple renderers for the two extra tables
         function buildMandaHeader(tableId = '#tblManda') {
