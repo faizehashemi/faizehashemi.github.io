@@ -581,6 +581,55 @@ async function getAllSlips() {
             return JSON.parse(JSON.stringify(r));
         }
 
+        // Merge BAHA + HUSN for the FIRST table only
+        function buildFirstMerged(stats, thal) {
+            const byName = new Map(stats.rows.map(r => [r.building, r]));
+
+            // keep everyone except BAHA/HUSN
+            const rows = [];
+            const skip = new Set(['BAHA', 'HUSN']);
+            for (const r of stats.rows) {
+                if (skip.has(r.building)) continue;
+                rows.push(JSON.parse(JSON.stringify(r)));
+            }
+
+            // merge BAHA + HUSN into one row
+            const parts = ['BAHA', 'HUSN'].map(n => byName.get(n)).filter(Boolean);
+            if (parts.length) {
+                const sum = (get) => parts.reduce((a, p) => a + get(p), 0);
+
+                const merged = {
+                    building: 'BAHA+HUSN',
+                    bp: sum(p => p.bp),
+                    lp: sum(p => p.lp),
+                    dp: sum(p => p.dp),
+                    bt: 0, lt: 0, dt: 0,
+                    b: { g: sum(p => p.b.g), l: sum(p => p.b.l), c: sum(p => p.b.c), i: sum(p => p.b.i) },
+                    l: { g: sum(p => p.l.g), l: sum(p => p.l.l), c: sum(p => p.l.c), i: sum(p => p.l.i) },
+                    d: { g: sum(p => p.d.g), l: sum(p => p.d.l), c: sum(p => p.d.c), i: sum(p => p.d.i) }
+                };
+
+                rows.push(merged);
+            }
+
+            // recompute thals per row using current thal size
+            for (const r of rows) {
+                r.bt = Math.ceil(r.bp / thal);
+                r.lt = Math.ceil(r.lp / thal);
+                r.dt = Math.ceil(r.dp / thal);
+            }
+
+            // recompute table totals
+            const totals = rows.reduce((t, r) => {
+                t.tBP += r.bp; t.tLP += r.lp; t.tDP += r.dp;
+                t.tBT += r.bt; t.tLT += r.lt; t.tDT += r.dt;
+                return t;
+            }, { tBP: 0, tLP: 0, tDP: 0, tBT: 0, tLT: 0, tDT: 0 });
+
+            return { rows, totals };
+        }
+
+
         // Build a derived dataset for Cooking Count:
         // - Merge HUSN and BAHA into one row (all meals).
         // - Add an extra combined row for MUFADDAL+MOHAMMEDI for Lunch & Dinner only.
@@ -909,9 +958,12 @@ async function getAllSlips() {
                 if (!stats) { alert('Check your start/end times; end must be after start for each meal.'); return; }
 
                 // Main table
+                // Main table with BAHA+HUSN merged
+                const statsMergedFirst = buildFirstMerged(stats, thal);
                 buildHeader(show, '#tbl');
-                renderBody(stats, show, '#tbl');
-                renderFoot(stats, thal, show, '#tbl');
+                renderBody(statsMergedFirst, show, '#tbl');
+                renderFoot(statsMergedFirst, thal, show, '#tbl');
+
 
                 // Cooking Count
                 const cook = buildCookingFrom(stats);
