@@ -1,0 +1,733 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>PMS</title>
+    <style>
+        :root {
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --bg: #f7efe1; /* page background (cream) */
+            --card: #fffaf1; /* panels/cards */
+            --border: #dcc7a4; /* soft cream-gold border */
+
+            --ok: #2f7d32; /* success */
+            --warn: #a86a00; /* warning gold-brown */
+            --bad: #a12a2a; /* error red-brown */
+
+            --shadow: 0 20px 60px rgba(92,64,28,.12);
+            /* meters/fills */
+            --fill: #d4af37; /* gold */
+            --fill-warn: #d1901a; /* warm amber */
+            --fill-bad: #c24a3a; /* muted brick */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* keep the cream/brown vibe, just deepen surfaces */
+                --ink: #1a0f0a;
+                --muted: #4a3a2d;
+                --bg: #efe4cf;
+                --card: #f6ead3;
+                --border: #cdb492;
+                --shadow: none;
+            }
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html, body {
+            height: 100%
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: var(--bg) url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            margin: 15px;
+            color: var(--ink);
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 14px 56px;
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr 420px;
+            align-items: start;
+        }
+
+        @media (max-width:1000px) {
+            .wrap {
+                grid-template-columns: 1fr
+            }
+        }
+
+        /* Left column: batteries + chart */
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 16px;
+        }
+
+            .panel h2 {
+                margin: 0 0 8px;
+                font-size: 18px;
+                letter-spacing: .2px;
+                color: var(--ink);
+            }
+
+        .sub {
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .battery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .battery-card {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 10px;
+            display: grid;
+            gap: 8px;
+            background: #fffdf7;
+        }
+
+        .b-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .b-name {
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--ink);
+        }
+
+        .b-cap {
+            color: var(--muted);
+            font-size: 12px
+        }
+
+        .cap-edit {
+            display: flex;
+            gap: 6px;
+            align-items: center
+        }
+
+            .cap-edit input {
+                width: 80px;
+                padding: 6px 8px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                font: inherit;
+                background: var(--card);
+                color: var(--ink);
+            }
+
+            .cap-edit button {
+                padding: 6px 10px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--card);
+                color: var(--ink);
+                cursor: pointer;
+                transition: background .15s ease, transform .08s ease;
+            }
+
+                .cap-edit button:hover {
+                    background: #fff6dd
+                }
+
+        @media (prefers-color-scheme: dark) {
+            .cap-edit button:hover {
+                background: #efe4cf
+            }
+        }
+
+        /* Battery visual */
+        .battery {
+            position: relative;
+            height: 48px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            background: #fff;
+        }
+
+            .battery::after {
+                content: "";
+                position: absolute;
+                right: -10px;
+                width: 8px;
+                height: 18px;
+                background: var(--border);
+                border-radius: 3px;
+            }
+
+        .fill {
+            height: 100%;
+            transition: width .3s ease;
+            background: linear-gradient(90deg, #f0d989, var(--fill));
+        }
+
+        .meter {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+            color: var(--ink);
+            text-shadow: 0 1px 0 rgba(255,255,255,.4);
+        }
+
+        .bad .fill {
+            background: linear-gradient(90deg, #e78b7e, var(--fill-bad))
+        }
+
+        .warn .fill {
+            background: linear-gradient(90deg, #f3c260, var(--fill-warn))
+        }
+
+        .b-stats {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+            .b-stats b {
+                color: var(--ink)
+            }
+
+        /* Chart */
+        .chart-wrap {
+            margin-top: 14px;
+            border: 1px dashed var(--border);
+            border-radius: 14px;
+            padding: 10px;
+            background: #fffdf7;
+        }
+
+        .chart-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+            .chart-toolbar .left {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+
+        .chip {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 10px;
+            cursor: pointer;
+            background: var(--card);
+            color: var(--ink);
+            transition: background .15s ease;
+        }
+
+            .chip[aria-pressed="true"] {
+                font-weight: 700;
+                text-decoration: underline;
+            }
+
+            .chip:hover {
+                background: #fff6dd
+            }
+
+        svg.chart {
+            width: 100%;
+            height: 220px;
+            display: block;
+        }
+
+        .axis {
+            stroke: var(--muted);
+            stroke-width: 1
+        }
+
+        .bar {
+            fill: var(--fill)
+        }
+
+        .grid line {
+            stroke: var(--border);
+            stroke-width: .8
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .grid line {
+                stroke: #cdb492
+            }
+        }
+
+        /* Right column (DB health) */
+        .db-card {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            padding: 16px;
+        }
+
+            .db-card h3 {
+                margin: 0 0 8px;
+                font-size: 16px;
+                color: var(--ink)
+            }
+
+        .list {
+            display: grid;
+            gap: 8px
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            padding: 8px 10px;
+            background: #fffdf7;
+        }
+
+        .name {
+            color: var(--ink)
+        }
+
+        .mono {
+            font-family: ui-monospace, Menlo, Consolas, monospace
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            color: var(--ink);
+            background: #fffaf1;
+        }
+
+            .pill.ok {
+                background: #eef7ef;
+                color: #2f7d32;
+                border-color: #bfe3c6
+            }
+
+            .pill.fail {
+                background: #fff1f1;
+                color: #7f1d1d;
+                border-color: #e6bcbc
+            }
+
+            .pill.wait {
+                background: #fff8e6;
+                color: #7a5b13;
+                border-color: #f3d984
+            }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px
+        }
+
+        button {
+            font: inherit;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+        @media (prefers-color-scheme: dark) {
+            button:hover {
+                background: #efe4cf
+            }
+        }
+
+        .foot {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 6px
+        }
+    </style>
+
+</head>
+<body>
+    <!-- Navbar --> <site-nav></site-nav>
+    <script type="module" src="./site-nav.js"></script>
+
+    <div class="wrap">
+        <!-- Left: Building batteries + chart -->
+        <section class="panel" id="occPanel" aria-label="Building occupancy">
+            <h2>Building Occupancy</h2>
+            <div class="sub">Batteries show percent of capacity in use today. Edit capacity per building as needed.</div>
+            <div class="battery-grid" id="batteryGrid"></div>
+
+            <div class="chart-wrap" id="histWrap" aria-label="Totals by date">
+                <div class="chart-toolbar">
+                    <div class="left">
+                        <strong>Totals by date</strong>
+                        <span class="sub" id="chartSubtitle">All buildings</span>
+                    </div>
+                    <div class="left" id="buildingChips"></div>
+                </div>
+                <svg class="chart" id="histChart" viewBox="0 0 800 220" role="img" aria-label="Histogram of totals"></svg>
+            </div>
+        </section>
+
+        <!-- Right: DB Health (kept from your file) -->
+        <aside class="db-card" aria-label="Database health">
+            <h3>Database Health</h3>
+            <div class="list">
+                <div class="row"><div class="name">IndexedDB open</div><span id="dbOpen" class="pill wait">Testing…</span></div>
+                <div class="row"><div class="name">DB name</div><span class="mono">pms_accommodation_db</span></div>
+                <div class="row"><div class="name">DB version (actual)</div><span id="dbVersion" class="mono">—</span></div>
+                <div class="row"><div class="name">Object stores</div><span id="dbStores" class="mono">—</span></div>
+                <div class="row"><div class="name">“slips” count</div><span id="slipCount" class="mono">—</span></div>
+            </div>
+            <div class="actions">
+                <button id="btnRecheck">Recheck</button>
+            </div>
+            <div class="foot" id="dbNote"></div>
+        </aside>
+    </div>
+
+    <script>
+    /* Keep active nav highlighting */
+    (function(){
+      var here=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+      document.querySelectorAll('.min-nav a').forEach(a=>{
+        if((a.getAttribute('href')||'').toLowerCase()===here){ a.setAttribute('aria-current','page'); }
+      });
+    })();
+
+    /* ===== IndexedDB helpers (read-only) ===== */
+    function openDB(){
+      return new Promise((resolve,reject)=>{
+        const req = indexedDB.open('pms_accommodation_db');
+        req.onsuccess = ()=>resolve(req.result);
+        req.onerror = ()=>reject(req.error);
+      });
+    }
+    async function getAllSlips(){
+      const db = await openDB();
+      return new Promise((resolve,reject)=>{
+        if(!db.objectStoreNames.contains('slips')){ db.close(); resolve([]); return; }
+        const tx = db.transaction('slips','readonly');
+        const st = tx.objectStore('slips');
+        const rq = st.getAll();
+        rq.onsuccess = ()=>{ resolve(rq.result||[]); db.close(); };
+        rq.onerror = ()=>{ reject(rq.error); db.close(); };
+      });
+    }
+
+    /* ===== Capacity storage (per building) ===== */
+    const CAP_KEY = 'pms_building_capacity_v1';
+    function loadCaps(){ try{ return JSON.parse(localStorage.getItem(CAP_KEY)||'{}'); }catch{ return {}; } }
+    function saveCaps(m){ localStorage.setItem(CAP_KEY, JSON.stringify(m||{})); }
+
+    /* ===== Data processing ===== */
+    function parseNum(x){ const n = Number(x); return Number.isFinite(n)? n : 0; }
+    function dateOnlyStr(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0,10); }
+    function inStay(dStr, ciStr, coStr){
+      if(!ciStr || !coStr) return false;
+      const d = new Date(dStr), ci = new Date(ciStr), co = new Date(coStr);
+      // Count inclusive of check-in, exclusive of checkout morning
+      return d >= new Date(ci.getFullYear(),ci.getMonth(),ci.getDate()) &&
+             d <= new Date(co.getFullYear(),co.getMonth(),co.getDate());
+    }
+
+    function unique(arr){ return Array.from(new Set(arr)); }
+
+    /* ===== UI: Batteries ===== */
+    function batteryClass(p){
+      if(p >= 85) return '';
+      if(p >= 60) return 'warn';
+      return 'bad';
+    }
+
+    function renderBatteries(buildings, caps, todayTotals){
+      const grid = document.getElementById('batteryGrid');
+      grid.innerHTML = '';
+      buildings.forEach(b=>{
+        const cap = caps[b] ?? 100;
+        const used = todayTotals[b] ?? 0;
+        const pct = cap>0 ? Math.min(100, Math.round(used*100/cap)) : 0;
+        const cls = batteryClass(pct);
+        const card = document.createElement('div');
+        card.className = 'battery-card';
+        card.innerHTML = `
+          <div class="b-head">
+            <div>
+              <div class="b-name">${b || '(Unassigned)'}</div>
+              <div class="b-cap">Capacity: <b>${cap}</b> • Used: <b>${used}</b></div>
+            </div>
+            <div class="cap-edit" aria-label="Capacity editor">
+              <label for="cap_${cssId(b)}" class="sr-only">Capacity</label>
+              <input id="cap_${cssId(b)}" type="number" min="0" value="${cap}" />
+              <button data-b="${encodeURIComponent(b)}">Save</button>
+            </div>
+          </div>
+          <div class="battery ${cls}">
+            <div class="fill" style="width:${pct}%;"></div>
+            <div class="meter">${pct}%</div>
+          </div>
+          <div class="b-stats">
+            <div>Today: <b>${used}</b></div>
+            <div>Free: <b>${Math.max(0, cap-used)}</b></div>
+          </div>
+        `;
+        card.querySelector('button').addEventListener('click', ()=>{
+          const nb = decodeURIComponent(card.querySelector('button').dataset.b);
+          const v = parseNum(card.querySelector('input').value);
+          const all = loadCaps(); all[nb]=v; saveCaps(all);
+          hydrate(); // re-render everything
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    function cssId(t){ return String(t||'unassigned').replace(/[^a-z0-9]+/gi,'_'); }
+
+    /* ===== UI: Building chips & Histogram ===== */
+    function renderChips(buildings, active){
+      const wrap = document.getElementById('buildingChips');
+      wrap.innerHTML = '';
+      const allBtn = document.createElement('button');
+      allBtn.className='chip';
+      allBtn.setAttribute('aria-pressed', String(active==='_ALL'));
+      allBtn.textContent='All';
+      allBtn.addEventListener('click', ()=>{ state.filter='_ALL'; drawChart(); });
+      wrap.appendChild(allBtn);
+      buildings.forEach(b=>{
+        const btn = document.createElement('button');
+        btn.className='chip';
+        btn.setAttribute('aria-pressed', String(state.filter===b));
+        btn.textContent = b || '(Unassigned)';
+        btn.addEventListener('click', ()=>{ state.filter=b; drawChart(); });
+        wrap.appendChild(btn);
+      });
+    }
+
+    function drawChart(){
+      const svg = document.getElementById('histChart');
+      const w = 800, h = 220, padL=46, padR=10, padT=14, padB=26;
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      svg.innerHTML = '';
+
+      const dates = state.dates;
+      const active = state.filter;
+      const label = active==='_ALL' ? 'All buildings' : (active||'(Unassigned)');
+      document.getElementById('chartSubtitle').textContent = label;
+
+      // pick series
+      let series = [];
+      dates.forEach(d=>{
+        const m = state.byDate[d];
+        let sum = 0;
+        if(active==='_ALL'){
+          Object.values(m).forEach(v=> sum+=v);
+        } else {
+          sum = m[active] || 0;
+        }
+        series.push({d, y: sum});
+      });
+
+      const maxY = Math.max(10, ...series.map(s=>s.y));
+      const xStep = (w - padL - padR) / Math.max(1, series.length);
+      const yScale = (h - padT - padB) / maxY;
+
+      // grid & axes
+      const gGrid = document.createElementNS('http://www.w3.org/2000/svg','g'); gGrid.setAttribute('class','grid');
+      for(let k=0;k<=5;k++){
+        const y = h - padB - k*(h - padT - padB)/5;
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', padL); line.setAttribute('x2', w - padR);
+        line.setAttribute('y1', y); line.setAttribute('y2', y);
+        gGrid.appendChild(line);
+      }
+      svg.appendChild(gGrid);
+
+      // y axis
+      const yAxis = document.createElementNS('http://www.w3.org/2000/svg','path');
+      yAxis.setAttribute('class','axis');
+      yAxis.setAttribute('d', `M ${padL} ${padT} V ${h-padB}`);
+      svg.appendChild(yAxis);
+      // x axis
+      const xAxis = document.createElementNS('http://www.w3.org/2000/svg','path');
+      xAxis.setAttribute('class','axis');
+      xAxis.setAttribute('d', `M ${padL} ${h-padB} H ${w-padR}`);
+      svg.appendChild(xAxis);
+
+      // bars
+      series.forEach((s,i)=>{
+        const barW = Math.max(6, xStep*0.7);
+        const x = padL + i*xStep + (xStep - barW)/2;
+        const y = h - padB - s.y*yScale;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('class','bar');
+        rect.setAttribute('x', x); rect.setAttribute('y', y);
+        rect.setAttribute('width', barW); rect.setAttribute('height', Math.max(0, s.y*yScale));
+        rect.setAttribute('role','img'); rect.setAttribute('aria-label', `${s.d}: ${s.y}`);
+        svg.appendChild(rect);
+
+        // x ticks at reasonable density
+        if(series.length<=20 || i%Math.ceil(series.length/20)===0){
+          const tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+          tx.setAttribute('x', x + barW/2); tx.setAttribute('y', h - 6);
+          tx.setAttribute('text-anchor','middle'); tx.setAttribute('font-size','10');
+          tx.textContent = s.d.slice(5); // show MM-DD
+          svg.appendChild(tx);
+        }
+      });
+
+      // y labels
+      for(let k=0;k<=5;k++){
+        const val = Math.round(maxY*k/5);
+        const ty = h - padB - val*yScale;
+        const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x', padL - 6); t.setAttribute('y', ty+3);
+        t.setAttribute('text-anchor','end'); t.setAttribute('font-size','10');
+        t.textContent = val;
+        svg.appendChild(t);
+      }
+    }
+
+    /* ===== State + hydration ===== */
+    const state = {
+      slips: [],
+      buildings: [],
+      byDate: {},  // { 'YYYY-MM-DD': { building: total, ... } }
+      dates: [],
+      todayTotals: {}, // { building: usedToday }
+      filter: '_ALL'
+    };
+
+    async function hydrate(){
+      // DB health panel (same logic as your original)
+      checkDB();
+
+      const slips = await getAllSlips();
+      state.slips = slips;
+
+      // Collect building names
+      const buildings = unique(slips.map(s=> String(s.building||'').trim())).sort((a,b)=> a.localeCompare(b));
+      state.buildings = buildings.length ? buildings : [''];
+
+      // Build byDate map using checkin_date as X and total as Y
+      const byDate = {};
+      slips.forEach(s=>{
+        const d = (s.checkin_date||'').trim();
+        if(!d) return;
+        const b = String(s.building||'').trim();
+        const y = parseNum(s.total);
+        byDate[d] = byDate[d] || {};
+        byDate[d][b] = (byDate[d][b]||0) + y;
+      });
+      state.byDate = byDate;
+      state.dates = Object.keys(byDate).sort(); // chronological
+
+      // Compute "today" usage per building from stays spanning today
+      const todayStr = dateOnlyStr(new Date());
+      const todayTotals = {};
+      slips.forEach(s=>{
+        const b = String(s.building||'').trim();
+        if(inStay(todayStr, s.checkin_date, s.checkout_date)){
+          todayTotals[b] = (todayTotals[b]||0) + parseNum(s.total);
+        }
+      });
+      state.todayTotals = todayTotals;
+
+      // Render
+      const caps = loadCaps();
+      renderBatteries(state.buildings, caps, state.todayTotals);
+      renderChips(state.buildings, state.filter);
+      drawChart();
+    }
+
+    /* ===== DB health (copied from your file, minor tidy) ===== */
+    async function checkDB(){
+      const outOpen = document.getElementById('dbOpen');
+      const outVer  = document.getElementById('dbVersion');
+      const outStores = document.getElementById('dbStores');
+      const outCount = document.getElementById('slipCount');
+      const note = document.getElementById('dbNote');
+      outOpen.textContent='Testing…'; outOpen.className='pill wait';
+      outVer.textContent='—'; outStores.textContent='—'; outCount.textContent='—'; note.textContent='';
+      try{
+        const req = indexedDB.open('pms_accommodation_db');
+        req.onsuccess = ()=>{
+          const db = req.result;
+          outOpen.textContent='Open'; outOpen.className='pill ok';
+          outVer.textContent=db.version;
+          const stores = Array.from(db.objectStoreNames);
+          outStores.textContent = stores.join(', ') || '—';
+          if(stores.includes('slips')){
+            const tx = db.transaction('slips','readonly');
+            const st = tx.objectStore('slips');
+            const c = st.count();
+            c.onsuccess = ()=>{ outCount.textContent = c.result; db.close(); };
+            c.onerror = ()=>{ outCount.textContent = 'error'; db.close(); };
+          } else { outCount.textContent = 'store not found'; db.close(); }
+          note.textContent = 'Tip: initialize by saving a slip in your Slip page if empty.';
+        };
+        req.onerror = ()=>{
+          outOpen.textContent='Blocked'; outOpen.className='pill fail';
+          note.textContent='IndexedDB unavailable. Serve over http and use a modern browser.';
+        };
+      } catch{
+        outOpen.textContent='Error'; outOpen.className='pill fail';
+        note.textContent='Unexpected error opening IndexedDB.';
+      }
+    }
+    document.getElementById('btnRecheck').addEventListener('click', checkDB);
+
+    // Boot
+    hydrate();
+    </script>
+</body>
+</html>

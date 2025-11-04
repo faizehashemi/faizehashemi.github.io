@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>Grid</title>
+
+    <style>
+        :root {
+            /* Cream • Gold • Brown */
+            --ink: #2b1e15; /* text */
+            --muted: #6b5e4a; /* secondary */
+            --card: #fffaf1; /* panels */
+            --border: #dcc7a4; /* lines */
+            --hdrBg: #f3e6ca; /* headers */
+            --gold: #d4af37; /* accent */
+
+            --vacant: #fffdf5; /* cell vacant */
+            --occupied: #e8c765; /* cell occupied */
+            --warn: #F7C131; /* under-assigned bg */
+            --warnText: #663300;
+            --cellW: 60px;
+            --cellH: 45px;
+            --fs: 24px;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #f7efe1 url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            margin: 15px;
+            color: var(--ink);
+        }
+
+        .wrap {
+            height: calc(100vh - 58px);
+            display: flex;
+            flex-direction: column
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            background: var(--card);
+        }
+
+            .toolbar .group {
+                display: flex;
+                gap: 8px;
+                align-items: end;
+                flex-wrap: wrap
+            }
+
+        label.small {
+            font-size: 12px;
+            color: var(--muted);
+            display: block
+        }
+
+        input, select, button {
+            font: inherit;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px 10px;
+            background: #fffdf7;
+            color: var(--ink);
+        }
+
+        button {
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+            button.primary {
+                border-color: #f3d984;
+                background: linear-gradient(0deg, color-mix(in oklab, var(--gold) 16%, transparent), color-mix(in oklab, var(--gold) 16%, transparent));
+            }
+
+        .spacer {
+            flex: 1 1 auto
+        }
+
+        .tabs {
+            display: flex;
+            gap: 6px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            background: var(--card);
+        }
+
+        .tab {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fffdf5;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+
+            .tab:hover {
+                background: #fff6dd
+            }
+
+            .tab[aria-selected="true"] {
+                background: var(--gold);
+                border-color: var(--gold);
+                color: #2b1e15;
+                font-weight: 700;
+            }
+
+        .stage {
+            flex: 1 1 auto;
+            min-height: 0;
+            background: var(--card)
+        }
+
+        .matrix-wrap {
+            height: 100%;
+            width: 100%;
+            overflow: auto
+        }
+
+        .matrix {
+            display: grid;
+            border-top: 1px solid var(--border);
+            border-left: 1px solid var(--border);
+            background: #fff;
+        }
+
+        .hcell, .rcell, .cell {
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .hcell {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--hdrBg);
+            text-align: center;
+            font-weight: 800;
+            padding: 6px;
+            font-size: calc(var(--fs) + 1px);
+            color: var(--ink);
+        }
+
+        .rcell {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background: var(--hdrBg);
+            font-weight: 800;
+            padding: 6px;
+            text-align: center;
+            font-size: calc(var(--fs) + 1px);
+            color: var(--ink);
+        }
+
+        .corner {
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 3;
+            background: var(--hdrBg)
+        }
+
+        .cell {
+            width: var(--cellW);
+            height: var(--cellH);
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            align-items: center;
+            justify-items: center;
+            padding: 6px;
+            font-size: var(--fs);
+            background: var(--vacant);
+            color: var(--ink);
+        }
+
+            .cell .cap {
+                font-weight: 700
+            }
+
+            .cell .meta {
+                font-size: calc(var(--fs) - 1px);
+                text-align: center;
+                line-height: 1.1;
+                color: var(--muted)
+            }
+
+            .cell.occ {
+                background: var(--occupied);
+                color: #2b1e15
+            }
+
+            .cell.under {
+                background: var(--warn) !important;
+                color: var(--warnText) !important
+            }
+
+                .cell.under .cap {
+                    color: var(--warnText) !important
+                }
+
+        .legend {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--muted);
+            background: var(--card);
+            border-top: 1px solid var(--border)
+        }
+
+        .sizebar {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .sizegrp {
+            display: flex;
+            gap: 6px;
+            align-items: center
+        }
+
+            .sizegrp input[type="range"] {
+                width: 160px
+            }
+
+        .iconbtn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff0;
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            .iconbtn:hover {
+                background: #fff3cf
+            }
+
+            .iconbtn:active {
+                transform: translateY(1px)
+            }
+
+        /* Print the grid with exact colors and layout */
+        @media print {
+            body {
+                margin: 0
+            }
+
+                body * {
+                    visibility: hidden !important
+                }
+
+            .print-scope, .print-scope * {
+                visibility: visible !important
+            }
+
+            .print-scope {
+                position: static !important;
+                inset: auto !important;
+                margin: 0 !important;
+                padding: 0 !important
+            }
+
+                .print-scope .matrix-wrap {
+                    height: auto !important;
+                    overflow: visible !important
+                }
+
+                .print-scope .hcell, .print-scope .rcell, .print-scope .corner {
+                    position: static !important;
+                    top: auto !important;
+                    left: auto !important;
+                    z-index: auto !important
+                }
+
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important
+            }
+
+            .print-scope .matrix, .print-scope .hcell, .print-scope .rcell, .print-scope .cell {
+                background: inherit;
+                border-color: inherit;
+                box-shadow: none !important;
+            }
+
+            .print-scope, .print-scope .matrix, .print-scope .row, .print-scope .cell {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+
+            @page {
+                size: auto;
+                margin: 8mm
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <site-nav></site-nav>
+    <script type="module" src="./site-nav.js"></script>
+
+    <div class="wrap">
+        <div class="toolbar">
+            <div class="group">
+                <div>
+                    <label class="small" for="asof_date">Date</label>
+                    <input id="asof_date" type="date">
+                </div>
+                <div>
+                    <label class="small" for="asof_time">Time</label>
+                    <input id="asof_time" type="time" step="60">
+                </div>
+                <button id="btnRecalc" class="primary">Recalculate</button>
+                <button id="btnRefresh">Refresh DB</button>
+                <button id="btnPrintGrid">Print grid</button>
+            </div>
+            <div class="spacer"></div>
+            <div class="sizebar">
+                <div class="sizegrp" title="Cell width">
+                    <span class="small">Width</span>
+                    <button class="iconbtn" id="wMinus">–</button>
+                    <input id="wRange" type="range" min="1" max="240" step="2" value="65">
+                    <button class="iconbtn" id="wPlus">+</button>
+                </div>
+                <div class="sizegrp" title="Cell height">
+                    <span class="small">Height</span>
+                    <button class="iconbtn" id="hMinus">–</button>
+                    <input id="hRange" type="range" min="1" max="200" step="2" value="35">
+                    <button class="iconbtn" id="hPlus">+</button>
+                </div>
+                <div class="sizegrp" title="Text size">
+                    <span class="small">Text</span>
+                    <button class="iconbtn" id="fMinus">–</button>
+                    <input id="fRange" type="range" min="1" max="20" step="1" value="10">
+                    <button class="iconbtn" id="fPlus">+</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs" id="tabs"></div>
+
+        <div class="stage">
+            <div class="matrix-wrap">
+                <div class="matrix" id="matrix"></div>
+            </div>
+            <div class="legend" id="status">Loading DB…</div>
+        </div>
+    </div>
+
+    <script>
+        /* ================= IndexedDB ================= */
+        const DB_NAME = 'pms_accommodation_db', STORE = 'slips', DB_VERSION = 2;
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    const has = db.objectStoreNames.contains(STORE);
+                    const st = has ? e.target.transaction.objectStore(STORE)
+                        : db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+                    if (!st.indexNames.contains('createdAt')) st.createIndex('createdAt', 'createdAt', { unique: false });
+                    if (!st.indexNames.contains('sh_no')) st.createIndex('sh_no', 'sh_no', { unique: false });
+                    if (!st.indexNames.contains('building')) st.createIndex('building', 'building', { unique: false });
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getAllRecords() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readonly'), st = tx.objectStore(STORE);
+                const rq = st.getAll();
+                rq.onsuccess = () => resolve(rq.result || []);
+                rq.onerror = () => reject(rq.error);
+                tx.oncomplete = () => db.close();
+            });
+        }
+
+        /* ================= Helpers ================= */
+        const $ = id => document.getElementById(id);
+        const pad = n => String(n).padStart(2, '0');
+        function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
+        function fmtDT(dt) {
+            try { return dt.toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }
+            catch (e) { return dt.toISOString().slice(5, 16).replace('T', ' ') }
+        }
+        const uniq = a => Array.from(new Set(a));
+        const cleanRoom = x => String(x ?? '').trim();
+        const normRoom = x => cleanRoom(x).replace(/\s+/g, '').toUpperCase();
+
+        function roomsFromSlip(rec) {
+            const g = (rec.rooms?.gents || []).map(x => normRoom(x.room_no ?? x));
+            const l = (rec.rooms?.ladies || []).map(x => normRoom(x.room_no ?? x));
+            return [...g, ...l].filter(Boolean);
+        }
+
+        /* floor/column from a room token like 1203A -> floor 12, col 03A */
+        function parseRoomToken(room) {
+            const r = normRoom(room);
+            const m = r.match(/^(\d+)([A-Z]*)$/i);
+            if (!m) return { floor: '?', col: r };
+            const digits = m[1], suf = m[2] || '';
+            if (digits.length <= 2) return { floor: '0', col: digits + suf };
+            return { floor: digits.slice(0, -2), col: digits.slice(-2) + suf };
+        }
+
+        /* All rooms present across slips for a building, deduped by normalized token */
+        function buildInventoryPerBuilding(records, building) {
+            const b = (building || '').trim();
+            const roomSet = new Set();
+            records.forEach(r => {
+                if ((r.building || '').trim() !== b) return;
+                roomsFromSlip(r).forEach(rr => roomSet.add(rr));
+            });
+            const rooms = [...roomSet];
+
+            const floors = new Map(), cellToRoom = new Map();
+            rooms.forEach(room => {
+                const { floor, col } = parseRoomToken(room);
+                if (!floors.has(floor)) floors.set(floor, new Set());
+                floors.get(floor).add(col);
+                cellToRoom.set(`${floor}|${col}`, room); // map grid cell to normalized room
+            });
+
+            const flist = [...floors.keys()].sort((a, b) => Number(a) - Number(b));
+            const allCols = new Set(); flist.forEach(f => floors.get(f).forEach(c => allCols.add(c)));
+            const clist = [...allCols].sort((a, b) => {
+                const an = parseInt(a, 10), bn = parseInt(b, 10);
+                if (!isNaN(an) && !isNaN(bn) && an !== bn) return an - bn;
+                return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            return { flist, clist, cellToRoom };
+        }
+
+        /* Occupancy logic */
+        let CACHE = [];
+        const overlapsIn = (when, ci, co) => when >= ci && when < co;
+
+        function getActiveSlipsForRoom(when, building, roomNorm) {
+            const out = [];
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                const co = parseDT(r.checkout_date, r.checkout_time);
+                if (!ci || !co) continue;
+                if (!overlapsIn(when, ci, co)) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) out.push(r);
+            }
+            return out;
+        }
+
+        function getNextSlip(when, building, roomNorm) {
+            const out = [];
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                if (!ci || !(ci > when)) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) out.push(r);
+            }
+            if (!out.length) return null;
+            out.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
+            return out[0];
+        }
+
+        /* Build a capacity map per physical room (latest non-null wins) */
+        function buildCapacityMap(building) {
+            const cap = new Map();
+            const b = (building || '').trim();
+            const sorted = [...CACHE].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+            for (const r of sorted) {
+                if ((r.building || '').trim() !== b) continue;
+                for (const side of ['gents', 'ladies']) {
+                    for (const it of (r.rooms?.[side] || [])) {
+                        const rn = normRoom(it.room_no ?? it);
+                        const c = (it.capacity === '' || it.capacity == null) ? null : Number(it.capacity);
+                        if (!cap.has(rn) && c != null) cap.set(rn, c);
+                    }
+                }
+            }
+            return cap; // Map<roomNorm, capacity>
+        }
+
+        function assignedInSlipForRoom(rec, roomNorm) {
+            let sum = 0;
+            for (const side of ['gents', 'ladies']) {
+                for (const it of (rec.rooms?.[side] || [])) {
+                    const rn = normRoom(it.room_no ?? it);
+                    if (rn !== roomNorm) continue;
+                    const a = Number(it.assigned ?? it.pax ?? it.count ?? 0);
+                    if (!Number.isNaN(a)) sum += a;
+                }
+            }
+            return sum;
+        }
+
+        function aggregateRoomTotals(building, roomNorm, when, capMap) {
+            const active = getActiveSlipsForRoom(when, building, roomNorm);
+            let assigned = 0, shNos = [], coTimes = [];
+            for (const rec of active) {
+                assigned += assignedInSlipForRoom(rec, roomNorm);
+                if (rec.sh_no != null) shNos.push(String(rec.sh_no));
+                const co = parseDT(rec.checkout_date, rec.checkout_time);
+                if (co) coTimes.push(co);
+            }
+            const capacity = capMap.get(roomNorm) ?? null;
+            const earliestOut = coTimes.length ? new Date(Math.min(...coTimes.map(t => t.getTime()))) : null;
+            return { assigned, capacity, earliestOut, shNos };
+        }
+
+        function roomInstanceCount(building, roomNorm) {
+            let count = 0;
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) count++;
+            }
+            return count;
+        }
+
+        function activeInstanceCount(when, building, roomNorm) {
+            let count = 0;
+            for (const r of CACHE) {
+                if ((r.building || '').trim() !== building) continue;
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                const co = parseDT(r.checkout_date, r.checkout_time);
+                if (!ci || !co) continue;
+                if (!overlapsIn(when, ci, co)) continue;
+                if (roomsFromSlip(r).includes(roomNorm)) count++;
+            }
+            return count;
+        }
+
+        const summarizeSH = (list, max = 3) => {
+            const u = [...new Set(list)];
+            return u.length <= max ? u.join(', ') : u.slice(0, max).join(', ') + ` (+${u.length - max})`;
+        };
+
+        /* ================= UI: tabs & matrix ================= */
+        function renderTabs(buildings) {
+            const tabs = $('tabs'); tabs.innerHTML = '';
+            buildings.forEach((b, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'tab'; btn.textContent = b;
+                btn.setAttribute('role', 'tab');
+                btn.setAttribute('aria-selected', String(i === 0));
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+                    btn.setAttribute('aria-selected', 'true');
+                    renderMatrix(b);
+                });
+                tabs.appendChild(btn);
+            });
+        }
+
+        function renderMatrix(building) {
+            const dateStr = $('asof_date').value, timeStr = $('asof_time').value;
+            if (!dateStr || !timeStr) { alert('Choose date and time'); return; }
+            const when = new Date(`${dateStr}T${timeStr}`); if (isNaN(when)) { alert('Invalid date/time'); return; }
+
+            const mx = $('matrix'); mx.innerHTML = '';
+            const { flist, clist, cellToRoom } = buildInventoryPerBuilding(CACHE, building);
+            if (!flist.length) { mx.textContent = 'No rooms found for this building.'; return; }
+
+            mx.style.gridTemplateColumns = `repeat(${clist.length + 1}, max-content)`;
+
+            const corner = document.createElement('div');
+            corner.className = 'hcell corner'; corner.style.width = '84px'; corner.style.height = '44px';
+            corner.textContent = building; mx.appendChild(corner);
+
+            clist.forEach(col => {
+                const h = document.createElement('div');
+                h.className = 'hcell'; h.style.width = 'var(--cellW)'; h.style.height = '44px'; h.textContent = col;
+                mx.appendChild(h);
+            });
+
+            const capMap = buildCapacityMap(building);
+
+            flist.forEach(floor => {
+                const rhead = document.createElement('div');
+                rhead.className = 'rcell'; rhead.style.width = '84px'; rhead.style.height = 'var(--cellH)';
+                rhead.textContent = `FLOOR ${floor}`; mx.appendChild(rhead);
+
+                clist.forEach(col => {
+                    const key = `${floor}|${col}`;
+                    const roomNorm = cellToRoom.get(key) || null;
+
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.width = 'var(--cellW)'; cell.style.height = 'var(--cellH)';
+
+                    if (!roomNorm) {
+                        cell.innerHTML = `<div class="cap">—</div><div class="meta">&nbsp;</div>`;
+                    } else {
+                        const active = getActiveSlipsForRoom(when, building, roomNorm);
+
+                        if (active.length) {
+                            const agg = aggregateRoomTotals(building, roomNorm, when, capMap);
+                            const capVal = (agg.capacity != null && !Number.isNaN(agg.capacity)) ? agg.capacity : null;
+                            const asgVal = Number.isFinite(agg.assigned) ? agg.assigned : 0;
+                            const under = (capVal != null) && (asgVal < capVal);
+                            const vacBeds = (capVal != null) ? Math.max(0, capVal - asgVal) : null;
+
+                            const capTxt = (capVal != null) ? `${asgVal}/${capVal}` : `${asgVal}/—`;
+                            const shText = agg.shNos.length ? summarizeSH(agg.shNos) : '—';
+                            const outText = agg.earliestOut ? fmtDT(agg.earliestOut) : '—';
+
+                            cell.classList.add('occ');
+                            if (under) cell.classList.add('under');
+
+                            cell.innerHTML = `
+                    <div class="cap">${capTxt}${under && vacBeds != null ? ' · Vac ' + vacBeds : ''}</div>
+                    <div class="meta">SH ${shText} • Out ${outText}</div>
+                  `;
+                        } else {
+                            const next = getNextSlip(when, building, roomNorm);
+                            const ci = next ? parseDT(next.checkin_date, next.checkin_time) : null;
+                            const nsh = next ? (next.sh_no ?? '') : '';
+
+                            const totalInst = roomInstanceCount(building, roomNorm);
+                            const activeInst = 0; // currently zero by branch
+                            const vacInst = Math.max(0, totalInst - activeInst);
+                            //const vacLabel = vacInst > 1 ? `Upcoming ${vacInst} pax` : 'Vacant';
+                            const vacLabel = 'Vacant';
+                            const capVal = capMap.get(roomNorm) ?? null;
+                            const capTxt = (capVal != null) ? String(capVal) : '—';
+
+                            cell.innerHTML = `
+                    <div class="cap">${capTxt}</div>
+                    <div class="meta">
+                      ${next ? `${vacLabel} • Next ${fmtDT(ci)}${nsh ? ' • SH ' + nsh : ''}` : `${vacLabel}`}
+                    </div>
+                  `;
+                        }
+                    }
+                    mx.appendChild(cell);
+                });
+            });
+
+            $('status').textContent = `${building} • Floors ${flist.join(', ')} • ${clist.length} columns • ${CACHE.length} slip(s)`;
+        }
+
+        /* ================= Size controls ================= */
+        function setVar(name, val) { document.documentElement.style.setProperty(name, val); }
+        const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+        function wireSizeControls() {
+            const wR = $('wRange'), hR = $('hRange'), fR = $('fRange');
+            const wM = $('wMinus'), wP = $('wPlus'), hM = $('hMinus'), hP = $('hPlus'), fM = $('fMinus'), fP = $('fPlus');
+            const apply = () => { setVar('--cellW', wR.value + 'px'); setVar('--cellH', hR.value + 'px'); setVar('--fs', fR.value + 'px'); };
+            [wR, hR, fR].forEach(el => el.addEventListener('input', apply));
+            const step = (el, d, min, max) => { el.value = clamp(Number(el.value) + d, min, max); el.dispatchEvent(new Event('input')); };
+            wM.onclick = () => step(wR, -8, 80, 240);
+            wP.onclick = () => step(wR, +8, 80, 240);
+            hM.onclick = () => step(hR, -8, 60, 200);
+            hP.onclick = () => step(hR, +8, 60, 200);
+            fM.onclick = () => step(fR, -1, 9, 20);
+            fP.onclick = () => step(fR, +1, 9, 20);
+            apply();
+        }
+
+        /* ================= Print only the grid ================= */
+        function printOnlyById(id) {
+            const el = document.getElementById(id);
+            if (!el) return alert('Matrix not found.');
+            el.classList.add('print-scope');
+            const cleanup = () => { el.classList.remove('print-scope'); window.removeEventListener('afterprint', cleanup); };
+            window.addEventListener('afterprint', cleanup);
+            setTimeout(() => window.print(), 0);
+        }
+
+        /* ================= Boot ================= */
+        (async function boot() {
+            try {
+                CACHE = await getAllRecords();
+            } catch (e) {
+                $('status').textContent = 'Could not open local DB (IndexedDB blocked?).';
+                console.error(e); return;
+            }
+
+            const now = new Date();
+            const y = now.getFullYear(), m = pad(now.getMonth() + 1), d = pad(now.getDate());
+            const h = pad(now.getHours()), n = pad(now.getMinutes());
+            if (!$('asof_date').value) $('asof_date').value = `${y}-${m}-${d}`;
+            if (!$('asof_time').value) $('asof_time').value = `${h}:${n}`;
+
+            const buildings = uniq(CACHE.map(r => (r.building || '').trim()).filter(Boolean));
+            renderTabs(buildings);
+            if (buildings.length) renderMatrix(buildings[0]);
+
+            $('btnRecalc').addEventListener('click', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('btnRefresh').addEventListener('click', async () => {
+                CACHE = await getAllRecords();
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('asof_date').addEventListener('change', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            $('asof_time').addEventListener('change', () => {
+                const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
+                renderMatrix(sel);
+            });
+            wireSizeControls();
+
+            $('btnPrintGrid').addEventListener('click', () => printOnlyById('matrix'));
+        })();
+    </script>
+</body>
+</html>
