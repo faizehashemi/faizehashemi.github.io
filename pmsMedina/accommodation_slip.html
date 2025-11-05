@@ -226,18 +226,61 @@
             border-color: var(--ok);
             background: #eef7ef;
         }
+        /* ===== Auth modal ===== */
+.auth-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  display: none; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+.auth-dialog {
+  width: min(92vw, 420px);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  box-shadow: 0 18px 60px var(--shade);
+  padding: 14px;
+}
+.auth-dialog h3 { margin: 0 0 8px; color: #7a5b13; text-align: center; }
+.auth-dialog .row { display: grid; grid-template-columns: 110px 1fr; gap: 6px; margin: 8px 0; }
+.auth-dialog label { align-self: center; text-align: right; color: var(--muted); }
+.auth-dialog input {
+  width: 100%; padding: 8px; border: 1px solid var(--edge2); border-radius: 8px; text-align: left;
+}
+.auth-dialog .actions { display: flex; gap: 8px; margin-top: 10px; }
+.auth-error { color: #8b0000; font-size: 12px; min-height: 16px; text-align: center; }
+
     </style>
 
 </head>
 <body>
 
 
+
+<div id="authBackdrop" class="auth-backdrop" aria-hidden="true">
+  <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <h3 id="authTitle">Sign in</h3>
+    <div class="row">
+      <label for="authUser">Username</label>
+      <input id="authUser" type="text" autocomplete="username" placeholder="admin" />
+    </div>
+    <div class="row">
+      <label for="authPass">Password</label>
+      <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••" />
+    </div>
+    <div class="actions">
+      <button id="authSubmit" type="button">Sign in</button>
+      <button id="authReset" type="button">Reset</button>
+    </div>
+    <div id="authErr" class="auth-error"></div>
+  </div>
+</div>
+
+
+
     <!-- Navbar --> <site-nav></site-nav>
     <script type="module" src="./site-nav.js"></script>
-
-
-
-
+<!-- ===== Login Modal ===== -->
 
 
     <div class="wrap">
@@ -1338,6 +1381,66 @@
     }).catch(console.warn);
   }
     </script>
+<script>
+/* ===== Simple front-end auth gate ===== */
+(function authGate(){
+  const WANT_USER = 'admin';
+  const WANT_PASS = 'medina123';
+  const KEY = 'auth_ok';
+
+  const $ = (id)=>document.getElementById(id);
+  const backdrop = $('authBackdrop');
+  const dWrap = document.querySelector('.wrap');
+
+  function setLocked(locked){
+    if (!dWrap) return;
+    if (locked){
+      dWrap.setAttribute('inert','');
+      dWrap.style.pointerEvents = 'none';
+      backdrop.style.display = 'flex';
+      backdrop.removeAttribute('aria-hidden');
+      $('authUser')?.focus();
+    } else {
+      dWrap.removeAttribute('inert');
+      dWrap.style.pointerEvents = '';
+      backdrop.style.display = 'none';
+      backdrop.setAttribute('aria-hidden','true');
+    }
+  }
+
+  function isAuthed(){ return sessionStorage.getItem(KEY) === '1'; }
+
+  function tryLogin(){
+    const u = $('authUser')?.value?.trim() || '';
+    const p = $('authPass')?.value || '';
+    const err = $('authErr');
+    if (u === WANT_USER && p === WANT_PASS){
+      sessionStorage.setItem(KEY,'1');
+      err.textContent = '';
+      setLocked(false);
+      return true;
+    }
+    err.textContent = 'Invalid credentials.';
+    return false;
+  }
+
+  function resetFields(){
+    $('authUser').value = '';
+    $('authPass').value = '';
+    $('authErr').textContent = '';
+    $('authUser').focus();
+  }
+
+  // Wire up
+  $('authSubmit')?.addEventListener('click', tryLogin);
+  $('authReset')?.addEventListener('click', resetFields);
+  $('authUser')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tryLogin(); }});
+  $('authPass')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tryLogin(); }});
+
+  // Initial lock if not authenticated
+  if (!isAuthed()) setLocked(true);
+})();
+</script>
 
 
 
