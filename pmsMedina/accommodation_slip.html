@@ -250,6 +250,19 @@
 .auth-dialog .actions { display: flex; gap: 8px; margin-top: 10px; }
 .auth-error { color: #8b0000; font-size: 12px; min-height: 16px; text-align: center; }
 
+#totalDisplay {
+  display: inline-block;
+  min-width: 4ch;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  line-height: 1.2;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+  background: #fafafa;
+}
+
+
     </style>
 
 </head>
@@ -316,23 +329,28 @@
 
 
                 </tr>
-                <tr>
+<tr>
+  <th>CHECK IN</th>
+  <td><input id="checkin_date" type="date" /></td>
+  <td colspan="2"><input id="checkin_time" type="time" /></td>
 
-                    <th>CHECK IN</th>
-                    <td><input id="checkin_date" type="date" /></td>
-                    <td colspan="2"><input id="checkin_time" type="time" /></td>
-                    <th>CHECK OUT</th>
-                    <td><input id="checkout_date" type="date" /></td>
-                    <td colspan="2"><input id="checkout_time" type="time" /></td>
+  <th>CHECK OUT</th>
+  <td><input id="checkout_date" type="date" /></td>
+  <td colspan="2"><input id="checkout_time" type="time" /></td>
 
-                    <th>T</th>
-                    <td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <th>I</th>
-                    <td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
-                    <th>C</th>
-                    <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
+  <!-- Total (computed, inside table) -->
+  <th>T</th>
+  <td id="totalCell">
+    <output id="totalDisplay" for="gents ladies infants children" aria-live="polite">0</output>
+    <input type="hidden" id="total" value="0" />
+  </td>
 
-                </tr>
+  <th>I</th>
+  <td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
+  <th>C</th>
+  <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
+</tr>
+
                 <tr>
                 </tr>
 
@@ -350,7 +368,19 @@
 
         <script>
 
+function clearBulkUI() {
+  const g = document.getElementById('gentsBulk');
+  const l = document.getElementById('ladiesBulk');
+  const rep = document.getElementById('bulkReport');
 
+  if (g) g.value = '';
+  if (l) l.value = '';
+  if (rep) {
+    rep.textContent = '';
+    rep.removeAttribute('style'); // remove the big bold styling set after bulk load
+    rep.innerHTML = '';           // in case innerHTML was used
+  }
+}
             /* ========= Bulk Rooms: multi-separator + bold big beds count ========= */
 
             /* Split by: comma, slash, asterisk, dash, any whitespace (space/newline/tab) */
@@ -819,15 +849,17 @@
             setRows('ladies', data.rooms?.ladies || []);
         }
 
-        function clearForm() {
-            CURRENT_ID = null;
-            setFormData({
-                tour_name: '', group_leader: '', checkin_date: '', checkin_time: '',
-                checkout_date: '', checkout_time: '', building: '', sh_no: '',
-                total: '', gents: '', ladies: '', infants: '', children: '',
-                rooms: { gents: [], ladies: [] }
-            });
-        }
+function clearForm() {
+  CURRENT_ID = null;
+  setFormData({
+    tour_name: '', group_leader: '', checkin_date: '', checkin_time: '',
+    checkout_date: '', checkout_time: '', building: '', sh_no: '',
+    total: '', gents: '', ladies: '', infants: '', children: '',
+    rooms: { gents: [], ladies: [] }
+  });
+  clearBulkUI(); // <-- wipe bulk inputs + report
+}
+
 
         /* ------------------------ Saved list UI ------------------------ */
 
@@ -1225,6 +1257,7 @@
                 document.addEventListener('DOMContentLoaded', () => setTimeout(start, 0));
             }
         })();
+        
     </script>
     <script>
         // Returns "DDMMYYYYHHMM" in Asia/Riyadh, ASCII digits, 24h
@@ -1443,9 +1476,101 @@
 })();
 </script>
 
+<script>
+// --- utilities ---
+const byId = id => document.getElementById(id);
+const clampInt = v => {
+  const n = parseInt(String(v ?? '').replace(/[^\d-]/g, ''), 10);
+  return isNaN(n) ? 0 : Math.max(0, n);
+};
+
+// compute T from g, l, i, c
+function computeTotal() {
+  const g = clampInt(byId('gents')?.value);
+  const l = clampInt(byId('ladies')?.value);
+  const i = clampInt(byId('infants')?.value);
+  const c = clampInt(byId('children')?.value);
+  return g + l + i + c;
+}
+
+// render T into the output element, keep hidden input in sync
+function renderTotal() {
+  const t = computeTotal();
+
+  // ensure the display element exists, or create it on the fly
+  let display = byId('totalDisplay');
+  if (!display) {
+    const row = byId('totalRow') || document.createElement('div');
+    row.id = row.id || 'totalRow';
+    row.className = row.className || 'form-row';
+    if (!row.parentNode) {
+      // fallback: append near #children
+      const anchor = byId('children')?.closest('.form-row') || document.body;
+      anchor.parentNode.insertBefore(row, anchor.nextSibling);
+    }
+    row.innerHTML = `
+      <label for="totalDisplay">Total</label>
+      <output id="totalDisplay" for="gents ladies infants children">0</output>
+    `;
+    display = byId('totalDisplay');
+  }
+
+  // ensure hidden mirror exists for legacy code paths
+  let hidden = byId('total');
+  if (!hidden) {
+    hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.id = 'total';
+    byId('totalRow')?.appendChild(hidden);
+  }
+
+  display.textContent = String(t);
+  hidden.value = String(t);
+
+  // nudge any listeners relying on #total changes
+  hidden.dispatchEvent(new Event('input', { bubbles: true }));
+  hidden.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// wire up live updates
+function wireTotalAutoUpdate() {
+  ['gents','ladies','infants','children'].forEach(id => {
+    const el = byId(id);
+    if (!el) return;
+    el.addEventListener('input', renderTotal);
+    el.addEventListener('change', renderTotal);
+  });
+  renderTotal();
+}
+
+// patch your existing helpers if present so T is always right after programmatic changes
+(function patchFormHelpers(){
+  const _setFormData = window.setFormData;
+  if (typeof _setFormData === 'function') {
+    window.setFormData = function patchedSetFormData(data) {
+      const res = _setFormData.apply(this, arguments);
+      renderTotal();
+      return res;
+    };
+  }
+  const _clearForm = window.clearForm;
+  if (typeof _clearForm === 'function') {
+    window.clearForm = function patchedClearForm() {
+      const res = _clearForm.apply(this, arguments);
+      renderTotal(); // shows 0 on a new slip
+      return res;
+    };
+  }
+})();
+
+// boot once DOM is ready
+document.addEventListener('DOMContentLoaded', wireTotalAutoUpdate);
+</script>
+
 
 
 
 </body>
 
 </html>
+
