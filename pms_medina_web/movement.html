@@ -473,7 +473,7 @@
     // ===== DB plumbing (IndexedDB first, optional Gist fallback) =====
     const DB_NAME = 'pms_accommodation_db';
     const STORE = 'slips';
-    const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/6c6e9743389bb35b24b7845d06b8d0ae';
+    const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/6c6e9743389bb35b24b7845d06b8d0ae/raw';
 
     function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME);req.onerror=()=>reject(req.error);req.onsuccess=()=>resolve(req.result);});}
     async function getAllRecords(){
@@ -825,4 +825,5 @@
       })();</script>
 </body>
 </html>
+
 
