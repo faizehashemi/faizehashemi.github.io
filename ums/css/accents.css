@@ -1,0 +1,240 @@
+/* Accent palette styling & behaviors */
+:root {
+  --setting-toggle-border: rgba(20, 45, 76, 0.12);
+  --setting-toggle-bg: rgba(255, 255, 255, 0.9);
+  --setting-toggle-shadow: 0 6px 18px rgba(20, 45, 76, 0.08);
+}
+
+body {
+  --accent-first: #ececec;
+  --accent-second: #9fd3c7;
+  --accent-third: #385170;
+  --accent-fourth: #142d4c;
+}
+
+body[data-accent="nike"] {
+  --accent-first: #ececec;
+  --accent-second: #9fd3c7;
+  --accent-third: #385170;
+  --accent-fourth: #142d4c;
+  --bs-primary: #385170;
+  --bs-info: #9fd3c7;
+  --bs-light: #ececec;
+  --bs-dark: #142d4c;
+}
+
+body[data-accent="apple"] {
+  --accent-first: #233142;
+  --accent-second: #455d7a;
+  --accent-third: #f95959;
+  --accent-fourth: #e3e3e3;
+  --bs-primary: #f95959;
+  --bs-info: #455d7a;
+  --bs-light: #e3e3e3;
+  --bs-dark: #233142;
+}
+
+body[data-accent="samsung"] {
+  --accent-first: #e7eaf6;
+  --accent-second: #a2a8d3;
+  --accent-third: #38598b;
+  --accent-fourth: #113f67;
+  --bs-primary: #38598b;
+  --bs-info: #a2a8d3;
+  --bs-light: #e7eaf6;
+  --bs-dark: #113f67;
+}
+
+body[data-accent="google"] {
+  --accent-first: #5585b5;
+  --accent-second: #53a8b6;
+  --accent-third: #79c2d0;
+  --accent-fourth: #bbe4e9;
+  --bs-primary: #79c2d0;
+  --bs-info: #53a8b6;
+  --bs-light: #bbe4e9;
+  --bs-dark: #5585b5;
+}
+
+body[data-accent="tesla"] {
+  --accent-first: #155263;
+  --accent-second: #ff6f3c;
+  --accent-third: #ff9a3c;
+  --accent-fourth: #ffc93c;
+  --bs-primary: #ff9a3c;
+  --bs-info: #ff6f3c;
+  --bs-light: #ffc93c;
+  --bs-dark: #155263;
+}
+
+body[data-accent="amazon"] {
+  --accent-first: #93e4c1;
+  --accent-second: #3baea0;
+  --accent-third: #118a7e;
+  --accent-fourth: #1f6f78;
+  --bs-primary: #118a7e;
+  --bs-info: #3baea0;
+  --bs-light: #93e4c1;
+  --bs-dark: #1f6f78;
+}
+
+body[data-accent="spotify"] {
+  --accent-first: #27296d;
+  --accent-second: #5e63b6;
+  --accent-third: #a393eb;
+  --accent-fourth: #f5c7f7;
+  --bs-primary: #a393eb;
+  --bs-info: #5e63b6;
+  --bs-light: #f5c7f7;
+  --bs-dark: #27296d;
+}
+
+body[data-accent] .btn-primary,
+body[data-accent] .btn-primary:focus,
+body[data-accent] .btn-primary:active,
+body[data-accent] .page-item.active .page-link,
+body[data-accent] .nav-pills .nav-link.active,
+body[data-accent] .list-group-item.active,
+body[data-accent] .progress-bar,
+body[data-accent] .form-check-input:checked,
+body[data-accent] .bg-primary,
+body[data-accent] .badge.bg-primary {
+  background-color: var(--accent-third) !important;
+  border-color: var(--accent-third) !important;
+  color: #fff !important;
+}
+
+body[data-accent] .btn-outline-primary {
+  color: var(--accent-third);
+  border-color: var(--accent-third);
+}
+
+body[data-accent] .btn-outline-primary:hover,
+body[data-accent] .btn-outline-primary:focus {
+  background-color: var(--accent-third);
+  border-color: var(--accent-third);
+  color: #fff;
+}
+
+body[data-accent] .text-primary,
+body[data-accent] a:not(.btn),
+body[data-accent] .link-primary {
+  color: var(--accent-third);
+}
+
+body[data-accent] a:not(.btn):hover,
+body[data-accent] a:not(.btn):focus {
+  color: var(--accent-fourth);
+}
+
+.setting-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.75rem;
+}
+
+.setting-toggle-option {
+  position: relative;
+}
+
+.setting-toggle-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.setting-toggle {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--setting-toggle-border);
+  background: var(--setting-toggle-bg);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  position: relative;
+  min-height: 88px;
+}
+
+.setting-toggle__meta {
+  flex: 1;
+}
+
+.setting-toggle__title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.setting-toggle__brand {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.setting-toggle__swatches {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.setting-toggle .swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(20, 45, 76, 0.15);
+}
+
+.setting-toggle .first-color {
+  background: var(--setting-first, #ececec);
+}
+
+.setting-toggle .second-color {
+  background: var(--setting-second, #9fd3c7);
+}
+
+.setting-toggle .third-color {
+  background: var(--setting-third, #385170);
+}
+
+.setting-toggle .fourth-color {
+  background: var(--setting-fourth, #142d4c);
+}
+
+.setting-toggle-option input[type="radio"]:checked + .setting-toggle {
+  border-color: var(--setting-third, var(--accent-third));
+  box-shadow: var(--setting-toggle-shadow);
+  transform: translateY(-2px);
+}
+
+.setting-toggle-option input[type="radio"]:checked + .setting-toggle::after {
+  content: "✓";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-weight: 700;
+  color: var(--setting-third, var(--accent-third));
+  font-size: 1rem;
+}
+
+[data-theme="dark"] .setting-toggle {
+  background: rgba(19, 23, 32, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f8f9fa;
+}
+
+[data-theme="dark"] .setting-toggle .setting-toggle__brand {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 576px) {
+  .setting-toggle {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .setting-toggle__swatches {
+    margin-top: 0.5rem;
+  }
+}
+

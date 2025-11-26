@@ -1,0 +1,156 @@
+
+            <div class="container-fluid p-0">
+
+<div class="row mb-2 mb-xl-3">
+  <div class="col-auto d-none d-sm-block">
+    <h3 class="mb-0"><strong>System</strong> / Users & Roles</h3>
+    <div class="text-muted">Central user management, invites and status tracking.</div>
+  </div>
+</div>
+
+              <div class="row">
+                <div class="col-xxl-9"><div class="row">
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Total users</div>
+      <h3 class="mb-2">164</h3>
+      <span class="badge bg-primary">Platform</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Active</div>
+      <h3 class="mb-2">152</h3>
+      <span class="badge bg-primary">Logged last 30d</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Locked</div>
+      <h3 class="mb-2">6</h3>
+      <span class="badge bg-danger">Security</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Pending invites</div>
+      <h3 class="mb-2">4</h3>
+      <span class="badge bg-primary">Await acceptance</span>
+    </div>
+  </div>
+</div>
+</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <form class="row g-3">
+
+<div class="col-md-3">
+  <label class="form-label">Search</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Search">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Role</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Role">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Status</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Status">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Department</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Department">
+</div>
+
+              <div class="col-md-3 d-flex align-items-end">
+                <div class="btn-group">
+                  <button type="button" class="btn btn-primary btn-sm">Apply</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+<div class="d-flex flex-wrap gap-2 mb-3"><button type="button" class="btn btn-outline-primary btn-sm">Invite user</button><button type="button" class="btn btn-outline-primary btn-sm">Export list</button></div>
+
+        <div class="card mb-3">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Users</h5>
+            <div class="text-muted small">Replace with live data</div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr><th>Avatar</th><th>Name</th><th>Username</th><th>ITS</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+<tr><td>Sample Avatar</td><td>Sample Name</td><td>Sample Username</td><td>Sample ITS</td><td>Sample Email</td><td>Sample Role</td><td>Sample Status</td><td>Sample Last login</td><td>Sample Actions</td></tr><tr><td>Sample Avatar</td><td>Sample Name</td><td>Sample Username</td><td>Sample ITS</td><td>Sample Email</td><td>Sample Role</td><td>Sample Status</td><td>Sample Last login</td><td>Sample Actions</td></tr><tr><td>Sample Avatar</td><td>Sample Name</td><td>Sample Username</td><td>Sample ITS</td><td>Sample Email</td><td>Sample Role</td><td>Sample Status</td><td>Sample Last login</td><td>Sample Actions</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+</div>
+                <div class="col-xxl-3">
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="card-title mb-0">Guidance</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small"></p>
+    <ul class="small ps-3 mb-0"><li>Warn when demoting admins</li><li>Reset password sends email</li></ul>
+
+  </div>
+</div>
+</div>
+              </div>
+
+<div class="modal fade" tabindex="-1" id="modal-invite-user" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Invite user</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Email, role, module access.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" tabindex="-1" id="modal-edit-user" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit user</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Profile, roles, restrictions.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+            </div>

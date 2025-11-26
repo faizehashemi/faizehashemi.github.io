@@ -1,0 +1,167 @@
+
+            <div class="container-fluid p-0">
+
+<div class="row mb-2 mb-xl-3">
+  <div class="col-auto d-none d-sm-block">
+    <h3 class="mb-0"><strong>Accounts</strong> / Cash Submission</h3>
+    <div class="text-muted">Capture daily cash submissions and variances.</div>
+  </div>
+</div>
+
+              <div class="row">
+                <div class="col-xxl-9"><div class="row">
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Submitted today</div>
+      <h3 class="mb-2">SAR 185,000</h3>
+      <span class="badge bg-primary">+12% vs yesterday</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Variance detected</div>
+      <h3 class="mb-2">SAR 2,450</h3>
+      <span class="badge bg-danger">Needs approval</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Pending submissions</div>
+      <h3 class="mb-2">6</h3>
+      <span class="badge bg-primary">Awaiting</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Approved</div>
+      <h3 class="mb-2">28</h3>
+      <span class="badge bg-primary">Today</span>
+    </div>
+  </div>
+</div>
+</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <form class="row g-3">
+
+<div class="col-md-3">
+  <label class="form-label">Date</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Date">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Department</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Department">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Collector</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Collector">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Shift</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Shift">
+</div>
+
+              <div class="col-md-3 d-flex align-items-end">
+                <div class="btn-group">
+                  <button type="button" class="btn btn-primary btn-sm">Apply</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+<div class="d-flex flex-wrap gap-2 mb-3"><button type="button" class="btn btn-outline-primary btn-sm">New submission</button><button type="button" class="btn btn-outline-primary btn-sm">Approve all</button></div>
+
+        <div class="card mb-3">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Department submissions</h5>
+            <div class="text-muted small">Replace with live data</div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr><th>Department</th><th>Expected</th><th>Submitted</th><th>Variance</th><th>Collector</th><th>Submitted at</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+<tr><td>Sample Department</td><td>Sample Expected</td><td>Sample Submitted</td><td>Sample Variance</td><td>Sample Collector</td><td>Sample Submitted at</td><td>Sample Status</td><td>Sample Actions</td></tr><tr><td>Sample Department</td><td>Sample Expected</td><td>Sample Submitted</td><td>Sample Variance</td><td>Sample Collector</td><td>Sample Submitted at</td><td>Sample Status</td><td>Sample Actions</td></tr><tr><td>Sample Department</td><td>Sample Expected</td><td>Sample Submitted</td><td>Sample Variance</td><td>Sample Collector</td><td>Sample Submitted at</td><td>Sample Status</td><td>Sample Actions</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+</div>
+                <div class="col-xxl-3">
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="card-title mb-0">Guidelines</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small"></p>
+    <ul class="small ps-3 mb-0"><li>Double count cash before submitting</li><li>Variance > SAR 500 needs approval</li></ul>
+
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="card-title mb-0">Latest notes</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small"></p>
+    <ul class="small ps-3 mb-0"><li>Night shift deposit delayed</li><li>Maintenance submitted via bank</li></ul>
+
+  </div>
+</div>
+</div>
+              </div>
+
+<div class="modal fade" tabindex="-1" id="modal-new-cash" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">New submission</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Department, amount, payment type breakdown.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" tabindex="-1" id="modal-approve-cash" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Approve submission</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Review attachments & leave comments.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+            </div>

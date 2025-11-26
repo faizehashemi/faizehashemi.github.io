@@ -1,0 +1,2731 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="UMS - Umrah Management System Dashboard">
+  <meta name="author" content="">
+
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link rel="shortcut icon" href="img/icons/icon-48x48.png">
+
+  <link rel="canonical" href="index.html">
+
+  <title>Admin | Dashboard</title>
+
+  <link href="css2.css?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <!-- Active color scheme -->
+  <link class="js-stylesheet" href="css/light.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/accents.css">
+
+  <script src="js/settings.js"></script>
+  <style>
+    body {
+      opacity: 0;
+    }
+    #sidebar .sidebar-content {
+      max-height: 100vh;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+
+<body data-theme="default" data-layout="fluid" data-sidebar-position="left" data-sidebar-layout="default">
+  <div class="wrapper">
+    <nav id="sidebar" class="sidebar js-sidebar">
+      <div class="sidebar-content js-simplebar">
+        <a class="sidebar-brand" href="index.html">
+          <span class="sidebar-brand-text align-middle">
+            Faiz E Hashemi
+            <sup><small class="badge bg-primary text-uppercase">UMS</small></sup>
+          </span>
+          <svg class="sidebar-brand-icon align-middle" width="32px" height="32px" viewBox="0 0 24 24" fill="none"
+            stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" color="#FFFFFF"
+            style="margin-left: -3px">
+            <path d="M12 4L20 8.00004L12 12L4 8.00004L12 4Z"></path>
+            <path d="M20 12L12 16L4 12"></path>
+            <path d="M20 16L12 20L4 16"></path>
+          </svg>
+        </a>
+
+        <div class="sidebar-user">
+          <div class="d-flex justify-content-center">
+            <div class="flex-shrink-0">
+              <img src="img/avatars/avatar.jpg" class="avatar img-fluid rounded me-1" alt="UMS Admin">
+            </div>
+            <div class="flex-grow-1 ps-2">
+              <a class="sidebar-user-title dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                UMS Admin
+              </a>
+              <div class="dropdown-menu dropdown-menu-start">
+                <a class="dropdown-item" href="pages-profile.html">
+                  <i class="align-middle me-1" data-feather="user"></i> Profile
+                </a>
+                <a class="dropdown-item" href="pages-settings.html">
+                  <i class="align-middle me-1" data-feather="settings"></i> Settings
+                </a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#">
+                  <i class="align-middle me-1" data-feather="log-out"></i> Log out
+                </a>
+              </div>
+
+              <div class="sidebar-user-subtitle">Umrah Management</div>
+            </div>
+          </div>
+        </div>
+
+        <ul class="sidebar-nav">
+          <li class="sidebar-header">
+            Makkah al-Mukarramah
+          </li>
+
+
+
+<!-- Dashboard -->
+<li class="sidebar-item active">
+  <a class="sidebar-link" href="index-admin.html" data-module="dashboard">
+    <i class="align-middle me-2 fas fa-tachometer-alt"></i>
+    <span class="align-middle">Dashboard</span>
+  </a>
+</li>
+
+<!-- Reservations -->
+<li class="sidebar-item">
+  <a data-bs-target="#nav-reservations" data-bs-toggle="collapse" class="sidebar-link collapsed">
+    <i class="align-middle me-2 fas fa-calendar-check"></i>
+    <span class="align-middle">Reservations</span>
+  </a>
+  <ul id="nav-reservations" class="sidebar-dropdown list-unstyled collapse">
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="reservations-pending.html" data-module="reservations-pending" data-partial="partials/reservations-pending.html">Pending</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="reservations-approved.html" data-module="reservations-approved" data-partial="partials/reservations-approved.html">Approved</a>
+    </li>
+
+    <li class="sidebar-item">
+      <a data-bs-target="#nav-res-create" data-bs-toggle="collapse" class="sidebar-link collapsed">
+        Create Reservations
+      </a>
+      <ul id="nav-res-create" class="sidebar-dropdown list-unstyled collapse">
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="reservations-create-tour-operator.html" data-module="reservations-create-tour-operator" data-partial="partials/reservations-create-tour-operator.html">Tour Operator</a>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="reservations-create-individuals.html" data-module="reservations-create-individuals" data-partial="partials/reservations-create-individuals.html">Individuals</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</li>
+
+<!-- Accounts -->
+<li class="sidebar-item">
+  <a data-bs-target="#nav-accounts" data-bs-toggle="collapse" class="sidebar-link collapsed">
+    <i class="align-middle me-2 fas fa-file-invoice-dollar"></i>
+    <span class="align-middle">Accounts</span>
+  </a>
+  <ul id="nav-accounts" class="sidebar-dropdown list-unstyled collapse">
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accounts-lawazim-collection.html" data-module="accounts-lawazim-collection" data-partial="partials/accounts-lawazim-collection.html">Lawazim Collection</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accounts-niyaz-collection.html" data-module="accounts-niyaz-collection" data-partial="partials/accounts-niyaz-collection.html">Niyaz Collection</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accounts-cash-submission.html" data-module="accounts-cash-submission" data-partial="partials/accounts-cash-submission.html">Cash Submission</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accounts-salaries.html" data-module="accounts-salaries" data-partial="partials/accounts-salaries.html">Salaries</a>
+    </li>
+
+    <!-- Expenses subtree -->
+    <li class="sidebar-item">
+      <a data-bs-target="#nav-accounts-expenses" data-bs-toggle="collapse" class="sidebar-link collapsed">
+        Expenses
+      </a>
+      <ul id="nav-accounts-expenses" class="sidebar-dropdown list-unstyled collapse">
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="accounts-expenses-transport.html" data-module="accounts-expenses-transport" data-partial="partials/accounts-expenses-transport.html">Transport</a>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="accounts-expenses-maintenance.html" data-module="accounts-expenses-maintenance" data-partial="partials/accounts-expenses-maintenance.html">Maintenance</a>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="accounts-expenses-mawaid.html" data-module="accounts-expenses-mawaid" data-partial="partials/accounts-expenses-mawaid.html">Mawaid</a>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="accounts-expenses-other.html" data-module="accounts-expenses-other" data-partial="partials/accounts-expenses-other.html">Other</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</li>
+
+<!-- Mawaid -->
+<li class="sidebar-item">
+  <a data-bs-target="#nav-mawaid" data-bs-toggle="collapse" class="sidebar-link collapsed">
+    <i class="align-middle me-2 fas fa-utensils"></i>
+    <span class="align-middle">Mawaid</span>
+  </a>
+  <ul id="nav-mawaid" class="sidebar-dropdown list-unstyled collapse">
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-thal-counts.html" data-module="mawaid-thal-counts" data-partial="partials/mawaid-thal-counts.html">Thal Counts</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-make-recipies.html" data-module="mawaid-make-recipies" data-partial="partials/mawaid-make-recipies.html">Make Recipies</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-menu-planning.html" data-module="mawaid-menu-planning" data-partial="partials/mawaid-menu-planning.html">Menu Planning</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-kitchen-operations.html" data-module="mawaid-kitchen-operations" data-partial="partials/mawaid-kitchen-operations.html">Kitchen Operations</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-dining-hall.html" data-module="mawaid-dining-hall" data-partial="partials/mawaid-dining-hall.html">Dining Hall</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-supply-chain.html" data-module="mawaid-supply-chain" data-partial="partials/mawaid-supply-chain.html">Supply Chain</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-inventory.html" data-module="mawaid-inventory" data-partial="partials/mawaid-inventory.html">Inventory</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-vendors.html" data-module="mawaid-vendors" data-partial="partials/mawaid-vendors.html">Vendors</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="mawaid-reports.html" data-module="mawaid-reports" data-partial="partials/mawaid-reports.html">Reports</a>
+    </li>
+  </ul>
+</li>
+
+<!-- Transport -->
+<li class="sidebar-item">
+  <a data-bs-target="#nav-transport" data-bs-toggle="collapse" class="sidebar-link collapsed">
+    <i class="align-middle me-2 fas fa-bus-alt"></i>
+    <span class="align-middle">Transport</span>
+  </a>
+  <ul id="nav-transport" class="sidebar-dropdown list-unstyled collapse">
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="transport-roster.html" data-module="transport-roster" data-partial="partials/transport-roster.html">Roster</a>
+    </li>
+
+    <!-- Journeys subtree -->
+    <li class="sidebar-item">
+
+      <a data-bs-target="#nav-transport-journeys" data-bs-toggle="collapse" class="sidebar-link collapsed">
+        Journeys
+      </a>
+      <ul id="nav-transport-journeys" class="sidebar-dropdown list-unstyled collapse">
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="transport-journeys-istiqbal.html" data-module="transport-journeys-istiqbal" data-partial="partials/transport-journeys-istiqbal.html">Istiqbal</a>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="transport-journeys-salawaat.html" data-module="transport-journeys-salawaat" data-partial="partials/transport-journeys-salawaat.html">Salawaat</a>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="transport-journeys-madina.html" data-module="transport-journeys-madina" data-partial="partials/transport-journeys-madina.html">Madina</a>
+        </li>
+        <li class="sidebar-item">
+          <a class="sidebar-link" href="transport-journeys-ziyarah.html" data-module="transport-journeys-ziyarah" data-partial="partials/transport-journeys-ziyarah.html">Ziyarah</a>
+        </li>
+      </ul>
+    </li>
+
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="transport-vehicle-maintenance.html" data-module="transport-vehicle-maintenance" data-partial="partials/transport-vehicle-maintenance.html">Vehicle Maintenance</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="transport-driver-management.html" data-module="transport-driver-management" data-partial="partials/transport-driver-management.html">Driver Management</a>
+    </li>
+  </ul>
+</li>
+
+<!-- Accommodation -->
+<li class="sidebar-item">
+  <a data-bs-target="#nav-accommodation" data-bs-toggle="collapse" class="sidebar-link collapsed">
+    <i class="align-middle me-2 fas fa-bed"></i>
+    <span class="align-middle">Accommodation</span>
+  </a>
+  <ul id="nav-accommodation" class="sidebar-dropdown list-unstyled collapse">
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accommodation-housekeeping.html" data-module="accommodation-housekeeping" data-partial="partials/accommodation-housekeeping.html">Housekeeping</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accommodation-maintenance.html" data-module="accommodation-maintenance" data-partial="partials/accommodation-maintenance.html">Maintenance</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accommodation-allocation.html" data-module="accommodation-allocation" data-partial="partials/accommodation-allocation.html">Allocation</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accommodation-checkins-checkouts.html" data-module="accommodation-checkins-checkouts" data-partial="partials/accommodation-checkins-checkouts.html">Check-ins &amp; Check-outs</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accommodation-grid-layout.html" data-module="accommodation-grid-layout" data-partial="partials/accommodation-grid-layout.html">Grid Layout</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="accommodation-vacancy-forecast.html" data-module="accommodation-vacancy-forecast" data-partial="partials/accommodation-vacancy-forecast.html">Vacancy Forecast</a>
+    </li>
+  </ul>
+</li>
+
+<!-- HR -->
+<li class="sidebar-item">
+  <a data-bs-target="#nav-hr" data-bs-toggle="collapse" class="sidebar-link collapsed">
+    <i class="align-middle me-2 fas fa-user-tie"></i>
+    <span class="align-middle">Human Resources</span>
+  </a>
+  <ul id="nav-hr" class="sidebar-dropdown list-unstyled collapse">
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="hr-staff-directory.html" data-module="hr-staff-directory" data-partial="partials/hr-staff-directory.html">Staff Directory</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="hr-scheduling.html" data-module="hr-scheduling" data-partial="partials/hr-scheduling.html">Scheduling</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="hr-leave-management.html" data-module="hr-leave-management" data-partial="partials/hr-leave-management.html">Leave Management</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="hr-training.html" data-module="hr-training" data-partial="partials/hr-training.html">Training</a>
+    </li>
+  </ul>
+</li>
+
+<!-- Reports -->
+<li class="sidebar-item">
+  <a data-bs-target="#nav-reports" data-bs-toggle="collapse" class="sidebar-link">
+    <i class="align-middle me-2 fas fa-chart-line"></i>
+    <span class="align-middle">Reports</span>
+  </a>
+  <ul id="nav-reports" class="sidebar-dropdown list-unstyled collapse">
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-reservations.html" data-module="report-reservations" data-partial="partials/report-reservations.html">Reservations</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-accounts.html" data-module="report-accounts" data-partial="partials/report-accounts.html">Accounts</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-transport.html" data-module="report-transport" data-partial="partials/report-transport.html">Transport</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-mawaid.html" data-module="report-mawaid" data-partial="partials/report-mawaid.html">Mawaid</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-accommodation.html" data-module="report-accommodation" data-partial="partials/report-accommodation.html">Accommodation</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-fakkulehraam.html" data-module="report-fakkulehraam" data-partial="partials/report-fakkulehraam.html">Fakkul Ehraam</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-legal.html" data-module="report-legal" data-partial="partials/report-legal.html">Legal</a>
+    </li>
+    <li class="sidebar-item">
+      <a class="sidebar-link" href="report-human-resources.html" data-module="report-human-resources" data-partial="partials/report-human-resources.html">Human Resources</a>
+    </li>
+  </ul>
+</li>
+
+
+          <li class="sidebar-header">
+            System
+          </li>
+
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="ums-users.html" data-module="ums-users" data-partial="partials/ums-users.html">
+              <i class="align-middle" data-feather="shield"></i>
+              <span class="align-middle">Users &amp; Roles</span>
+            </a>
+          </li>
+
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="pages-settings.html" data-module="pages-settings" data-partial="partials/pages-settings.html">
+              <i class="align-middle" data-feather="settings"></i>
+              <span class="align-middle">Settings</span>
+            </a>
+          </li>
+        </ul>
+
+      </div>
+    </nav>
+
+    <div class="main">
+      <nav class="navbar navbar-expand navbar-light navbar-bg">
+        <a class="sidebar-toggle js-sidebar-toggle">
+          <i class="hamburger align-self-center"></i>
+        </a>
+
+        <form class="d-none d-sm-inline-block">
+          <div class="input-group input-group-navbar">
+            <input type="text" class="form-control" placeholder="Search bookings, pilgrims…" aria-label="Search">
+            <button class="btn" type="button">
+              <i class="align-middle" data-feather="search"></i>
+            </button>
+          </div>
+        </form>
+
+        <div class="navbar-collapse collapse">
+          <ul class="navbar-nav navbar-align">
+            <li class="nav-item dropdown">
+              <a class="nav-icon dropdown-toggle" href="#" id="alertsDropdown" data-bs-toggle="dropdown">
+                <div class="position-relative">
+                  <i class="align-middle" data-feather="bell"></i>
+                  <span class="indicator">3</span>
+                </div>
+              </a>
+              <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end py-0" aria-labelledby="alertsDropdown">
+                <div class="dropdown-menu-header">
+                  3 UMS Alerts
+                </div>
+                <div class="list-group">
+                  <a href="#" class="list-group-item">
+                    <div class="row g-0 align-items-center">
+                      <div class="col-2">
+                        <i class="text-warning" data-feather="clock"></i>
+                      </div>
+                      <div class="col-10">
+                        <div class="text-dark">Check-in pending</div>
+                        <div class="text-muted small mt-1">5 pilgrims arriving in 30 minutes.</div>
+                      </div>
+                    </div>
+                  </a>
+                  <a href="#" class="list-group-item">
+                    <div class="row g-0 align-items-center">
+                      <div class="col-2">
+                        <i class="text-danger" data-feather="credit-card"></i>
+                      </div>
+                      <div class="col-10">
+                        <div class="text-dark">Overdue payment</div>
+                        <div class="text-muted small mt-1">1 group has outstanding balance.</div>
+                      </div>
+                    </div>
+                  </a>
+                  <a href="#" class="list-group-item">
+                    <div class="row g-0 align-items-center">
+                      <div class="col-2">
+                        <i class="text-success" data-feather="check-circle"></i>
+                      </div>
+                      <div class="col-10">
+                        <div class="text-dark">New booking</div>
+                        <div class="text-muted small mt-1">Umrah package confirmed.</div>
+                      </div>
+                    </div>
+                  </a>
+                </div>
+                <div class="dropdown-menu-footer">
+                  <a href="#" class="text-muted">View all alerts</a>
+                </div>
+              </div>
+            </li>
+
+            <li class="nav-item dropdown">
+              <a class="nav-icon pe-md-0 dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                <img src="img/avatars/avatar.jpg" class="avatar img-fluid rounded" alt="UMS Admin">
+              </a>
+              <div class="dropdown-menu dropdown-menu-end">
+                <a class="dropdown-item" href="pages-profile.html">
+                  <i class="align-middle me-1" data-feather="user"></i> Profile
+                </a>
+                <a class="dropdown-item" href="pages-settings.html">
+                  <i class="align-middle me-1" data-feather="settings"></i> Settings
+                </a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#">
+                  <i class="align-middle me-1" data-feather="log-out"></i> Log out
+                </a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <main class="content" id="ums-main">
+        <div class="container-fluid p-0">
+
+          <div class="row mb-2 mb-xl-3">
+            <div class="col-auto d-none d-sm-block">
+              <h3><strong>UMS</strong> Dashboard</h3>
+              <div class="text-muted">
+                High level view of bookings, pilgrims and occupancy.
+              </div>
+            </div>
+
+            <div class="col-auto ms-auto text-end mt-n1">
+              <a href="ums-bookings.html" class="btn btn-light bg-white me-2">View all bookings</a>
+              <a href="ums-bookings-new.html" class="btn btn-primary">New booking</a>
+            </div>
+          </div>
+
+          <!-- Top stats -->
+          <div class="row">
+            <div class="col-xl-6 col-xxl-5 d-flex">
+              <div class="w-100">
+                <div class="row">
+                  <div class="col-sm-6">
+                    <div class="card">
+                      <div class="card-body">
+                        <div class="row">
+                          <div class="col mt-0">
+                            <h5 class="card-title">Total Pilgrims (Today)</h5>
+                          </div>
+
+                          <div class="col-auto">
+                            <div class="stat text-primary">
+                              <i class="align-middle" data-feather="users"></i>
+                            </div>
+                          </div>
+                        </div>
+                        <h1 class="mt-1 mb-3">428</h1>
+                        <div class="mb-0">
+                          <span class="badge badge-success-light">
+                            +12%
+                          </span>
+                          <span class="text-muted">vs. yesterday</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-body">
+                        <div class="row">
+                          <div class="col mt-0">
+                            <h5 class="card-title">Active Bookings</h5>
+                          </div>
+
+                          <div class="col-auto">
+                            <div class="stat text-primary">
+                              <i class="align-middle" data-feather="clipboard"></i>
+                            </div>
+                          </div>
+                        </div>
+                        <h1 class="mt-1 mb-3">96</h1>
+                        <div class="mb-0">
+                          <span class="badge badge-primary-light">
+                            +5
+                          </span>
+                          <span class="text-muted">new today</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-sm-6">
+                    <div class="card">
+                      <div class="card-body">
+                        <div class="row">
+                          <div class="col mt-0">
+                            <h5 class="card-title">Room Occupancy</h5>
+                          </div>
+
+                          <div class="col-auto">
+                            <div class="stat text-primary">
+                              <i class="align-middle" data-feather="home"></i>
+                            </div>
+                          </div>
+                        </div>
+                        <h1 class="mt-1 mb-3">87%</h1>
+                        <div class="mb-0">
+                          <span class="badge badge-warning-light">
+                            Near full
+                          </span>
+                          <span class="text-muted">check upcoming check-outs</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card">
+                      <div class="card-body">
+                        <div class="row">
+                          <div class="col mt-0">
+                            <h5 class="card-title">Pending Payments</h5>
+                          </div>
+
+                          <div class="col-auto">
+                            <div class="stat text-primary">
+                              <i class="align-middle" data-feather="credit-card"></i>
+                            </div>
+                          </div>
+                        </div>
+                        <h1 class="mt-1 mb-3">SAR 72,450</h1>
+                        <div class="mb-0">
+                          <span class="badge badge-danger-light">
+                            Review
+                          </span>
+                          <span class="text-muted">before day close</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="col-xl-6 col-xxl-7">
+              <div class="card flex-fill w-100">
+                <div class="card-header">
+                  <div class="float-end">
+                    <form class="row g-2">
+                      <div class="col-auto">
+                        <select class="form-select form-select-sm bg-light border-0">
+                          <option>Last 12 months</option>
+                          <option value="1">Last 6 months</option>
+                          <option value="2">Last 30 days</option>
+                        </select>
+                      </div>
+                    </form>
+                  </div>
+                  <h5 class="card-title mb-0">Bookings Trend</h5>
+                </div>
+                <div class="card-body pt-2 pb-3">
+                  <div class="chart chart-sm">
+                    <canvas id="chartjs-dashboard-line"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lower section: calendar + recent bookings -->
+          <div class="row">
+            <div class="col-12 col-lg-4 col-xxl-3 d-flex order-2 order-xxl-1">
+              <div class="card flex-fill">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">UMS Calendar</h5>
+                  <div class="text-muted small">Arrivals &amp; departures overview</div>
+                </div>
+                <div class="card-body d-flex">
+                  <div class="align-self-center w-100">
+                    <div class="chart">
+                      <div id="datetimepicker-dashboard"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-8 col-xxl-9 d-flex order-1 order-xxl-2">
+              <div class="card flex-fill w-100">
+                <div class="card-header">
+                  <h5 class="card-title mb-0">Recent Bookings</h5>
+                  <div class="text-muted small">Latest confirmed or updated reservations</div>
+                </div>
+                <table class="table table-borderless my-0">
+                  <thead>
+                    <tr>
+                      <th>Booking Ref</th>
+                      <th>Pilgrim / Group</th>
+                      <th class="d-none d-xl-table-cell">Package</th>
+                      <th class="d-none d-xl-table-cell">Dates</th>
+                      <th>Status</th>
+                      <th class="d-none d-xl-table-cell text-end">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>UMS-2025-0012</strong></td>
+                      <td>
+                        <div class="text-dark">Husaini Travels</div>
+                        <div class="text-muted small">45 pilgrims</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        <div class="text-dark">Makkah → Madinah (12N / 2 Umrah)</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        29 Oct – 10 Nov 2025
+                      </td>
+                      <td>
+                        <span class="badge bg-success">Checked-in</span>
+                      </td>
+                      <td class="d-none d-xl-table-cell text-end">
+                        <a href="ums-booking-view.html" class="btn btn-sm btn-light">View</a>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>UMS-2025-0043</strong></td>
+                      <td>
+                        <div class="text-dark">Al Baraka Tours</div>
+                        <div class="text-muted small">30 pilgrims</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        <div class="text-dark">Madinah → Makkah (10N)</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        05 Nov – 15 Nov 2025
+                      </td>
+                      <td>
+                        <span class="badge bg-warning">Arriving</span>
+                      </td>
+                      <td class="d-none d-xl-table-cell text-end">
+                        <a href="ums-booking-view.html" class="btn btn-sm btn-light">View</a>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>UMS-2025-0068</strong></td>
+                      <td>
+                        <div class="text-dark">Individual</div>
+                        <div class="text-muted small">4 pilgrims</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        <div class="text-dark">Short stay Makkah (5N)</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        20 Nov – 25 Nov 2025
+                      </td>
+                      <td>
+                        <span class="badge bg-info">Confirmed</span>
+                      </td>
+                      <td class="d-none d-xl-table-cell text-end">
+                        <a href="ums-booking-view.html" class="btn btn-sm btn-light">View</a>
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td><strong>UMS-2025-0072</strong></td>
+                      <td>
+                        <div class="text-dark">Noor Umrah Services</div>
+                        <div class="text-muted small">60 pilgrims</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        <div class="text-dark">Makkah → Madinah (14N / 2 Umrah)</div>
+                      </td>
+                      <td class="d-none d-xl-table-cell">
+                        22 Nov – 06 Dec 2025
+                      </td>
+                      <td>
+                        <span class="badge bg-danger">Payment due</span>
+                      </td>
+                      <td class="d-none d-xl-table-cell text-end">
+                        <a href="ums-booking-view.html" class="btn btn-sm btn-light">View</a>
+                      </td>
+                    </tr>
+
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div class="container-fluid">
+          <div class="row text-muted">
+            <div class="col-6 text-start">
+              <p class="mb-0">
+                <a href="index.html" class="text-muted"><strong>UMS</strong></a> &copy;
+              </p>
+            </div>
+            <div class="col-6 text-end">
+              <ul class="list-inline">
+                <li class="list-inline-item">
+                  <a class="text-muted" href="#">Support</a>
+                </li>
+                <li class="list-inline-item">
+                  <a class="text-muted" href="#">Help Center</a>
+                </li>
+                <li class="list-inline-item">
+                  <a class="text-muted" href="#">Privacy</a>
+                </li>
+                <li class="list-inline-item">
+                  <a class="text-muted" href="#">Terms</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script src="js/app.js"></script>
+<script src="js/datatables.js"></script>
+<script src="js/accent-settings.js"></script>
+
+  <script>
+    // UMS: lightweight SPA-style loader + stub role controls
+// --- Supabase client setup ---
+const SUPABASE_URL = "https://ejkaqeihsayhjvljaivi.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Bt0HvkQHFizAyHiiS78PcA_YiJv7wdB";
+
+const { createClient } = supabase;
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const CURRENT_USER = {
+      id: 1,
+      name: "UMS Admin",
+      // TODO: Replace with real roles from your backend/auth system
+      roles: ["admin"]
+    };
+
+    // Optional: restrict certain modules to certain roles.
+    // If a module is not listed here, it's allowed for everyone.
+    const MODULE_PERMISSIONS = {
+      "dashboard": ["admin", "reservations", "accounts", "transport", "mawaid", "accommodation"],
+      "reservations-pending": ["admin", "reservations"],
+      "reservations-approved": ["admin", "reservations"],
+      "accounts-lawazim-collection": ["admin", "accounts"],
+      "accounts-niyaz-collection": ["admin", "accounts"]
+      // Add more entries as you need
+    };
+
+    function userHasAccess(moduleName) {
+      const allowed = MODULE_PERMISSIONS[moduleName];
+      if (!allowed) return true;
+      return CURRENT_USER.roles.some(role => allowed.includes(role));
+    }
+
+    let DASHBOARD_HTML = "";
+
+    function setActiveNav(moduleName) {
+      document.querySelectorAll(".sidebar-link[data-module]").forEach(link => {
+        const li = link.closest(".sidebar-item");
+        if (link.dataset.module === moduleName) {
+          link.classList.add("active");
+          if (li) li.classList.add("active");
+        } else {
+          link.classList.remove("active");
+          if (li) li.classList.remove("active");
+        }
+      });
+    }
+
+    function applyRoleVisibility() {
+      document.querySelectorAll(".sidebar-link[data-module]").forEach(link => {
+        const moduleName = link.dataset.module;
+        if (!userHasAccess(moduleName)) {
+          const li = link.closest(".sidebar-item");
+          if (li) li.style.display = "none";
+          else link.style.display = "none";
+        }
+      });
+    }
+// ===== Mawaid / Thal Counts (Supabase) =====
+
+let MAWAID_DB_CACHE = [];
+let MAWAID_COLUMNS = [];
+
+// Color helper (same idea as original)
+function mawaidPastelColorFromString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  }
+  const hue = h % 360;
+  const sat = 70;
+  const light = 35;
+  return `hsl(${hue} ${sat}% ${light}%)`;
+}
+
+function mawaidPad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function mawaidParseLocalDateTime(d, t) {
+  if (!d) return null;
+  const s = t && t.length ? t : "00:00";
+  const [y, m, dd] = d.split("-").map(Number);
+  const [hh, mi] = s.split(":").map(Number);
+  const dt = new Date(y, (m || 1) - 1, (dd || 1), hh || 0, mi || 0, 0, 0);
+  return isNaN(dt) ? null : dt;
+}
+
+function mawaidOverlap(aStart, aEnd, bStart, bEnd) {
+  return aStart < bEnd && bStart < aEnd;
+}
+
+function mawaidUniq(a) {
+  return Array.from(new Set(a));
+}
+
+// Pax totals controlled by include toggles
+function mawaidPaxOf(rec, incA, incC, incI) {
+  const total = Number(rec.total);
+  const g = Number(rec.gents) || 0;
+  const l = Number(rec.ladies) || 0;
+  const c = Number(rec.children) || 0;
+  const i = Number(rec.infants) || 0;
+
+  const wantAll = incA && incC && incI;
+  if (Number.isFinite(total) && total > 0 && wantAll) return total;
+
+  let s = 0;
+  if (incA) s += g + l;
+  if (incC) s += c;
+  if (incI) s += i;
+
+  return s || (Number.isFinite(total) ? total : 0);
+}
+
+function mawaidParseRange(dateStr, tStart, tEnd) {
+  const start = mawaidParseLocalDateTime(dateStr, tStart);
+  const end = mawaidParseLocalDateTime(dateStr, tEnd);
+  if (!start || !end || end <= start) return null;
+  return [start, end];
+}
+
+// Core compute over DB cache
+function mawaidComputeByBuilding(dateStr, ranges, thal, incA, incC, incI) {
+  const bR = mawaidParseRange(dateStr, ranges.B.start, ranges.B.end);
+  const lR = mawaidParseRange(dateStr, ranges.L.start, ranges.L.end);
+  const dR = mawaidParseRange(dateStr, ranges.D.start, ranges.D.end);
+  if (!bR || !lR || !dR) return null;
+
+  const buildings = mawaidUniq(
+    MAWAID_DB_CACHE.map(r => (r.building || "").trim()).filter(Boolean)
+  ).sort((a, b) => a.localeCompare(b));
+
+  const agg = new Map();
+  for (const b of buildings) {
+    agg.set(b, {
+      bp: 0,
+      lp: 0,
+      dp: 0,
+      b: { g: 0, l: 0, c: 0, i: 0 },
+      l: { g: 0, l: 0, c: 0, i: 0 },
+      d: { g: 0, l: 0, c: 0, i: 0 }
+    });
+  }
+
+  for (const rec of MAWAID_DB_CACHE) {
+    const b = (rec.building || "").trim();
+    if (!b || !agg.has(b)) continue;
+
+    const ci = mawaidParseLocalDateTime(rec.checkin_date, rec.checkin_time);
+    const co = mawaidParseLocalDateTime(rec.checkout_date, rec.checkout_time);
+    if (!ci || !co) continue;
+
+    const pax = mawaidPaxOf(rec, incA, incC, incI);
+    const g = Number(rec.gents) || 0;
+    const l = Number(rec.ladies) || 0;
+    const c = Number(rec.children) || 0;
+    const i = Number(rec.infants) || 0;
+
+    const a = agg.get(b);
+
+    // Breakfast
+    if (mawaidOverlap(ci, co, bR[0], bR[1])) {
+      a.bp += pax;
+      a.b.g += g;
+      a.b.l += l;
+      a.b.c += c;
+      a.b.i += i;
+    }
+
+    // Lunch: skip only if today is the check-in date AND time is exactly 15:00
+    const skipLunchToday =
+      dateStr === (rec.checkin_date || "").trim() &&
+      ((rec.checkin_time || "").trim() === "15:00");
+
+    if (!skipLunchToday && mawaidOverlap(ci, co, lR[0], lR[1])) {
+      a.lp += pax;
+      a.l.g += g;
+      a.l.l += l;
+      a.l.c += c;
+      a.l.i += i;
+    }
+
+    // Dinner
+    if (mawaidOverlap(ci, co, dR[0], dR[1])) {
+      a.dp += pax;
+      a.d.g += g;
+      a.d.l += l;
+      a.d.c += c;
+      a.d.i += i;
+    }
+  }
+
+  let tBP = 0, tLP = 0, tDP = 0;
+  const rows = [];
+
+  for (const [b, v] of agg.entries()) {
+    tBP += v.bp;
+    tLP += v.lp;
+    tDP += v.dp;
+    rows.push({
+      building: b,
+      bp: v.bp,
+      bt: Math.ceil(v.bp / thal),
+      lp: v.lp,
+      lt: Math.ceil(v.lp / thal),
+      dp: v.dp,
+      dt: Math.ceil(v.dp / thal),
+      b: v.b,
+      l: v.l,
+      d: v.d
+    });
+  }
+
+  rows.sort((a, b) =>
+    a.building.localeCompare(b.building, undefined, { numeric: true })
+  );
+
+  return {
+    rows,
+    totals: {
+      tBP,
+      tLP,
+      tDP,
+      tBT: Math.ceil(tBP / thal),
+      tLT: Math.ceil(tLP / thal),
+      tDT: Math.ceil(tDP / thal)
+    },
+    when: { B: bR, L: lR, D: dR }
+  };
+}
+
+// Merge BAHA + HUSN row for main table
+function mawaidBuildFirstMerged(stats, thal) {
+  const byName = new Map(stats.rows.map(r => [r.building, r]));
+  const rows = [];
+  const skip = new Set(["BAHA", "HUSN"]);
+
+  for (const r of stats.rows) {
+    if (skip.has(r.building)) continue;
+    rows.push(JSON.parse(JSON.stringify(r)));
+  }
+
+  const parts = ["BAHA", "HUSN"].map(n => byName.get(n)).filter(Boolean);
+  if (parts.length) {
+    const sum = get => parts.reduce((a, p) => a + get(p), 0);
+
+    const merged = {
+      building: "BAHA+HUSN",
+      bp: sum(p => p.bp),
+      lp: sum(p => p.lp),
+      dp: sum(p => p.dp),
+      bt: 0, lt: 0, dt: 0,
+      b: {
+        g: sum(p => p.b.g), l: sum(p => p.b.l),
+        c: sum(p => p.b.c), i: sum(p => p.b.i)
+      },
+      l: {
+        g: sum(p => p.l.g), l: sum(p => p.l.l),
+        c: sum(p => p.l.c), i: sum(p => p.l.i)
+      },
+      d: {
+        g: sum(p => p.d.g), l: sum(p => p.d.l),
+        c: sum(p => p.d.c), i: sum(p => p.d.i)
+      }
+    };
+
+    rows.push(merged);
+  }
+
+  for (const r of rows) {
+    r.bt = Math.ceil(r.bp / thal);
+    r.lt = Math.ceil(r.lp / thal);
+    r.dt = Math.ceil(r.dp / thal);
+  }
+
+  const totals = rows.reduce(
+    (t, r) => {
+      t.tBP += r.bp; t.tLP += r.lp; t.tDP += r.dp;
+      t.tBT += r.bt; t.tLT += r.lt; t.tDT += r.dt;
+      return t;
+    },
+    { tBP: 0, tLP: 0, tDP: 0, tBT: 0, tLT: 0, tDT: 0 }
+  );
+
+  return { rows, totals };
+}
+
+// Cooking Count: merge BAHA+HUSN+MOHAMMEDI+MUFADDAL
+function mawaidBuildCookingFrom(stats, thal) {
+  const MERGE_SET = new Set(["BAHA", "HUSN", "MOHAMMEDI", "MUFADDAL"]);
+  const byName = new Map(stats.rows.map(r => [r.building, r]));
+
+  const rows = [];
+  for (const r of stats.rows) {
+    if (MERGE_SET.has(r.building)) continue;
+    rows.push(JSON.parse(JSON.stringify(r)));
+  }
+
+  const parts = ["BAHA", "HUSN", "MOHAMMEDI", "MUFADDAL"]
+    .map(n => byName.get(n))
+    .filter(Boolean);
+
+  if (parts.length) {
+    const sum = getter => parts.reduce((a, p) => a + getter(p), 0);
+
+    const merged = {
+      building: "BAHA+HUSN+MOHAMMEDI+MUFADDAL",
+      bp: sum(p => p.bp),
+      lp: sum(p => p.lp),
+      dp: sum(p => p.dp),
+      bt: 0, lt: 0, dt: 0,
+      b: {
+        g: sum(p => p.b.g), l: sum(p => p.b.l),
+        c: sum(p => p.b.c), i: sum(p => p.b.i)
+      },
+      l: {
+        g: sum(p => p.l.g), l: sum(p => p.l.l),
+        c: sum(p => p.l.c), i: sum(p => p.l.i)
+      },
+      d: {
+        g: sum(p => p.d.g), l: sum(p => p.d.l),
+        c: sum(p => p.d.c), i: sum(p => p.d.i)
+      }
+    };
+
+    rows.push(merged);
+  }
+
+  for (const r of rows) {
+    r.bt = Math.ceil(r.bp / thal);
+    r.lt = Math.ceil(r.lp / thal);
+    r.dt = Math.ceil(r.dp / thal);
+  }
+
+  const totals = rows.reduce(
+    (t, r) => {
+      t.tBP += r.bp; t.tLP += r.lp; t.tDP += r.dp;
+      t.tBT += r.bt; t.tLT += r.lt; t.tDT += r.dt;
+      return t;
+    },
+    { tBP: 0, tLP: 0, tDP: 0, tBT: 0, tLT: 0, tDT: 0 }
+  );
+
+  return { rows, totals };
+}
+
+// Manda Count
+function mawaidBuildMandaFrom(stats, multL, multD) {
+  const pairs = [
+    { name: "MUFADDAL+MOHAMMEDI", members: ["MUFADDAL", "MOHAMMEDI"] },
+    { name: "HUSN+BAHA", members: ["HUSN", "BAHA"] }
+  ];
+
+  const skip = new Set(pairs.flatMap(p => p.members));
+  const byName = new Map(stats.rows.map(r => [r.building, r]));
+
+  const rows = [];
+
+  for (const r of stats.rows) {
+    if (skip.has(r.building)) continue;
+    const lInt = Math.round((r.lt || 0) * multL);
+    const dInt = Math.round((r.dt || 0) * multD);
+    rows.push({ building: r.building, ltx: lInt, dtx: dInt });
+  }
+
+  for (const p of pairs) {
+    const parts = p.members.map(n => byName.get(n)).filter(Boolean);
+    if (!parts.length) continue;
+
+    const lt = parts.reduce((a, r) => a + (r.lt || 0), 0);
+    const dt = parts.reduce((a, r) => a + (r.dt || 0), 0);
+
+    const lInt = Math.round(lt * multL);
+    const dInt = Math.round(dt * multD);
+
+    rows.push({ building: p.name, ltx: lInt, dtx: dInt });
+  }
+
+  const totals = rows.reduce(
+    (t, r) => ({
+      ltx: t.ltx + r.ltx,
+      dtx: t.dtx + r.dtx
+    }),
+    { ltx: 0, dtx: 0 }
+  );
+
+  return { rows, totals, multL, multD };
+}
+
+// Manda table renderers
+function mawaidBuildMandaHeader(tableId = "#tblManda") {
+  const thead = document.querySelector(`${tableId} thead`);
+  if (!thead) return;
+  thead.innerHTML = `
+    <tr>
+      <th>Building</th>
+      <th class="mealL">Lunch Thals×</th>
+      <th class="mealD">Dinner Thals×</th>
+      <th>Total</th>
+    </tr>`;
+}
+
+function mawaidRenderMandaBody(manda, tableId = "#tblManda") {
+  const tb = document.querySelector(`${tableId} tbody`);
+  if (!tb) return;
+  tb.innerHTML = "";
+  for (const r of manda.rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="building"><span class="building-name">${r.building}</span></td>
+      <td class="mealL thal">${r.ltx}</td>
+      <td class="mealD thal">${r.dtx}</td>
+      <td>${r.ltx + r.dtx}</td>`;
+    tr.style.color = mawaidPastelColorFromString(r.building);
+    tb.appendChild(tr);
+  }
+}
+
+function mawaidRenderMandaFoot(manda, tableId = "#tblManda") {
+  const tf = document.querySelector(`${tableId} tfoot`);
+  if (!tf) return;
+
+  const total = manda.totals.ltx + manda.totals.dtx;
+  tf.innerHTML = `
+    <tr>
+      <td>Total</td>
+      <td class="mealL thal">${manda.totals.ltx}</td>
+      <td class="mealD thal">${manda.totals.dtx}</td>
+      <td>${total}</td>
+    </tr>`;
+}
+
+// Main table header/body/footer
+function mawaidBuildHeader(show, tableId = "#tbl") {
+  const thead = document.querySelector(`${tableId} thead`);
+  if (!thead) return;
+
+  const subCols = []
+    .concat(show.p ? ["Pax"] : [])
+    .concat(["Thals"])
+    .concat(show.g ? ["Gents"] : [])
+    .concat(show.l ? ["Ladies"] : [])
+    .concat(show.c ? ["Children"] : [])
+    .concat(show.i ? ["Infants"] : []);
+
+  const top = `<tr>
+    <th rowspan="2">Building</th>
+    <th class="mealB" colspan="${subCols.length}">Breakfast</th>
+    <th class="mealL" colspan="${subCols.length}">Lunch</th>
+    <th class="mealD" colspan="${subCols.length}">Dinner</th>
+  </tr>`;
+
+  const sub = `<tr>${["mealB", "mealL", "mealD"]
+    .map(mealClass =>
+      subCols.map(s => `<th class="${mealClass}">${s}</th>`).join("")
+    )
+    .join("")}</tr>`;
+
+  thead.innerHTML = top + sub;
+
+  MAWAID_COLUMNS = ["Building"];
+  for (const meal of ["B", "L", "D"]) {
+    if (show.p) MAWAID_COLUMNS.push(`${meal}:Pax`);
+    MAWAID_COLUMNS.push(`${meal}:Thals`);
+    if (show.g) MAWAID_COLUMNS.push(`${meal}:Gents`);
+    if (show.l) MAWAID_COLUMNS.push(`${meal}:Ladies`);
+    if (show.c) MAWAID_COLUMNS.push(`${meal}:Children`);
+    if (show.i) MAWAID_COLUMNS.push(`${meal}:Infants`);
+  }
+}
+
+function mawaidRenderBody(stats, show, tableId = "#tbl") {
+  const tb = document.querySelector(`${tableId} tbody`);
+  if (!tb) return;
+  tb.innerHTML = "";
+
+  for (const r of stats.rows) {
+    const bColor = mawaidPastelColorFromString(r.building);
+
+    const bCells = []
+      .concat(show.p ? [`<td class="mealB">${r.bp}</td>`] : [])
+      .concat([`<td class="mealB thal">${r.bt}</td>`])
+      .concat(show.g ? [`<td class="mealB">${r.b.g}</td>`] : [])
+      .concat(show.l ? [`<td class="mealB">${r.b.l}</td>`] : [])
+      .concat(show.c ? [`<td class="mealB">${r.b.c}</td>`] : [])
+      .concat(show.i ? [`<td class="mealB">${r.b.i}</td>`] : []);
+
+    const lCells = []
+      .concat(show.p ? [`<td class="mealL">${r.lp}</td>`] : [])
+      .concat([`<td class="mealL thal">${r.lt}</td>`])
+      .concat(show.g ? [`<td class="mealL">${r.l.g}</td>`] : [])
+      .concat(show.l ? [`<td class="mealL">${r.l.l}</td>`] : [])
+      .concat(show.c ? [`<td class="mealL">${r.l.c}</td>`] : [])
+      .concat(show.i ? [`<td class="mealL">${r.l.i}</td>`] : []);
+
+    const dCells = []
+      .concat(show.p ? [`<td class="mealD">${r.dp}</td>`] : [])
+      .concat([`<td class="mealD thal">${r.dt}</td>`])
+      .concat(show.g ? [`<td class="mealD">${r.d.g}</td>`] : [])
+      .concat(show.l ? [`<td class="mealD">${r.d.l}</td>`] : [])
+      .concat(show.c ? [`<td class="mealD">${r.d.c}</td>`] : [])
+      .concat(show.i ? [`<td class="mealD">${r.d.i}</td>`] : []);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = [
+      `<td class="building"><span class="building-name">${r.building}</span></td>`,
+      ...bCells,
+      ...lCells,
+      ...dCells
+    ].join("");
+
+    tr.style.color = bColor;
+    tb.appendChild(tr);
+  }
+}
+
+function mawaidRenderFoot(stats, thal, show, tableId = "#tbl") {
+  const tf = document.querySelector(`${tableId} tfoot`);
+  if (!tf) return;
+
+  const sum = getter => stats.rows.reduce((a, r) => a + getter(r), 0);
+  const cells = [];
+
+  if (show.p) cells.push(`<td class="mealB">${stats.totals.tBP}</td>`);
+  cells.push(`<td class="mealB thal">${stats.totals.tBT}</td>`);
+  if (show.g) cells.push(`<td class="mealB">${sum(r => r.b.g)}</td>`);
+  if (show.l) cells.push(`<td class="mealB">${sum(r => r.b.l)}</td>`);
+  if (show.c) cells.push(`<td class="mealB">${sum(r => r.b.c)}</td>`);
+  if (show.i) cells.push(`<td class="mealB">${sum(r => r.b.i)}</td>`);
+
+  if (show.p) cells.push(`<td class="mealL">${stats.totals.tLP}</td>`);
+  cells.push(`<td class="mealL thal">${stats.totals.tLT}</td>`);
+  if (show.g) cells.push(`<td class="mealL">${sum(r => r.l.g)}</td>`);
+  if (show.l) cells.push(`<td class="mealL">${sum(r => r.l.l)}</td>`);
+  if (show.c) cells.push(`<td class="mealL">${sum(r => r.l.c)}</td>`);
+  if (show.i) cells.push(`<td class="mealL">${sum(r => r.l.i)}</td>`);
+
+  if (show.p) cells.push(`<td class="mealD">${stats.totals.tDP}</td>`);
+  cells.push(`<td class="mealD thal">${stats.totals.tDT}</td>`);
+  if (show.g) cells.push(`<td class="mealD">${sum(r => r.d.g)}</td>`);
+  if (show.l) cells.push(`<td class="mealD">${sum(r => r.d.l)}</td>`);
+  if (show.c) cells.push(`<td class="mealD">${sum(r => r.d.c)}</td>`);
+  if (show.i) cells.push(`<td class="mealD">${sum(r => r.d.i)}</td>`);
+
+  tf.innerHTML = `<tr><td>Total</td>${cells.join("")}</tr>`;
+}
+
+// CSV export
+function mawaidExportCSV() {
+  const lines = [];
+  lines.push(MAWAID_COLUMNS.join(","));
+
+  const bodyRow = document.querySelectorAll("#tbl tbody tr");
+  bodyRow.forEach(tr => {
+    const cells = Array.from(tr.children).map(td =>
+      td.textContent.replace(/,/g, "")
+    );
+    lines.push(cells.join(","));
+  });
+
+  const footRow = document.querySelectorAll("#tbl tfoot tr");
+  footRow.forEach(tr => {
+    const cells = Array.from(tr.children).map(td =>
+      td.textContent.replace(/,/g, "")
+    );
+    lines.push(cells.join(","));
+  });
+
+  const dateInput = document.getElementById("statDate");
+  const dateStr = dateInput && dateInput.value ? dateInput.value : "date";
+
+  const blob = new Blob([lines.join("\n")], {
+    type: "text/csv;charset=utf-8;"
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `mawaid_${dateStr}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Load slips from Supabase instead of IndexedDB/Gist
+async function mawaidLoadSlipsFromSupabase() {
+  if (!supabaseClient) throw new Error("Supabase client not initialized");
+
+  const { data, error } = await supabaseClient
+    .from("slips") // change table name here if needed
+    .select(
+      "building, checkin_date, checkin_time, checkout_date, checkout_time, gents, ladies, children, infants, total"
+    );
+
+  if (error) {
+    console.error(error);
+    throw new Error("Failed to load slips from Supabase: " + error.message);
+  }
+
+  MAWAID_DB_CACHE = data || [];
+}
+
+    function reinitUMSWidgets() {
+      // Re-init bookings line chart if canvas present
+      const chartCanvas = document.getElementById("chartjs-dashboard-line");
+      if (chartCanvas && window.Chart) {
+        if (chartCanvas._umsChartInstance) {
+          chartCanvas._umsChartInstance.destroy();
+        }
+        const ctx = chartCanvas.getContext("2d");
+        const gradientLight = ctx.createLinearGradient(0, 0, 0, 225);
+        gradientLight.addColorStop(0, "rgba(215, 227, 244, 1)");
+        gradientLight.addColorStop(1, "rgba(215, 227, 244, 0)");
+        const gradientDark = ctx.createLinearGradient(0, 0, 0, 225);
+        gradientDark.addColorStop(0, "rgba(51, 66, 84, 1)");
+        gradientDark.addColorStop(1, "rgba(51, 66, 84, 0)");
+
+        const datasetData = [
+          120, 180, 150, 210, 240, 260,
+          300, 320, 280, 340, 310, 360
+        ];
+
+        chartCanvas._umsChartInstance = new Chart(chartCanvas, {
+          type: "line",
+          data: {
+            labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+            datasets: [{
+              label: "Bookings",
+              fill: true,
+              backgroundColor: (window.theme && window.theme.id === "light")
+                ? gradientLight
+                : gradientDark,
+              borderColor: window.theme ? window.theme.primary : "#3b7ddd",
+              data: datasetData
+            }]
+          },
+          options: {
+            maintainAspectRatio: false,
+            legend: { display: false },
+            tooltips: { intersect: false },
+            hover: { intersect: true },
+            plugins: { filler: { propagate: false } },
+            scales: {
+              xAxes: [{
+                reverse: false,
+                gridLines: { color: "rgba(0,0,0,0.0)" }
+              }],
+              yAxes: [{
+                ticks: { stepSize: 50 },
+                display: true,
+                borderDash: [3, 3],
+                gridLines: { color: "rgba(0,0,0,0.0)" }
+              }]
+            }
+          }
+        });
+      }
+
+      // Re-init calendar if element present
+      const pickerElement = document.getElementById("datetimepicker-dashboard");
+      if (pickerElement && window.flatpickr) {
+        const date = new Date();
+        const defaultDate =
+          date.getUTCFullYear() + "-" +
+          (date.getUTCMonth() + 1) + "-" +
+          date.getUTCDate();
+
+        window.flatpickr(pickerElement, {
+          inline: true,
+          prevArrow: "<span class=\"fas fa-chevron-left\" title=\"Previous month\"></span>",
+          nextArrow: "<span class=\"fas fa-chevron-right\" title=\"Next month\"></span>",
+          defaultDate: defaultDate
+        });
+      }
+
+      // Reservations > Create Individual form init
+  const resciForm = document.getElementById("form-reservations-create-individuals");
+  if (resciForm) {
+    initReservationsCreateIndividuals();
+  }
+
+  const pendingTableEl = document.getElementById("ums-reservations-pending-table");
+  if (pendingTableEl) {
+    initReservationsPending();
+  }
+
+    const approvedTableEl = document.getElementById("ums-reservations-approved-table");
+  if (approvedTableEl) {
+    initReservationsApproved();
+  }
+
+    if (document.getElementById("maw-recipe-name")) {
+    initMawaidRecipes();
+  }
+    }
+function initMawaidRecipes() {
+  const nameInput      = document.getElementById("maw-recipe-name");
+  if (!nameInput) return; // partial not active
+
+  // avoid double-binding
+  if (nameInput.dataset.bound === "true") return;
+  nameInput.dataset.bound = "true";
+
+  const idInput        = document.getElementById("maw-recipe-id");
+  const rowsTbody      = document.getElementById("maw-ingredients-rows");
+  const btnAddRow      = document.getElementById("maw-ingredient-add");
+  const btnSave        = document.getElementById("maw-recipe-save");
+  const btnNew         = document.getElementById("maw-recipe-new");
+  const btnDelete      = document.getElementById("maw-recipe-delete");
+  const alertBox       = document.getElementById("maw-recipes-alert");
+  const statusText     = document.getElementById("maw-recipes-status");
+  const modeBadge      = document.getElementById("maw-recipe-mode");
+  const tableBody      = document.getElementById("maw-recipes-table-body");
+  const summaryText    = document.getElementById("maw-recipes-summary");
+  const searchInput    = document.getElementById("maw-recipe-search");
+
+  let recipes = [];
+  let filteredRecipes = [];
+  let currentId = null;
+
+  function showAlert(type, msg) {
+    if (!alertBox) return;
+    alertBox.className = "alert alert-" + type;
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none");
+  }
+
+  function clearAlert() {
+    if (!alertBox) return;
+    alertBox.classList.add("d-none");
+  }
+
+  function setStatus(msg) {
+    if (statusText) statusText.textContent = msg;
+  }
+
+  function setModeNew() {
+    currentId = null;
+    if (idInput) idInput.value = "";
+    if (modeBadge) {
+      modeBadge.textContent = "New recipe";
+      modeBadge.className = "badge bg-light text-muted small";
+    }
+    if (btnDelete) btnDelete.disabled = true;
+  }
+
+  function setModeEdit() {
+    if (modeBadge) {
+      modeBadge.textContent = "Editing";
+      modeBadge.className = "badge bg-info small";
+    }
+    if (btnDelete) btnDelete.disabled = false;
+  }
+
+  function createIngredientRow(ingredient = { name: "", quantity: "", unit: "" }) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <input type="text"
+               class="form-control form-control-sm maw-ing-name"
+               placeholder="Ingredient"
+               value="${ingredient.name || ""}">
+      </td>
+      <td>
+        <input type="number"
+               step="0.01"
+               class="form-control form-control-sm maw-ing-qty"
+               placeholder="Qty"
+               value="${ingredient.quantity ?? ""}">
+      </td>
+      <td>
+        <input type="text"
+               class="form-control form-control-sm maw-ing-unit"
+               placeholder="Unit"
+               value="${ingredient.unit || ""}">
+      </td>
+      <td class="text-end">
+        <button type="button"
+                class="btn btn-sm btn-outline-danger maw-ing-remove">
+          ×
+        </button>
+      </td>
+    `;
+    rowsTbody.appendChild(tr);
+
+    const removeBtn = tr.querySelector(".maw-ing-remove");
+    removeBtn.addEventListener("click", () => {
+      tr.remove();
+    });
+  }
+
+  function clearForm() {
+    nameInput.value = "";
+    if (rowsTbody) rowsTbody.innerHTML = "";
+    createIngredientRow();
+    setModeNew();
+    clearAlert();
+    setStatus("Ready.");
+  }
+
+  function readIngredientsFromForm() {
+    const rows = Array.from(rowsTbody.querySelectorAll("tr"));
+    const results = [];
+    for (const tr of rows) {
+      const nameEl = tr.querySelector(".maw-ing-name");
+      const qtyEl  = tr.querySelector(".maw-ing-qty");
+      const unitEl = tr.querySelector(".maw-ing-unit");
+      const name = nameEl?.value.trim() || "";
+      const qty  = qtyEl?.value;
+      const unit = unitEl?.value.trim() || "";
+      if (!name && !qty && !unit) continue; // skip empty rows
+
+      results.push({
+        name,
+        quantity: qty !== "" && qty !== null ? Number(qty) : null,
+        unit
+      });
+    }
+    return results;
+  }
+
+  function populateFormFromRecipe(recipe) {
+    if (!recipe) return;
+    if (idInput) idInput.value = recipe.id;
+    nameInput.value = recipe.dish_name || "";
+
+    rowsTbody.innerHTML = "";
+    const ings = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+    if (!ings.length) {
+      createIngredientRow();
+    } else {
+      ings.forEach(ing => createIngredientRow(ing));
+    }
+
+    currentId = recipe.id;
+    setModeEdit();
+    clearAlert();
+    setStatus("Recipe loaded.");
+  }
+
+  function renderRecipesList(list) {
+    tableBody.innerHTML = "";
+    if (!list.length) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="2" class="text-muted small text-center py-3">
+            No recipes found.
+          </td>
+        </tr>`;
+      if (summaryText) summaryText.textContent = "0 recipes.";
+      return;
+    }
+
+    list.forEach(rec => {
+      const tr = document.createElement("tr");
+      const ings = Array.isArray(rec.ingredients) ? rec.ingredients : [];
+      const preview = ings
+        .slice(0, 3)
+        .map(i => i.name || "")
+        .filter(Boolean)
+        .join(", ");
+      const moreCount = Math.max(0, ings.length - 3);
+
+      tr.innerHTML = `
+        <td>
+          <strong>${rec.dish_name || "(no name)"}</strong>
+        </td>
+        <td class="text-muted small">
+          ${preview || "No ingredients"}
+          ${moreCount > 0 ? ` +${moreCount} more` : ""}
+        </td>
+      `;
+
+      tr.style.cursor = "pointer";
+      tr.addEventListener("click", () => {
+        populateFormFromRecipe(rec);
+      });
+
+      tableBody.appendChild(tr);
+    });
+
+    if (summaryText) {
+      summaryText.textContent = `${list.length} recipes loaded.`;
+    }
+  }
+
+  function applySearchFilter() {
+    const q = (searchInput?.value || "").trim().toLowerCase();
+    if (!q) {
+      filteredRecipes = recipes.slice();
+    } else {
+      filteredRecipes = recipes.filter(r =>
+        (r.dish_name || "").toLowerCase().includes(q)
+      );
+    }
+    renderRecipesList(filteredRecipes);
+  }
+
+  async function loadRecipesFromSupabase() {
+    clearAlert();
+    setStatus("Loading recipes from Supabase...");
+
+    if (!supabaseClient) {
+      showAlert("danger", "Supabase client not initialized.");
+      setStatus("Supabase client missing.");
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from("mawaid_recipes")
+      .select("*")
+      .order("dish_name", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      showAlert("danger", "Failed to load recipes: " + (error.message || "Unknown error"));
+      setStatus("Error loading recipes.");
+      return;
+    }
+
+    recipes = data || [];
+    applySearchFilter();
+    setStatus("Recipes loaded.");
+  }
+
+  async function saveRecipe() {
+    clearAlert();
+
+    const dishName = nameInput.value.trim();
+    if (!dishName) {
+      showAlert("warning", "Dish name is required.");
+      return;
+    }
+
+    const ingredients = readIngredientsFromForm();
+    if (!ingredients.length) {
+      showAlert("warning", "Add at least one ingredient.");
+      return;
+    }
+
+    if (!supabaseClient) {
+      showAlert("danger", "Supabase client not initialized.");
+      return;
+    }
+
+    const payload = {
+      dish_name: dishName,
+      ingredients
+    };
+
+    setStatus("Saving recipe...");
+    btnSave.disabled = true;
+
+    let error, data;
+
+    if (currentId) {
+      ({ data, error } = await supabaseClient
+        .from("mawaid_recipes")
+        .update(payload)
+        .eq("id", currentId)
+        .select()
+        .single());
+    } else {
+      ({ data, error } = await supabaseClient
+        .from("mawaid_recipes")
+        .insert([payload])
+        .select()
+        .single());
+    }
+
+    btnSave.disabled = false;
+
+    if (error) {
+      console.error(error);
+      showAlert("danger", "Failed to save recipe: " + (error.message || "Unknown error"));
+      setStatus("Error saving recipe.");
+      return;
+    }
+
+    showAlert("success", "Recipe saved.");
+    setStatus("Recipe saved.");
+
+    // refresh list and keep selection
+    await loadRecipesFromSupabase();
+    if (data && data.id) {
+      const saved = recipes.find(r => r.id === data.id);
+      if (saved) populateFormFromRecipe(saved);
+    }
+  }
+
+  async function deleteRecipe() {
+    clearAlert();
+
+    if (!currentId) {
+      showAlert("warning", "No recipe selected to delete.");
+      return;
+    }
+
+    if (!confirm("Delete this recipe permanently?")) return;
+
+    if (!supabaseClient) {
+      showAlert("danger", "Supabase client not initialized.");
+      return;
+    }
+
+    setStatus("Deleting recipe...");
+
+    const { error } = await supabaseClient
+      .from("mawaid_recipes")
+      .delete()
+      .eq("id", currentId);
+
+    if (error) {
+      console.error(error);
+      showAlert("danger", "Failed to delete recipe: " + (error.message || "Unknown error"));
+      setStatus("Error deleting recipe.");
+      return;
+    }
+
+    showAlert("success", "Recipe deleted.");
+    setStatus("Recipe deleted.");
+    clearForm();
+    await loadRecipesFromSupabase();
+  }
+
+  // Event bindings
+  if (btnAddRow) {
+    btnAddRow.addEventListener("click", () => {
+      createIngredientRow();
+    });
+  }
+
+  if (btnSave) {
+    btnSave.addEventListener("click", saveRecipe);
+  }
+
+  if (btnNew) {
+    btnNew.addEventListener("click", clearForm);
+  }
+
+  if (btnDelete) {
+    btnDelete.addEventListener("click", deleteRecipe);
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("input", applySearchFilter);
+  }
+
+  // Init default state
+  clearForm();
+  loadRecipesFromSupabase();
+}
+
+    function initReservationsCreateIndividuals() {
+  const form = document.getElementById("form-reservations-create-individuals");
+  if (!form) return;
+
+  // avoid double-binding when navigating back/forth
+  if (form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  const alertBox   = document.getElementById("resci-alert");
+  const summaryBox = document.getElementById("resci-summary");
+  const btnSubmit  = document.getElementById("resci-submit");
+  const btnReset   = document.getElementById("resci-reset");
+
+  const f = {
+    its: document.getElementById("resci-its"),
+    fullname: document.getElementById("resci-fullname"),
+    whatsapp: document.getElementById("resci-whatsapp"),
+    email: document.getElementById("resci-email"),
+    arrivalDate: document.getElementById("resci-arrival-date"),
+    arrivalTime: document.getElementById("resci-arrival-time"),
+    departureDate: document.getElementById("resci-departure-date"),
+    departureTime: document.getElementById("resci-departure-time"),
+    adults: document.getElementById("resci-adults"),
+    children: document.getElementById("resci-children"),
+    infants: document.getElementById("resci-infants"),
+    pkg: document.getElementById("resci-package"),
+    notes: document.getElementById("resci-notes"),
+  };
+
+  function showAlert(type, msg) {
+    if (!alertBox) return;
+    alertBox.className = "alert alert-" + type;
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none");
+  }
+
+  function clearAlert() {
+    if (!alertBox) return;
+    alertBox.classList.add("d-none");
+  }
+
+  function updateSummary() {
+    if (!summaryBox) return;
+
+    const paxAdults   = parseInt(f.adults.value || "0", 10);
+    const paxChildren = parseInt(f.children.value || "0", 10);
+    const paxInfants  = parseInt(f.infants.value || "0", 10);
+    const totalPax    = paxAdults + paxChildren + paxInfants;
+
+    const datesText =
+      (f.arrivalDate.value || "?") +
+      " → " +
+      (f.departureDate.value || "?");
+
+    const pkgLabel = f.pkg.options[f.pkg.selectedIndex]?.text || "Not selected";
+
+    summaryBox.innerHTML = `
+      <li><strong>ITS:</strong> ${f.its.value || "—"}</li>
+      <li><strong>Name:</strong> ${f.fullname.value || "—"}</li>
+      <li><strong>WhatsApp:</strong> ${f.whatsapp.value || "—"}</li>
+      <li><strong>Dates:</strong> ${datesText}</li>
+      <li><strong>Pax:</strong> ${totalPax} (A:${paxAdults}, C:${paxChildren}, I:${paxInfants})</li>
+      <li><strong>Package:</strong> ${pkgLabel}</li>
+    `;
+  }
+
+  // live summary updates
+  Object.values(f).forEach(input => {
+    if (!input) return;
+    input.addEventListener("input", updateSummary);
+    input.addEventListener("change", updateSummary);
+  });
+  updateSummary();
+
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      form.reset();
+      clearAlert();
+      updateSummary();
+    });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAlert();
+
+    if (!supabaseClient) {
+      showAlert("danger", "Supabase client not initialized.");
+      return;
+    }
+
+    if (!f.its.value.trim() || !f.fullname.value.trim()) {
+      showAlert("warning", "ITS No. and Full name are required.");
+      return;
+    }
+
+    if (!f.arrivalDate.value || !f.departureDate.value) {
+      showAlert("warning", "Arrival and departure dates are required.");
+      return;
+    }
+
+    const paxAdults   = parseInt(f.adults.value || "0", 10);
+    const paxChildren = parseInt(f.children.value || "0", 10);
+    const paxInfants  = parseInt(f.infants.value || "0", 10);
+    const totalPax    = paxAdults + paxChildren + paxInfants;
+
+    if (totalPax <= 0) {
+      showAlert("warning", "At least 1 passenger is required.");
+      return;
+    }
+
+    // Small client-side ref_no generator – you can replace with a DB trigger later
+    const refNo = "UMS-I-" + Date.now();
+
+    const payload = {
+      ref_no: refNo,
+      its_no: f.its.value.trim(),
+      full_name: f.fullname.value.trim(),
+      whatsapp: f.whatsapp.value.trim() || null,
+      email: f.email.value.trim() || null,
+      arrival_date: f.arrivalDate.value,
+      arrival_time: f.arrivalTime.value || null,
+      departure_date: f.departureDate.value,
+      departure_time: f.departureTime.value || null,
+      adults: paxAdults,
+      children: paxChildren,
+      infants: paxInfants,
+      total_pax: totalPax,
+      package_code: f.pkg.value || null,
+      notes: f.notes.value.trim() || null,
+      source: "individual"
+    };
+
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Saving…";
+
+    const { data, error } = await supabaseClient
+      .from("reservations_individuals")
+      .insert([payload])
+      .select()
+      .single();
+
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = "Save reservation";
+
+    if (error) {
+      console.error(error);
+      showAlert("danger", "Failed to save reservation: " + (error.message || "Unknown error"));
+      return;
+    }
+
+    showAlert("success", "Reservation saved successfully (Ref: " + data.ref_no + ").");
+    form.reset();
+    updateSummary();
+  });
+}
+
+function initReservationsPending() {
+  const tableEl      = document.getElementById("ums-reservations-pending-table");
+  const alertBox     = document.getElementById("pending-alert");
+  const summaryText  = document.getElementById("pending-summary");
+  const btnRefresh   = document.getElementById("btn-refresh-pending");
+  const statusBtns   = document.querySelectorAll("[data-status-filter]");
+
+  if (!tableEl) return;
+
+  // Avoid double-binding on SPA navigation
+  if (tableEl.dataset.bound === "true") return;
+  tableEl.dataset.bound = "true";
+
+  let dt = null;          // DataTable instance
+  let currentData = [];   // raw data from Supabase
+
+  function showAlert(type, msg) {
+    if (!alertBox) return;
+    alertBox.className = "alert alert-" + type;
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none");
+  }
+
+  function clearAlert() {
+    if (!alertBox) return;
+    alertBox.classList.add("d-none");
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "—";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const [y, m, d] = parts;
+    return `${d}-${m}-${y}`;
+  }
+
+  function computePax(row) {
+    const a = row.adults   ?? 0;
+    const c = row.children ?? 0;
+    const i = row.infants  ?? 0;
+    const total = row.total_pax ?? (a + c + i);
+    return { a, c, i, total };
+  }
+
+  function getSourceLabel(source) {
+    const s = (source || "individual").toLowerCase();
+    if (["tour", "operator", "tour-operator"].includes(s)) return "Tour Operator";
+    return "Individual";
+  }
+
+  function mapStatus(status) {
+    const s = (status || "pending").toLowerCase();
+
+    switch (s) {
+      case "awaiting_payment":
+        return { code: "awaiting_payment", label: "Awaiting payment", badge: "bg-info" };
+      case "approved":
+        return { code: "approved", label: "Approved", badge: "bg-success" };
+      case "rejected":
+        return { code: "rejected", label: "Rejected", badge: "bg-danger" };
+      case "cancelled":
+      case "canceled":
+        return { code: "cancelled", label: "Cancelled", badge: "bg-secondary" };
+      default:
+        return { code: "pending", label: "Pending", badge: "bg-warning" };
+    }
+  }
+
+  async function updateReservationStatus(id, newStatus) {
+    clearAlert();
+
+    if (!supabaseClient) {
+      showAlert("danger", "Supabase client not initialized.");
+      return false;
+    }
+
+    const { error } = await supabaseClient
+      .from("reservations_individuals")
+      .update({ status: newStatus })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      showAlert("danger", "Failed to update status: " + (error.message || "Unknown error"));
+      return false;
+    }
+
+    showAlert("success", "Status updated successfully.");
+    return true;
+  }
+
+  function buildDataTable(data) {
+    // jQuery / DataTables present?
+    if (!window.$ || !$.fn.DataTable) {
+      // Fallback: simple tbody rendering
+      const tbody = tableEl.querySelector("tbody");
+      tbody.innerHTML = "";
+
+      if (!data.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+              No reservations found.
+            </td>
+          </tr>`;
+        if (summaryText) summaryText.textContent = "0 reservations.";
+        return;
+      }
+
+      tbody.innerHTML = data.map(row => {
+        const pax = computePax(row);
+        const src = getSourceLabel(row.source);
+        const st  = mapStatus(row.status);
+
+        const name = row.full_name || row.group_name || "—";
+        const itsText = row.its_no ? `ITS: ${row.its_no}` : "";
+
+        return `
+          <tr>
+            <td><strong>${row.ref_no || "(no ref)"}</strong></td>
+            <td>
+              <div class="text-dark">${name}</div>
+              <div class="text-muted small">${src}${itsText ? " • " + itsText : ""}</div>
+            </td>
+            <td>${src}</td>
+            <td>${pax.total}</td>
+            <td>${formatDate(row.arrival_date)}</td>
+            <td>${formatDate(row.departure_date)}</td>
+            <td>
+              <span class="badge ${st.badge}">${st.label}</span>
+            </td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-success"
+                        data-action="approve"
+                        data-id="${row.id}">
+                  Approve
+                </button>
+                <button class="btn btn-outline-danger"
+                        data-action="reject"
+                        data-id="${row.id}">
+                  Reject
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      if (summaryText) summaryText.textContent = `${data.length} reservations.`;
+      return;
+    }
+
+    // DataTables mode
+    if (dt) {
+      dt.clear();
+      dt.rows.add(data);
+      dt.draw();
+      return;
+    }
+
+    dt = $("#ums-reservations-pending-table").DataTable({
+      data,
+      responsive: true,
+      lengthChange: false,
+      buttons: ["copy", "print"],
+      columns: [
+        {
+          data: "ref_no",
+          render: function (data, type, row) {
+            const ref = data || "(no ref)";
+            if (type === "display" || type === "filter") {
+              return `<strong>${ref}</strong>`;
+            }
+            return ref;
+          }
+        },
+        {
+          data: null,
+          render: function (data, type, row) {
+            const name = row.full_name || row.group_name || "—";
+            const src = getSourceLabel(row.source);
+            const itsText = row.its_no ? `ITS: ${row.its_no}` : "";
+
+            if (type === "display") {
+              return `
+                <div class="text-dark">${name}</div>
+                <div class="text-muted small">${src}${itsText ? " • " + itsText : ""}</div>
+              `;
+            }
+            return name + " " + src + " " + itsText;
+          }
+        },
+        {
+          data: "source",
+          render: function (data, type, row) {
+            const label = getSourceLabel(data);
+            return label;
+          }
+        },
+        {
+          data: null,
+          render: function (data, type, row) {
+            const pax = computePax(row);
+            return `${pax.total} (A:${pax.a}, C:${pax.c}, I:${pax.i})`;
+          }
+        },
+        {
+          data: "arrival_date",
+          render: function (data, type, row) {
+            if (type === "display") {
+              return formatDate(data);
+            }
+            return data || "";
+          }
+        },
+        {
+          data: "departure_date",
+          render: function (data, type, row) {
+            if (type === "display") {
+              return formatDate(data);
+            }
+            return data || "";
+          }
+        },
+        {
+          data: "status",
+          render: function (data, type, row) {
+            const st = mapStatus(data);
+
+            if (type === "filter") {
+              // For searching & status-filtering: use status *code*
+              return st.code;
+            }
+
+            if (type === "display") {
+              return `<span class="badge ${st.badge}">${st.label}</span>`;
+            }
+
+            return st.code;
+          }
+        },
+        {
+          data: null,
+          orderable: false,
+          searchable: false,
+          render: function (data, type, row) {
+            const id = row.id || "";
+            return `
+              <div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-success btn-pill"
+                        data-action="approve"
+                        data-id="${id}">
+                  <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-warning btn-pill"
+                        data-action="awaiting_payment"
+                        data-id="${id}">
+                  <i class="fas fa-coins"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-pill"
+                        data-action="reject"
+                        data-id="${id}">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            `;
+          }
+        }
+      ]
+    });
+
+    // attach DataTables buttons
+    dt.buttons().container().appendTo("#ums-reservations-pending-table_wrapper .col-md-6:eq(0)");
+
+    // delegate click for action buttons
+    $("#ums-reservations-pending-table tbody").on("click", "button[data-action]", async function () {
+      const action = this.dataset.action;
+      const id     = this.dataset.id;
+
+      if (!id) return;
+
+      let newStatus = "pending";
+      if (action === "approve") newStatus = "approved";
+      else if (action === "reject") newStatus = "rejected";
+      else if (action === "awaiting_payment") newStatus = "awaiting_payment";
+
+      const ok = await updateReservationStatus(id, newStatus);
+      if (ok) {
+        // refresh data in-place: reload Supabase and rebuild
+        await fetchReservations();
+      }
+    });
+  }
+
+  async function fetchReservations() {
+    clearAlert();
+    if (summaryText) summaryText.textContent = "Loading pending reservations…";
+
+    if (!supabaseClient) {
+      showAlert("danger", "Supabase client not initialized.");
+      return;
+    }
+
+    // Only show “pending-ish” statuses by default
+    const { data, error } = await supabaseClient
+      .from("reservations_individuals")
+      .select("*")
+      .in("status", ["pending", "awaiting_payment", "approved", "rejected"])
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      showAlert("danger", "Failed to load reservations: " + (error.message || "Unknown error"));
+      if (summaryText) summaryText.textContent = "Error loading reservations.";
+      return;
+    }
+
+    currentData = data || [];
+
+    if (summaryText) {
+      summaryText.textContent = `${currentData.length} reservations loaded.`;
+    }
+
+    buildDataTable(currentData);
+    applyStatusFilter(getActiveStatusFilter());
+  }
+
+  function getActiveStatusFilter() {
+    const active = Array.from(statusBtns).find(btn => btn.classList.contains("active"));
+    return active ? (active.dataset.statusFilter || "") : "";
+  }
+
+  function applyStatusFilter(statusCode) {
+    if (!window.$ || !$.fn.DataTable || !dt) {
+      // Non-DataTables mode: manual filter on currentData
+      const filtered = statusCode
+        ? currentData.filter(r => mapStatus(r.status).code === statusCode)
+        : currentData.slice();
+      buildDataTable(filtered);
+      return;
+    }
+
+    if (!statusCode) {
+      dt.column(6).search("").draw();
+    } else {
+      // We made the 'filter' type return status code in column 6
+      dt.column(6).search("^" + statusCode + "$", true, false).draw();
+    }
+  }
+
+  // status button clicks
+  statusBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      statusBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      const code = btn.dataset.statusFilter || "";
+      applyStatusFilter(code);
+    });
+  });
+
+  // refresh button
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", () => {
+      fetchReservations();
+    });
+  }
+
+  // initial load
+  fetchReservations();
+}
+
+function initReservationsApproved() {
+  const tableEl      = document.getElementById("ums-reservations-approved-table");
+  const alertBox     = document.getElementById("approved-alert");
+  const summaryText  = document.getElementById("approved-summary");
+  const btnRefresh   = document.getElementById("btn-refresh-approved");
+  const statusBtns   = document.querySelectorAll("[data-approved-status-filter]");
+
+  if (!tableEl) return;
+
+  // avoid double-bind on SPA navigation
+  if (tableEl.dataset.bound === "true") return;
+  tableEl.dataset.bound = "true";
+
+  let dt = null;
+  let currentData = [];
+
+  function showAlert(type, msg) {
+    if (!alertBox) return;
+    alertBox.className = "alert alert-" + type;
+    alertBox.textContent = msg;
+    alertBox.classList.remove("d-none");
+  }
+
+  function clearAlert() {
+    if (!alertBox) return;
+    alertBox.classList.add("d-none");
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "—";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const [y, m, d] = parts;
+    return `${d}-${m}-${y}`;
+  }
+
+  function computePax(row) {
+    const a = row.adults   ?? 0;
+    const c = row.children ?? 0;
+    const i = row.infants  ?? 0;
+    const total = row.total_pax ?? (a + c + i);
+    return { a, c, i, total };
+  }
+
+  function getSourceLabel(source) {
+    const s = (source || "individual").toLowerCase();
+    if (["tour", "operator", "tour-operator"].includes(s)) return "Tour Operator";
+    return "Individual";
+  }
+
+  function mapStatus(status) {
+    const s = (status || "approved").toLowerCase();
+
+    switch (s) {
+      case "pending":
+        return { code: "pending", label: "Pending", badge: "bg-warning" };
+      case "awaiting_payment":
+        return { code: "awaiting_payment", label: "Awaiting payment", badge: "bg-info" };
+      case "approved":
+        return { code: "approved", label: "Approved", badge: "bg-success" };
+      case "rejected":
+        return { code: "rejected", label: "Rejected", badge: "bg-danger" };
+      case "cancelled":
+      case "canceled":
+        return { code: "cancelled", label: "Cancelled", badge: "bg-secondary" };
+      default:
+        return { code: s, label: s, badge: "bg-light text-dark" };
+    }
+  }
+
+  function buildDataTable(data) {
+    // jQuery + DataTables?
+    if (!window.$ || !$.fn.DataTable) {
+      const tbody = tableEl.querySelector("tbody");
+      tbody.innerHTML = "";
+
+      if (!data.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+              No approved reservations found.
+            </td>
+          </tr>`;
+        if (summaryText) summaryText.textContent = "0 reservations.";
+        return;
+      }
+
+      tbody.innerHTML = data.map(row => {
+        const pax = computePax(row);
+        const src = getSourceLabel(row.source);
+        const st  = mapStatus(row.status);
+
+        const name = row.full_name || row.group_name || "—";
+        const itsText = row.its_no ? `ITS: ${row.its_no}` : "";
+
+        return `
+          <tr>
+            <td><strong>${row.ref_no || "(no ref)"}</strong></td>
+            <td>
+              <div class="text-dark">${name}</div>
+              <div class="text-muted small">${src}${itsText ? " • " + itsText : ""}</div>
+            </td>
+            <td>${src}</td>
+            <td>${pax.total}</td>
+            <td>${formatDate(row.arrival_date)}</td>
+            <td>${formatDate(row.departure_date)}</td>
+            <td>
+              <span class="badge ${st.badge}">${st.label}</span>
+            </td>
+            <td class="text-end">
+              <a href="ums-booking-view.html?ref=${encodeURIComponent(row.ref_no || "")}"
+                 class="btn btn-sm btn-light">
+                View
+              </a>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      if (summaryText) summaryText.textContent = `${data.length} reservations.`;
+      return;
+    }
+
+    if (dt) {
+      dt.clear();
+      dt.rows.add(data);
+      dt.draw();
+      return;
+    }
+
+    dt = $("#ums-reservations-approved-table").DataTable({
+      data,
+      responsive: true,
+      lengthChange: false,
+      buttons: ["copy", "print"],
+      columns: [
+        {
+          data: "ref_no",
+          render: function (data, type, row) {
+            const ref = data || "(no ref)";
+            if (type === "display" || type === "filter") {
+              return `<strong>${ref}</strong>`;
+            }
+            return ref;
+          }
+        },
+        {
+          data: null,
+          render: function (data, type, row) {
+            const name = row.full_name || row.group_name || "—";
+            const src = getSourceLabel(row.source);
+            const itsText = row.its_no ? `ITS: ${row.its_no}` : "";
+
+            if (type === "display") {
+              return `
+                <div class="text-dark">${name}</div>
+                <div class="text-muted small">${src}${itsText ? " • " + itsText : ""}</div>
+              `;
+            }
+            return name + " " + src + " " + itsText;
+          }
+        },
+        {
+          data: "source",
+          render: function (data, type, row) {
+            return getSourceLabel(data);
+          }
+        },
+        {
+          data: null,
+          render: function (data, type, row) {
+            const pax = computePax(row);
+            return `${pax.total} (A:${pax.a}, C:${pax.c}, I:${pax.i})`;
+          }
+        },
+        {
+          data: "arrival_date",
+          render: function (data, type) {
+            if (type === "display") return formatDate(data);
+            return data || "";
+          }
+        },
+        {
+          data: "departure_date",
+          render: function (data, type) {
+            if (type === "display") return formatDate(data);
+            return data || "";
+          }
+        },
+        {
+          data: "status",
+          render: function (data, type, row) {
+            const st = mapStatus(data);
+
+            if (type === "filter") {
+              return st.code;
+            }
+            if (type === "display") {
+              return `<span class="badge ${st.badge}">${st.label}</span>`;
+            }
+            return st.code;
+          }
+        },
+        {
+          data: null,
+          orderable: false,
+          searchable: false,
+          render: function (data, type, row) {
+            const ref = row.ref_no || "";
+            return `
+              <div class="btn-group btn-group-sm" role="group">
+                <a href="ums-booking-view.html?ref=${encodeURIComponent(ref)}"
+                   class="btn btn-light btn-pill">
+                  <i class="fas fa-eye"></i>
+                </a>
+              </div>
+            `;
+          }
+        }
+      ]
+    });
+
+    dt.buttons().container().appendTo("#ums-reservations-approved-table_wrapper .col-md-6:eq(0)");
+  }
+
+  async function fetchReservations() {
+    clearAlert();
+    if (summaryText) summaryText.textContent = "Loading approved reservations…";
+
+    if (!supabaseClient) {
+      showAlert("danger", "Supabase client not initialized.");
+      return;
+    }
+
+    // “Approved side” of the world: exclude raw pending.
+    const { data, error } = await supabaseClient
+      .from("reservations_individuals")
+      .select("*")
+      .in("status", ["approved", "awaiting_payment", "rejected", "cancelled"])
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      showAlert("danger", "Failed to load reservations: " + (error.message || "Unknown error"));
+      if (summaryText) summaryText.textContent = "Error loading reservations.";
+      return;
+    }
+
+    currentData = data || [];
+
+    if (summaryText) {
+      summaryText.textContent = `${currentData.length} reservations loaded.`;
+    }
+
+    buildDataTable(currentData);
+    applyStatusFilter(getActiveStatusFilter());
+  }
+
+  function getActiveStatusFilter() {
+    const active = Array.from(statusBtns).find(btn => btn.classList.contains("active"));
+    return active ? (active.dataset.approvedStatusFilter || "") : "";
+  }
+
+  function applyStatusFilter(statusCode) {
+    // with DataTables
+    if (window.$ && $.fn.DataTable && dt) {
+      if (!statusCode) {
+        dt.column(6).search("").draw();
+      } else {
+        dt.column(6).search("^" + statusCode + "$", true, false).draw();
+      }
+      return;
+    }
+
+    // fallback mode
+    const filtered = statusCode
+      ? currentData.filter(r => mapStatus(r.status).code === statusCode)
+      : currentData.slice();
+    buildDataTable(filtered);
+  }
+
+  // status filter buttons
+  statusBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      statusBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      const code = btn.dataset.approvedStatusFilter || "";
+      applyStatusFilter(code);
+    });
+  });
+
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", () => {
+      fetchReservations();
+    });
+  }
+
+  fetchReservations();
+}
+
+    async function loadModule(moduleName, pushState = true) {
+      const main = document.getElementById("ums-main");
+      if (!main) return;
+
+      if (!userHasAccess(moduleName)) {
+        main.innerHTML = `
+          <div class="container-fluid p-0">
+            <div class="alert alert-danger mt-3" role="alert">
+              You are not authorized to access this module.
+            </div>
+          </div>`;
+        setActiveNav(null);
+        return;
+      }
+
+      // Dashboard: just restore original HTML
+      if (moduleName === "dashboard") {
+        main.innerHTML = DASHBOARD_HTML;
+        reinitUMSWidgets();
+        if (pushState) {
+          history.pushState({ moduleName }, "", "#dashboard");
+        }
+        setActiveNav(moduleName);
+        return;
+      }
+
+      const link = document.querySelector('.sidebar-link[data-module="' + moduleName + '"]');
+      const partialUrl = link && link.dataset.partial ? link.dataset.partial : null;
+
+      if (!partialUrl) {
+        main.innerHTML = `
+          <div class="container-fluid p-0">
+            <div class="alert alert-warning mt-3" role="alert">
+              Module <code>${moduleName}</code> is not wired to any partial yet.
+            </div>
+          </div>`;
+        setActiveNav(moduleName);
+        return;
+      }
+
+      try {
+        const res = await fetch(partialUrl, { cache: "no-cache" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const html = await res.text();
+        main.innerHTML = html;
+        reinitUMSWidgets();
+        if (pushState) {
+          history.pushState({ moduleName }, "", "#" + moduleName);
+        }
+        setActiveNav(moduleName);
+      } catch (err) {
+        console.error(err);
+        main.innerHTML = `
+          <div class="container-fluid p-0">
+            <div class="alert alert-danger mt-3" role="alert">
+              Failed to load module <code>${moduleName}</code>.
+            </div>
+          </div>`;
+        setActiveNav(moduleName);
+      }
+    }
+
+    function initUMSRouting() {
+      const main = document.getElementById("ums-main");
+      if (main) {
+        DASHBOARD_HTML = main.innerHTML;
+      }
+
+      applyRoleVisibility();
+
+      document.querySelectorAll(".sidebar-link[data-module]").forEach(link => {
+        link.addEventListener("click", function (e) {
+          e.preventDefault();
+          const moduleName = this.dataset.module;
+          loadModule(moduleName);
+        });
+      });
+
+      const initialHash = (location.hash || "").replace("#", "");
+      const initialModule = initialHash || "dashboard";
+      loadModule(initialModule, false);
+
+      window.addEventListener("popstate", event => {
+        const moduleName = event.state && event.state.moduleName
+          ? event.state.moduleName
+          : (location.hash || "#dashboard").substring(1);
+        loadModule(moduleName, false);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", initUMSRouting);
+  </script>
+
+</body>
+
+</html>
