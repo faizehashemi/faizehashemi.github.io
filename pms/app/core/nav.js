@@ -1,12 +1,14 @@
 // <site-nav> — the app's navigation.
-//   Laptop (> 900px): one bar — brand · category menus · site switch · desk menu · sync status.
+//   Laptop (> 900px): one bar — brand · category menus · desk menu · sync status, then the quick links.
 //   Phone/tablet (≤ 900px): compact bar with ☰; the menu opens as a side drawer.
 // Categories and pages come from NAV / VIEWS in config.js. Alt+<key> shortcuts are kept.
 // API used by the shell: setRoute(siteId, viewId, desk), setBadge(text, warn);
-// events: 'site-change' (detail = siteId), 'logout'.
+// events: 'site-change' (detail = siteId; admins only — other logins stay on their own site), 'logout'.
+// Only pages the login may open are listed (canOpen); quick links come from Settings.
 
 import { SITES, VIEWS, NAV } from '../config.js';
 import { getPrefs, shortcutFor, modLabel, matchesShortcut } from './prefs.js';
+import { canOpen } from './cloud.js';
 
 const viewById = Object.fromEntries(VIEWS.map(v => [v.id, v]));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -23,7 +25,8 @@ class SiteNav extends HTMLElement {
     constructor() {
         super();
         const r = this.attachShadow({ mode: 'open' });
-        const sites = Object.values(SITES).map(s => `<button type="button" data-site="${s.id}">${esc(s.label)}</button>`).join('');
+        // admins only: look at the other site (every other login works on its own site)
+        const sites = Object.values(SITES).map(s => `<button type="button" class="mi site-mi" role="menuitem" data-site="${s.id}"><span class="mi-l">${esc(s.label)}</span><span class="mi-h">Show ${esc(s.label)} data</span></button>`).join('');
         r.innerHTML = `
       <header class="bar" role="navigation" aria-label="Main">
         <button type="button" class="burger" id="burger" aria-label="Open menu" aria-controls="drawer" aria-expanded="false">
@@ -42,11 +45,11 @@ class SiteNav extends HTMLElement {
         </nav>
 
         <div class="tools">
-          <div class="seg" role="group" aria-label="Site">${sites}</div>
           <div class="dd desk-dd">
             <button type="button" class="desk" id="deskBtn" aria-haspopup="true" aria-expanded="false"><span id="deskName"></span><i class="caret"></i></button>
             <div class="menu right" role="menu">
               <div class="mi static" id="deskInfo"></div>
+              <div class="site-sw" data-admin-only hidden>${sites}</div>
               <a class="mi" role="menuitem" data-view="settings" href="#"><span class="mi-l">Settings</span><span class="mi-h">Look, shortcuts, defaults — this browser only</span></a>
               <a class="mi" role="menuitem" data-view="settings" data-anchor="password" href="#"><span class="mi-l">Change password</span><span class="mi-h">For this desk login</span></a>
               <a class="mi" role="menuitem" data-view="setup" href="#"><span class="mi-l">Setup</span><span class="mi-h">This desk, sync, desk logins</span></a>
@@ -57,6 +60,8 @@ class SiteNav extends HTMLElement {
         </div>
         <div class="progress" aria-hidden="true"></div>
       </header>
+      <nav class="quick" id="quick" aria-label="Quick links" hidden></nav>
+      <div class="notice" id="notice" role="status" hidden></div>
 
       <div class="backdrop" id="backdrop" hidden></div>
       <aside class="drawer" id="drawer" aria-label="Menu" aria-hidden="true">
@@ -64,7 +69,7 @@ class SiteNav extends HTMLElement {
           <a class="brand" href="#" id="drBrand"><span class="b1">Faiz E Hashemi</span><span class="b2"></span></a>
           <button type="button" class="close" id="drClose" aria-label="Close menu">✕</button>
         </div>
-        <div class="dr-site"><div class="seg" role="group" aria-label="Site">${sites}</div></div>
+        <div class="dr-site" data-admin-only hidden><div class="seg" role="group" aria-label="Site">${Object.values(SITES).map(s => `<button type="button" data-site="${s.id}">${esc(s.label)}</button>`).join('')}</div></div>
         <div class="dr-body">
           ${NAV.map(c => `<section class="dr-sec"><h4>${esc(c.label)}</h4>${menuItems(c)}</section>`).join('')}
         </div>
@@ -125,6 +130,17 @@ class SiteNav extends HTMLElement {
         .logout .mi-l{ color:#a12a2a }
 
         .tools{ margin-left:auto; display:flex; align-items:center; gap:10px }
+        .site-sw{ border-bottom:1px solid var(--edge); margin-bottom:4px; padding-bottom:4px }
+        .site-mi[aria-pressed="true"]{ background:#f6e7bf }
+        .site-mi[aria-pressed="true"] .mi-h::after{ content:" · showing now" }
+        .quick{ display:flex; gap:6px; padding:6px 18px; overflow-x:auto; scrollbar-width:thin;
+          background:#fffaf0; border-bottom:1px solid var(--edge); box-shadow:0 4px 12px rgba(60,40,10,.06) }
+        .quick a{ flex:none; padding:4px 12px; border:1px solid var(--edge); border-radius:999px; background:#fff;
+          font-size:12.5px; font-weight:650; white-space:nowrap }
+        .quick a:hover{ background:#fbf1d8; border-color:var(--gold) }
+        .quick a[aria-current="page"]{ background:var(--gold); border-color:var(--gold); color:#fff }
+        .notice{ padding:6px 18px; background:#fff4de; color:#8a5a00; border-bottom:1px solid #f3d984; font-size:13px; font-weight:600 }
+        [hidden]{ display:none !important }
         .seg{ display:inline-flex; border:1px solid var(--gold); border-radius:999px; overflow:hidden; flex:none }
         .seg button{ border:0; background:transparent; padding:5px 12px; font-size:12.5px; font-weight:700; color:#7a5b13 }
         .seg button + button{ border-left:1px solid var(--gold) }
@@ -173,7 +189,8 @@ class SiteNav extends HTMLElement {
           .burger:hover{ background:#fbf1d8 }
           .brand{ font-size:12.5px; letter-spacing:.1em }
           .here{ display:block; font-weight:650; font-size:13px; color:#8a6512; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0 }
-          .cats, .tools .seg, .desk-dd{ display:none }
+          .cats, .desk-dd{ display:none }
+          .quick{ padding:6px 10px }
           .tools{ gap:6px }
           .sync #syncText{ display:none }
         }
@@ -207,6 +224,7 @@ class SiteNav extends HTMLElement {
         document.addEventListener('click', onDocClick);
         r.addEventListener('click', (e) => {
             if (e.target.closest('.menu a, .dr-body a, .dr-foot a, a.cat, .brand')) { closeMenus(); this.closeDrawer(); }
+            if (e.target.closest('.menu [data-site]')) closeMenus();
             if (e.target.closest('[data-logout]')) { closeMenus(); this.closeDrawer(); this.dispatchEvent(new CustomEvent('logout')); }
             const s = e.target.closest('[data-site]');
             if (s) { this.closeDrawer(); this.dispatchEvent(new CustomEvent('site-change', { detail: s.dataset.site })); }
@@ -266,6 +284,24 @@ class SiteNav extends HTMLElement {
             k.hidden = !key || !p.showKeyHints;
         });
         r.host.toggleAttribute('data-no-sync-text', !p.showSyncText);
+        this.renderQuick();
+    }
+
+    // Settings → Quick links: a strip of the chosen pages under the bar (only pages this login may open)
+    renderQuick() {
+        const r = this.shadowRoot;
+        const q = r.getElementById('quick');
+        const ids = (getPrefs().quickLinks || []).filter(id => viewById[id] && canOpen(id, this._desk));
+        q.hidden = !ids.length || !this._desk;
+        q.innerHTML = ids.map(id => `<a data-view="${id}" href="#/${this._site || ''}/${id}"${id === this._view ? ' aria-current="page"' : ''}>${esc(viewById[id].label)}</a>`).join('');
+    }
+
+    notice(text) {
+        const n = this.shadowRoot.getElementById('notice');
+        n.textContent = text;
+        n.hidden = false;
+        clearTimeout(this._noticeTimer);
+        this._noticeTimer = setTimeout(() => { n.hidden = true; }, 6000);
     }
 
     openDrawer() {
@@ -293,6 +329,12 @@ class SiteNav extends HTMLElement {
     setRoute(siteId, viewId, desk) {
         const r = this.shadowRoot;
         this._site = siteId;
+        this._view = viewId;
+        this._desk = desk;
+        // pages this login may not open disappear from the menus (and empty categories with them)
+        r.querySelectorAll('.cats .mi[data-view], .dr-body .mi[data-view], .desk-dd .mi[data-view], a.cat[data-view]').forEach(a => { a.hidden = !canOpen(a.dataset.view, desk); });
+        r.querySelectorAll('.bar .dd[data-cat], .dr-sec').forEach(el => { el.hidden = !el.querySelector('.mi[data-view]:not([hidden])'); });
+        r.querySelectorAll('[data-admin-only]').forEach(el => { el.hidden = desk?.role !== 'admin'; });
         r.querySelectorAll('.brand').forEach(b => { b.setAttribute('href', `#/${siteId}/home`); b.querySelector('.b2').textContent = SITES[siteId].brand; });
         r.querySelectorAll('[data-view]').forEach(a => {
             a.setAttribute('href', `#/${siteId}/${a.dataset.view}${a.dataset.anchor ? '?section=' + a.dataset.anchor : ''}`);
@@ -302,10 +344,11 @@ class SiteNav extends HTMLElement {
         r.querySelectorAll('.bar [data-cat]').forEach(el => el.classList.toggle('active', !!cat && el.dataset.cat === cat.id));
         r.getElementById('here').textContent = viewById[viewId]?.hidden ? '' : (viewById[viewId]?.label || '');
         r.querySelectorAll('[data-site]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.site === siteId)));
+        this.renderQuick();
         if (desk) {
             const canEdit = desk.role === 'admin' || (desk.role === 'desk' && desk.site === siteId);
             const role = canEdit ? desk.role : `${desk.role} · view only here`;
-            r.getElementById('deskName').textContent = desk.name;
+            r.getElementById('deskName').textContent = `${desk.name} · ${SITES[siteId]?.label || ''}`;
             r.getElementById('deskInfo').innerHTML = `<span class="mi-l">${esc(desk.name)}</span><span class="mi-h">${esc(SITES[desk.site]?.label)} · ${esc(role)}</span>`;
             r.getElementById('drDesk').innerHTML = `${esc(desk.name)}<small>${esc(SITES[desk.site]?.label)} · ${esc(role)}</small>`;
         }

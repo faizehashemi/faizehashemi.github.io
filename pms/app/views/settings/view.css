@@ -112,3 +112,15 @@ button.linkish { border: 0; background: none; padding: 4px; color: var(--muted);
     .row .sw { align-self: flex-start }
 }
 .keys.off { opacity: .5 }
+
+/* quick links */
+.ql-now { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; margin: 6px 0 10px; border: 1px dashed var(--edge); border-radius: 10px; background: #fffdf7; min-height: 46px; align-items: center }
+.ql-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 2px; border: 1px solid var(--gold); border-radius: 999px; background: #fff }
+.ql-chip b { padding: 0 6px; font-size: 13px }
+.ql-chip button { border: 0; background: none; padding: 3px 6px; font-size: 11px; border-radius: 999px }
+.ql-chip button:hover:not(:disabled) { background: #fbf1d8 }
+.ql-chip button:disabled { opacity: .25 }
+.ql-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px }
+.ql-pick fieldset { border: 1px solid #efe3cb; border-radius: 10px; padding: 6px 10px 8px; margin: 0; background: #fffdf7 }
+.ql-pick legend { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 4px }
+.ql-pick .chk { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; cursor: pointer }

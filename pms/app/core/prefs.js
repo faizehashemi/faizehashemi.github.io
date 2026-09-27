@@ -26,6 +26,8 @@ export const DEFAULT_PREFS = {
     // start
     startView: 'home',         // page opened when the address has no page
     startSite: 'last',         // 'last' or a site id
+    // quick links: pages shown as a strip under the menu bar, in this order
+    quickLinks: [],
     // shortcuts
     shortcutsOn: true,
     shortcutMod: 'alt',        // alt | alt+shift | ctrl+alt

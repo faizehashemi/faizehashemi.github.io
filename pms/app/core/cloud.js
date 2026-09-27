@@ -38,6 +38,32 @@ export function setApiOverride(url) {
     try { url ? localStorage.setItem(API_OVERRIDE_KEY, url) : localStorage.removeItem(API_OVERRIDE_KEY); } catch { }
 }
 
+// Pages every login may open whatever the admin ticked (Settings holds the password change)
+export const ALWAYS_OPEN = ['home', 'login', 'settings'];
+
+/** May this login open the page? Admins: every page; others: the pages ticked on Setup (none ticked = all). */
+export function canOpen(viewId, desk = currentDesk()) {
+    if (!desk || desk.role === 'admin' || ALWAYS_OPEN.includes(viewId)) return true;
+    return !Array.isArray(desk.pages) || desk.pages.includes(viewId);
+}
+
+/** The site this login works on: its own; only an admin may look at another. */
+export const siteFor = (desk, wanted) => (desk && desk.role !== 'admin') ? desk.site : wanted;
+
+/** Re-read this desk's name/site/role/pages from the server (the admin may have changed them). */
+export async function refreshDesk() {
+    const s = getSession();
+    if (!s) return null;
+    const { desk } = await request('GET', '/api/me');
+    const now = getSession();
+    if (!now || now.token !== s.token) return null;
+    if (JSON.stringify(desk) !== JSON.stringify(now.desk)) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ ...now, desk }));
+        emit('pms:desk-changed', { desk });
+    }
+    return desk;
+}
+
 // admin: everything · desk: own site · viewer: nothing
 export function canWrite(siteId) {
     const d = currentDesk();

@@ -1,8 +1,8 @@
 // Settings: personal preferences for this browser (core/prefs.js) and the desk's own password.
 // Every control saves on change and the shell applies it immediately.
 
-import { SITES, VIEWS } from '../../config.js';
-import { currentDesk, request, UserError } from '../../core/cloud.js';
+import { SITES, VIEWS, NAV } from '../../config.js';
+import { currentDesk, request, UserError, canOpen } from '../../core/cloud.js';
 import { getPrefs, setPrefs, resetPrefs, exportPrefs, importPrefs, modLabel } from '../../core/prefs.js';
 import { loadBuildings, buildingNames } from '../../core/rooms.js';
 
@@ -25,7 +25,9 @@ export default async function mount(ctx) {
     const save = (patch, text = 'Saved on this browser') => { setPrefs(patch); render(); toast(text); };
 
     /* ------------------------------ fill choices ------------------------------ */
-    const pages = VIEWS.filter(v => !v.hidden || v.id === 'home').filter(v => v.id !== 'login');
+    // only pages this login may open (Setup → Page access)
+    const pages = VIEWS.filter(v => !v.hidden || v.id === 'home').filter(v => v.id !== 'login' && canOpen(v.id, me));
+    $('startSiteRow').hidden = me?.role !== 'admin'; // other logins always open their own site
     $('startView').innerHTML = pages.map(v => `<option value="${v.id}">${esc(v.id === 'home' ? 'Home (overview)' : v.label)}</option>`).join('');
     $('startSite').innerHTML = `<option value="last">Last used</option>` + Object.values(SITES).map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
     const fillBuildings = (list) => {
@@ -48,7 +50,23 @@ export default async function mount(ctx) {
         root.querySelectorAll('[data-seg]').forEach(seg => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(p[seg.dataset.seg] === b.dataset.val))));
         $('scaleOut').textContent = `${p.textScale}%`;
         renderKeys();
+        renderQuick();
     }
+
+    function renderQuick() {
+        const ql = (getPrefs().quickLinks || []).filter(id => pages.some(v => v.id === id));
+        const label = (id) => VIEWS.find(v => v.id === id)?.label || id;
+        $('qlNow').innerHTML = ql.length ? ql.map((id, i) => `<span class="ql-chip" data-id="${id}">
+                <button type="button" data-ql-move="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move ${esc(label(id))} left">◀</button>
+                <b>${esc(label(id))}</b>
+                <button type="button" data-ql-move="1" ${i === ql.length - 1 ? 'disabled' : ''} aria-label="Move ${esc(label(id))} right">▶</button>
+                <button type="button" data-ql-remove aria-label="Remove ${esc(label(id))}">✕</button></span>`).join('')
+            : '<span class="muted small">No quick links yet — tick pages below.</span>';
+        const groups = NAV.map(c => ({ label: c.label, views: c.views.filter(id => pages.some(v => v.id === id)) })).filter(g => g.views.length);
+        $('qlPick').innerHTML = groups.map(g => `<fieldset><legend>${esc(g.label)}</legend>${g.views.map(id =>
+            `<label class="chk"><input type="checkbox" data-ql="${id}" ${ql.includes(id) ? 'checked' : ''}> ${esc(label(id))}</label>`).join('')}</fieldset>`).join('');
+    }
+
 
     function renderKeys() {
         const p = getPrefs();
@@ -64,6 +82,12 @@ export default async function mount(ctx) {
 
     /* --------------------------------- events --------------------------------- */
     root.addEventListener('change', (e) => {
+        const q = e.target.closest('input[data-ql]');
+        if (q) {
+            const cur = (getPrefs().quickLinks || []).filter(id => id !== q.dataset.ql);
+            save({ quickLinks: q.checked ? [...cur, q.dataset.ql] : cur }, q.checked ? 'Added to quick links' : 'Removed from quick links');
+            return;
+        }
         const el = e.target.closest('[data-pref]');
         if (!el) return;
         const v = el.type === 'checkbox' ? el.checked : el.type === 'range' || 'num' in el.dataset ? Number(el.value) : el.value;
@@ -73,6 +97,15 @@ export default async function mount(ctx) {
         if (e.target.matches('input[type=range][data-pref]')) { setPrefs({ textScale: Number(e.target.value) }); $('scaleOut').textContent = `${e.target.value}%`; }
     });
     root.addEventListener('click', (e) => {
+        const chip = e.target.closest('.ql-chip');
+        if (chip && e.target.closest('button')) {
+            const ql = [...(getPrefs().quickLinks || [])];
+            const i = ql.indexOf(chip.dataset.id);
+            const mv = e.target.closest('[data-ql-move]');
+            if (mv) { const j = i + Number(mv.dataset.qlMove); [ql[i], ql[j]] = [ql[j], ql[i]]; save({ quickLinks: ql }, 'Order saved'); }
+            else if (e.target.closest('[data-ql-remove]')) save({ quickLinks: ql.filter(id => id !== chip.dataset.id) }, 'Removed from quick links');
+            return;
+        }
         const seg = e.target.closest('[data-seg] button');
         if (seg) { save({ [seg.closest('[data-seg]').dataset.seg]: seg.dataset.val }); return; }
         const step = e.target.closest('[data-step]');
@@ -80,7 +113,7 @@ export default async function mount(ctx) {
         const clear = e.target.closest('[data-clear]');
         if (clear) { save({ [clear.dataset.clear]: '' }); return; }
         const reset = e.target.closest('[data-reset]');
-        if (reset) { resetPrefs(reset.dataset.reset.split(',')); render(); $('keysMsg').textContent = ''; toast('Default shortcuts back'); return; }
+        if (reset) { resetPrefs(reset.dataset.reset.split(',')); render(); $('keysMsg').textContent = ''; toast(reset.dataset.reset === 'quickLinks' ? 'Quick links removed' : 'Default shortcuts back'); return; }
         const tab = e.target.closest('.st-tabs a');
         if (tab) { e.preventDefault(); show(tab.dataset.sec); return; }
         const link = e.target.closest('a[data-href]');

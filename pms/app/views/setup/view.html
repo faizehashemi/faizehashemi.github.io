@@ -66,6 +66,24 @@
         <p class="muted small" id="deskMsg"></p>
     </section>
 
+    <section class="card" id="accessCard" hidden>
+        <h3>Page access</h3>
+        <p class="muted small">Tick the pages each login may open. Unticked pages disappear from its menus and cannot be opened
+            (Home and Settings always can). Admin logins always see every page. What a login may <b>change</b> still follows its role and site.
+            Takes effect on that desk within a minute; there is no need to log it out.</p>
+        <div class="table-wrap access-wrap">
+            <table id="accessTbl" data-no-cards>
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="actions">
+            <button type="button" class="primary" id="btnAccess" disabled>Save page access</button>
+            <button type="button" id="btnAccessUndo" disabled>Undo changes</button>
+            <span class="muted small" id="accessMsg"></span>
+        </div>
+    </section>
+
     <section class="card" id="auditCard" hidden>
         <h3>Recent changes</h3>
         <div class="table-wrap">

@@ -1,8 +1,8 @@
 // Setup: this desk's login and sync, one-time upload of the browser's old data, and (admin)
 // desk logins + audit log.
 
-import { SITES } from '../../config.js';
-import { currentDesk, request, sync, state, apiBase, UserError } from '../../core/cloud.js';
+import { SITES, VIEWS, NAV } from '../../config.js';
+import { currentDesk, request, sync, state, apiBase, UserError, ALWAYS_OPEN } from '../../core/cloud.js';
 import { legacyAllSlips, legacySiteOf } from '../../core/db.js';
 import { loadSettings, saveSettings, shiftTime } from '../../core/settings.js';
 
@@ -143,10 +143,12 @@ export default async function mount(ctx) {
     if (!isAdmin) return;
     $('desksCard').hidden = false;
     $('auditCard').hidden = false;
+    $('accessCard').hidden = false;
     $('ndSite').innerHTML = Object.values(SITES).map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
     $('ndSite').value = me.site;
 
     function renderDesks(desks) {
+        renderAccess(desks);
         $('desksTbl').querySelector('tbody').innerHTML = desks.map(d => `
             <tr class="${d.disabled ? 'off' : ''}" data-id="${d.id}">
                 <td>${esc(d.name)}${d.id === me.id ? ' <span class="pill">you</span>' : ''}</td>
@@ -199,6 +201,95 @@ export default async function mount(ctx) {
         try { renderDesks((await ctx.guard(request('GET', '/api/desks'))).desks); }
         catch (e) { $('deskMsg').textContent = e.message; }
     }
+
+    /* --------------------------- admin: page access --------------------------- */
+
+    // pages an admin can give or take (Home, Login and Settings are always open)
+    const ACCESS_GROUPS = NAV.map(c => ({ label: c.label, views: c.views.filter(id => !ALWAYS_OPEN.includes(id)) })).filter(g => g.views.length);
+    const ALL_PAGES = ACCESS_GROUPS.flatMap(g => g.views);
+    const pageLabel = (id) => VIEWS.find(v => v.id === id)?.label || id;
+    let accessDesks = [];            // non-admin desks shown as columns
+    let access = new Map();          // desk id -> Set of page ids (edited copy)
+    let saved = new Map();           // desk id -> Set as on the server
+    const sameSet = (a, b) => [...a].sort().join() === [...b].sort().join();
+    const dirtyIds = () => accessDesks.filter(d => !sameSet(access.get(d.id), saved.get(d.id))).map(d => d.id);
+
+    function renderAccess(desks, force = false) {
+        if (!force && dirtyIds().length) return; // keep unsaved ticks when the desk list refreshes
+        accessDesks = desks.filter(d => d.role !== 'admin');
+        saved = new Map(accessDesks.map(d => [d.id, new Set(Array.isArray(d.pages) ? d.pages.filter(p => ALL_PAGES.includes(p)) : ALL_PAGES)]));
+        access = new Map([...saved].map(([id, set]) => [id, new Set(set)]));
+        drawAccess();
+    }
+
+    function drawAccess() {
+        const tbl = $('accessTbl');
+        if (!accessDesks.length) {
+            tbl.querySelector('thead').innerHTML = '';
+            tbl.querySelector('tbody').innerHTML = '<tr class="empty"><td>No desk or viewer logins yet. Admins always see every page.</td></tr>';
+            updateAccessButtons();
+            return;
+        }
+        tbl.querySelector('thead').innerHTML = `<tr><th class="pg">Page</th>${accessDesks.map(d => `
+            <th class="dk ${d.disabled ? 'off' : ''}" data-id="${d.id}"><span class="dk-n">${esc(d.name)}</span>
+                <span class="dk-s">${esc(label(d.site))} · ${esc(d.role)}</span>
+                <span class="dk-b"><button type="button" data-all="${d.id}">All</button><button type="button" data-none="${d.id}">None</button></span></th>`).join('')}</tr>`;
+        tbl.querySelector('tbody').innerHTML = ACCESS_GROUPS.map(g => `
+            <tr class="grp"><th>${esc(g.label)}</th>${accessDesks.map(d => `<td><button type="button" class="linkish" data-grp="${esc(g.label)}" data-id="${d.id}">${g.views.every(v => access.get(d.id).has(v)) ? 'none' : 'all'}</button></td>`).join('')}</tr>
+            ${g.views.map(v => `<tr><th class="pg">${esc(pageLabel(v))}</th>${accessDesks.map(d => {
+                const on = access.get(d.id).has(v), was = saved.get(d.id).has(v);
+                return `<td class="${on !== was ? 'chg' : ''}"><input type="checkbox" data-id="${d.id}" data-page="${v}" ${on ? 'checked' : ''} aria-label="${esc(d.name)}: ${esc(pageLabel(v))}"></td>`;
+            }).join('')}</tr>`).join('')}`).join('');
+        updateAccessButtons();
+    }
+
+    function updateAccessButtons() {
+        const n = dirtyIds().length;
+        $('btnAccess').disabled = !n;
+        $('btnAccessUndo').disabled = !n;
+        $('btnAccess').textContent = n ? `Save page access (${n} login${n === 1 ? '' : 's'})` : 'Save page access';
+    }
+
+    $('accessTbl').addEventListener('change', (e) => {
+        const cb = e.target.closest('input[data-page]');
+        if (!cb) return;
+        const set = access.get(Number(cb.dataset.id));
+        cb.checked ? set.add(cb.dataset.page) : set.delete(cb.dataset.page);
+        drawAccess();
+    });
+    $('accessTbl').addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.all) access.set(Number(b.dataset.all), new Set(ALL_PAGES));
+        else if (b.dataset.none) access.set(Number(b.dataset.none), new Set());
+        else if (b.dataset.grp) {
+            const set = access.get(Number(b.dataset.id));
+            const views = ACCESS_GROUPS.find(g => g.label === b.dataset.grp).views;
+            const allOn = views.every(v => set.has(v));
+            views.forEach(v => allOn ? set.delete(v) : set.add(v));
+        } else return;
+        drawAccess();
+    });
+    $('btnAccessUndo').addEventListener('click', () => { access = new Map([...saved].map(([id, set]) => [id, new Set(set)])); drawAccess(); $('accessMsg').textContent = ''; });
+    $('btnAccess').addEventListener('click', async () => {
+        const ids = dirtyIds();
+        const empty = ids.filter(id => !access.get(id).size).map(id => accessDesks.find(d => d.id === id).name);
+        if (empty.length && !confirm(`${empty.join(', ')} will only see Home and Settings. Save anyway?`)) return;
+        $('btnAccess').disabled = true;
+        $('accessMsg').textContent = 'Saving…';
+        let desks = null;
+        const failed = [];
+        for (const id of ids) {
+            const set = access.get(id);
+            // every page ticked = no limit (pages added to the PMS later are open too)
+            const pages = ALL_PAGES.every(p => set.has(p)) ? null : ALL_PAGES.filter(p => set.has(p));
+            try { desks = (await ctx.guard(request('PATCH', `/api/desks/${id}`, { pages }))).desks; }
+            catch (err) { failed.push(`${accessDesks.find(d => d.id === id).name}: ${err.message}`); }
+        }
+        if (desks) { renderAccess(desks, true); renderDesks(desks); renderAudit(); }
+        $('accessMsg').textContent = failed.length ? `Not saved: ${failed.join('; ')}` : `Saved for ${ids.length} login${ids.length === 1 ? '' : 's'}. Their menus update within a minute.`;
+        updateAccessButtons();
+    });
 
     async function renderAudit() {
         try {

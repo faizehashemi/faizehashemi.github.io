@@ -131,7 +131,10 @@ async function route(req, env) {
 
 /* ---------------------------------- auth ---------------------------------- */
 
-const publicDesk = (d) => ({ id: d.id, name: d.name, site: d.site, role: d.role });
+// pages: the page ids this login may open (null = all); set by the admin on Setup
+const parsePages = (v) => { try { const a = v ? JSON.parse(v) : null; return Array.isArray(a) ? a : null; } catch { return null; } };
+const PAGES_OF = '(SELECT pages FROM desk_pages p WHERE p.desk_id = d.id) AS pages';
+const publicDesk = (d) => ({ id: d.id, name: d.name, site: d.site, role: d.role, pages: d.role === 'admin' ? null : parsePages(d.pages) });
 
 async function login(req, env) {
     const { name, password } = await body(req);
@@ -141,7 +144,7 @@ async function login(req, env) {
     const fails = await env.DB.prepare('SELECT COUNT(*) AS c FROM login_failures WHERE name = ? AND at > ?').bind(n, since).first('c');
     if (fails >= LOGIN_MAX_FAILS) throw new HttpError(429, 'Too many wrong passwords. Wait 15 minutes and try again.');
 
-    const desk = await env.DB.prepare('SELECT * FROM desks WHERE name = ?').bind(n).first();
+    const desk = await env.DB.prepare(`SELECT d.*, ${PAGES_OF} FROM desks d WHERE d.name = ?`).bind(n).first();
     const ok = desk && sameHex(await pbkdf2(String(password), desk.pw_salt, desk.pw_iter), desk.pw_hash);
     if (!ok) {
         await env.DB.prepare('INSERT INTO login_failures (name, at) VALUES (?, ?)').bind(n, now()).run();
@@ -166,7 +169,7 @@ async function authenticate(req, env) {
     if (!m) throw new HttpError(401, 'Please log in.');
     const tokenHash = await sha256(m[1].toLowerCase());
     const row = await env.DB.prepare(
-        'SELECT s.expires_at, d.id, d.name, d.site, d.role, d.disabled FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?'
+        `SELECT s.expires_at, d.id, d.name, d.site, d.role, d.disabled, ${PAGES_OF} FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?`
     ).bind(tokenHash).first();
     if (!row || row.expires_at < now() || row.disabled) throw new HttpError(401, 'Your login has expired. Please log in again.');
     // sliding expiry: extend when less than half the lifetime is left
@@ -508,10 +511,10 @@ async function deleteBuilding(url, env, me, id) {
 async function listDesks(env) {
     const { results } = await env.DB.prepare(
         `SELECT d.id, d.name, d.site, d.role, d.disabled, d.created_at,
-                (SELECT MAX(created_at) FROM sessions s WHERE s.desk_id = d.id) AS last_login
+                (SELECT MAX(created_at) FROM sessions s WHERE s.desk_id = d.id) AS last_login, ${PAGES_OF}
          FROM desks d ORDER BY d.site, d.name`
     ).all();
-    return json({ desks: results });
+    return json({ desks: results.map(d => ({ ...d, pages: parsePages(d.pages) })) });
 }
 
 function checkPassword(pw) {
@@ -542,7 +545,18 @@ async function updateDesk(req, env, me, id) {
     const desk = await env.DB.prepare('SELECT * FROM desks WHERE id = ?').bind(id).first();
     if (!desk) throw new HttpError(404, 'No such desk.');
     if (id === me.id && (b.disabled || (b.role && b.role !== 'admin'))) throw new HttpError(400, 'You cannot disable or demote your own admin login.');
-    const sets = [], args = [], notes = [];
+    const sets = [], args = [], notes = [], extra = [];
+    // page access: a list of page ids, or null for every page. Not a sign-out reason: the desk's
+    // browser picks it up from /api/me within a minute.
+    if (b.pages !== undefined) {
+        if (b.pages === null) extra.push(env.DB.prepare('DELETE FROM desk_pages WHERE desk_id = ?').bind(id));
+        else {
+            if (!Array.isArray(b.pages) || b.pages.length > 60 || !b.pages.every(x => typeof x === 'string' && /^[a-z][a-z-]{0,29}$/.test(x))) throw new HttpError(400, 'pages must be a list of page ids.');
+            extra.push(env.DB.prepare('INSERT INTO desk_pages (desk_id, pages, updated_at) VALUES (?, ?, ?) ON CONFLICT(desk_id) DO UPDATE SET pages = excluded.pages, updated_at = excluded.updated_at')
+                .bind(id, JSON.stringify([...new Set(b.pages)]), now()));
+        }
+        notes.push(b.pages === null ? 'pages: all' : `pages: ${b.pages.length}`);
+    }
     if (b.password !== undefined) {
         checkPassword(b.password);
         const salt = randomHex(16);
@@ -553,11 +567,14 @@ async function updateDesk(req, env, me, id) {
     if (b.disabled !== undefined) { sets.push('disabled = ?'); args.push(b.disabled ? 1 : 0); notes.push(b.disabled ? 'disabled' : 'enabled'); }
     if (b.role !== undefined) { if (!ROLES.includes(b.role)) throw new HttpError(400, 'Unknown role.'); sets.push('role = ?'); args.push(b.role); notes.push('role ' + b.role); }
     if (b.site !== undefined) { if (!SITES[b.site]) throw new HttpError(400, 'Unknown site.'); sets.push('site = ?'); args.push(b.site); notes.push('site ' + b.site); }
-    if (!sets.length) throw new HttpError(400, 'Nothing to change.');
+    if (!sets.length && !extra.length) throw new HttpError(400, 'Nothing to change.');
     await env.DB.batch([
-        env.DB.prepare(`UPDATE desks SET ${sets.join(', ')} WHERE id = ?`).bind(...args, id),
-        // any change to a login signs that desk out everywhere (except a self password change: keep this session)
-        env.DB.prepare('DELETE FROM sessions WHERE desk_id = ? AND token_hash != ?').bind(id, id === me.id ? me.tokenHash : ''),
+        ...(sets.length ? [
+            env.DB.prepare(`UPDATE desks SET ${sets.join(', ')} WHERE id = ?`).bind(...args, id),
+            // a change to the login itself signs that desk out everywhere (except a self password change: keep this session)
+            env.DB.prepare('DELETE FROM sessions WHERE desk_id = ? AND token_hash != ?').bind(id, id === me.id ? me.tokenHash : ''),
+        ] : []),
+        ...extra,
         auditStmt(env, me, 'desk-update', null, `${desk.name}: ${notes.join(', ')}`),
     ]);
     return listDesks(env);

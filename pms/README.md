@@ -15,7 +15,9 @@ only views; `admin` does everything. The top bar has:
   Grid, Timeline, Rooms & Buildings), *Groups & meals* (Grouping, Group export, KG, Mawaid),
   *Data* (UMS import, Slip admin, Setup), *Help*. `Alt+1` … `Alt+0` still open Slip, Forecast, Grid,
   Timeline, Check-ins, Grouping, KG, Print, Admin, Mawaid. Categories live in `NAV` in `app/config.js`.
-- **Makkah | Medina** — which site you are looking at.
+- **The site follows the login**: a Makkah desk works on Makkah, a Medina desk on Medina (there is no
+  site switch). Only an **admin** can look at the other site, from the desk menu.
+- **Quick links** (optional) — a strip of your chosen pages under the bar (Settings → Quick links).
 - Your desk (menu with Setup and **Log out**) and the sync state (green = synced, orange = offline).
 
 On phones and small tablets (≤ 900 px) the bar shrinks to ☰ + the page name and the menu opens as a
@@ -123,10 +125,18 @@ An admin changes these on **Setup → Travel times**; they are stored on the ser
 every desk (defaults in `UMS` in `app/config.js`). Imported slips pick up a change at the next import
 (desk edits to a time are kept; stays with rooms assigned show under *Needs attention*).
 
+## Page access (Setup, admin)
+
+**Setup → Page access** is a grid of pages × logins: tick what each desk or viewer login may open, then
+*Save page access*. Unticked pages vanish from that login's menus, quick links and shortcuts, and opening
+one by address shows a notice and goes Home. Home and Settings are always open; admins see everything.
+What a login may *change* still follows its role and site. The desk picks the change up within a minute
+(it re-reads `/api/me`), without being logged out. Stored in the `desk_pages` table (no row = all pages).
+
 ## Settings (per browser)
 
 **Settings** (top bar, or the desk menu) changes this browser only — stored in `localStorage` (`pms_prefs`),
-never sent to the server: text/page size, table spacing, night mode / high contrast, reduce motion,
+never sent to the server: quick links (pages shown under the menu bar, in your order), text/page size, table spacing, night mode / high contrast, reduce motion,
 sticky menu, shortcut hints, sync text, footer, tables as cards on phones, start page and site,
 every page's shortcut key and the modifier (Alt / Alt+Shift / Ctrl+Alt), Slip defaults (building,
 check-in/out times, auto-load by SH, Pick rooms filter), sync interval, logout confirmation and

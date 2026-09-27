@@ -7,7 +7,7 @@
 
 import { SITES, VIEWS, DEFAULT_SITE, LEGACY_PAGES } from './config.js';
 import { createDb } from './core/db.js';
-import { currentDesk, logout, sync, state, mirrorAll } from './core/cloud.js';
+import { currentDesk, logout, sync, state, mirrorAll, canOpen, siteFor, refreshDesk } from './core/cloud.js';
 import './core/nav.js';
 import './core/ums-auto.js'; // listens for the UMS extension from page load, on every view
 import { watchTables } from './core/cards.js';
@@ -137,11 +137,18 @@ async function route() {
     const desk = currentDesk();
 
     if (!SITES[siteId]) siteId = desk?.site || lastSite();
+    // a Makkah login works on Makkah, a Medina login on Medina; only an admin can look at the other site
+    if (desk) siteId = siteFor(desk, siteId);
     // Not logged in: the login screen, whatever the address says (it is kept for after login)
     // no page in the address (opening the app): the start page from Settings
     const start = !viewId && VIEWS.find(v => v.id === getPrefs().startView && !['login'].includes(v.id));
-    const view = !desk ? VIEWS.find(v => v.id === 'login')
+    let view = !desk ? VIEWS.find(v => v.id === 'login')
         : VIEWS.find(v => v.id === viewId && v.id !== 'login') || start || VIEWS.find(v => v.id === 'home');
+    // pages the admin has not given this login (Setup → Page access)
+    if (desk && !canOpen(view.id, desk)) {
+        nav.notice(`${view.label} is not available for ${desk.name}. Ask the admin if you need it.`);
+        view = VIEWS.find(v => v.id === 'home');
+    }
 
     params.delete('source'); // old *_web redirects asked for the Cloud source; everything is cloud now
     if (desk && (siteId !== parseHash().siteId || view.id !== viewId || parseHash().params.has('source'))) {
@@ -249,6 +256,17 @@ origAdd.call(window, 'pms:logged-out', (e) => {
     route();
 });
 origAdd.call(window, 'pms:sync', refreshBadge);
+// the admin changed this login's pages / site / role: redraw the menu, leave a page it may no longer open
+origAdd.call(window, 'pms:desk-changed', () => {
+    const desk = currentDesk();
+    const { siteId, viewId } = parseHash();
+    if (!desk) return;
+    if (!canOpen(viewId, desk) || siteFor(desk, siteId) !== siteId) { if (current) current.key = null; route(); }
+    else nav.setRoute(siteId, viewId, desk);
+});
+const checkDesk = () => { if (currentDesk() && document.visibilityState === 'visible') refreshDesk().catch(() => { }); };
+setInterval(checkDesk, 60000);
+origAdd.call(document, 'visibilitychange', checkDesk);
 let wasOnline = true;
 origAdd.call(window, 'pms:sync', (e) => {
     if (wasOnline && e.detail && e.detail.online === false) track('went_offline');
@@ -276,4 +294,4 @@ origAdd.call(window, 'pms:ums-applied', (e) => {
 initAnalytics();
 if (currentDesk()) identify(currentDesk());
 route();
-if (currentDesk()) { sync().catch(() => { }); loadBuildings().catch(() => { }); }
+if (currentDesk()) { sync().catch(() => { }); loadBuildings().catch(() => { }); checkDesk(); }

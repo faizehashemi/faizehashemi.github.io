@@ -68,6 +68,14 @@ CREATE TABLE IF NOT EXISTS buildings (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS buildings_site_name ON buildings(site, name) WHERE deleted = 0;
 
+-- Which pages a login may open (the admin ticks them on Setup). No row = every page.
+-- Admin logins always see every page.
+CREATE TABLE IF NOT EXISTS desk_pages (
+    desk_id     INTEGER PRIMARY KEY REFERENCES desks(id),
+    pages       TEXT NOT NULL,              -- JSON list of page ids, e.g. ["slip","checkins"]
+    updated_at  TEXT NOT NULL
+);
+
 -- System-wide settings an admin changes on the Setup page (e.g. travel buffers)
 CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,

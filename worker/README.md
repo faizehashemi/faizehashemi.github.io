@@ -50,6 +50,10 @@ Buildings update added the `buildings` table, and the travel-times update the `s
 Until the Worker is updated, the PMS keeps working: Rooms & Buildings shows a notice, and travel times
 use the defaults (3 h / 6 h) and cannot be saved.
 
+`PATCH /api/desks/:id` (admin) also takes `pages`: a list of page ids that login may open, or `null` for
+all pages; unlike the other desk changes it does not log the desk out. `/api/login` and `/api/me` return
+`desk.pages` (always `null` for admins).
+
 `POST /api/me/password` (any login) `{ current, password }` — changes the caller's own password; wrong
 current passwords count towards the login lockout; other sessions of that desk are ended.
 

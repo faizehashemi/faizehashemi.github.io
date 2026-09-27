@@ -10,6 +10,7 @@
             <a href="#" data-sec="password">Password</a>
             <a href="#" data-sec="look">Appearance</a>
             <a href="#" data-sec="layout">Menu &amp; layout</a>
+            <a href="#" data-sec="quick">Quick links</a>
             <a href="#" data-sec="keys">Shortcuts</a>
             <a href="#" data-sec="start">Start page</a>
             <a href="#" data-sec="slip">Slip page</a>
@@ -68,6 +69,14 @@
                 <div class="row"><div><b>Tables as cards on phones</b><span class="muted small">Off: tables keep their columns and scroll sideways. Takes effect when you open a page.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="phoneCards"><i></i></label></div></div>
             </section>
 
+            <section class="st-card" id="sec-quick">
+                <h2>Quick links</h2>
+                <p class="muted small">Pick the pages you use most. They show as buttons right under the menu bar, in this order.</p>
+                <div class="ql-now" id="qlNow"></div>
+                <div class="ql-pick" id="qlPick"></div>
+                <div class="actions"><button type="button" data-reset="quickLinks">Remove all quick links</button></div>
+            </section>
+
             <section class="st-card" id="sec-keys">
                 <h2>Keyboard shortcuts</h2>
                 <div class="row"><div><b>Use shortcuts</b><span class="muted small">They never fire while you type in a field.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="shortcutsOn"><i></i></label></div></div>
@@ -84,7 +93,7 @@
                 <h2>Start page</h2>
                 <div class="row"><div><b>Open this page</b><span class="muted small">When the PMS is opened without a page in the address.</span></div>
                     <div class="ctl"><select data-pref="startView" id="startView"></select></div></div>
-                <div class="row"><div><b>Site</b><span class="muted small">“Last used” remembers Makkah or Medina.</span></div>
+                <div class="row" id="startSiteRow"><div><b>Site</b><span class="muted small">“Last used” remembers Makkah or Medina.</span></div>
                     <div class="ctl"><select data-pref="startSite" id="startSite"></select></div></div>
             </section>
 
