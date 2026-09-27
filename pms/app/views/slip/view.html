@@ -1,0 +1,116 @@
+<div class="wrap">
+
+        <table class="grid kv">
+            <tbody>
+                <tr>
+                    <td colspan="2">
+                        <div class="inline">
+                            <input placeholder="SH Number" id="sh_no" name="sh_no" type="text" />
+                            <button id="btnFetchSh" type="button" title="Fetch latest slip with this SH">Fetch</button>
+                            <select id="stayPick" title="This SH has more than one stay here" hidden></select>
+
+                        </div>
+                    </td>
+                    <td colspan="4"><input placeholder="Tour Name" id="tour_name" type="text" placeholder="" /></td>
+                    <td colspan="4"><input placeholder="Group Leader Name" id="group_leader" type="text" placeholder="" /></td>
+
+                    </td>
+
+                    <th>G</th>
+                    <td><input placeholder="Gents" id="gents" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>L</th>
+                    <td><input placeholder="Ladies" id="ladies" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <td colspan="2">
+                        <select placeholder="Building" id="building">
+                            <option value="">Select building…</option>
+                            <!-- options come from the site config -->
+                        </select>
+
+                </tr>
+                <tr>
+
+                    <th>CHECK IN</th>
+                    <td><input id="checkin_date" type="date" /></td>
+                    <td colspan="2"><input id="checkin_time" type="time" /></td>
+                    <th>CHECK OUT</th>
+                    <td><input id="checkout_date" type="date" /></td>
+                    <td colspan="2"><input id="checkout_time" type="time" /></td>
+
+                    <th>T</th>
+                    <td><input placeholder="Total" id="total" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>I</th>
+                    <td><input placeholder="Infants" id="infants" type="number" inputmode="numeric" min="0" step="1" /></td>
+                    <th>C</th>
+                    <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
+
+                </tr>
+                <tr>
+                </tr>
+
+            </tbody>
+        </table>
+
+        <!-- Bulk room import -->
+        <div class="bulk-row">
+
+            <input id="gentsBulk" type="text" placeholder="Gents Rooms: 501-502-503" />
+            <input id="ladiesBulk" type="text" placeholder="Ladies Rooms: 401-402-403" />
+            <button id="btnBulkLoad" type="button">Load</button>
+            <span id="bulkReport" class="muted"></span>
+        </div>
+
+        <div class="subtables" style="margin-top:16px;">
+            <table class="mini" id="tblGents">
+                <caption>GENTS — Rooms</caption>
+                <!-- GENTS header: was Room No | Capacity | [X] -->
+                <thead>
+                    <tr>
+                        <th style="width:50%">Room No</th>
+                        <th style="width:22%">Capacity</th>
+                        <th style="width:18%">Assigned</th>
+                        <th style="width:10%"></th>
+                    </tr>
+                </thead>
+
+                <tbody id="gents-tbody"></tbody>
+                <tfoot>
+                    <tr><td colspan="3"><button class="row-btn" type="button" data-add-row="gents">Add Row</button></td></tr>
+                </tfoot>
+            </table>
+
+            <table class="mini" id="tblLadies">
+                <caption>LADIES — Rooms</caption>
+                <!-- LADIES header: same change -->
+                <thead>
+                    <tr>
+                        <th style="width:50%">Room No</th>
+                        <th style="width:22%">Capacity</th>
+                        <th style="width:18%">Assigned</th>
+                        <th style="width:10%"></th>
+                    </tr>
+                </thead>
+
+                <tbody id="ladies-tbody"></tbody>
+                <tfoot>
+                    <tr><td colspan="3"><button class="row-btn" type="button" data-add-row="ladies">Add Row</button></td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="toolbar no-print">
+            <button id="btnFetchCap">Fetch &amp; Assign</button>
+            <button id="btnCheckAvail">Check room availability</button>
+        </div>
+
+        <div class="help no-print">
+            Use <b>Fetch capacity data</b> after you enter room numbers. Unknown rooms show capacity placeholder <b>“unassigned.”</b><br />
+            Use <b>Check room availability</b> to catch conflicts before saving.
+        </div>
+
+        <div class="controls no-print">
+            <button id="btnNew">New Slip</button>
+            <button id="btnSave">Save</button>
+            <button id="btnEdit">Edit</button>
+            <span class="muted" id="status"></span>
+        </div>
+    </div>

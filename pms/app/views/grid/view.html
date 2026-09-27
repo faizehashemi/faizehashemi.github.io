@@ -1,0 +1,47 @@
+<div class="wrap">
+        <div class="toolbar">
+            <div class="group">
+                <div>
+                    <label class="small" for="asof_date">Date</label>
+                    <input id="asof_date" type="date">
+                </div>
+                <div>
+                    <label class="small" for="asof_time">Time</label>
+                    <input id="asof_time" type="time" step="60">
+                </div>
+                <button id="btnRecalc" class="primary">Recalculate</button>
+                <button id="btnRefresh">Refresh DB</button>
+                <button id="btnPrintGrid">Print grid</button>
+            </div>
+            <div class="spacer"></div>
+            <div class="sizebar">
+                <div class="sizegrp" title="Cell width">
+                    <span class="small">Width</span>
+                    <button class="iconbtn" id="wMinus">–</button>
+                    <input id="wRange" type="range" min="1" max="240" step="2" value="65">
+                    <button class="iconbtn" id="wPlus">+</button>
+                </div>
+                <div class="sizegrp" title="Cell height">
+                    <span class="small">Height</span>
+                    <button class="iconbtn" id="hMinus">–</button>
+                    <input id="hRange" type="range" min="1" max="200" step="2" value="35">
+                    <button class="iconbtn" id="hPlus">+</button>
+                </div>
+                <div class="sizegrp" title="Text size">
+                    <span class="small">Text</span>
+                    <button class="iconbtn" id="fMinus">–</button>
+                    <input id="fRange" type="range" min="1" max="20" step="1" value="10">
+                    <button class="iconbtn" id="fPlus">+</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs" id="tabs"></div>
+
+        <div class="stage">
+            <div class="matrix-wrap">
+                <div class="matrix" id="matrix"></div>
+            </div>
+            <div class="legend" id="status">Loading DB…</div>
+        </div>
+    </div>

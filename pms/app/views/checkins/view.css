@@ -1,0 +1,264 @@
+        :root {
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for all text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --card: #fffaf1; /* warm off-white panels */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --accent: #d4af37; /* gold accent */
+            --shadow: 0 10px 28px rgba(92,64,28,.12);
+            --chip: #f7ecd1; /* pale gold chip hover/base */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Keep cream/brown vibe in dark mode, just deepen surfaces */
+                --ink: #1a0f0a;
+                --muted: #4a3a2d;
+                --card: #f9f1e3;
+                --border: #cdb492;
+                --accent: #e0c457;
+                --shadow: none;
+                --chip: #f3e6ca;
+            }
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: #f7efe1 url("../../../assets/pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            margin: 15px;
+            color: var(--ink);
+        }
+
+        .wrap {
+            max-width: 1500px;
+            margin: 22px auto;
+            padding: 0 14px 40px;
+        }
+
+        header.hero {
+            background: linear-gradient(0deg, color-mix(in oklab, var(--accent) 18%, transparent) 0%, color-mix(in oklab, var(--accent) 10%, transparent) 100%);
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        h1 {
+            margin: 0 0 6px
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 10px;
+            align-items: end;
+            margin-top: 10px;
+        }
+
+            .controls .col {
+                display: flex;
+                flex-direction: column;
+                gap: 6px
+            }
+
+            .controls .col-3 {
+                grid-column: span 3
+            }
+
+            .controls .col-2 {
+                grid-column: span 2
+            }
+
+            .controls .col-4 {
+                grid-column: span 4
+            }
+
+        @media (max-width: 900px) {
+            .controls {
+                grid-template-columns: repeat(6, 1fr)
+            }
+
+                .controls .col-3 {
+                    grid-column: span 3
+                }
+
+                .controls .col-2 {
+                    grid-column: span 3
+                }
+
+                .controls .col-4 {
+                    grid-column: span 6
+                }
+        }
+
+        input[type="date"], input[type="time"], select, button {
+            font: inherit
+        }
+
+        input[type="date"], input[type="time"], select {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: #fffdf5;
+            color: var(--ink);
+        }
+
+        button {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+            button.primary {
+                border-color: color-mix(in oklab, var(--accent) 55%, #fff);
+                background: linear-gradient(0deg, color-mix(in oklab, var(--accent) 20%, transparent) 0%, color-mix(in oklab, var(--accent) 12%, transparent) 100%), var(--card);
+            }
+
+        .chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap
+        }
+
+        .chip {
+            border: 1px solid var(--border);
+            background: var(--card);
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 13px;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease;
+        }
+
+            .chip:hover {
+                background: var(--chip)
+            }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 14px
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: var(--shadow);
+        }
+
+            .panel h3 {
+                margin: 0 0 6px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                color: var(--ink);
+            }
+
+            .panel .toolbar {
+                display: flex;
+                gap: 8px;
+                align-items: center
+            }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fffdf7
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            vertical-align: middle;
+            color: var(--ink);
+            text-align: center;
+        }
+
+        th {
+            background: color-mix(in oklab, var(--accent) 14%, #fff8e6);
+            text-align: center;
+        }
+
+        .right {
+            text-align: right
+        }
+
+        .nowrap {
+            white-space: nowrap
+        }
+
+        .status {
+            margin-top: 8px;
+            color: var(--muted)
+        }
+
+        @media print {
+            body {
+                margin: 0
+            }
+
+                body * {
+                    visibility: hidden !important
+                }
+
+            .print-scope, .print-scope * {
+                visibility: visible !important;
+            }
+
+            .print-scope {
+                position: absolute;
+                inset: 0;
+                margin: 0;
+            }
+        }
+
+        .btn-open {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--ink);
+            text-decoration: none;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            .btn-open:hover {
+                background: #fff6dd
+            }
+
+            .btn-open:active {
+                transform: translateY(1px)
+            }
+
+            .btn-open[aria-disabled="true"] {
+                opacity: .5;
+                pointer-events: none;
+            }
+    

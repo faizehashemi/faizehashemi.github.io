@@ -1,0 +1,136 @@
+<header>
+        <h1>Fakkul Ehraam & Atraaf — Assignment Console</h1>
+        <div class="row" style="align-items:center">
+            <label for="sessionTitle" class="sr-only">Session</label>
+            <select id="sessionTitle" class="select" style="width:210px">
+                <option value="Aaje Raate Haram 08:30 PM" selected>Aaje Raate Haram 08:30 PM</option>
+                <option value="Kaale Fajare Haram 07:00 AM">Kaale Fajare Haram 07:30 AM</option>
+                <option value="Aaje Dupehre Atraaf 03:00 PM">Aaje Dupehre Atraaf 03:00 PM</option>
+            </select>
+            <input id="sessionDate" class="select" type="date" style="width:210px" />
+            <button class="copy" id="btnCopy">Copy to clipboard</button>
+            <button id="btnExportExcel">Export Excel (.xls)</button>
+
+        </div>
+    </header>
+
+    <main class="row" style="padding:0 12px 18px">
+        <section class="card shadow" style="flex:1; min-width:640px">
+            <div class="sticky-actions">
+                <div class="row" style="justify-content:space-between; align-items:center">
+                    <div>
+                        <strong>People</strong>
+                        <span class="small">Tick FE1/FE2/Atraaf. Pick a location for grouping. FE1 balancing helper is on the right.</span>
+                    </div>
+                    <div class="row" style="align-items:center; gap:8px">
+                        <div class="row" style="gap:6px">
+                            <input id="newPersonName" placeholder="Add person e.g. M Taha Kamlapur" type="text" style="width:260px" />
+                            <button id="btnAddPerson">Add</button>
+                        </div>
+                        <div class="actions">
+                            <button id="btnSave">Save assignment</button>
+                            <button id="btnClearChecks" title="Uncheck everything">Clear ticks</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="divider"></div>
+
+            <div class="people" id="peopleList"></div>
+            <div class="hint" style="margin-top:10px">
+                Saving logs the current date/time automatically. Stats, charts and history update instantly. Clipboard hides FE1/FE2 by design.
+            </div>
+        </section>
+
+        <aside class="grid" style="width:560px; min-width:440px">
+            <!-- ICONS -->
+            <div class="iconbar hidden">
+                <button id="toggleDash" class="iconbtn" title="Show dashboard">📊</button>
+                <button id="toggleHistory" class="iconbtn" title="Show assignment history">🕘</button>
+            </div>
+
+            <!-- RIGHT COLUMN -->
+            <aside class="right-rail force-fixed">
+                <!-- Session preview (clipboard output) -->
+                <div class="card shadow">
+                    <p class="panel-title">Session preview (clipboard output)</p>
+                    <div id="preview" class="mono small notice"
+                         contenteditable="true"
+                         style="white-space:pre; background:#ffffff; border:1px solid var(--edge2); border-radius:10px; padding:8px; min-height:120px"></div>
+
+                </div>
+
+                <!-- FE1 balance helper with BOOKMARK ROTA -->
+                <div class="card shadow">
+                    <p class="panel-title">FE1 balance helper</p>
+
+                    <div class="row" style="align-items:center">
+                        <button id="btnRecommendFE1">Recommend lowest FE1</button>
+                        <input id="recCount" type="number" min="1" step="1" value="3" class="select" style="width:90px" />
+                        <span class="small">ticks FE1 for N most under-served people (ties by least recent FE1)</span>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="row" style="align-items:center">
+                        <select id="feBookmark" class="select" style="width:220px"></select>
+                        <button id="btnSetBookmark">Set bookmark</button>
+                        <span id="bookmarkDisplay" class="small" style="margin-left:6px">Bookmark: —</span>
+                    </div>
+                    <div class="row" style="align-items:center; margin-top:8px">
+                        <button id="btnNextFromBookmark">Next N from bookmark</button>
+                        <input id="recCount2" type="number" min="1" step="1" value="3" class="select" style="width:90px" />
+                        <span class="small">assigns FE1 to next N names after the bookmark (rotates & updates bookmark)</span>
+                    </div>
+
+                    <div class="chips" id="fe1Leaderboard" style="margin-top:8px"></div>
+                </div>
+
+                <!-- DASHBOARD (hidden by default) -->
+                <div class="card shadow">
+                    <p class="panel-title">Dashboard</p>
+                    <div class="kpi">
+                        <div class="card"><div class="small">FE1 today</div><h3 id="kpiFE1Today">0</h3></div>
+                        <div class="card"><div class="small">FE2 today</div><h3 id="kpiFE2Today">0</h3></div>
+                        <div class="card"><div class="small">Atraaf today</div><h3 id="kpiATToday">0</h3></div>
+                        <div class="card"><div class="small">Total logged</div><h3 id="kpiTotal">0</h3></div>
+                    </div>
+                    <div class="divider"></div>
+                    <canvas id="histPeople" height="260"></canvas>
+                    <div class="small" style="margin-top:6px">Histogram: per-person counts for FE1, FE2, Atraaf.</div>
+                </div>
+
+                <!-- HISTORY + DATA (hidden by default) -->
+                <div class="card shadow">
+                    <div>
+                        <p class="panel-title">Assignment history</p>
+                        <div class="log">
+                            <table id="logTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date/Time</th>
+                                        <th>Type</th>
+                                        <th>Person</th>
+                                        <th>Location</th>
+                                        <th style="width:64px; text-align:center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="panel-title">Data</p>
+                        <div class="row" style="gap:8px; flex-wrap:wrap">
+                            <button id="btnExport">Export JSON</button>
+                            <button id="btnImport">Import JSON</button>
+                            <button id="btnReset" style="border-color:var(--bad); color:#ffdada">Reset all</button>
+                        </div>
+                        <p class="small muted" style="margin-top:10px">Export/Import only affects history; people list persists separately.</p>
+                    </div>
+                </div>
+            </aside>
+
+        </aside>
+
+    </main>

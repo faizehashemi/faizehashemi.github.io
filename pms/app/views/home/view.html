@@ -1,0 +1,35 @@
+<div class="wrap">
+        <!-- Left: Building batteries + chart -->
+        <section class="panel" id="occPanel" aria-label="Building occupancy">
+            <h2>Building Occupancy</h2>
+            <div class="sub">Batteries show percent of capacity in use today. Edit capacity per building as needed.</div>
+            <div class="battery-grid" id="batteryGrid"></div>
+
+            <div class="chart-wrap" id="histWrap" aria-label="Totals by date">
+                <div class="chart-toolbar">
+                    <div class="left">
+                        <strong>Totals by date</strong>
+                        <span class="sub" id="chartSubtitle">All buildings</span>
+                    </div>
+                    <div class="left" id="buildingChips"></div>
+                </div>
+                <svg class="chart" id="histChart" viewBox="0 0 800 220" role="img" aria-label="Histogram of totals"></svg>
+            </div>
+        </section>
+
+        <!-- Right: DB Health (kept from your file) -->
+        <aside class="db-card" aria-label="Database health">
+            <h3>Database Health</h3>
+            <div class="list">
+                <div class="row"><div class="name">Server</div><span id="dbOpen" class="pill wait">Testing…</span></div>
+                <div class="row"><div class="name">DB name</div><span class="mono">PMS cloud (D1)</span></div>
+                <div class="row"><div class="name">Last sync</div><span id="dbVersion" class="mono">—</span></div>
+                <div class="row"><div class="name">Connection</div><span id="dbStores" class="mono">—</span></div>
+                <div class="row"><div class="name">“slips” count</div><span id="slipCount" class="mono">—</span></div>
+            </div>
+            <div class="actions">
+                <button id="btnRecheck">Recheck</button>
+            </div>
+            <div class="foot" id="dbNote"></div>
+        </aside>
+    </div>

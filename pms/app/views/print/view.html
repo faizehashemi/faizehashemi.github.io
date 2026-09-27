@@ -1,0 +1,28 @@
+<div class="wrap">
+
+        <h1>Print Slip — A5 Landscape (2 copies per slip)</h1>
+        <div class="controls">
+            <div>
+                <label for="savedList">Saved slips</label>
+                <select id="savedList" title="Saved slips" style="min-width:320px;"></select>
+                <button id="btnLoad">Load</button>
+            </div>
+            <div>
+                <label for="shFetch">SH No(s)</label>
+                <textarea id="shFetch" placeholder="e.g. 38480, 39221 39222-39223 39224*39225&#10;Separators: comma, dot, dash, space, newline, asterisk"></textarea>
+                <button id="btnFetch">Fetch list</button>
+            </div>
+            <div>
+                <label for="rows">Rows</label>
+                <input id="rows" type="number" min="4" max="12" value="8" style="width:70px" />
+                <button id="btnPrint">Print</button>
+                <button id="btnGLCopy" title="Print Group Leader copy with building-based colour-coding">GL Copy</button>
+            </div>
+        </div>
+        <div class="note">Use the SH multi-field to fetch multiple slips. Each slip prints on its own page.</div>
+        <div class="status" id="status">Loading DB…</div>
+    </div>
+
+    <div class="printable" id="printArea">
+        <div id="sheet"><!-- multiple .sheet blocks injected here --></div>
+    </div>

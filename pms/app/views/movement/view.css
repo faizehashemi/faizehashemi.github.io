@@ -1,0 +1,339 @@
+        :root {
+            --ink: #1a0f0a;
+            --muted: #5e4a39;
+            --bg: #fff;
+            --border: #e4d8c8;
+            --t-font: 13; /* table font px */
+            --t-pad: 6; /* cell padding px */
+            --t-minw: 560px; /* smaller min width so wrapping helps on phones */
+            --radius: 12px;
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for all text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --card: #fffaf1; /* warm off-white panels */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --accent: #d4af37; /* gold accent */
+            --shadow: 0 10px 28px rgba(92,64,28,.12);
+            --chip: #f7ecd1; /* pale gold chip hover/base */
+        }
+
+        * {
+            box-sizing: border-box
+        }
+        /* Paste into your stylesheet. Works with <button id="btnRun">Submit</button> */
+
+        #btnRun {
+            /* core look */
+            color: #fff6dc; /* cream text */
+            background: linear-gradient(180deg,#5a3a2c,#3f271d); /* dark brown */
+            border: 1px solid #352117; /* deep brown border */
+            border-radius: 12px;
+            padding: 10px 16px;
+            font: 700 14px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            letter-spacing: .02em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden; /* for sheen */
+            box-shadow: 0 8px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+            transition: transform .06s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+        }
+
+            /* subtle top sheen */
+            #btnRun::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                background: linear-gradient(to bottom, rgba(255,255,255,.10), rgba(255,255,255,0) 35%);
+            }
+
+            /* hover: brighten + lift */
+            #btnRun:hover {
+                filter: brightness(1.05);
+                box-shadow: 0 10px 22px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.14);
+            }
+
+            /* active: pressed */
+            #btnRun:active {
+                transform: translateY(1px);
+                background: linear-gradient(180deg,#3f271d,#2b1a13);
+                box-shadow: 0 4px 10px rgba(0,0,0,.3), inset 0 2px 6px rgba(0,0,0,.35);
+            }
+
+            /* keyboard focus */
+            #btnRun:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(212,175,55,.35), 0 8px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+            }
+
+            /* disabled */
+            #btnRun:disabled {
+                opacity: .6;
+                cursor: not-allowed;
+                box-shadow: none;
+                filter: none;
+            }
+
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            color: var(--ink);
+            margin: 0;
+            background: #f7efe1 url("../../../assets/pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 12px
+        }
+
+
+        header.hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin: 8px 0 12px;
+            background: #fff
+        }
+
+            header.hero h1 {
+                margin: 0;
+                font-size: 18px
+            }
+
+        .pill {
+            display: inline-block;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 10px;
+            color: var(--muted);
+            font-size: 12px
+        }
+
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(6,minmax(120px,1fr));
+            gap: 8px;
+            margin: 8px 0 12px
+        }
+
+            .controls label {
+                font-size: 12px;
+                color: var(--muted);
+                display: block;
+                margin-bottom: 4px
+            }
+
+            .controls input, .controls select, .controls button {
+                font: inherit;
+                padding: 8px 10px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: #fff;
+                color: var(--ink)
+            }
+
+            .controls button {
+                cursor: pointer
+            }
+
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px;
+            background: #fff;
+            margin: 10px 0
+        }
+
+            .panel h3 {
+                margin: 0 0 8px;
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+                align-items: center
+            }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+
+        /* ===== tables ===== */
+        .table-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+            .table-controls label {
+                font-size: 12px;
+                color: var(--muted)
+            }
+
+            .table-controls input[type="range"] {
+                width: 110px
+            }
+
+
+        .table-wrap {
+            position: relative;
+            overflow: auto;
+            resize: both;
+            min-width: 100%;
+            min-height: 220px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff
+        }
+
+            .table-wrap:before, .table-wrap:after {
+                content: "";
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 12px;
+                pointer-events: none;
+                transition: opacity .15s
+            }
+
+            .table-wrap:before {
+                left: 0;
+                box-shadow: inset 8px 0 8px -8px rgba(0,0,0,.15);
+                opacity: 0
+            }
+
+            .table-wrap:after {
+                right: 0;
+                box-shadow: inset -8px 0 8px -8px rgba(0,0,0,.15);
+                opacity: 0
+            }
+
+            .table-wrap.is-scrolling-left:before {
+                opacity: 1
+            }
+
+            .table-wrap.is-scrolling-right:after {
+                opacity: 1
+            }
+
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            font-size: calc(var(--t-font)*1px);
+            table-layout: fixed
+        }
+
+        .table-inner {
+            min-width: var(--t-minw)
+        }
+        /* WRAP ALL CELL CONTENT — no ellipses, no clipping */
+        th, td {
+            border-bottom: 1px solid var(--border);
+            padding: calc(var(--t-pad)*1px) 8px;
+            white-space: normal; /* allow wrapping */
+            overflow: visible; /* show full content */
+            text-overflow: clip; /* disable ellipsis */
+            vertical-align: top;
+            word-break: break-word; /* break long tokens */
+            overflow-wrap: anywhere; /* wrap anywhere if needed */
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #faf5ea;
+            font-weight: 700
+        }
+
+        .nowrap {
+            white-space: normal
+        }
+        /* override old nowrap to allow wrapping */
+        .right {
+            text-align: right
+        }
+
+
+        .compact th, .compact td {
+            padding: calc((var(--t-pad)-2)*1px) 6px
+        }
+
+
+        @media (max-width: 800px) {
+            .controls {
+                grid-template-columns: 1fr 1fr
+            }
+
+            header.hero {
+                border-radius: 0;
+                border-left: none;
+                border-right: none
+            }
+
+            .wrap {
+                padding: 8px
+            }
+            /* Center all table text (headers + data) */
+            #tblIn th, #tblIn td,
+            #tblOut th, #tblOut td {
+                text-align: center;
+                vertical-align: middle; /* nicer than 'top' for centered look */
+            }
+
+            /* Light cream grid lines for every cell */
+            #tblIn th, #tblIn td,
+            #tblOut th, #tblOut td {
+                border: 1px solid var(--border); /* already a soft cream-gold */
+            }
+
+            /* The "As." column had class="right" in HTML; neutralize it */
+            .right {
+                text-align: center;
+            }
+            /* Kill all shadows inside the tables */
+            #tblIn, #tblOut,
+            #tblIn *, #tblOut * {
+                box-shadow: none !important;
+                text-shadow: none !important;
+                filter: none !important; /* nukes drop-shadow filters */
+            }
+
+                /* If your sticky headers had shadow for "depth", flatten them too */
+                #tblIn thead, #tblOut thead,
+                #tblIn thead th, #tblOut thead th {
+                    box-shadow: none !important;
+                    text-shadow: none !important;
+                    filter: none !important;
+                }
+
+                /* If any row hovers add shadow, stop that */
+                #tblIn tr:hover, #tblOut tr:hover,
+                #tblIn tr:hover *, #tblOut tr:hover * {
+                    box-shadow: none !important;
+                    text-shadow: none !important;
+                    filter: none !important;
+                }
+
+
+    

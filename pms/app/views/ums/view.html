@@ -1,0 +1,68 @@
+<div class="wrap">
+    <header class="hero">
+        <h1>UMS Import — <span class="siteName"></span></h1>
+        <p class="muted">Brings the UMS Group List into this site's slips. UMS decides names, leader, pax and dates;
+            building and rooms stay exactly as the desk set them. Nothing is deleted.</p>
+    </header>
+
+    <section class="two">
+        <div class="card">
+            <h3>1 · Load the Group List</h3>
+            <label class="drop" id="drop">
+                <input type="file" id="file" accept=".xls,.htm,.html,text/html">
+                <span>Drop <b>GroupList….xls</b> here, or <u>choose the file</u></span>
+            </label>
+            <div class="ext">
+                <span>Chrome extension:</span>
+                <span id="extState" class="pill">not detected</span>
+                <button id="btnFetchNow" type="button" hidden>Fetch from UMS now</button>
+                <button id="btnUseLatest" type="button" hidden>Use latest from extension</button>
+            </div>
+            <p class="muted small" id="extInfo"></p>
+        </div>
+
+        <div class="card">
+            <h3>Automatic import on this device</h3>
+            <label class="toggle"><input type="checkbox" id="autoToggle">
+                <span>Apply every file the extension fetches to <b class="siteName"></b> automatically</span></label>
+            <p class="muted small" id="autoNote"></p>
+        </div>
+    </section>
+
+    <section class="card" id="checkCard" hidden>
+        <h3>2 · File check</h3>
+        <div class="pills" id="checkPills"></div>
+        <p class="bad" id="fatal" hidden></p>
+        <details id="warnBox" hidden>
+            <summary id="warnSum"></summary>
+            <ul id="warnList"></ul>
+        </details>
+    </section>
+
+    <section class="card" id="planCard" hidden>
+        <h3>3 · Changes for <span class="siteName"></span></h3>
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <div class="table-wrap">
+            <table id="planTbl">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="actions">
+            <button id="btnApply" class="primary" type="button">Apply import</button>
+            <span id="applyStatus" class="muted"></span>
+        </div>
+    </section>
+
+    <section class="card">
+        <h3>History</h3>
+        <div class="table-wrap">
+            <table id="logTbl">
+                <thead>
+                    <tr><th>When</th><th>How</th><th>Result</th><th>Rows</th><th>New</th><th>Updated</th><th>Attention</th><th>Not in export</th><th>Note</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+</div>

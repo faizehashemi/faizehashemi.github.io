@@ -1,0 +1,316 @@
+        :root {
+            /* palette */
+            --bg: #f7efe1; /* page background (cream) */
+            --panel: #fffaf1; /* cards/panels (warm off-white) */
+            --text: #2b1e15; /* body text (deep brown) */
+            --muted: #6b5e4a; /* secondary text (tobacco) */
+            --gold: #d4af37; /* golden accent */
+            --ok: #2f7d32;
+            --warn: #a86a00;
+            --bad: #a12a2a;
+            --chip: #f3e6ca; /* chip bg */
+            --chipb: #efe0bd; /* chip border/alt */
+            --edge: #dcc7a4; /* soft border */
+            --edge2: #cdb492; /* stronger border */
+            --shade: rgba(92,64,28,.10); /* shadows */
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: var(--bg) url("../../../assets/pattern_gold_2x.png") repeat;
+            background-size: 160px auto;
+            margin: 15px;
+            color: var(--text);
+        }
+
+        header {
+            padding: 18px 14px 6px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: .25px
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--edge);
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .shadow {
+            box-shadow: 0 8px 22px var(--shade)
+        }
+
+        .people {
+            display: grid;
+            gap: 8px
+        }
+
+        .person {
+            display: grid;
+            grid-template-columns: 1fr 86px 86px 86px minmax(160px,1fr) 108px;
+            align-items: center;
+            gap: 8px;
+            background: var(--chip);
+            border: 1px solid var(--edge);
+            border-radius: 12px;
+            padding: 8px;
+        }
+
+        .name {
+            font-weight: 600
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--chipb);
+            border: 1px solid var(--edge);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .actions button, button.copy, button, .btn {
+            cursor: pointer;
+            border: 1px solid var(--gold);
+            background: #fff;
+            color: #7a5b13;
+            padding: 10px 14px;
+            border-radius: 12px;
+            transition: background .15s ease, color .15s ease, filter .15s ease, transform .1s ease;
+        }
+
+            .actions button:hover, button.copy:hover, button:hover {
+                background: #fff6dd
+            }
+
+            .actions button:active, button:active {
+                transform: translateY(1px)
+            }
+
+        .switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px
+        }
+
+            .switch input {
+                width: 18px;
+                height: 18px
+            }
+
+        .select, input[type=text], input[type=number], input[type=date], input[type=time], select {
+            width: 100%;
+            background: #fff;
+            color: var(--text);
+            border: 1px solid var(--edge2);
+            border-radius: 10px;
+            padding: 8px;
+        }
+
+            .select:focus, input:focus, select:focus {
+                outline: 2px solid color-mix(in oklab, var(--gold) 65%, white);
+                outline-offset: 1px;
+            }
+
+        .panel-title {
+            font-weight: 700;
+            margin: 0 0 6px
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .cols {
+            display: grid;
+            grid-template-columns: 1.25fr .75fr;
+            gap: 12px
+        }
+
+        .log {
+            max-height: 320px;
+            overflow: auto;
+            border: 1px solid var(--edge);
+            border-radius: 12px;
+            background: #fff
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%
+        }
+
+        th, td {
+            border-bottom: 1px solid var(--edge);
+            padding: 8px 10px;
+            text-align: left;
+            white-space: nowrap
+        }
+
+        th {
+            background: #f6ecd6;
+            z-index: 1
+        }
+
+        .sticky-actions {
+            z-index: 5;
+            background: linear-gradient(to bottom, rgba(255,250,241,.96), rgba(255,250,241,.92));
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--edge);
+            box-shadow: 0 6px 18px var(--shade);
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--edge);
+            margin: 10px 0
+        }
+
+        .del {
+            border: 1px solid var(--bad);
+            background: #fff;
+            color: var(--bad);
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+            .del:hover {
+                background: #fff1f1
+            }
+
+        canvas {
+            width: 100%;
+            height: 260px;
+            background: #fffdf8;
+            border: 1px solid var(--edge);
+            border-radius: 10px;
+        }
+
+        .balanced {
+            border: 1px dashed #2f7d32;
+            background: #eef7ef
+        }
+
+        /* icon toggles */
+        .iconbar {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-bottom: 8px
+        }
+
+        .iconbtn {
+            width: 38px;
+            height: 38px;
+            display: inline-grid;
+            place-items: center;
+            border-radius: 10px;
+            border: 1px solid var(--edge);
+            background: #fff9e8;
+        }
+
+            .iconbtn:hover {
+                background: #fff3cf
+            }
+
+        .hidden {
+            display: none !important
+        }
+
+        :root {
+            /* height of your top bar + breathing room */
+            --rail-top: 150px;
+        }
+
+        /* the two-column shell must not sabotage sticky */
+        .layout,
+        .wrap,
+        .main-grid {
+            display: grid; /* whatever you already use is fine */
+            align-items: start; /* prevent stretching cells to full height */
+        }
+
+        /* THE FIX: sticky rail */
+        .right-rail {
+            position: sticky;
+            top: var(--rail-top);
+            align-self: start; /* crucial in CSS Grid */
+            height: calc(100vh - var(--rail-top) - 12px);
+            display: grid;
+            grid-auto-rows: max-content; /* cards keep natural height */
+            gap: 12px;
+            overflow: auto; /* own scroll; page scroll doesn’t push it down */
+            padding-right: 6px; /* space for scrollbar so cards don’t jump */
+            overscroll-behavior: contain;
+        }
+
+            /* sticky dies if an ancestor clips overflow: fix that here */
+            .right-rail,
+            .right-rail *:not(textarea) {
+                /* nothing here; just a reminder not to set overflow on ancestors */
+            }
+
+        .right-column,
+        aside.right-rail {
+            overflow: visible; /* ensure ancestors don’t clip */
+        }
+
+        /* optional: print disables sticky */
+        @media print {
+            .right-rail {
+                position: static;
+                height: auto;
+                overflow: visible;
+            }
+        }
+        /* whatever wraps the rail in your grid */
+        .right-col {
+            overflow: visible !important;
+        }
+
+        @media (min-width: 1100px) {
+            .right-rail.force-fixed {
+                position: fixed;
+                right: 18px; /* match your grid gutter */
+                top: var(--rail-top);
+                width: 550px; /* match your right column width */
+                height: calc(100vh - var(--rail-top) - 12px);
+                overflow: auto;
+            }
+        }
+        /* center the delete button cell */
+        #logTable td.td-actions {
+            text-align: center;
+        }
+
+
+    

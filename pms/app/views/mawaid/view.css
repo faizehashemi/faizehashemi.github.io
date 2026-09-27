@@ -1,0 +1,195 @@
+        :root {
+            /* Cream • Gold • Brown */
+            --ink: #25170c; /* darkest brown text */
+            --muted: #5e4a39; /* soft brown */
+            --bg: #f7efe1; /* warm cream */
+            --card: #fffaf1; /* card bg */
+            --border: #dcc7a4; /* light brown border */
+            --gold: #d4af37; /* accent */
+            --shadow: 0 12px 30px rgba(92,64,28,.12);
+            --r: 14px;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: var(--bg) url("../../../assets/pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            color: var(--ink);
+            margin: 0;
+        }
+
+        site-nav {
+            display: block;
+            margin: 12px 12px 0
+        }
+
+        .wrap {
+            max-width: 1750px;
+            margin: 18px auto 36px;
+            padding: 0 12px
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            box-shadow: var(--shadow);
+        }
+
+        header.hero {
+            padding: 14px;
+            background: radial-gradient(120% 160% at 10% 10%, rgba(212,175,55,.12), transparent 60%), var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            box-shadow: var(--shadow);
+            margin-bottom: 12px;
+        }
+
+            header.hero h1 {
+                margin: 0 0 6px;
+                font-size: 20px
+            }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .controls {
+            display: grid;
+            gap: 10px;
+            align-items: end;
+            grid-template-columns: repeat(12,1fr);
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+            gap: 6px
+        }
+
+        .c2 {
+            grid-column: span 1
+        }
+
+        .c3 {
+            grid-column: span 2
+        }
+
+        .c4 {
+            grid-column: span 4
+        }
+
+        label {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        input, select, button {
+            font: inherit;
+            color: var(--ink);
+            background: #fffdf7;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+
+        button {
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+        .btn-gold {
+            background: linear-gradient(0deg, rgba(212,175,55,.15), rgba(212,175,55,.15));
+            border-color: #e7d7a8
+        }
+
+        .summary {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 10px 12px
+        }
+
+        .pill {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 12px;
+            background: #fffaf1;
+            color: var(--muted);
+            font-size: 12px
+        }
+
+        .table-wrap {
+            overflow: auto
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            vertical-align: middle;
+            text-align: center
+        }
+
+        th {
+            background: #f3e6ca;
+            white-space: nowrap;
+            font-weight: 700
+        }
+
+        tfoot td {
+            font-weight: 700;
+            background: #fbf2dc
+        }
+
+        .thal {
+            font-weight: 700
+        }
+        /* bold thal counts */
+        .small {
+            font-size: 12px
+        }
+
+        @media (max-width:900px) {
+            .controls {
+                grid-template-columns: 1fr 1fr
+            }
+
+            .c4, .c3, .c2 {
+                grid-column: span 2
+            }
+        }
+
+        @media print {
+            .controls, .summary, .no-print {
+                display: none !important
+            }
+
+            body {
+                background: #fff
+            }
+
+            .panel {
+                box-shadow: none
+            }
+        }
+    

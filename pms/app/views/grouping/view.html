@@ -1,0 +1,93 @@
+<div class="wrap">
+        <!-- Filters -->
+        <div class="panel no-print">
+            <div class="row">
+                <div>
+                    <label for="dateFrom">Arrivals from (date)</label>
+                    <input id="dateFrom" type="date">
+                </div>
+                <div>
+                    <label for="dateTo">Arrivals to (date)</label>
+                    <input id="dateTo" type="date">
+                </div>
+                <div>
+                    <label for="timeFrom">Time from (optional)</label>
+                    <input id="timeFrom" type="time">
+                </div>
+                <div>
+                    <label for="timeTo">Time to (optional)</label>
+                    <input id="timeTo" type="time">
+                </div>
+                <div>
+                    <label for="building">Building (optional)</label>
+                    <input id="building" type="text" placeholder="exact match or blank">
+                </div>
+                <div class="tools">
+                    <button id="btnSearch" class="primary">Load arrivals</button>
+                    <span class="pill" id="foundInfo">0 found</span>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="grid" id="resultsWrap" style="display:none">
+                <table id="resultsTbl" aria-label="Arrivals">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selAll"></th>
+                            <th>Tour Name</th>
+                            <th>Leader</th>
+                            <th>SH</th>
+                            <th>Check-in</th>
+                            <th>Building</th>
+                            <th>Total</th>
+                            <th>Add</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="list-tools" id="resultsTools" style="display:none">
+                <button id="btnAddSelected">Add selected to assignment</button>
+                <button id="btnBundleSelected" title="Bundle selected arrivals into one slot">Bundle selected</button>
+            </div>
+        </div>
+
+        <!-- Assignment + Stickers -->
+        <div class="two-col">
+            <div class="panel no-print">
+                <div class="row" style="justify-content:space-between;">
+                    <div><strong>Assignment list</strong></div>
+                    <div class="tools">
+                        <button id="btnClearList" class="ghost">Clear</button>
+                    </div>
+                </div>
+                <div class="grid">
+                    <table id="assignTbl" aria-label="Assignment list">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="assignAll"></th>
+                                <th>Tour Name(s)</th>
+                                <th>Leader(s)</th>
+                                <th>Pax limit</th>
+                                <th>Tools</th>
+                            </tr>
+                        </thead>
+                        <tbody><!-- rows --></tbody>
+                    </table>
+                </div>
+
+                <div class="list-tools">
+                    <button id="btnSplit" title="Split one selected slot into two">Split selected</button>
+                    <button id="btnBundleSlots" title="Bundle selected slots into one">Bundle selected</button>
+                    <button id="btnPrint" class="primary">Print stickers (A4 landscape)</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                </div>
+                <div id="stickers" class="printable"><!-- stickers go here --></div>
+            </div>
+        </div>
+    </div>

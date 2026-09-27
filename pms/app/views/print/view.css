@@ -1,0 +1,247 @@
+        :root {
+            --ink: #111;
+            --muted: #555;
+            --border: #111
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f6f6f6;
+            margin: 0;
+            color: var(--ink)
+        }
+
+        .wrap {
+            max-width: 1500px;
+            margin: 18px auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 12px;
+            background: #ffffff
+        }
+
+        h1 {
+            margin: 4px 0 10px;
+            text-align: center;
+            font-size: 18px
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: end;
+            justify-content: space-between;
+            margin-bottom: 10px
+        }
+
+            .controls > div {
+                display: flex;
+                gap: 8px;
+                align-items: center
+            }
+
+        label {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        select, input, button, textarea {
+            font: inherit;
+            border: 1px solid #bbb;
+            border-radius: 8px;
+            padding: 7px 10px;
+            background: #fff
+        }
+
+        textarea {
+            width: 280px;
+            height: 38px;
+            resize: vertical
+        }
+
+        button {
+            cursor: pointer
+        }
+
+            button:hover {
+                background: #f1f1f1
+            }
+
+        .status {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 6px
+        }
+
+        /* Sheet holds two slips (2-up) */
+        .sheet {
+            display: flex;
+            gap: 6mm
+        }
+
+        /* Slip uses theme variables for color */
+        .slip {
+            flex: 1 1 0;
+            border: 1px solid var(--border);
+            padding: 2mm;
+            color: var(--ink)
+        }
+
+        .title {
+            text-align: center;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: .3px;
+            border-bottom: 1px solid var(--border);
+            padding: 1mm 0 1.5mm;
+            margin-bottom: 1.5mm;
+            text-transform: uppercase;
+            color: var(--ink)
+        }
+
+        table.grid {
+            width: 100%;
+            border-collapse: collapse;
+            color: var(--ink)
+        }
+
+            table.grid th, table.grid td {
+                border: 1px solid var(--border);
+                padding: 1.2mm 1.6mm;
+                font-size: 11px;
+                vertical-align: middle
+            }
+
+            table.grid th {
+                font-weight: 700;
+                text-align: left;
+                white-space: nowrap
+            }
+
+        .pair th {
+            width: 28%
+        }
+
+        .pair td[colspan="3"] {
+            width: auto
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        /* Force center alignment in all slip tables */
+        table.grid th, table.grid td, .mini th, .mini td {
+            text-align: center !important
+        }
+
+        .subtables {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2mm;
+            margin-top: 2mm
+        }
+
+        .mini caption {
+            caption-side: top;
+            text-align: left;
+            font-weight: 700;
+            font-size: 11px;
+            margin-bottom: 1mm;
+            color: var(--ink)
+        }
+
+        .mini {
+            width: 100%;
+            border-collapse: collapse;
+            color: var(--ink)
+        }
+
+            .mini th, .mini td {
+                border: 1px solid var(--border);
+                padding: 1.2mm 1.6mm;
+                font-size: 11px
+            }
+
+            .mini th {
+                text-align: left
+            }
+
+        /* Print rules */
+        @page {
+            size: A5 landscape;
+            margin: 6mm
+        }
+
+        @media print {
+            body {
+                background: #fff
+            }
+
+            .wrap, .controls, .status, h1 {
+                display: none !important
+            }
+
+            .printable {
+                display: block !important
+            }
+
+                .printable .sheet {
+                    break-inside: avoid;
+                    page-break-after: always
+                }
+
+                    .printable .sheet:last-child {
+                        page-break-after: auto
+                    }
+        }
+
+        .printable {
+            display: block
+        }
+
+        .note {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 6px
+        }
+
+        /* ==================== THEMES (GL Copy) ==================== */
+        /* When .gl-mode is present on #printArea, any .slip with a theme-* class uses that color */
+        #printArea.gl-mode .theme-mohammedi {
+            --ink: #d35400;
+            --border: #d35400
+        }
+        /* Orange */
+        #printArea.gl-mode .theme-mufaddal {
+            --ink: #e91e63;
+            --border: #e91e63
+        }
+        /* Pink */
+        #printArea.gl-mode .theme-snood {
+            --ink: #000000;
+            --border: #000000
+        }
+        /* Black */
+        #printArea.gl-mode .theme-baha {
+            --ink: #2ecc71;
+            --border: #2ecc71
+        }
+        /* Light Green */
+
+        .gl-note {
+            display: none;
+            font-size: 10px;
+            margin-top: 4px;
+            color: var(--ink)
+        }
+
+        #printArea.gl-mode .gl-note {
+            display: block
+        }
+    

@@ -1,0 +1,53 @@
+<!-- in-page navbar -->
+    <div class="navbar" hidden>
+        <div class="brand">Room Timeline</div>
+
+        <div style="margin-left:auto; display:flex; gap:8px; align-items:center">
+            <span class="badge" id="rangeInfo">—</span>
+            <span class="badge" id="zoomInfo">Zoom 100%</span>
+        </div>
+    </div>
+
+    <!-- top toolbar -->
+    <div class="toolbar" id="toolbar">
+        <div>
+            <label for="building">Building</label>
+            <select id="building"><option value="">Load DB…</option></select>
+        </div>
+        <div>
+            <label for="room">Room</label>
+            <input id="room" list="roomsList" type="text" placeholder="e.g. 505" />
+            <datalist id="roomsList"></datalist>
+        </div>
+        <div>
+            <label for="start">Start</label>
+            <input id="start" type="datetime-local" />
+        </div>
+        <div>
+            <label for="end">End</label>
+            <input id="end" type="datetime-local" />
+        </div>
+        <!-- granularity handle -->
+        <div>
+            <label for="gran">Granularity</label>
+            <select id="gran">
+                <option value="1" selected>1h</option>
+                <option value="2">2h</option>
+                <option value="3">3h</option>
+                <option value="6">6h</option>
+                <option value="12">12h</option>
+                <option value="24">24h</option>
+            </select>
+        </div>
+        <button id="btnEnter" class="primary">Enter</button>
+        <button id="btnNow" type="button" title="Center on now" disabled>Now</button>
+    </div>
+
+    <section class="stage" id="stage">
+        <div class="ghost" id="ghost">Fill the toolbar, then click <b>Enter</b>. Nothing draws until you do.</div>
+        <div class="legend" id="legend">Filled = occupied<br />Empty = vacant</div>
+        <canvas id="timeline"></canvas>
+        <div class="tooltip" id="tooltip"></div>
+    </section>
+
+    <div id="dbHint" class="ghost" style="padding:8px 0 0 0; text-align:left"></div>

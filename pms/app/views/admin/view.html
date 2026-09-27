@@ -1,0 +1,75 @@
+<div class="wrap">
+        <h1>Slip Admin — Delete & Backup</h1>
+
+        <div class="controls">
+            <div>
+                <label for="q">Search (tour / leader / building / SH)</label>
+                <input id="q" type="text" placeholder="type to filter…">
+            </div>
+            <div>
+                <label for="roomq">Search by room</label>
+                <input id="roomq" type="text" placeholder="e.g., 501 or 12A">
+            </div>
+            <div>
+                <label for="bld">Building</label>
+                <select id="bld"></select>
+            </div>
+            <div>
+                <label for="from">Created from</label>
+                <input id="from" type="date">
+            </div>
+            <div>
+                <label for="to">Created to</label>
+                <input id="to" type="date">
+            </div>
+            <div>
+                <button id="btnRefresh">Refresh</button>
+            </div>
+            <div>
+                <button id="btnExport">Export JSON</button>
+            </div>
+            <div>
+                <input id="fileImport" type="file" accept="application/json" style="display:none">
+                <button id="btnImport">Import JSON</button>
+            </div>
+            <div>
+                <button id="btnPrint">Print List</button>
+            </div>
+        </div>
+
+        <div class="split">
+            <div>
+                <table id="tbl">
+                    <thead>
+                        <tr>
+                            <th style="width:34px;"><input type="checkbox" id="chkAll"></th>
+                            <th style="width:70px;">ID</th>
+                            <th>Tour</th>
+                            <th>Leader</th>
+                            <th>Building</th>
+                            <th>SH</th>
+                            <th>Check-in</th>
+                            <th>Check-out</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+
+                <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <button id="btnDeleteSel" class="danger">Delete selected</button>
+                    <button id="btnDeleteAll" class="danger">Delete ALL</button>
+                    <span class="muted" id="count"></span>
+                </div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <h3 style="margin:0 0 8px;">Preview</h3>
+                    <div id="preview" class="muted">Select a row to preview its details. I’ll wait.</div>
+                </div>
+            </div>
+        </div>
+
+        <p class="muted" id="status"></p>
+    </div>

@@ -1,0 +1,119 @@
+<div class="wrap">
+        <header class="hero">
+            <h1>Check‑ins & Check‑outs</h1>
+            <div class="pill" id="status" hidden>Loading…</div>
+        </header>
+
+        <div class="controls">
+            <div><label for="dateFrom">From date</label><input id="dateFrom" type="date"></div>
+            <div><label for="timeFrom">From time</label><input id="timeFrom" type="time"></div>
+            <div><label for="dateTo">To date</label><input id="dateTo" type="date"></div>
+            <div><label for="timeTo">To time</label><input id="timeTo" type="time"></div>
+            <div>
+                <label for="building">Building</label>
+                <select id="building">
+                    <option value="">All buildings</option>
+                    <!-- options come from the site config -->
+                </select>
+            </div>
+            <div style="display:flex;gap:8px;align-items:end"><button id="btnRun">Submit</button><button id="btnRefresh" >Refresh DB</button></div>
+        </div>
+
+        <!-- Column chooser (applies to BOTH tables). Default unchecked for As., G, L, C, I -->
+        <div class="col-chooser" id="colChooser">
+            <span class="pill">Columns: only checked are shown</span>
+            <div class="group">
+                <label><input type="checkbox" data-col="as"> As.</label>
+                <label><input type="checkbox" data-col="g"> G</label>
+                <label><input type="checkbox" data-col="l"> L</label>
+                <label><input type="checkbox" data-col="c"> C</label>
+                <label><input type="checkbox" data-col="i"> I</label>
+            </div>
+        </div>
+
+        <!-- IN -->
+        <div class="panel" id="panelIn">
+            <h3>
+                <span>Check‑ins</span>
+                <span class="toolbar">
+                    <span class="pill" id="sumIn">0 slips • 0 guests</span>
+                    <div class="table-controls" id="ctrlIn">
+                        <label>Text <input type="range" min="10" max="18" value="13" data-bind="font"></label>
+                        <label>Rows <input type="range" min="4" max="12" value="6" data-bind="pad"></label>
+                        <label>Min‑W <input type="range" min="520" max="1200" value="720" data-bind="minw"></label>
+                        <button id="toggleIn" type="button">Compact</button>
+                        <button id="csvIn" type="button">CSV</button>
+                        <button id="printIn" type="button">Print</button>
+                    </div>
+                </span>
+            </h3>
+            <div class="table-wrap" id="wrapIn">
+                <table id="tblIn" class="table-inner">
+                    <!-- IN table thead -->
+                    <thead>
+                        <tr>
+                            <th class="nowrap" data-col="cin">Check-in</th>
+                            <th data-col="sh">SH No</th>
+                            <th data-col="lug">Luggage at</th> <!-- NEW -->
+                            <th data-col="group">Group</th>
+                            <th data-col="leader">Leader</th>
+                            <th data-col="bld">Building</th>
+                            <th data-col="rooms">Rooms</th>
+                            <th data-col="as">As.</th>
+                            <th data-col="t">T</th>
+                            <th data-col="g">G</th>
+                            <th data-col="l">L</th>
+                            <th data-col="c">C</th>
+                            <th data-col="i">I</th>
+                            <th class="nowrap" data-col="cout">Check-out</th>
+                        </tr>
+                    </thead>
+
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- OUT -->
+        <div class="panel" id="panelOut">
+            <h3>
+                <span>Check‑outs</span>
+                <span class="toolbar">
+                    <span class="pill" id="sumOut">0 slips • 0 guests</span>
+                    <div class="table-controls" id="ctrlOut">
+                        <label>Text <input type="range" min="10" max="18" value="13" data-bind="font"></label>
+                        <label>Rows <input type="range" min="4" max="12" value="6" data-bind="pad"></label>
+                        <label>Min‑W <input type="range" min="520" max="1200" value="720" data-bind="minw"></label>
+                        <button id="toggleOut" type="button">Compact</button>
+                        <button id="csvOut" type="button">CSV</button>
+                        <button id="printOut" type="button">Print</button>
+                    </div>
+                </span>
+            </h3>
+            <div class="table-wrap" id="wrapOut">
+                <table id="tblOut" class="table-inner">
+                    <!-- OUT table thead -->
+                    <thead>
+                        <tr>
+                            <th class="nowrap" data-col="cout">Check-out</th>
+                            <th data-col="sh">SH No</th>
+                            <th data-col="lug">Luggage at</th> <!-- NEW -->
+                            <th data-col="group">Group</th>
+                            <th data-col="leader">Leader</th>
+                            <th data-col="bld">Building</th>
+                            <th data-col="rooms">Rooms</th>
+                            <th data-col="as">As.</th>
+                            <th data-col="t">T</th>
+                            <th data-col="g">G</th>
+                            <th data-col="l">L</th>
+                            <th data-col="c">C</th>
+                            <th data-col="i">I</th>
+                            <th class="nowrap" data-col="cin">Check-in</th>
+                        </tr>
+                    </thead>
+
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>

@@ -1,0 +1,313 @@
+        :root {
+            /* Cream • Gold • Brown */
+            --ink: #2b1e15; /* text */
+            --muted: #6b5e4a; /* secondary */
+            --card: #fffaf1; /* panels */
+            --border: #dcc7a4; /* lines */
+            --hdrBg: #f3e6ca; /* headers */
+            --gold: #d4af37; /* accent */
+
+            --vacant: #fffdf5; /* cell vacant */
+            --occupied: #e8c765; /* cell occupied */
+            --warn: #F7C131; /* under-assigned bg */
+            --warnText: #663300;
+            --cellW: 60px;
+            --cellH: 45px;
+            --fs: 24px;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            background: #f7efe1 url("../../../assets/pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+            margin: 15px;
+            color: var(--ink);
+        }
+
+        .wrap {
+            height: calc(100vh - 58px);
+            display: flex;
+            flex-direction: column
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            background: var(--card);
+        }
+
+            .toolbar .group {
+                display: flex;
+                gap: 8px;
+                align-items: end;
+                flex-wrap: wrap
+            }
+
+        label.small {
+            font-size: 12px;
+            color: var(--muted);
+            display: block
+        }
+
+        input, select, button {
+            font: inherit;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 6px 10px;
+            background: #fffdf7;
+            color: var(--ink);
+        }
+
+        button {
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease
+        }
+
+            button:hover {
+                background: #fff6dd
+            }
+
+            button:active {
+                transform: translateY(1px)
+            }
+
+            button.primary {
+                border-color: #f3d984;
+                background: linear-gradient(0deg, color-mix(in oklab, var(--gold) 16%, transparent), color-mix(in oklab, var(--gold) 16%, transparent));
+            }
+
+        .spacer {
+            flex: 1 1 auto
+        }
+
+        .tabs {
+            display: flex;
+            gap: 6px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            background: var(--card);
+        }
+
+        .tab {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fffdf5;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+
+            .tab:hover {
+                background: #fff6dd
+            }
+
+            .tab[aria-selected="true"] {
+                background: var(--gold);
+                border-color: var(--gold);
+                color: #2b1e15;
+                font-weight: 700;
+            }
+
+        .stage {
+            flex: 1 1 auto;
+            min-height: 0;
+            background: var(--card)
+        }
+
+        .matrix-wrap {
+            height: 100%;
+            width: 100%;
+            overflow: auto
+        }
+
+        .matrix {
+            display: grid;
+            border-top: 1px solid var(--border);
+            border-left: 1px solid var(--border);
+            background: #fff;
+        }
+
+        .hcell, .rcell, .cell {
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .hcell {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--hdrBg);
+            text-align: center;
+            font-weight: 800;
+            padding: 6px;
+            font-size: calc(var(--fs) + 1px);
+            color: var(--ink);
+        }
+
+        .rcell {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background: var(--hdrBg);
+            font-weight: 800;
+            padding: 6px;
+            text-align: center;
+            font-size: calc(var(--fs) + 1px);
+            color: var(--ink);
+        }
+
+        .corner {
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 3;
+            background: var(--hdrBg)
+        }
+
+        .cell {
+            width: var(--cellW);
+            height: var(--cellH);
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            align-items: center;
+            justify-items: center;
+            padding: 6px;
+            font-size: var(--fs);
+            background: var(--vacant);
+            color: var(--ink);
+        }
+
+            .cell .cap {
+                font-weight: 700
+            }
+
+            .cell .meta {
+                font-size: calc(var(--fs) - 1px);
+                text-align: center;
+                line-height: 1.1;
+                color: var(--muted)
+            }
+
+            .cell.occ {
+                background: var(--occupied);
+                color: #2b1e15
+            }
+
+            .cell.under {
+                background: var(--warn) !important;
+                color: var(--warnText) !important
+            }
+
+                .cell.under .cap {
+                    color: var(--warnText) !important
+                }
+
+        .legend {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--muted);
+            background: var(--card);
+            border-top: 1px solid var(--border)
+        }
+
+        .sizebar {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .sizegrp {
+            display: flex;
+            gap: 6px;
+            align-items: center
+        }
+
+            .sizegrp input[type="range"] {
+                width: 160px
+            }
+
+        .iconbtn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff0;
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease;
+        }
+
+            .iconbtn:hover {
+                background: #fff3cf
+            }
+
+            .iconbtn:active {
+                transform: translateY(1px)
+            }
+
+        /* Print the grid with exact colors and layout */
+        @media print {
+            body {
+                margin: 0
+            }
+
+                body * {
+                    visibility: hidden !important
+                }
+
+            .print-scope, .print-scope * {
+                visibility: visible !important
+            }
+
+            .print-scope {
+                position: static !important;
+                inset: auto !important;
+                margin: 0 !important;
+                padding: 0 !important
+            }
+
+                .print-scope .matrix-wrap {
+                    height: auto !important;
+                    overflow: visible !important
+                }
+
+                .print-scope .hcell, .print-scope .rcell, .print-scope .corner {
+                    position: static !important;
+                    top: auto !important;
+                    left: auto !important;
+                    z-index: auto !important
+                }
+
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important
+            }
+
+            .print-scope .matrix, .print-scope .hcell, .print-scope .rcell, .print-scope .cell {
+                background: inherit;
+                border-color: inherit;
+                box-shadow: none !important;
+            }
+
+            .print-scope, .print-scope .matrix, .print-scope .row, .print-scope .cell {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+
+            @page {
+                size: auto;
+                margin: 8mm
+            }
+        }
+    

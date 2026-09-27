@@ -1,0 +1,99 @@
+<div class="wrap">
+        <h1>Vacancy Forecast</h1>
+
+        <div class="controls">
+            <div>
+                <label for="when_date">Date</label>
+                <input type="date" id="when_date">
+            </div>
+            <div>
+                <label for="when_time">Time</label>
+                <input type="time" id="when_time">
+            </div>
+            <div>
+                <label for="building">Building</label>
+                <select id="building"></select>
+            </div>
+            <div>
+                <label for="inventory_mode">Room inventory</label>
+                <select id="inventory_mode">
+                    <option value="infer">Infer from DB</option>
+                    <option value="manual">Manual list</option>
+                </select>
+            </div>
+            <div>
+                <label for="inventory_text">Manual room list (comma or newline separated)</label>
+                <textarea id="inventory_text" placeholder="e.g. 501, 502, 503&#10;510&#10;516"></textarea>
+            </div>
+            <div>
+                <button id="btnRun">Run Forecast</button>
+                <button id="btnRefresh">Refresh DB</button>
+                <button id="btnPrint">Print</button>
+            </div>
+        </div>
+
+        <div class="summary">
+            <div class="pill">Inventory rooms: <b id="sum_total">0</b></div>
+            <div class="pill">Occupied rooms: <b id="sum_occ">0</b></div>
+            <div class="pill">Vacant rooms: <b id="sum_free">0</b></div>
+            <div class="pill">Known occupied capacity (eff.): <b id="sum_occ_cap">0</b></div>
+            <div class="pill">Known free capacity: <b id="sum_free_cap">0</b></div>
+            <div class="pill">Under-assigned rooms: <b id="sum_under">0</b></div>
+            <div class="pill">Headcount now: <b id="sum_head">0</b> <span class="muted" id="sum_head_break"></span></div>
+        </div>
+
+        <div class="two">
+            <div>
+                <h3 style="margin:8px 0 6px;">Occupied at selected time</h3>
+                <table id="tblOcc">
+                    <thead>
+                        <tr>
+                            <th>Room</th>
+                            <th>Group</th>
+                            <th>Leader</th>
+                            <th>Gender</th>
+                            <th class="right">Cap (eff.)</th>
+                            <th>Window</th>
+                            <th>Building</th>
+                            <th>SH No.</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div>
+                <h3 style="margin:8px 0 6px;">Vacant at selected time</h3>
+                <table id="tblFree">
+                    <thead>
+                        <tr>
+                            <th>Room</th>
+                            <th class="right">Cap (eff.)</th>
+                            <th class="muted">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="margin-top:16px">
+            <h3 style="margin:8px 0 6px;">Capacity deviations (Assigned vs Capacity)</h3>
+            <table id="tblUnder">
+                <thead>
+                    <tr>
+                        <th>Building</th>
+                        <th>Room</th>
+                        <th class="right">Assigned</th>
+                        <th class="right">Capacity</th>
+                        <th class="right">Δ (A−C)</th>
+                        <th class="muted">Note</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p class="muted" style="margin:6px 0 0">Snapshot at the selected date/time. Only rooms where assigned differs from capacity are listed.</p>
+        </div>
+
+        <p class="muted" id="status"></p>
+    </div>

@@ -1,0 +1,14 @@
+# Only needed if you deploy from the command line (npx wrangler deploy).
+# Dashboard-only setup: see README.md in this folder.
+name = "pms-api"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Sites allowed to call the API (localhost is always allowed, for testing)
+ALLOWED_ORIGINS = "https://faizehashemi.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pms"
+database_id = "REPLACE-WITH-THE-ID-FROM-wrangler-d1-create"

@@ -1,0 +1,22 @@
+<main class="login">
+    <form class="card" id="loginForm" autocomplete="on">
+        <img src="assets/logo.png" alt="" class="logo">
+        <h1>Faiz E Hashemi <span>PMS</span></h1>
+        <p class="muted">Log in with your desk's name and password.</p>
+
+        <label for="deskName">Desk</label>
+        <input id="deskName" name="username" autocomplete="username" required placeholder="e.g. Makkah Desk 1">
+
+        <label for="deskPass">Password</label>
+        <input id="deskPass" name="password" type="password" autocomplete="current-password" required>
+
+        <button type="submit" id="btnLogin">Log in</button>
+        <p class="error" id="err" role="alert"></p>
+
+        <details class="server">
+            <summary>Server</summary>
+            <input id="apiUrl" type="url" placeholder="https://pms-api….workers.dev">
+            <p class="muted small">Only change this if the admin tells you to. Empty = the default in pms/app/config.js.</p>
+        </details>
+    </form>
+</main>

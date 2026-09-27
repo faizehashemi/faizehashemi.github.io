@@ -1,0 +1,58 @@
+<div class="wrap">
+    <h1>Setup</h1>
+
+    <section class="card">
+        <h3>This desk</h3>
+        <dl class="kv" id="me"></dl>
+        <div class="actions">
+            <button id="btnSync" type="button">Sync now</button>
+            <span class="muted" id="syncMsg"></span>
+        </div>
+    </section>
+
+    <section class="card" id="migrateCard" hidden>
+        <h3>Move this browser's old data to the cloud</h3>
+        <p class="muted">Slips saved on this computer before the cloud switch are still in this browser. Upload them once;
+            uploading again never creates duplicates. The local copy stays in this browser as a backup.</p>
+        <div class="pills" id="legacyPills"></div>
+        <label class="check" id="noBldRow" hidden><input type="checkbox" id="includeNoBld" checked>
+            <span>Also upload the <b id="noBldCount"></b> slip(s) with no building, as <b id="noBldSite"></b> slips</span></label>
+        <div class="actions">
+            <button id="btnMigrate" class="primary" type="button">Upload</button>
+            <span class="muted" id="migrateMsg"></span>
+        </div>
+    </section>
+
+    <section class="card" id="desksCard" hidden>
+        <h3>Desk logins</h3>
+        <div class="table-wrap">
+            <table id="desksTbl">
+                <thead><tr><th>Desk</th><th>Site</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <h4>Add a desk</h4>
+        <form class="newdesk" id="newDesk">
+            <input id="ndName" placeholder="Desk name, e.g. Makkah Desk 2" required>
+            <select id="ndSite"></select>
+            <select id="ndRole">
+                <option value="desk">desk — edits its own site</option>
+                <option value="viewer">viewer — read only</option>
+                <option value="admin">admin — everything</option>
+            </select>
+            <input id="ndPass" type="text" placeholder="Password (8+ characters)" minlength="8" required autocomplete="off">
+            <button type="submit" class="primary">Add</button>
+        </form>
+        <p class="muted small" id="deskMsg"></p>
+    </section>
+
+    <section class="card" id="auditCard" hidden>
+        <h3>Recent changes</h3>
+        <div class="table-wrap">
+            <table id="auditTbl">
+                <thead><tr><th>When</th><th>Desk</th><th>Action</th><th>Slip</th><th>Detail</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+</div>

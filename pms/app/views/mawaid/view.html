@@ -1,0 +1,110 @@
+<div class="wrap">
+        <header class="hero panel">
+            <h1>Mawaid Stats (Building wise)</h1>
+            <div class="summary">
+                <span class="pill">Date: <b id="pillDate">—</b></span>
+                <span class="pill">Breakfast: <b id="pillB">—</b></span>
+                <span class="pill">Lunch: <b id="pillL">—</b></span>
+                <span class="pill">Dinner: <b id="pillD">—</b></span>
+                <span class="pill">Thal size: <b id="pillThal">8</b></span>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="controls">
+                <div class="col c3">
+                    <label for="statDate">Select date</label>
+                    <input id="statDate" type="date" />
+                </div>
+
+                <!-- Breakfast range -->
+                <div class="col c2">
+                    <label for="timeBStart">Breakfast start</label>
+                    <input id="timeBStart" type="time" value="04:00" />
+                </div>
+                <div class="col c2">
+                    <label for="timeBEnd">Breakfast end</label>
+                    <input id="timeBEnd" type="time" value="09:30" />
+                </div>
+
+                <!-- Lunch range -->
+                <div class="col c2">
+                    <label for="timeLStart">Lunch start</label>
+                    <input id="timeLStart" type="time" value="11:00" />
+                </div>
+                <div class="col c2">
+                    <label for="timeLEnd">Lunch end</label>
+                    <input id="timeLEnd" type="time" value="16:00" />
+                </div>
+
+                <!-- Dinner range -->
+                <div class="col c2">
+                    <label for="timeDStart">Dinner start</label>
+                    <input id="timeDStart" type="time" value="18:00" />
+                </div>
+                <div class="col c2">
+                    <label for="timeDEnd">Dinner end</label>
+                    <input id="timeDEnd" type="time" value="23:00" />
+                </div>
+
+                <div class="col c2">
+                    <label for="thalSize">Thal size</label>
+                    <input id="thalSize" type="number" min="1" step="1" value="8" />
+                </div>
+
+                <!-- Inclusion toggles (affect total Pax only) -->
+                <div class="col c4">
+                    <label>Include in Pax totals</label>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                        <label class="small"><input id="incAdults" type="checkbox" checked /> Adults</label>
+                        <label class="small"><input id="incChildren" type="checkbox" checked /> Children</label>
+                        <label class="small"><input id="incInfants" type="checkbox" checked /> Infants</label>
+                    </div>
+                </div>
+
+                <!-- Visibility toggles (default ON) -->
+                <div class="col c4">
+                    <label>Show breakdown columns</label>
+                    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                        <label class="small"><input id="showG" type="checkbox" checked /> Gents</label>
+                        <label class="small"><input id="showL" type="checkbox" checked /> Ladies</label>
+                        <label class="small"><input id="showC" type="checkbox" checked /> Children</label>
+                        <label class="small"><input id="showI" type="checkbox" checked /> Infants</label>
+                    </div>
+                </div>
+
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnRefresh" class="btn-gold no-print">Refresh DB</button>
+                </div>
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnRun" class="no-print">Run</button>
+                </div>
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnPrint" class="no-print">Print</button>
+                </div>
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnCSV" class="no-print">Export CSV</button>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table id="tbl">
+                    <thead></thead>
+                    <tbody></tbody>
+                    <tfoot></tfoot>
+                </table>
+            </div>
+
+            <div class="small muted" style="padding:10px 12px">
+                A guest is counted for a meal if their stay overlaps the meal window
+                (<code>[check-in, checkout)</code> overlaps <code>[start, end)</code>).
+                Thals = <code>ceil(pax / thalSize)</code>. Breakdown columns reflect raw categories.
+            </div>
+        </section>
+
+        <p id="status" class="muted" style="margin-top:10px"></p>
+    </div>

@@ -1,0 +1,61 @@
+<h1>Fakkul Ehraam Groups — PDF / DOCX</h1>
+
+    <div class="row">
+        <div><label for="dateFrom">Arrivals from</label><input id="dateFrom" type="date"></div>
+        <div><label for="dateTo">Arrivals to</label><input id="dateTo" type="date"></div>
+        <div><label for="timeFrom">Time from</label><input id="timeFrom" type="time"></div>
+        <div><label for="timeTo">Time to</label><input id="timeTo" type="time"></div>
+        <div><label for="building">Building</label><input id="building" type="text" placeholder="exact match or blank"></div>
+        <div class="tools">
+            <button id="btnSearch" class="primary">Load arrivals</button>
+            <span class="pill" id="foundInfo">0 found</span>
+        </div>
+    </div>
+
+    <div id="resultsWrap" style="display:none">
+        <table id="resultsTbl" aria-label="Arrivals">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selAll"></th>
+                    <th>Tour Name</th>
+                    <th>Leader</th>
+                    <th>SH</th>
+                    <th>Check-in</th>
+                    <th>Building</th>
+                    <th>Total</th>
+                    <th>Add</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="tools" id="resultsTools" style="display:none">
+            <button id="btnAddSelected">Add selected</button>
+            <button id="btnBundleSelected">Bundle selected</button>
+        </div>
+    </div>
+
+    <div class="tools" style="margin-top:14px">
+        <button id="btnBundleSlots">Bundle selected from list</button>
+        <button id="btnClearList">Clear</button>
+        <button id="btnPdf" class="primary">Download PDF</button>
+        <button id="btnDocx" class="primary">Download DOCX</button>
+        <span class="pill" id="statAssign">0 slots</span>
+    </div>
+
+    <table id="assignTbl" aria-label="Assignment list" style="margin-top:8px">
+        <colgroup>
+            <col style="width:44px" />
+            <col />
+            <col style="width:120px" />
+            <col style="width:160px" />
+        </colgroup>
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="assignAll"></th>
+                <th>Tour & Leader</th>
+                <th>Pax limit</th>
+                <th>Tools</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
