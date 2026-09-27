@@ -1,231 +1,303 @@
-// <site-nav> — shared top bar. Same look and Alt+1..0 hotkeys as the old per-folder nav,
-// plus a site switcher and a data-source toggle. The router calls setRoute() on every navigation.
+// <site-nav> — the app's navigation.
+//   Laptop (> 900px): one bar — brand · category menus · site switch · desk menu · sync status.
+//   Phone/tablet (≤ 900px): compact bar with ☰; the menu opens as a side drawer.
+// Categories and pages come from NAV / VIEWS in config.js. Alt+<key> shortcuts are kept.
+// API used by the shell: setRoute(siteId, viewId, desk), setBadge(text, warn);
+// events: 'site-change' (detail = siteId), 'logout'.
 
-import { SITES, VIEWS } from '../config.js';
+import { SITES, VIEWS, NAV } from '../config.js';
 
-const NAV_VIEWS = VIEWS.filter(v => !v.hidden);
+const viewById = Object.fromEntries(VIEWS.map(v => [v.id, v]));
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function menuItems(cat) {
+    return cat.views.map(id => viewById[id]).filter(Boolean).map(v => `
+        <a class="mi" role="menuitem" data-view="${v.id}" href="#">
+            <span class="mi-l">${esc(v.label)}${v.key ? `<kbd>Alt ${v.key}</kbd>` : ''}</span>
+            <span class="mi-h">${esc(v.hint || '')}</span>
+        </a>`).join('');
+}
 
 class SiteNav extends HTMLElement {
     constructor() {
         super();
         const r = this.attachShadow({ mode: 'open' });
+        const sites = Object.values(SITES).map(s => `<button type="button" data-site="${s.id}">${esc(s.label)}</button>`).join('');
         r.innerHTML = `
-      <nav class="rk-nav" role="navigation" aria-label="Primary">
-        <div class="bar">
-          <a class="brand" href="#" aria-label="Home">
-            <span class="b1">Faiz E Hashemi</span><span class="b2"></span>
-          </a>
-          <div class="links" role="menubar">
-            ${NAV_VIEWS.map(v => `
-              <a class="item" role="menuitem" data-view="${v.id}" href="#">
-                <span class="t">${v.label}</span>
-              </a>`).join('')}
-            <span class="hoverline" aria-hidden="true"></span>
-          </div>
-          <div class="ctx">
-            <div class="seg" role="group" aria-label="Site">
-              ${Object.values(SITES).map(s => `<button type="button" data-site="${s.id}">${s.label}</button>`).join('')}
+      <header class="bar" role="navigation" aria-label="Main">
+        <button type="button" class="burger" id="burger" aria-label="Open menu" aria-controls="drawer" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <a class="brand" href="#" id="brand"><span class="b1">Faiz E Hashemi</span><span class="b2"></span></a>
+        <span class="here" id="here"></span>
+
+        <nav class="cats" id="cats">
+          ${NAV.map(c => c.views.length === 1
+            ? `<a class="cat solo" data-cat="${c.id}" data-view="${c.views[0]}" href="#">${esc(c.label)}</a>`
+            : `<div class="dd" data-cat="${c.id}">
+                 <button type="button" class="cat" aria-haspopup="true" aria-expanded="false">${esc(c.label)}<i class="caret"></i></button>
+                 <div class="menu" role="menu">${menuItems(c)}</div>
+               </div>`).join('')}
+        </nav>
+
+        <div class="tools">
+          <div class="seg" role="group" aria-label="Site">${sites}</div>
+          <div class="dd desk-dd">
+            <button type="button" class="desk" id="deskBtn" aria-haspopup="true" aria-expanded="false"><span id="deskName"></span><i class="caret"></i></button>
+            <div class="menu right" role="menu">
+              <div class="mi static" id="deskInfo"></div>
+              <a class="mi" role="menuitem" data-view="setup" href="#"><span class="mi-l">Setup</span><span class="mi-h">This desk, sync, desk logins</span></a>
+              <button type="button" class="mi logout" role="menuitem" data-logout><span class="mi-l">Log out</span><span class="mi-h">Removes this computer's copy of the data</span></button>
             </div>
-            <span class="desk" id="desk"></span>
-            <button type="button" class="logout" id="logout">Log out</button>
-            <span class="badge" id="badge"></span>
           </div>
+          <span class="sync" id="sync" title=""><i></i><span id="syncText"></span></span>
         </div>
         <div class="progress" aria-hidden="true"></div>
-      </nav>
+      </header>
+
+      <div class="backdrop" id="backdrop" hidden></div>
+      <aside class="drawer" id="drawer" aria-label="Menu" aria-hidden="true">
+        <div class="dr-head">
+          <a class="brand" href="#" id="drBrand"><span class="b1">Faiz E Hashemi</span><span class="b2"></span></a>
+          <button type="button" class="close" id="drClose" aria-label="Close menu">✕</button>
+        </div>
+        <div class="dr-site"><div class="seg" role="group" aria-label="Site">${sites}</div></div>
+        <div class="dr-body">
+          ${NAV.map(c => `<section class="dr-sec"><h4>${esc(c.label)}</h4>${menuItems(c)}</section>`).join('')}
+        </div>
+        <div class="dr-foot">
+          <div class="dr-desk" id="drDesk"></div>
+          <div class="dr-sync" id="drSync"></div>
+          <button type="button" class="dr-logout" data-logout>Log out</button>
+        </div>
+      </aside>
+
       <style>
         :host{
-          --gold: #e6b422;
-          --gold-soft: #f3d984;
-          --ink: #0b1220;
-          --glass: rgba(255,255,255,.96);
-          --edge: rgba(230,180,34,.28);
-          --shadow: 0 10px 26px rgba(10,20,30,.10);
-          display:block;
-          position: sticky; top: 0; z-index: 1000;
+          --gold:#d4af37; --gold-2:#e6b422; --gold-soft:#f3d984; --ink:#1f160f; --muted:#6b5e4a;
+          --edge:#e8dcc4; --panel:#fffdf8; --shadow:0 10px 30px rgba(60,40,10,.12);
+          display:block; position:sticky; top:0; z-index:1000;
+          font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--ink);
         }
-        :host([hidden]){ display: none }
-        .rk-nav{
-          position: relative;
-          background: linear-gradient(145deg, var(--edge), transparent 60%), var(--glass);
-          -webkit-backdrop-filter: blur(8px) saturate(120%);
-          backdrop-filter: blur(8px) saturate(120%);
-          box-shadow: var(--shadow);
-          border-bottom: 1px solid #e9eef4;
-          font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-        }
+        :host([hidden]){ display:none }
+        *{ box-sizing:border-box }
+        a{ color:inherit; text-decoration:none }
+        button{ font:inherit; color:inherit; cursor:pointer }
+        kbd{ font:10px/1 ui-monospace,Consolas,monospace; color:var(--muted); border:1px solid var(--edge); border-radius:4px; padding:2px 4px; margin-left:8px; background:#fff }
+
         .bar{
-          max-width: 1400px; margin: 0 auto; padding: 10px 14px;
-          display: grid; grid-template-columns: max-content 1fr max-content;
-          align-items: center; gap: 12px;
+          position:relative; display:flex; align-items:center; gap:14px;
+          padding:8px 18px; min-height:56px;
+          background:linear-gradient(180deg,#fffefa,#fff9ec); border-bottom:1px solid var(--edge); box-shadow:var(--shadow);
         }
-        .brand{
-          display: inline-grid; grid-auto-flow: column; gap: 6px;
-          text-decoration: none; color: var(--ink);
-          font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
-          font-size: 15px; position: relative; white-space: nowrap; justify-self: start;
+        .brand{ display:inline-flex; gap:6px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; font-size:14px; white-space:nowrap }
+        .brand .b2{ color:var(--gold) }
+        .burger, .here{ display:none }
+
+        .cats{ display:flex; align-items:center; gap:2px; margin-left:8px }
+        .cat{
+          display:inline-flex; align-items:center; gap:6px; border:0; background:none;
+          padding:8px 12px; border-radius:10px; font-weight:650; font-size:13.5px; white-space:nowrap;
         }
-        .brand .b2{ color: var(--gold) }
-        .brand::after{
-          content:""; position:absolute; left:-6px; right:-6px; bottom:-6px; height:2px;
-          background: linear-gradient(90deg, transparent, var(--gold), transparent);
-          transform: scaleX(0); transform-origin: 0 50%;
-          transition: transform .45s cubic-bezier(.2,.8,.2,1);
+        .cat:hover, .dd.open > .cat{ background:#fbf1d8 }
+        .cat.active, .dd.active > .cat{ color:#8a6512; box-shadow:inset 0 -2px 0 var(--gold) }
+        .caret{ width:6px; height:6px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg) translateY(-2px); opacity:.6 }
+
+        .dd{ position:relative }
+        .menu{
+          position:absolute; top:calc(100% + 6px); left:0; min-width:270px; padding:6px;
+          background:var(--panel); border:1px solid var(--edge); border-radius:12px; box-shadow:0 18px 40px rgba(60,40,10,.18);
+          display:none; z-index:10;
         }
-        .brand:hover::after{ transform: scaleX(1) }
-        .links{ justify-self: end; position: relative; display:flex; flex-wrap:wrap; gap: 2px 10px }
-        .item{
-          position: relative; display:inline-flex; align-items:center;
-          padding: 8px 10px; border-radius: 10px;
-          color: var(--ink); text-decoration: none;
-          text-transform: uppercase; letter-spacing: .11em; font-weight: 700; font-size: 12px;
-          transition: transform .25s cubic-bezier(.2,.8,.2,1), color .2s ease;
-          outline: none;
+        .menu.right{ left:auto; right:0 }
+        .dd.open > .menu{ display:grid; gap:2px }
+        .mi{ display:grid; gap:1px; padding:8px 10px; border-radius:8px; border:0; background:none; text-align:left; width:100% }
+        .mi:hover, .mi:focus-visible{ background:#fbf1d8; outline:none }
+        .mi[aria-current="page"]{ background:#f6e7bf }
+        .mi-l{ font-weight:650; display:flex; align-items:center; justify-content:space-between }
+        .mi-h{ font-size:12px; color:var(--muted) }
+        .mi.static{ cursor:default; border-bottom:1px solid var(--edge); border-radius:8px 8px 0 0; margin-bottom:4px }
+        .mi.static:hover{ background:none }
+        .logout .mi-l{ color:#a12a2a }
+
+        .tools{ margin-left:auto; display:flex; align-items:center; gap:10px }
+        .seg{ display:inline-flex; border:1px solid var(--gold); border-radius:999px; overflow:hidden; flex:none }
+        .seg button{ border:0; background:transparent; padding:5px 12px; font-size:12.5px; font-weight:700; color:#7a5b13 }
+        .seg button + button{ border-left:1px solid var(--gold) }
+        .seg button[aria-pressed="true"]{ background:var(--gold); color:#fff }
+        .desk{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--edge); background:#fff; border-radius:999px; padding:5px 12px; font-size:12.5px; font-weight:650; white-space:nowrap; max-width:220px }
+        .desk #deskName{ overflow:hidden; text-overflow:ellipsis }
+        .desk:hover, .desk-dd.open .desk{ background:#fbf1d8 }
+        .sync{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); white-space:nowrap }
+        .sync i{ width:8px; height:8px; border-radius:50%; background:#2f9e44; box-shadow:0 0 0 3px rgba(47,158,68,.15) }
+        .sync.warn{ color:#a12a2a; font-weight:650 }
+        .sync.warn i{ background:#d9480f; box-shadow:0 0 0 3px rgba(217,72,15,.18) }
+
+        .progress{ position:absolute; left:0; bottom:-1px; height:2px; width:0; background:linear-gradient(90deg,#ffe9a6,var(--gold),#b88900); transition:width .1s linear }
+
+        /* drawer (phones) */
+        .backdrop{ position:fixed; inset:0; background:rgba(20,14,8,.45); z-index:1001; opacity:0; transition:opacity .2s }
+        .backdrop.show{ opacity:1 }
+        .drawer{
+          position:fixed; top:0; bottom:0; left:0; width:min(320px, 86vw); z-index:1002;
+          background:var(--panel); box-shadow:10px 0 40px rgba(20,14,8,.25);
+          display:flex; flex-direction:column; transform:translateX(-105%); transition:transform .25s cubic-bezier(.2,.8,.2,1);
+          visibility:hidden;
         }
-        .item:hover{ transform: translateY(-1px) }
-        .item[aria-current="page"]{ color: var(--gold) }
-        .item:focus-visible{ box-shadow: 0 0 0 2px var(--gold-soft); border-radius: 12px; }
-        .hoverline{
-          position:absolute; left:0; bottom:2px; height:2px; width:0;
-          background: linear-gradient(90deg, transparent, var(--gold), transparent);
-          border-radius:2px; opacity:0;
-          transition: width .35s cubic-bezier(.2,.8,.2,1), transform .35s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
-          pointer-events:none;
+        .drawer.open{ transform:none; visibility:visible }
+        .dr-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 14px 10px; border-bottom:1px solid var(--edge) }
+        .close{ border:0; background:none; font-size:18px; width:40px; height:40px; border-radius:10px }
+        .close:hover{ background:#fbf1d8 }
+        .dr-site{ padding:12px 14px }
+        .dr-site .seg{ display:flex } .dr-site .seg button{ flex:1; padding:8px }
+        .dr-body{ flex:1; overflow:auto; overscroll-behavior:contain; padding:0 8px 12px }
+        .dr-sec h4{ margin:14px 8px 4px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
+        .dr-sec .mi{ padding:10px 10px }
+        .dr-sec kbd{ display:none }
+        .dr-foot{ border-top:1px solid var(--edge); padding:12px 14px calc(12px + env(safe-area-inset-bottom)); display:grid; gap:8px }
+        .dr-desk{ font-weight:700 } .dr-desk small{ display:block; font-weight:500; color:var(--muted) }
+        .dr-sync{ font-size:12px; color:var(--muted) } .dr-sync.warn{ color:#a12a2a; font-weight:650 }
+        .dr-logout{ border:1px solid #e6bcbc; background:#fff; color:#a12a2a; border-radius:10px; padding:9px; font-weight:650 }
+
+        @media (max-width:1180px){ .sync #syncText{ display:none } .cat{ padding:8px 9px } }
+        @media (max-width:900px){
+          .bar{ gap:8px; padding:6px 10px; min-height:52px }
+          .burger{ display:inline-grid; gap:4px; place-content:center; width:42px; height:42px; border:0; background:none; border-radius:10px; flex:none }
+          .burger span{ display:block; width:20px; height:2px; background:var(--ink); border-radius:2px }
+          .burger:hover{ background:#fbf1d8 }
+          .brand{ font-size:12.5px; letter-spacing:.1em }
+          .here{ display:block; font-weight:650; font-size:13px; color:#8a6512; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0 }
+          .cats, .tools .seg, .desk-dd{ display:none }
+          .tools{ gap:6px }
+          .sync #syncText{ display:none }
         }
-        .ctx{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end }
-        .seg{ display:inline-flex; border:1px solid var(--gold); border-radius:999px; overflow:hidden }
-        .seg button{
-          font: inherit; font-size: 12px; font-weight: 700; letter-spacing:.04em;
-          padding: 5px 10px; border: 0; background: transparent; color: #7a5b13; cursor: pointer;
-        }
-        .seg button + button{ border-left: 1px solid var(--gold) }
-        .seg button[aria-pressed="true"]{ background: var(--gold); color: #fff }
-        .desk{ font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap }
-        .desk .role{ font-weight: 600; color: #7a5b13; margin-left: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em }
-        .logout{ font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid var(--gold); border-radius: 999px; background: transparent; color: #7a5b13; cursor: pointer }
-        .logout:hover{ background: #fff6dd }
-        .badge{ font-size: 11px; color: #6b5e4a; white-space: nowrap }
-        .badge.warn{ color: #a12a2a; font-weight: 700 }
-        .progress{
-          position:absolute; inset:auto 0 0 0; height:2px; width:0%;
-          background: linear-gradient(90deg, #ffe9a6, var(--gold), #b88900);
-          box-shadow: 0 0 12px rgba(230,180,34,.35);
-          transition: width .1s linear;
-        }
-        @media (max-width: 1100px){
-          .bar{ grid-template-columns: minmax(0, 1fr); gap: 8px }
-          .ctx{ order: 1; justify-content: flex-start }
-          .links{ order: 2; justify-self: start }
-          .badge{ white-space: normal }
-        }
-        @media (max-width: 860px){
-          .item{ letter-spacing:.1em; padding: 7px 8px }
-          .bar{ padding: 8px 10px }
-        }
-        @media print{ .rk-nav{ display:none } }
-      </style>
-    `;
+        @media (max-width:420px){ .bar .brand .b1{ display:none } }
+        @media print{ :host{ display:none } }
+      </style>`;
     }
 
     connectedCallback() {
         const r = this.shadowRoot;
-        const track = r.querySelector('.links');
-        const line = r.querySelector('.hoverline');
-        const items = Array.from(r.querySelectorAll('.item'));
-        const brand = r.querySelector('.brand');
-        const prog = r.querySelector('.progress');
+        const $ = (id) => r.getElementById(id);
+        const dds = [...r.querySelectorAll('.bar .dd')];
+        const closeMenus = (except) => dds.forEach(d => { if (d !== except) { d.classList.remove('open'); d.querySelector(':scope > button')?.setAttribute('aria-expanded', 'false'); } });
 
-        // Alt+1..9 → tab 1..9, Alt+0 → tab 10 (not while typing)
-        const isEditable = (el) => !!el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable);
-        const onHotkey = (e) => {
-            if (!e.altKey || isEditable(document.activeElement)) return;
-            const k = e.key;
-            const idx = (k >= '1' && k <= '9') ? Number(k) - 1 : (k === '0' ? 9 : -1);
-            if (idx < 0 || !items[idx]) return;
-            e.preventDefault();
-            location.hash = items[idx].getAttribute('href');
-        };
-
-        const moveLine = (el) => {
-            const tb = track.getBoundingClientRect(), eb = el.getBoundingClientRect();
-            line.style.transform = `translateX(${eb.left - tb.left}px)`;
-            line.style.width = `${eb.width}px`;
-            line.style.opacity = '1';
-        };
-        const hideLine = () => { line.style.opacity = '0'; };
-        items.forEach(a => {
-            a.addEventListener('mouseenter', () => moveLine(a));
-            a.addEventListener('focus', () => moveLine(a));
-            a.addEventListener('mouseleave', hideLine);
-            a.addEventListener('blur', hideLine);
-        });
-        track.addEventListener('mouseleave', hideLine);
-
-        // magnetic hover (subtle)
-        const onMouseMove = (e) => {
-            items.forEach(a => {
-                const b = a.getBoundingClientRect();
-                const dx = (e.clientX - (b.left + b.width / 2)) / Math.max(b.width, 1);
-                const dy = (e.clientY - (b.top + b.height / 2)) / Math.max(b.height, 1);
-                a.style.transform = `translate(${dx * 2}px, ${dy * .5}px)`;
+        // dropdowns: click to toggle, hover to switch between open menus
+        dds.forEach(dd => {
+            const btn = dd.querySelector(':scope > button');
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = !dd.classList.contains('open');
+                closeMenus(dd);
+                dd.classList.toggle('open', open);
+                btn.setAttribute('aria-expanded', String(open));
+                if (open && e.detail === 0) dd.querySelector('.mi:not(.static)')?.focus(); // opened by keyboard
             });
-        };
-        this.addEventListener('mousemove', onMouseMove);
-
-        brand.addEventListener('mousemove', (e) => {
-            const b = brand.getBoundingClientRect();
-            const t = ((e.clientX - b.left) / b.width - .5) * 2;
-            brand.style.letterSpacing = `${.14 + t * .04}em`;
+            dd.addEventListener('mouseenter', () => {
+                if (dds.some(d => d !== dd && d.classList.contains('open'))) { closeMenus(dd); dd.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); }
+            });
         });
-        brand.addEventListener('mouseleave', () => brand.style.letterSpacing = '.14em');
+        const onDocClick = (e) => { if (!e.composedPath().includes(this)) closeMenus(); };
+        document.addEventListener('click', onDocClick);
+        r.addEventListener('click', (e) => {
+            if (e.target.closest('.menu a, .dr-body a, a.cat, .brand')) { closeMenus(); this.closeDrawer(); }
+            if (e.target.closest('[data-logout]')) { closeMenus(); this.closeDrawer(); this.dispatchEvent(new CustomEvent('logout')); }
+            const s = e.target.closest('[data-site]');
+            if (s) { this.closeDrawer(); this.dispatchEvent(new CustomEvent('site-change', { detail: s.dataset.site })); }
+        });
 
-        const onScroll = () => {
-            const sTop = document.documentElement.scrollTop || document.body.scrollTop;
-            const sH = (document.documentElement.scrollHeight - document.documentElement.clientHeight) || 1;
-            prog.style.width = `${Math.max(0, Math.min(1, sTop / sH)) * 100}%`;
+        // drawer
+        $('burger').addEventListener('click', () => this.openDrawer());
+        $('drClose').addEventListener('click', () => this.closeDrawer());
+        $('backdrop').addEventListener('click', () => this.closeDrawer());
+
+        // keyboard: Esc closes; Alt+<key> jumps (not while typing)
+        const isEditable = (el) => !!el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable);
+        const onKey = (e) => {
+            if (e.key === 'Escape') { closeMenus(); this.closeDrawer(); return; }
+            if (!e.altKey || isEditable(document.activeElement)) return;
+            const v = VIEWS.find(x => x.key === e.key);
+            if (!v || !this._site) return;
+            e.preventDefault();
+            location.hash = `#/${this._site}/${v.id}`;
         };
+        window.addEventListener('keydown', onKey);
+        r.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenus(); this.closeDrawer(); } });
 
-        r.querySelectorAll('[data-site]').forEach(b => b.addEventListener('click', () =>
-            this.dispatchEvent(new CustomEvent('site-change', { detail: b.dataset.site }))));
-        r.getElementById('logout').addEventListener('click', () => this.dispatchEvent(new CustomEvent('logout')));
-
-        window.addEventListener('keydown', onHotkey);
+        // scroll progress
+        const prog = r.querySelector('.progress');
+        const onScroll = () => {
+            const top = document.documentElement.scrollTop || document.body.scrollTop;
+            const h = (document.documentElement.scrollHeight - document.documentElement.clientHeight) || 1;
+            prog.style.width = `${Math.max(0, Math.min(1, top / h)) * 100}%`;
+        };
         window.addEventListener('scroll', onScroll, { passive: true });
-        onScroll();
+        // leaving phone width with the drawer open
+        const mq = window.matchMedia('(min-width: 901px)');
+        const onMq = () => { if (mq.matches) this.closeDrawer(); };
+        mq.addEventListener('change', onMq);
+
         this._cleanup = () => {
-            window.removeEventListener('keydown', onHotkey);
+            document.removeEventListener('click', onDocClick);
+            window.removeEventListener('keydown', onKey);
             window.removeEventListener('scroll', onScroll);
-            this.removeEventListener('mousemove', onMouseMove);
+            mq.removeEventListener('change', onMq);
         };
     }
 
     disconnectedCallback() { this._cleanup?.(); }
 
+    openDrawer() {
+        const r = this.shadowRoot;
+        r.getElementById('backdrop').hidden = false;
+        requestAnimationFrame(() => r.getElementById('backdrop').classList.add('show'));
+        r.getElementById('drawer').classList.add('open');
+        r.getElementById('drawer').setAttribute('aria-hidden', 'false');
+        r.getElementById('burger').setAttribute('aria-expanded', 'true');
+        (r.querySelector('.dr-body .mi[aria-current="page"]') || r.getElementById('drClose')).focus();
+    }
+
+    closeDrawer() {
+        const r = this.shadowRoot;
+        const d = r.getElementById('drawer');
+        if (!d.classList.contains('open')) return;
+        d.classList.remove('open');
+        d.setAttribute('aria-hidden', 'true');
+        r.getElementById('backdrop').classList.remove('show');
+        setTimeout(() => { r.getElementById('backdrop').hidden = true; }, 200);
+        r.getElementById('burger').setAttribute('aria-expanded', 'false');
+        r.getElementById('burger').focus({ preventScroll: true });
+    }
+
     setRoute(siteId, viewId, desk) {
         const r = this.shadowRoot;
-        const canEdit = desk && (desk.role === 'admin' || (desk.role === 'desk' && desk.site === siteId));
-        r.getElementById('desk').innerHTML = '';
-        if (desk) {
-            r.getElementById('desk').textContent = desk.name;
-            const role = document.createElement('span');
-            role.className = 'role';
-            role.textContent = canEdit ? desk.role : `${desk.role} · view only`;
-            r.getElementById('desk').appendChild(role);
-        }
-        r.querySelector('.brand').setAttribute('href', `#/${siteId}/home`);
-        r.querySelector('.b2').textContent = SITES[siteId].brand;
-        r.querySelectorAll('.item').forEach(a => {
+        this._site = siteId;
+        r.querySelectorAll('.brand').forEach(b => { b.setAttribute('href', `#/${siteId}/home`); b.querySelector('.b2').textContent = SITES[siteId].brand; });
+        r.querySelectorAll('[data-view]').forEach(a => {
             a.setAttribute('href', `#/${siteId}/${a.dataset.view}`);
-            if (a.dataset.view === viewId) a.setAttribute('aria-current', 'page');
-            else a.removeAttribute('aria-current');
+            if (a.dataset.view === viewId) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
+        const cat = NAV.find(c => c.views.includes(viewId));
+        r.querySelectorAll('.bar [data-cat]').forEach(el => el.classList.toggle('active', !!cat && el.dataset.cat === cat.id));
+        r.getElementById('here').textContent = viewById[viewId]?.hidden ? '' : (viewById[viewId]?.label || '');
         r.querySelectorAll('[data-site]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.site === siteId)));
+        if (desk) {
+            const canEdit = desk.role === 'admin' || (desk.role === 'desk' && desk.site === siteId);
+            const role = canEdit ? desk.role : `${desk.role} · view only here`;
+            r.getElementById('deskName').textContent = desk.name;
+            r.getElementById('deskInfo').innerHTML = `<span class="mi-l">${esc(desk.name)}</span><span class="mi-h">${esc(SITES[desk.site]?.label)} · ${esc(role)}</span>`;
+            r.getElementById('drDesk').innerHTML = `${esc(desk.name)}<small>${esc(SITES[desk.site]?.label)} · ${esc(role)}</small>`;
+        }
     }
 
     setBadge(text, warn = false) {
-        const b = this.shadowRoot.getElementById('badge');
-        b.textContent = text || '';
-        b.classList.toggle('warn', !!warn);
+        const r = this.shadowRoot;
+        const short = warn ? 'Offline' : (text || '').replace(/ ·.*$/, '');
+        r.getElementById('sync').classList.toggle('warn', !!warn);
+        r.getElementById('sync').title = text || '';
+        r.getElementById('syncText').textContent = short;
+        r.getElementById('drSync').textContent = text || '';
+        r.getElementById('drSync').classList.toggle('warn', !!warn);
     }
 }
 

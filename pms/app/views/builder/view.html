@@ -1,0 +1,97 @@
+<div class="wrap builder">
+    <header class="head">
+        <div>
+            <h1>Rooms &amp; Buildings — <span class="siteName"></span></h1>
+            <p class="muted">Every building, room and bed count for this site. Slip, Forecast, Grid, Timeline and Home read capacities from here.</p>
+        </div>
+        <p class="notice" id="notice" hidden></p>
+    </header>
+
+    <section class="card seed" id="seedCard" hidden>
+        <div>
+            <h3>Start from the original room lists</h3>
+            <p class="muted" id="seedText"></p>
+        </div>
+        <button class="primary" type="button" id="btnSeed">Create from room lists</button>
+    </section>
+
+    <div class="layout">
+        <aside class="card side">
+            <div class="side-head">
+                <h3>Buildings</h3>
+                <button type="button" id="btnNewBuilding" class="small-btn">+ Building</button>
+            </div>
+            <select id="buildingSelect" class="only-mobile" aria-label="Building"></select>
+            <ul class="blist" id="buildingList"></ul>
+            <div class="side-total muted" id="siteTotal"></div>
+        </aside>
+
+        <section class="card editor" id="editor" hidden>
+            <div class="ed-head">
+                <label class="fld name">Building name<input id="bName" maxlength="40" autocomplete="off"></label>
+                <label class="fld sort">Order<input id="bSort" type="number" step="1"></label>
+                <div class="pills" id="bStats"></div>
+            </div>
+            <label class="fld">Notes<input id="bNotes" maxlength="500" placeholder="e.g. entrance, lifts, contact at reception"></label>
+
+            <div class="tools">
+                <details open>
+                    <summary>Add rooms</summary>
+                    <div class="gen">
+                        <label class="fld">From<input id="gFrom" placeholder="501" inputmode="numeric"></label>
+                        <label class="fld">To<input id="gTo" placeholder="520" inputmode="numeric"></label>
+                        <label class="fld">Beds<input id="gCap" type="number" min="0" max="50" value="4"></label>
+                        <label class="fld">Type<select id="gType"><option value="">any</option><option value="gents">gents</option><option value="ladies">ladies</option><option value="family">family</option></select></label>
+                        <button type="button" id="btnGen">Add range</button>
+                    </div>
+                    <p class="muted small">Numbers only: 501 to 520 adds 501, 502 … 520. Existing rooms are left as they are.</p>
+                </details>
+                <details>
+                    <summary>Paste a list</summary>
+                    <textarea id="pasteList" rows="4" placeholder="501:4, 502:3, 503:5&#10;or one per line: 1203A 2"></textarea>
+                    <div class="row"><button type="button" id="btnPaste">Add / update from list</button><span class="muted small">Room and beds separated by : or space. Existing rooms get the new bed count.</span></div>
+                </details>
+            </div>
+
+            <div class="bar">
+                <input id="fSearch" type="search" placeholder="Find room…" aria-label="Find room">
+                <select id="fFloor" aria-label="Floor"></select>
+                <span class="grow"></span>
+                <span class="muted small" id="selCount"></span>
+                <input id="selCap" type="number" min="0" max="50" placeholder="beds" aria-label="Beds for selected">
+                <button type="button" id="btnSelCap">Set beds</button>
+                <button type="button" id="btnSelOn">Active</button>
+                <button type="button" id="btnSelOff">Inactive</button>
+                <button type="button" id="btnSelDel" class="danger">Delete</button>
+            </div>
+
+            <div class="table-wrap">
+                <table id="roomTbl">
+                    <thead><tr>
+                        <th class="c-sel"><input type="checkbox" id="selAll" aria-label="Select all shown"></th>
+                        <th>Room</th><th>Floor</th><th>Beds</th><th>Type</th><th>Notes</th><th>Active</th><th></th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="row"><button type="button" id="btnAddRow">+ Room</button></div>
+
+            <details class="map">
+                <summary>Floor map</summary>
+                <div id="floorMap"></div>
+            </details>
+
+            <div class="actions sticky">
+                <button type="button" class="primary" id="btnSave">Save building</button>
+                <button type="button" id="btnDiscard">Discard changes</button>
+                <span class="grow"></span>
+                <span class="muted small" id="saveMsg"></span>
+                <button type="button" class="danger" id="btnDelete">Delete building</button>
+            </div>
+        </section>
+
+        <section class="card empty" id="emptyState">
+            <p class="muted">Choose a building on the left, or add one.</p>
+        </section>
+    </div>
+</div>

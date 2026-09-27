@@ -1,7 +1,11 @@
 // Ported from pms/index.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
+// A building set up in Rooms & Buildings uses its real bed total as capacity (no manual number).
+
+import { loadBuildings, buildingsOfSite, totalBeds } from '../../core/rooms.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
+let BUILDER_BEDS = {}; // building → beds from Rooms & Buildings
 
     /* ===== Data (this site's slips, local or cloud) ===== */
     const getAllSlips = () => db.all();
@@ -35,7 +39,8 @@ const { db } = ctx;
       const grid = document.getElementById('batteryGrid');
       grid.innerHTML = '';
       buildings.forEach(b=>{
-        const cap = caps[b] ?? 100;
+        const fromBuilder = BUILDER_BEDS[b];
+        const cap = fromBuilder ?? caps[b] ?? 100;
         const used = todayTotals[b] ?? 0;
         const pct = cap>0 ? Math.min(100, Math.round(used*100/cap)) : 0;
         const cls = batteryClass(pct);
@@ -47,11 +52,13 @@ const { db } = ctx;
               <div class="b-name">${b || '(Unassigned)'}</div>
               <div class="b-cap">Capacity: <b>${cap}</b> • Used: <b>${used}</b></div>
             </div>
-            <div class="cap-edit" aria-label="Capacity editor">
+            ${fromBuilder != null
+              ? `<a class="cap-link" href="${ctx.href('builder')}" title="Bed total from Rooms &amp; Buildings">Edit rooms</a>`
+              : `<div class="cap-edit" aria-label="Capacity editor">
               <label for="cap_${cssId(b)}" class="sr-only">Capacity</label>
               <input id="cap_${cssId(b)}" type="number" min="0" value="${cap}" />
               <button data-b="${encodeURIComponent(b)}">Save</button>
-            </div>
+            </div>`}
           </div>
           <div class="battery ${cls}">
             <div class="fill" style="width:${pct}%;"></div>
@@ -62,7 +69,7 @@ const { db } = ctx;
             <div>Free: <b>${Math.max(0, cap-used)}</b></div>
           </div>
         `;
-        card.querySelector('button').addEventListener('click', ()=>{
+        card.querySelector('.cap-edit button')?.addEventListener('click', ()=>{
           const nb = decodeURIComponent(card.querySelector('button').dataset.b);
           const v = parseNum(card.querySelector('input').value);
           const all = loadCaps(); all[nb]=v; saveCaps(all);
@@ -196,7 +203,9 @@ const { db } = ctx;
       state.slips = slips;
 
       // Collect building names
-      const buildings = unique(slips.map(s=> String(s.building||'').trim())).sort((a,b)=> a.localeCompare(b));
+      const builder = buildingsOfSite(await loadBuildings(), ctx.siteId).filter(b => b.rooms.length);
+      BUILDER_BEDS = Object.fromEntries(builder.map(b => [b.name, totalBeds(b)]));
+      const buildings = unique([...builder.map(b => b.name), ...slips.map(s=> String(s.building||'').trim())]).sort((a,b)=> a.localeCompare(b));
       state.buildings = buildings.length ? buildings : [''];
 
       // Build byDate map using checkin_date as X and total as Y

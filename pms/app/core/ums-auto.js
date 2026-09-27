@@ -13,6 +13,7 @@
 import { UMS, SITES } from '../config.js';
 import { createDb, ConflictError } from './db.js';
 import { canWrite } from './cloud.js';
+import { track } from './analytics.js';
 import { parseUms, planImport, applyPlan, summarize, hashText, writeLog, lastApplied, setLastApplied } from './ums.js';
 
 const AUTO_KEY = 'pms_ums_auto';
@@ -67,6 +68,7 @@ export async function runImport({ siteId, html, fileName, via, fetchedAt, planOv
         if (res && res.skipped) sum.created -= res.skipped; // stays another desk had just imported
         setLastApplied(siteId, { hash, rows: parsed.rowCount, at: base.at, fetchedAt: base.fetchedAt });
         writeLog(siteId, { ...base, result: 'applied', ...sum, errors: parsed.errors.length, warnings: parsed.warnings.length + plan.warnings.length });
+        track('ums_import', { site: siteId, via, rows: parsed.rowCount, created: sum.created, updated: sum.updated, attention: sum.attention });
         return { plan, summary: sum, parsed };
     };
     return navigator.locks ? navigator.locks.request(`pms-ums-${siteId}`, work) : work();

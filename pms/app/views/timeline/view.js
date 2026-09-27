@@ -1,5 +1,7 @@
 // Ported from pms/timeline_db.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
 
+import { loadBuildings, buildingsOfSite } from '../../core/rooms.js';
+
 export default async function mount(app) {
 const { db } = app; // not "ctx": this page uses ctx for its canvas
 
@@ -73,6 +75,11 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
             if(rm) byB.get(b).add(rm);
           });
           eat(r.rooms?.gents); eat(r.rooms?.ladies);
+        }
+        // plus every room set up in Rooms & Buildings
+        for (const b of buildingsOfSite(await loadBuildings(), app.siteId)) {
+          if (!byB.has(b.name)) byB.set(b.name, new Set());
+          b.rooms.forEach(r => byB.get(b.name).add(String(r.room_no).trim()));
         }
         buildingSel.innerHTML=['<option value="">Select building…</option>',...Array.from(byB.keys()).sort().map(b=>`<option>${b}</option>`)].join('');
         buildingSel.onchange=()=>{

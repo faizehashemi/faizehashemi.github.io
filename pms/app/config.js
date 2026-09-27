@@ -24,26 +24,40 @@ export const SITES = {
 
 export const DEFAULT_SITE = 'makkah';
 
-// Order matters: Alt+1..Alt+9, Alt+0 jump to the first ten entries (same as the old nav).
+// Every page. `key` is its Alt+<key> shortcut (unchanged from the old nav); `hint` shows in the menus.
 export const VIEWS = [
-    { id: 'slip',         label: 'Slip',     title: 'Slip' },
-    { id: 'forecast',     label: 'Forecast', title: 'Forecast' },
-    { id: 'grid',         label: 'Grid',     title: 'Grid' },
-    { id: 'timeline',     label: 'Timeline', title: 'Room Timeline' },
-    { id: 'checkins',     label: 'Checkins', title: 'Checkins' },
-    { id: 'grouping',     label: 'Grouping', title: 'Groups' },
-    { id: 'kg',           label: 'KG',       title: 'FEA' },
-    { id: 'print',        label: 'Print',    title: 'Print — GL Copy' },
-    { id: 'admin',        label: 'Admin',    title: 'Admin' },
-    { id: 'mawaid',       label: 'Mawaid',   title: 'Mawaid Stats' },
-    { id: 'movement',     label: 'Movement', title: 'Check-ins & Check-outs — Mobile' },
-    { id: 'group-export', label: 'Export',   title: 'Groups Export' },
-    { id: 'ums',          label: 'UMS',      title: 'UMS Import' },
-    { id: 'setup',        label: 'Setup',    title: 'Setup' },
-    { id: 'help',         label: 'Help',     title: 'PMS Instructions' },
-    { id: 'home',         label: 'Home',     title: 'PMS', hidden: true },
-    { id: 'login',        label: 'Log in',   title: 'Log in', hidden: true },
+    { id: 'slip',         label: 'Slip',               title: 'Slip',                  key: '1', hint: 'Create and edit accommodation slips' },
+    { id: 'forecast',     label: 'Forecast',           title: 'Forecast',              key: '2', hint: 'Free and occupied rooms at a time' },
+    { id: 'grid',         label: 'Grid',               title: 'Grid',                  key: '3', hint: 'Floor-by-floor occupancy map' },
+    { id: 'timeline',     label: 'Timeline',           title: 'Room Timeline',         key: '4', hint: 'Who stays in a room over time' },
+    { id: 'checkins',     label: 'Check-ins',          title: 'Checkins',              key: '5', hint: 'Arrivals and departures for a period' },
+    { id: 'grouping',     label: 'Grouping',           title: 'Groups',                key: '6', hint: 'Bundle arrivals and print stickers' },
+    { id: 'kg',           label: 'KG',                 title: 'FEA',                   key: '7', hint: 'Fakkul Ehraam & Atraaf duty roster' },
+    { id: 'print',        label: 'Print slips',        title: 'Print — GL Copy',       key: '8', hint: 'A5 slips and group-leader copies' },
+    { id: 'admin',        label: 'Slip admin',         title: 'Admin',                 key: '9', hint: 'Search, delete, back up slips' },
+    { id: 'mawaid',       label: 'Mawaid',             title: 'Mawaid Stats',          key: '0', hint: 'Meal counts and thals per building' },
+    { id: 'movement',     label: 'Movement',           title: 'Check-ins & Check-outs — Mobile', hint: 'Phone-friendly arrivals and departures' },
+    { id: 'group-export', label: 'Group export',       title: 'Groups Export',         hint: 'Group signs as PDF or Word' },
+    { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
+    { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
+    { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
+    { id: 'help',         label: 'Help',               title: 'PMS Instructions',      hint: 'How the PMS works' },
+    { id: 'home',         label: 'Home',               title: 'PMS', hidden: true },
+    { id: 'login',        label: 'Log in',             title: 'Log in', hidden: true },
 ];
+
+// Menu categories (top bar on laptops, drawer sections on phones)
+export const NAV = [
+    { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'movement', 'print'] },
+    { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'builder'] },
+    { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid'] },
+    { id: 'data',   label: 'Data',           views: ['ums', 'admin', 'setup'] },
+    { id: 'help',   label: 'Help',           views: ['help'] },
+];
+
+// Product analytics (PostHog). Empty key = analytics off. The project API key (phc_…) is meant
+// to be public. Host: https://us.i.posthog.com or https://eu.i.posthog.com, matching your project.
+export const POSTHOG = { key: '', host: 'https://us.i.posthog.com' };
 
 // Old standalone pages → view ids (used for redirects and for links inside view markup)
 export const LEGACY_PAGES = {

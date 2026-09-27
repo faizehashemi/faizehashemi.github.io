@@ -2,6 +2,7 @@
 // Behaviour is unchanged; storage goes through ctx.db (the cloud).
 
 import { UserError } from '../../core/cloud.js';
+import { loadBuildings, buildingNames, builderCapacity } from '../../core/rooms.js';
 
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
@@ -25,12 +26,15 @@ export default async function mount(ctx) {
         DB_CACHE = await getAllRecords();
     }
 
-    // Building list comes from the site config
-    for (const b of site.buildings) {
+    // Buildings from Rooms & Buildings (plus the site config); capacities prefer the builder too
+    let BUILDINGS = await loadBuildings();
+    const addBuildingOption = (b) => {
+        if ([...$('building').options].some(o => o.value === b)) return;
         const o = document.createElement('option');
         o.textContent = b;
         $('building').appendChild(o);
-    }
+    };
+    buildingNames(BUILDINGS, ctx.siteId).forEach(addBuildingOption);
 
     function addRow(group, data = { room_no: '', capacity: '', assigned: '' }) {
         const tbody = $(group + '-tbody');
@@ -167,6 +171,7 @@ export default async function mount(ctx) {
         $('checkin_time').value = data.checkin_time || '';
         $('checkout_date').value = data.checkout_date || '';
         $('checkout_time').value = data.checkout_time || '';
+        if (data.building) addBuildingOption(data.building); // a slip for a building not (or no longer) in the list
         $('building').value = data.building || '';
         $('sh_no').value = data.sh_no ?? '';
         $('total').value = data.total ?? '';
@@ -220,6 +225,7 @@ export default async function mount(ctx) {
         const b = ($('building').value || '').trim();
         if (!b) { alert('Select a building first.'); return; }
         const capMap = buildCapacityMap(b);
+        BUILDINGS = await loadBuildings();
 
         let filled = 0, unknown = 0;
         ['gents', 'ladies'].forEach(group => {
@@ -229,8 +235,9 @@ export default async function mount(ctx) {
                 const room = cleanRoom(roomEl.value);
                 if (!room) return;
                 const key = `${b}|${room}`;
-                if (capMap.has(key)) {
-                    capEl.value = capMap.get(key);
+                const fromBuilder = builderCapacity(BUILDINGS, b, room);
+                if (fromBuilder != null || capMap.has(key)) {
+                    capEl.value = fromBuilder != null ? fromBuilder : capMap.get(key);
                     capEl.placeholder = '';
                     tr.classList.add('okfill');
                     filled++;
@@ -312,10 +319,12 @@ export default async function mount(ctx) {
             }
         }
 
-        // Capacity from the current row first, otherwise last-known from history
+        // Capacity from the current row first, then Rooms & Buildings, then last-known from history
         function resolveCapacity(room) {
             const local = roomInfo.get(room)?.capLocal || 0;
             if (local > 0) return local;
+            const fromBuilder = builderCapacity(BUILDINGS, bld, room);
+            if (fromBuilder > 0) return fromBuilder;
             for (let i = DB_CACHE.length - 1; i >= 0; i--) {
                 const rec = DB_CACHE[i];
                 const rb = (rec.building || '').trim();

@@ -1,14 +1,18 @@
 // Ported from pms/vacancy_forecast.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
+// Rooms and bed counts come from Rooms & Buildings when it has the building (else from slip history).
+
+import { loadBuildings, buildingsOfSite, buildingNames, builderCapacity, activeRooms } from '../../core/rooms.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
+let BUILDINGS = [];
 
 /* -------------------------- Data (this site) -------------------------- */
         const getAllRecords = () => db.all();
 
         /* ---------------------------- Helpers ---------------------------- */
         const $ = id => document.getElementById(id);
-        const CANON_BUILDINGS = [];
+        let CANON_BUILDINGS = [];
         const toInt = v => Number.parseInt(String(v ?? '').trim(), 10) || 0;   // force integers only
         const clean = s => String(s ?? '').trim();
         const cleanRoom = x => String(x ?? '').trim();
@@ -20,6 +24,8 @@ const { db } = ctx;
 
         /* Integer capacity for a room, by majority vote across entries (no decimals) */
         function capacityFor(building, room) {
+            const fromBuilder = builderCapacity(BUILDINGS, building, room);
+            if (fromBuilder != null) return fromBuilder;
             const target = normRoom(room); const freq = new Map();
             for (const rec of DB_CACHE) {
                 if (clean(rec.building) !== building) continue; const take = x => { const raw = clean(x.room_no); if (!raw || normRoom(raw) !== target) return; const c = toInt(x.capacity); if (c > 0) freq.set(c, (freq.get(c) || 0) + 1); };
@@ -44,6 +50,12 @@ const { db } = ctx;
                 const raw = manualText.split(/[\n,]+/).map(s => cleanRoom(s)).filter(Boolean);
                 return unique(raw).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
             }
+            if (mode === 'builder') {
+                const names = building && building !== 'ALL' ? [building] : buildingsOfSite(BUILDINGS, ctx.siteId).map(b => b.name);
+                const rooms = names.flatMap(n => activeRooms(BUILDINGS, n).map(r => cleanRoom(r.room_no)));
+                if (rooms.length) return unique(rooms).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+                // the builder has no rooms for this building yet: fall back to what the slips show
+            }
             const bag = []; for (const r of recs) { if (building && building !== 'ALL' && clean(r.building) !== building) continue; (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no))); (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no))); }
             return unique(bag.filter(Boolean)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
         }
@@ -56,7 +68,7 @@ const { db } = ctx;
             sel.innerHTML = ''; merged.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = (v === 'ALL' ? 'ALL BUILDINGS' : v); sel.appendChild(o); }); sel.value = 'ALL';
         }
 
-        async function refreshDB() { DB_CACHE = await getAllRecords(); $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`; populateBuildingFilter(); }
+        async function refreshDB() { BUILDINGS = await loadBuildings(); CANON_BUILDINGS = buildingNames(BUILDINGS, ctx.siteId); DB_CACHE = await getAllRecords(); $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`; populateBuildingFilter(); }
         function currentWhen() { return parseDT($('when_date').value, $('when_time').value); }
 
         function runForecast() {

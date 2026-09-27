@@ -11,10 +11,21 @@ Open **https://faizehashemi.github.io/pms/** and log in with your **desk's name 
 Setup page). A `desk` login changes its own site and views the other; a `viewer` login (phones)
 only views; `admin` does everything. The top bar has:
 
-- **Pages** — Slip, Forecast, Grid, Timeline, Checkins, Grouping, KG, Print, Admin, Mawaid,
-  Movement, Export, UMS, Setup, Help. `Alt+1` … `Alt+0` jump to the first ten.
+- **Menus by category** — *Front desk* (Slip, Check-ins, Movement, Print slips), *Rooms* (Forecast,
+  Grid, Timeline, Rooms & Buildings), *Groups & meals* (Grouping, Group export, KG, Mawaid),
+  *Data* (UMS import, Slip admin, Setup), *Help*. `Alt+1` … `Alt+0` still open Slip, Forecast, Grid,
+  Timeline, Check-ins, Grouping, KG, Print, Admin, Mawaid. Categories live in `NAV` in `app/config.js`.
 - **Makkah | Medina** — which site you are looking at.
-- Your desk, **Log out**, and the sync state (“Synced 12:03”, or “OFFLINE — saving is paused”).
+- Your desk (menu with Setup and **Log out**) and the sync state (green = synced, orange = offline).
+
+On phones and small tablets (≤ 900 px) the bar shrinks to ☰ + the page name and the menu opens as a
+side drawer. Data tables turn into cards (≤ 700 px); wide forms and toolbars re-flow. Laptop layouts
+are unchanged. The footer carries the support number (+91 77479 45253).
+
+**Rooms & Buildings** (Rooms menu) holds every building, room and bed count per site — editable,
+seeded once from the original room lists (MOHAMMEDI, MUFADDAL, SNOOD, BAHA: 705 rooms, 2,748 beds).
+Slip (Fetch & Assign, availability check), Forecast, Grid, Timeline and Home take capacities from
+there; for a building not in the builder they fall back to capacities remembered from old slips.
 
 URLs look like `#/makkah/slip?sh_no=38480`, so any page can be bookmarked or shared.
 Old links (`pms/accommodation_slip.html?sh_no=…`, `pms_web/movement.html`, …) still work: each
@@ -31,8 +42,13 @@ app/config.js           API address + everything site-specific (buildings, UMS c
 app/main.js             login gate, hash router, view lifecycle, background sync
 app/core/db.js          the ONLY code pages use for slips (cloud API + synced copy)
 app/core/cloud.js       login session, API client, local mirror, incremental sync
-app/core/nav.js         the top bar
+app/core/nav.js         the top bar / phone drawer (categories from NAV in config.js)
+app/core/rooms.js       buildings, rooms, capacities from Rooms & Buildings (cached for offline)
+app/core/cards.js       labels table cells so data tables become cards on phones
+app/core/responsive.css shell footer + all phone/tablet rules (loaded after each page's CSS)
+app/core/analytics.js   PostHog (off until POSTHOG.key is set in config.js)
 app/core/lib.js         on-demand loader for jsPDF / docx / FileSaver
+app/data/rooms-seed.json  original room lists (room numbers + beds only) for the builder's seed
 app/views/<id>/         one folder per page: view.html + view.css + view.js
 assets/                 logo, background images
 *.html                  the old page names — redirects into the app (bookmarks keep working)
@@ -86,6 +102,14 @@ current site — by file, or automatically every hour through the Chrome extensi
 
 On the Slip page, an SH with more than one stay here gets a stay picker. Use **Edit** (not Save) on
 imported slips; Save makes a separate copy.
+
+## Analytics (PostHog)
+
+Set `POSTHOG = { key: 'phc_…', host: 'https://us.i.posthog.com' }` in `app/config.js` (EU projects:
+`https://eu.i.posthog.com`). Sent: page views per route, login/logout, slip created/updated/conflict,
+UMS import counts, building saved, going offline, and JavaScript errors. Desks are identified by their
+desk login. Click autocapture masks all text and session recording is off, so guest names and phone
+numbers on screen are not sent.
 
 ## Changing things
 

@@ -7,6 +7,8 @@
 //   viewer — reads only
 //   admin  — everything, manages desks, sees the audit log
 //
+// Buildings: GET/POST /api/buildings, PUT/DELETE /api/buildings/:id — rooms and capacities per building.
+//
 // Sync: GET /api/slips?seq=&id= returns changes after a cursor (including deletions) so each browser
 // keeps a local copy and only downloads what changed. Every write bumps the slip's `version`;
 // writing with an old version is refused (409) instead of overwriting someone else's change.
@@ -107,6 +109,12 @@ async function route(req, env) {
     let mm = p.match(/^\/api\/slips\/(\d+)$/);
     if (mm && m === 'PUT') return updateSlip(req, env, me, Number(mm[1]));
     if (mm && m === 'DELETE') return deleteSlip(url, env, me, Number(mm[1]));
+
+    if (p === '/api/buildings' && m === 'GET') return listBuildings(env);
+    if (p === '/api/buildings' && m === 'POST') return createBuilding(req, env, me);
+    mm = p.match(/^\/api\/buildings\/(\d+)$/);
+    if (mm && m === 'PUT') return updateBuilding(req, env, me, Number(mm[1]));
+    if (mm && m === 'DELETE') return deleteBuilding(url, env, me, Number(mm[1]));
 
     if (p === '/api/desks' && m === 'GET') { requireAdmin(me); return listDesks(env); }
     if (p === '/api/desks' && m === 'POST') { requireAdmin(me); return createDesk(req, env, me); }
@@ -354,6 +362,97 @@ async function clearSite(req, env, me) {
     ).bind(now(), me.id, site).run();
     await auditStmt(env, me, 'clear', null, `${site}: ${res.meta.changes} deleted`).run();
     return json({ deleted: res.meta.changes });
+}
+
+/* -------------------------------- buildings -------------------------------- */
+
+const ROOM_TYPES = ['', 'gents', 'ladies', 'family'];
+const MAX_BUILDING_BYTES = 300 * 1024;
+const text = (v, max) => String(v == null ? '' : v).replace(/[<>]/g, '').trim().slice(0, max);
+
+// Validate and normalise a building from the builder
+function prepareBuilding(b) {
+    const name = text(b.name, 40).toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9 .&'-]*$/.test(name)) throw new HttpError(400, 'Building name: letters, digits, spaces and . & \' - only.');
+    if (!Array.isArray(b.rooms)) throw new HttpError(400, 'rooms must be a list.');
+    if (b.rooms.length > 3000) throw new HttpError(413, 'At most 3000 rooms per building.');
+    const seen = new Set();
+    const rooms = b.rooms.map((r, i) => {
+        const room_no = text(r && r.room_no, 12);
+        if (!room_no) throw new HttpError(400, `Room ${i + 1} has no number.`);
+        const k = room_no.toUpperCase();
+        if (seen.has(k)) throw new HttpError(400, `Room ${room_no} appears twice.`);
+        seen.add(k);
+        const capacity = Number(r.capacity);
+        if (!Number.isInteger(capacity) || capacity < 0 || capacity > 50) throw new HttpError(400, `Room ${room_no}: capacity must be a whole number 0–50.`);
+        const type = ROOM_TYPES.includes(r.type) ? r.type : '';
+        return { room_no, floor: text(r.floor, 10), capacity, type, notes: text(r.notes, 200), active: r.active !== false };
+    });
+    const data = JSON.stringify({ rooms, notes: text(b.notes, 500) });
+    if (data.length > MAX_BUILDING_BYTES) throw new HttpError(413, 'Building too large.');
+    return { name, sort: Number.isInteger(Number(b.sort)) ? Number(b.sort) : 0, data, roomCount: rooms.length };
+}
+
+function rowToBuilding(r) {
+    const d = JSON.parse(r.data);
+    return { id: r.id, site: r.site, name: r.name, sort: r.sort, version: r.version, rooms: d.rooms || [], notes: d.notes || '', updated_at: r.updated_at, updated_by: r.updated_by_name || null };
+}
+
+async function getBuilding(env, id) {
+    return env.DB.prepare('SELECT b.*, d.name AS updated_by_name FROM buildings b LEFT JOIN desks d ON d.id = b.updated_by WHERE b.id = ?').bind(id).first();
+}
+
+async function listBuildings(env) {
+    const { results } = await env.DB.prepare(
+        'SELECT b.*, d.name AS updated_by_name FROM buildings b LEFT JOIN desks d ON d.id = b.updated_by WHERE b.deleted = 0 ORDER BY b.site, b.sort, b.name'
+    ).all();
+    return json({ buildings: results.map(rowToBuilding) });
+}
+
+function duplicateName(e, name) {
+    if (/UNIQUE/i.test(String(e && e.message))) throw new HttpError(409, `There is already a building called ${name} on this site.`);
+    throw e;
+}
+
+async function createBuilding(req, env, me) {
+    const b = await body(req);
+    assertWrite(me, b.site);
+    const x = prepareBuilding(b);
+    let res;
+    try {
+        res = await env.DB.prepare('INSERT INTO buildings (site, name, sort, data, version, updated_at, updated_by) VALUES (?, ?, ?, ?, 1, ?, ?)')
+            .bind(b.site, x.name, x.sort, x.data, now(), me.id).run();
+    } catch (e) { duplicateName(e, x.name); }
+    await auditStmt(env, me, 'building-create', null, `${b.site} ${x.name}: ${x.roomCount} rooms`).run();
+    return json({ building: rowToBuilding(await getBuilding(env, res.meta.last_row_id)) }, 201);
+}
+
+async function updateBuilding(req, env, me, id) {
+    const b = await body(req);
+    const row = await getBuilding(env, id);
+    if (!row || row.deleted) throw new HttpError(404, 'This building no longer exists.');
+    assertWrite(me, row.site);
+    const x = prepareBuilding(b);
+    let res;
+    try {
+        res = await env.DB.prepare('UPDATE buildings SET name = ?, sort = ?, data = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ? AND deleted = 0')
+            .bind(x.name, x.sort, x.data, now(), me.id, id, Number(b.version)).run();
+    } catch (e) { duplicateName(e, x.name); }
+    if (!res.meta.changes) throw new HttpError(409, `Someone else saved ${row.name} after you opened it. Reload the builder and make your change again.`, { current: rowToBuilding(row) });
+    await auditStmt(env, me, 'building-update', null, `${row.site} ${x.name}${x.name !== row.name ? ` (was ${row.name})` : ''}: ${x.roomCount} rooms`).run();
+    return json({ building: rowToBuilding(await getBuilding(env, id)) });
+}
+
+async function deleteBuilding(url, env, me, id) {
+    const row = await getBuilding(env, id);
+    if (!row || row.deleted) return json({ ok: true });
+    assertWrite(me, row.site);
+    const v = url.searchParams.get('version');
+    const res = await env.DB.prepare('UPDATE buildings SET deleted = 1, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND deleted = 0 AND (? IS NULL OR version = ?)')
+        .bind(now(), me.id, id, v, v == null ? null : Number(v)).run();
+    if (!res.meta.changes) throw new HttpError(409, 'Someone else changed this building. Reload and try again.');
+    await auditStmt(env, me, 'building-delete', null, `${row.site} ${row.name}`).run();
+    return json({ ok: true });
 }
 
 /* ---------------------------------- desks ---------------------------------- */

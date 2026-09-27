@@ -1,7 +1,11 @@
 // Ported from pms/building_legend_grid.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
+// Rooms and bed counts from Rooms & Buildings are merged in, so never-used rooms show as vacant.
+
+import { loadBuildings, buildingsOfSite, findBuilding } from '../../core/rooms.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
+let BUILDINGS = [];
 
 /* ================= Data (this site) ================= */
         const getAllRecords = () => db.all();
@@ -42,6 +46,7 @@ const { db } = ctx;
                 if ((r.building || '').trim() !== b) return;
                 roomsFromSlip(r).forEach(rr => roomSet.add(rr));
             });
+            (findBuilding(BUILDINGS, b)?.rooms || []).filter(r => r.active !== false).forEach(r => roomSet.add(normRoom(r.room_no)));
             const rooms = [...roomSet];
 
             const floors = new Map(), cellToRoom = new Map();
@@ -107,6 +112,7 @@ const { db } = ctx;
                     }
                 }
             }
+            for (const r of findBuilding(BUILDINGS, b)?.rooms || []) cap.set(normRoom(r.room_no), r.capacity); // builder wins
             return cap; // Map<roomNorm, capacity>
         }
 
@@ -312,7 +318,11 @@ const { db } = ctx;
             if (!$('asof_date').value) $('asof_date').value = `${y}-${m}-${d}`;
             if (!$('asof_time').value) $('asof_time').value = `${h}:${n}`;
 
-            const buildings = uniq(CACHE.map(r => (r.building || '').trim()).filter(Boolean));
+            BUILDINGS = await loadBuildings();
+            const buildings = uniq([
+                ...buildingsOfSite(BUILDINGS, ctx.siteId).filter(b => b.rooms.length).map(b => b.name),
+                ...CACHE.map(r => (r.building || '').trim()).filter(Boolean),
+            ]);
             renderTabs(buildings);
             if (buildings.length) renderMatrix(buildings[0]);
 

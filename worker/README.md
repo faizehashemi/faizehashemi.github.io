@@ -30,6 +30,17 @@ Files: `worker.js` (the API, one file, no dependencies) · `schema.sql` (tables)
 8. **Point the PMS at it.** In `pms/app/config.js` set
    `export const API_URL = 'https://pms-api.<your-subdomain>.workers.dev';` and publish the site.
 
+## Updating an existing deployment
+
+Whenever `worker.js` or `schema.sql` change (e.g. the Rooms & Buildings update added the `buildings` table):
+
+1. D1 → `pms` → *Console* → paste all of `schema.sql` → **Execute**. It only creates what is missing;
+   existing slips, desks and logins are untouched.
+2. Worker `pms-api` → **Edit code** → replace everything with the new `worker.js` → **Deploy**.
+3. Check `https://pms-api.tkamlapur.workers.dev/api/health`.
+
+Until the Worker is updated, the PMS keeps working; the Rooms & Buildings page shows a notice instead.
+
 ## Deploy — from the command line (alternative)
 
 Needs Node.js.
@@ -51,6 +62,13 @@ npx wrangler deploy
    *Move this browser's old data to the cloud* → **Upload**. (Safe to repeat; nothing is duplicated.)
    Medina slips can only be uploaded by a Medina desk or the admin.
 3. UMS auto-import: switch it on in the **UMS** page on **one** desk per site.
+
+## Rooms & Buildings
+
+`GET /api/buildings` (any login) · `POST /api/buildings` · `PUT /api/buildings/:id` (with `version`) ·
+`DELETE /api/buildings/:id?version=` — writes follow the same site rights as slips. One row per building
+holds its rooms (`room_no`, `floor`, `capacity` 0–50, `type`, `notes`, `active`); room numbers must be
+unique in a building. Saving an old version is refused with 409, like slips.
 
 ## How it behaves
 

@@ -2,17 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#fff9ec" />
     <title>PMS</title>
     <link rel="icon" type="image/png" href="assets/logo.png">
     <style>
         /* Shell only. Every view brings its own stylesheet (app/views/<id>/view.css). */
         #view[aria-busy="true"] { min-height: 60vh; }
     </style>
+    <!-- after each page's own stylesheet (the router inserts those before this one) -->
+    <link rel="stylesheet" href="app/core/responsive.css" id="responsive-css" data-shell>
 </head>
 <body>
     <site-nav data-shell></site-nav>
     <div id="view" data-shell></div>
+    <footer class="app-footer" data-shell>
+        Report queries and bugs to <a href="tel:+917747945253">+91 77479 45253</a>
+        · <a href="https://wa.me/917747945253" target="_blank" rel="noopener">WhatsApp</a>
+    </footer>
     <script type="module" src="app/main.js"></script>
 </body>
 </html>

@@ -10,6 +10,9 @@ import { createDb } from './core/db.js';
 import { currentDesk, logout, sync, state, mirrorAll } from './core/cloud.js';
 import './core/nav.js';
 import './core/ums-auto.js'; // listens for the UMS extension from page load, on every view
+import { watchTables } from './core/cards.js';
+import { initAnalytics, pageview, identify, resetAnalytics, track } from './core/analytics.js';
+import { loadBuildings } from './core/rooms.js';
 
 const nav = document.querySelector('site-nav');
 const outlet = document.getElementById('view');
@@ -94,7 +97,8 @@ async function loadCss(viewId) {
     next.rel = 'stylesheet';
     next.href = url;
     next.dataset.shell = '';
-    await new Promise(res => { next.onload = next.onerror = res; document.head.appendChild(next); });
+    // before the shell's responsive.css so its phone rules win over page styles
+    await new Promise(res => { next.onload = next.onerror = res; document.head.insertBefore(next, document.getElementById('responsive-css')); });
     cssLink?.remove();
     cssLink = next;
 }
@@ -105,6 +109,7 @@ function unmount() {
     current = null;
     tracked = null;
     c.endDb();
+    c.stopTables?.();
     try { c.cleanup?.(); } catch (e) { console.error('view cleanup failed', e); }
     for (const [t, type, fn, opts] of c.listeners) origRemove.call(t, type, fn, opts);
     for (const el of Array.from(document.body.children)) {
@@ -143,6 +148,7 @@ async function route() {
     nav.hidden = !desk;
     if (desk) nav.setRoute(siteId, view.id, desk);
     document.title = `${view.title} · ${SITES[siteId].label}`;
+    pageview(siteId, view.id);
 
     unmount();
     outlet.setAttribute('aria-busy', 'true');
@@ -169,7 +175,9 @@ async function route() {
             bodyClass: document.body.getAttribute('class'),
         };
         outlet.innerHTML = htmlCache.get(view.id);
+        outlet.dataset.view = view.id;
         rewriteLegacyLinks(outlet, siteId);
+        current.stopTables = watchTables(outlet); // data tables become cards on phones
         window.scrollTo(0, 0);
 
         const ctx = {
@@ -217,13 +225,25 @@ nav.addEventListener('logout', async () => {
     if (!confirm('Log out of this desk? This computer\'s copy of the data is removed until you log in again.')) return;
     await logout(); // → 'pms:logged-out' → route()
 });
-origAdd.call(window, 'pms:logged-in', () => route()); // route key includes the desk, so the login view is replaced
+origAdd.call(window, 'pms:logged-in', () => {
+    identify(currentDesk());
+    track('login');
+    loadBuildings({ force: true }).catch(() => { });
+    route(); // route key includes the desk, so the login view is replaced
+});
 origAdd.call(window, 'pms:logged-out', (e) => {
+    track('logout', { reason: e.detail?.reason ? 'expired' : 'manual' });
+    resetAnalytics();
     try { if (e.detail?.reason) sessionStorage.setItem('pms_logout_reason', e.detail.reason); } catch { }
     unmount();
     route();
 });
 origAdd.call(window, 'pms:sync', refreshBadge);
+let wasOnline = true;
+origAdd.call(window, 'pms:sync', (e) => {
+    if (wasOnline && e.detail && e.detail.online === false) track('went_offline');
+    wasOnline = !e.detail || e.detail.online !== false;
+});
 origAdd.call(window, 'online', () => sync({ force: true }).catch(() => { }));
 // keep every open desk current without anyone pressing Refresh
 setInterval(() => { if (document.visibilityState === 'visible') sync().catch(() => { }); }, 30000);
@@ -235,5 +255,7 @@ origAdd.call(window, 'pms:ums-applied', (e) => {
     if (d.error) nav.setBadge(`UMS auto-import (${label}): ${d.held ? 'held for review' : 'failed'}`, true);
     else if (d.summary) nav.setBadge(`UMS → ${label}: ${d.summary.created} new, ${d.summary.updated} updated · reopen page to refresh`);
 });
+initAnalytics();
+if (currentDesk()) identify(currentDesk());
 route();
-if (currentDesk()) sync().catch(() => { });
+if (currentDesk()) { sync().catch(() => { }); loadBuildings().catch(() => { }); }

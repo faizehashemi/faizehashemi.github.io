@@ -1,0 +1,127 @@
+/* Shell styles + phone/tablet rules for every page.
+   Loaded after the page's own stylesheet, so these win on small screens. Laptop layouts are left
+   as designed; everything here is inside a max-width media query except the footer. */
+
+/* `hidden` always hides, even when a page's CSS gives the element a display value */
+#view [hidden] { display: none !important; }
+
+/* ------------------------------ footer ------------------------------ */
+.app-footer {
+    max-width: 1400px; margin: 24px auto 8px; padding: 14px 16px 18px;
+    border-top: 1px solid #e3d3b3; text-align: center;
+    font: 13px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color: #6b5e4a;
+}
+.app-footer a { color: #8a6512; font-weight: 650; text-decoration: none; white-space: nowrap }
+.app-footer a:hover { text-decoration: underline }
+@media print { .app-footer { display: none } }
+
+/* ------------------------- tablets and phones ------------------------- */
+@media (max-width: 900px) {
+    body { margin: 8px !important; }
+    #view { overflow-wrap: anywhere; }
+    #view img, #view video, #view svg { max-width: 100%; }
+    #view [style*="min-width"] { min-width: 0 !important; }
+    #view input:not([type=checkbox]):not([type=radio]):not([type=range]), #view select, #view textarea { max-width: 100%; }
+    #view .wrap { max-width: 100% !important; }
+
+    /* recurring two-/three-column page layouts collapse to one column */
+    #view .two, #view .split, #view .two-col, #view .grid2 { grid-template-columns: 1fr !important; display: grid !important; }
+}
+
+@media (max-width: 700px) {
+    /* bigger text in fields stops phones zooming in on focus */
+    #view input:not([type=checkbox]):not([type=radio]):not([type=range]), #view select, #view textarea { font-size: 16px !important; }
+    #view button { min-height: 36px; }
+    #view h1 { font-size: 20px !important; line-height: 1.25; }
+
+    /* data tables → cards */
+    #view table.pms-cards, #view table.pms-cards > tbody, #view table.pms-cards > tfoot,
+    #view table.pms-cards > tbody > tr, #view table.pms-cards > tfoot > tr { display: block; width: auto !important; min-width: 0 !important; }
+    #view table.pms-cards { border: 0 !important; background: transparent !important; }
+    #view table.pms-cards > thead { display: none; }
+    #view table.pms-cards > caption { display: block; text-align: left; padding: 4px 0 8px; }
+    #view table.pms-cards > colgroup { display: none; }
+    #view table.pms-cards > tbody > tr, #view table.pms-cards > tfoot > tr {
+        border: 1px solid #dcc7a4; border-radius: 12px; margin: 0 0 10px; padding: 8px 12px;
+        background: #fffdf7; box-shadow: 0 2px 6px rgba(92,64,28,.06);
+        display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px;
+    }
+    #view table.pms-cards > tbody > tr > td, #view table.pms-cards > tfoot > tr > td { grid-column: 1 / -1; }
+    #view table.pms-cards > tbody > tr > td.pms-short, #view table.pms-cards > tfoot > tr > td.pms-short { grid-column: auto; grid-template-columns: 40px minmax(0, 1fr) !important; }
+    #view table.pms-cards > tfoot > tr { background: #fff6dd; }
+    #view table.pms-cards > tbody > tr > td, #view table.pms-cards > tfoot > tr > td {
+        display: grid !important; grid-template-columns: minmax(84px, 36%) minmax(0, 1fr); gap: 10px; align-items: center;
+        border: 0 !important; border-bottom: 1px dashed #efe3cc !important; padding: 6px 0 !important;
+        text-align: left !important; white-space: normal !important; width: auto !important; max-width: none !important;
+        background: transparent !important; position: static !important;
+    }
+    #view table.pms-cards > tbody > tr > td:last-child, #view table.pms-cards > tfoot > tr > td:last-child { border-bottom: 0 !important; }
+    #view table.pms-cards > tbody > tr > td::before, #view table.pms-cards > tfoot > tr > td::before {
+        content: attr(data-label); font-size: 12px; font-weight: 650; color: #6b5e4a; text-transform: none; letter-spacing: 0;
+    }
+    #view table.pms-cards > tbody > tr > td[data-label=""], #view table.pms-cards > tfoot > tr > td[data-label=""] { grid-template-columns: 1fr; }
+    #view table.pms-cards > tbody > tr > td[data-label=""]::before, #view table.pms-cards > tfoot > tr > td[data-label=""]::before { content: none; }
+    #view table.pms-cards > tbody > tr > td > *:only-child { max-width: 100%; }
+    #view table.pms-cards > tbody > tr > td > button:only-child, #view table.pms-cards > tbody > tr > td > a:only-child { justify-self: start; width: auto; }
+    #view table.pms-cards > tbody > tr.pms-full > td { display: block !important; grid-template-columns: none; text-align: center !important; }
+    #view table.pms-cards > tbody > tr.pms-full > td::before { content: none; }
+    /* table containers that scrolled or capped height on laptops just flow on phones */
+    #view .table-wrap:has(> table.pms-cards), #view .grid:has(> table.pms-cards), #view .log:has(> table.pms-cards) {
+        overflow: visible !important; max-height: none !important; border: 0 !important; box-shadow: none !important; background: transparent !important;
+    }
+
+    /* layout tables that cannot be cards scroll sideways inside the page */
+    #view table.pms-scroll { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* --------------------------- per-page phone fixes --------------------------- */
+@media (max-width: 700px) {
+    /* single-cell rows (e.g. "Add Row" in a table footer) span the card */
+    #view table.pms-cards > tfoot > tr.pms-full > td { display: block !important; }
+    #view table.pms-cards > tfoot > tr.pms-full > td::before { content: none; }
+
+    /* Rooms & Buildings: compact room cards — [✓] room · beds · active · ✕ / floor · type / notes */
+    #view[data-view="builder"] #roomTbl > tbody > tr { grid-template-columns: 26px minmax(0, 1.3fr) minmax(0, 1fr) 52px 40px !important; column-gap: 8px; row-gap: 4px; padding: 8px 10px; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td { grid-column: auto; display: flex !important; flex-direction: column; gap: 2px; border: 0 !important; padding: 0 !important; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td::before { font-size: 11px; text-align: left; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(1) { grid-area: 1 / 1; justify-content: center; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(2) { grid-area: 1 / 2; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(4) { grid-area: 1 / 3; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(7) { grid-area: 1 / 4; align-items: center; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(8) { grid-area: 1 / 5; justify-content: flex-end; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(3) { grid-area: 2 / 2; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(5) { grid-area: 2 / 3 / 3 / 6; }
+    #view[data-view="builder"] #roomTbl > tbody > tr > td:nth-child(6) { grid-area: 3 / 2 / 4 / 6; }
+    #view[data-view="builder"] #roomTbl td input:not([type=checkbox]), #view[data-view="builder"] #roomTbl td select { width: 100% !important; }
+    #view[data-view="builder"] .actions.sticky { margin: 0 -14px -14px; padding: 10px 14px; box-shadow: 0 -6px 16px rgba(92,64,28,.10); }
+    #view[data-view="grid"] .sizegrp input[type=range] { width: 120px; }
+}
+
+/* tablets and phones: layouts that are too wide below laptop size */
+@media (max-width: 900px) {
+    /* control bars (filters, dates, buttons) wrap instead of running off screen */
+    #view .controls, #view .toolbar, #view .sizebar, #view .sizegrp, #view .tools, #view .row, #view .chips, #view .actions { flex-wrap: wrap; }
+    #view .controls > div, #view .toolbar > div, #view .toolbar .group { flex-wrap: wrap; max-width: 100%; }
+    #view[data-view="admin"] .controls, #view[data-view="forecast"] .controls { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important; }
+    #view[data-view="print"] #savedList { width: 100%; min-width: 0 !important; }
+
+    /* KG: each person row → name on its own line, the three ticks, then location + delete */
+    #view[data-view="kg"] .person { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px; }
+    #view[data-view="kg"] .person > .name { grid-column: 1 / -1; }
+    #view[data-view="kg"] .person > select { grid-column: span 2; }
+
+    /* Slip: the header form is a layout table → 4-column grid (label, field, label, field) */
+    #view[data-view="slip"] table.kv, #view[data-view="slip"] table.kv > tbody { display: block; width: 100%; }
+    #view[data-view="slip"] table.kv tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px 8px; align-items: center; margin-bottom: 6px; }
+    #view[data-view="slip"] table.kv tr:empty { display: none; }
+    #view[data-view="slip"] table.kv th, #view[data-view="slip"] table.kv td { display: block; border: 0; padding: 0; width: auto !important; background: none; }
+    #view[data-view="slip"] table.kv th { font-size: 12px; text-align: left; white-space: nowrap; }
+    #view[data-view="slip"] table.kv td:has(#sh_no), #view[data-view="slip"] table.kv td:has(#tour_name),
+    #view[data-view="slip"] table.kv td:has(#group_leader), #view[data-view="slip"] table.kv td:has(#building) { grid-column: 1 / -1; }
+    #view[data-view="slip"] table.kv td:has(#checkin_time), #view[data-view="slip"] table.kv td:has(#checkout_time) { grid-column: span 2; }
+    #view[data-view="slip"] .subtables { flex-direction: column; }
+    #view[data-view="slip"] .mini { width: 100% !important; }
+    #view[data-view="slip"] .bulk-row { display: grid; gap: 6px; }
+    #view[data-view="slip"] .controls { justify-content: stretch; }
+    #view[data-view="slip"] .controls button { flex: 1; }
+}

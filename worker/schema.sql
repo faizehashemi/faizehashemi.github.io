@@ -53,6 +53,21 @@ CREATE INDEX IF NOT EXISTS slips_seq ON slips(seq, id);
 CREATE INDEX IF NOT EXISTS slips_site_sh ON slips(site, sh_no);
 CREATE INDEX IF NOT EXISTS slips_ums ON slips(ums_key);
 
+-- Buildings and their rooms (the Rooms & Buildings builder). One row per building; `data` holds
+-- {"rooms":[{"room_no","floor","capacity","type","notes","active"}], "notes": ""}.
+CREATE TABLE IF NOT EXISTS buildings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    site        TEXT NOT NULL CHECK (site IN ('makkah', 'medina')),
+    name        TEXT NOT NULL COLLATE NOCASE,
+    sort        INTEGER NOT NULL DEFAULT 0,
+    data        TEXT NOT NULL,
+    version     INTEGER NOT NULL DEFAULT 1,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER,
+    deleted     INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS buildings_site_name ON buildings(site, name) WHERE deleted = 0;
+
 -- Who changed what
 CREATE TABLE IF NOT EXISTS audit (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -10,6 +10,7 @@
 
 import { SITES, siteOfBuilding } from '../config.js';
 import { request, sync, mirrorAll, mirrorGet, mirrorPut, mirrorDelete, canWrite, currentDesk, state, UserError, ApiError } from './cloud.js';
+import { track } from './analytics.js';
 
 export class ReadOnlyError extends UserError { }
 export class ConflictError extends UserError { }
@@ -35,6 +36,7 @@ async function send(fn) {
     try { return await fn(); }
     catch (e) {
         if (e instanceof ApiError && e.status === 409) {
+            track('slip_conflict');
             if (e.extra.current) await mirrorPut(e.extra.current);
             else await fresh();
             throw new ConflictError(e.message);
@@ -86,6 +88,7 @@ export function createDb(siteId) {
             const target = rec.site || siteOfBuilding(rec.building) || siteId;
             const { slip } = await send(() => request('POST', '/api/slips', { slip: { ...payload(rec), site: target } }));
             await mirrorPut(slip);
+            track('slip_created', { site: slip.site, has_rooms: !!(slip.rooms?.gents?.length || slip.rooms?.ladies?.length) });
             return slip.id;
         },
 
@@ -96,6 +99,7 @@ export function createDb(siteId) {
             const next = { ...payload(old), ...payload(patch), createdAt: old.createdAt, updatedAt: new Date().toISOString() };
             const { slip } = await send(() => request('PUT', `/api/slips/${Number(id)}`, { slip: next, version: old._v }));
             await mirrorPut(slip);
+            track('slip_updated', { site: slip.site });
             return slip.id;
         },
 
