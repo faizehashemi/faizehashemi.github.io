@@ -203,7 +203,7 @@ let BUILDER_BEDS = {}; // building → beds from Rooms & Buildings
       state.slips = slips;
 
       // Collect building names
-      const builder = buildingsOfSite(await loadBuildings(), ctx.siteId).filter(b => b.rooms.length);
+      const builder = buildingsOfSite(await ctx.guard(loadBuildings()), ctx.siteId).filter(b => b.rooms.length);
       BUILDER_BEDS = Object.fromEntries(builder.map(b => [b.name, totalBeds(b)]));
       const buildings = unique([...builder.map(b => b.name), ...slips.map(s=> String(s.building||'').trim())]).sort((a,b)=> a.localeCompare(b));
       state.buildings = buildings.length ? buildings : [''];

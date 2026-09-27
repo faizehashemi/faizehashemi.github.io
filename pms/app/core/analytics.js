@@ -16,8 +16,13 @@ function assetsUrl(host) {
     return /\.i\.posthog\.com$/.test(h) ? h.replace('.i.posthog.com', '-assets.i.posthog.com') + '/static/array.js' : h + '/static/array.js';
 }
 
+// Local development (localhost) never reports, so tests don't pollute the real project.
+// To try analytics locally: localStorage.setItem('pms_analytics_dev', '1') and reload.
+const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+const enabled = () => !!POSTHOG.key && (!LOCAL || (() => { try { return localStorage.getItem('pms_analytics_dev') === '1'; } catch { return false; } })());
+
 export function initAnalytics() {
-    if (!POSTHOG.key || loading) return;
+    if (!enabled() || loading) return;
     loading = true;
     const s = document.createElement('script');
     s.async = true;
@@ -48,7 +53,7 @@ export function initAnalytics() {
 }
 
 function call(fn, ...args) {
-    if (!POSTHOG.key) return;
+    if (!enabled()) return;
     if (ready) { try { window.posthog[fn](...args); } catch { } }
     else queue.push([fn, args]);
 }

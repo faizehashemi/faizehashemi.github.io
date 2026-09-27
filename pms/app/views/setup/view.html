@@ -10,6 +10,26 @@
         </div>
     </section>
 
+    <section class="card" id="travelCard">
+        <h3>Travel times <span class="muted small">— all sites, every desk</span></h3>
+        <p class="muted small">Slips show hotel times, not flight times. UMS imports use these rules; the same for every desk.</p>
+        <form class="travel" id="travelForm">
+            <label class="fld">After landing, travel to the hotel
+                <span class="unit"><input id="tArrive" type="number" min="0" max="24" step="0.25" required> hours</span></label>
+            <label class="fld">Before the flight, leave the hotel
+                <span class="unit"><input id="tDepart" type="number" min="0" max="24" step="0.25" required> hours</span></label>
+            <label class="fld">Moving between cities: check-in at
+                <input id="tIn" type="time" required></label>
+            <label class="fld">Moving between cities: check-out at
+                <input id="tOut" type="time" required></label>
+        </form>
+        <div class="example" id="tExample"></div>
+        <div class="actions">
+            <button type="submit" form="travelForm" class="primary" id="btnTravel">Save travel times</button>
+            <span class="muted small" id="travelMsg"></span>
+        </div>
+    </section>
+
     <section class="card" id="migrateCard" hidden>
         <h3>Move this browser's old data to the cloud</h3>
         <p class="muted">Slips saved on this computer before the cloud switch are still in this browser. Upload them once;

@@ -10,6 +10,7 @@
 // that field (three-way merge against the values the previous import applied).
 
 import { SITES, UMS } from '../config.js';
+import { shiftTime } from './settings.js';
 
 /* --------------------------------- parse --------------------------------- */
 
@@ -158,18 +159,18 @@ export function parseUms(html) {
 
 /* -------------------------------- itinerary -------------------------------- */
 
-const minTime = (a, b) => (a < b ? a : b);
-
 /**
- * Split a group into hotel stays per city.
+ * Split a group into hotel stays per city. Hotel times, not flight times: check-in is the landing
+ * time plus the airport→hotel travel time, the last check-out is the flight time minus the lead
+ * time (both admin settings), and moves between cities use the transfer times.
  * @returns {{ stays: {site, start:{date,time}, end:{date,time}, n}[], warnings: string[] }}
  */
 export function staysOf(g, cfg = UMS) {
     const city = (c) => Object.values(SITES).find(s => s.umsCity === c)?.id;
     const makkah = city('MAKKAH'), medina = city('MADINA');
-    const A = { date: g.arrival.date, time: g.arrival.time };
-    const D = { date: g.departure.date, time: minTime(cfg.checkoutTime, g.departure.time) };
-    const outOf = (date) => ({ date, time: cfg.checkoutTime });      // leave a city mid-trip
+    const A = shiftTime(g.arrival.date, g.arrival.time, +cfg.arrivalCommuteHours);
+    const D = shiftTime(g.departure.date, g.departure.time, -cfg.departureLeadHours);
+    const outOf = (date) => ({ date, time: cfg.transferCheckoutTime }); // leave a city mid-trip
     const into = (date) => ({ date, time: cfg.transferCheckinTime }); // arrive in the next city
     const warnings = [];
     let legs;

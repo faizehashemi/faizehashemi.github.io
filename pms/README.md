@@ -103,10 +103,21 @@ current site — by file, or automatically every hour through the Chrome extensi
 On the Slip page, an SH with more than one stay here gets a stay picker. Use **Edit** (not Save) on
 imported slips; Save makes a separate copy.
 
+## Travel times (Setup page, admin)
+
+Slips show **hotel** times, not flight times. For UMS imports:
+- hotel check-in = flight landing + *travel to the hotel* (default 3 h)
+- last hotel check-out = flight departure − *leave before the flight* (default 6 h)
+- moving between Makkah and Madina: check-out and check-in times of day (default 07:00 / 14:00)
+
+An admin changes these on **Setup → Travel times**; they are stored on the server and the same for
+every desk (defaults in `UMS` in `app/config.js`). Imported slips pick up a change at the next import
+(desk edits to a time are kept; stays with rooms assigned show under *Needs attention*).
+
 ## Analytics (PostHog)
 
-Set `POSTHOG = { key: 'phc_…', host: 'https://us.i.posthog.com' }` in `app/config.js` (EU projects:
-`https://eu.i.posthog.com`). Sent: page views per route, login/logout, slip created/updated/conflict,
+Connected to the US PostHog project (`POSTHOG` in `app/config.js`). Nothing is sent from `localhost`
+(set `localStorage.pms_analytics_dev = '1'` to test locally). Sent: page views per route, login/logout, slip created/updated/conflict,
 UMS import counts, building saved, going offline, and JavaScript errors. Desks are identified by their
 desk login. Click autocapture masks all text and session recording is off, so guest names and phone
 numbers on screen are not sent.

@@ -4,9 +4,11 @@
 import { SITES } from '../../config.js';
 import { currentDesk, request, sync, state, apiBase, UserError } from '../../core/cloud.js';
 import { legacyAllSlips, legacySiteOf } from '../../core/db.js';
+import { loadSettings, saveSettings, shiftTime } from '../../core/settings.js';
 
-export default async function mount() {
+export default async function mount(ctx) {
     const $ = (id) => document.getElementById(id);
+    const say = (id, text) => { const el = $(id); if (el) el.textContent = text; }; // safe after leaving the page
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const when = (iso) => iso ? new Date(iso).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
     const me = currentDesk();
@@ -35,6 +37,48 @@ export default async function mount() {
         catch (e) { $('syncMsg').textContent = e.message; }
     });
 
+    /* ------------------------------- travel times ------------------------------- */
+
+    const fmtDT = (d, t) => `${new Date(d + 'T00:00').toLocaleDateString([], { day: '2-digit', month: 'short' })} ${t}`;
+    function renderTravelExample() {
+        const a = Number($('tArrive').value) || 0, dep = Number($('tDepart').value) || 0;
+        const land = shiftTime('2026-11-25', '23:00', a), out = shiftTime('2026-12-01', '04:30', -dep);
+        $('tExample').innerHTML = `
+            <div>Flight lands <b>${fmtDT('2026-11-25', '23:00')}</b> → hotel check-in <b>${fmtDT(land.date, land.time)}</b></div>
+            <div>Flight departs <b>${fmtDT('2026-12-01', '04:30')}</b> → hotel check-out <b>${fmtDT(out.date, out.time)}</b></div>
+            <div>Makkah ⇄ Madina on the day of the move: check-out <b>${esc($('tOut').value)}</b>, check-in <b>${esc($('tIn').value)}</b></div>`;
+    }
+    async function renderTravel() {
+        const s = await ctx.guard(loadSettings());
+        $('tArrive').value = s.settings.arrival_commute_hours;
+        $('tDepart').value = s.settings.departure_lead_hours;
+        $('tIn').value = s.settings.transfer_checkin_time;
+        $('tOut').value = s.settings.transfer_checkout_time;
+        $('travelMsg').textContent = s.updated_at ? `Last changed by ${s.updated_by || '—'}, ${when(s.updated_at)}` : 'Using the default times.';
+        $('travelCard').querySelectorAll('input').forEach(i => { i.disabled = !isAdmin; });
+        $('btnTravel').hidden = !isAdmin;
+        if (!isAdmin) $('travelMsg').textContent += ' Only an admin can change these.';
+        renderTravelExample();
+    }
+    $('travelForm').addEventListener('input', renderTravelExample);
+    $('travelForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        $('btnTravel').disabled = true;
+        try {
+            await saveSettings({
+                arrival_commute_hours: Number($('tArrive').value),
+                departure_lead_hours: Number($('tDepart').value),
+                transfer_checkin_time: $('tIn').value,
+                transfer_checkout_time: $('tOut').value,
+            });
+            await renderTravel();
+            $('travelMsg').textContent = 'Saved for every desk. Imported slips get the new times at the next UMS import (desk edits are kept).';
+        } catch (err) {
+            $('travelMsg').textContent = err.status === 404 ? 'The PMS server needs the update (worker.js + schema.sql) before this can be saved.' : (err.message || String(err));
+        } finally { $('btnTravel').disabled = false; }
+    });
+    await renderTravel();
+
     /* ------------------------- upload old browser data ------------------------- */
 
     const deviceId = (() => {
@@ -47,7 +91,7 @@ export default async function mount() {
 
     let legacy = [];
     async function renderLegacy() {
-        legacy = await legacyAllSlips().catch(() => []);
+        legacy = await ctx.guard(legacyAllSlips().catch(() => []));
         $('migrateCard').hidden = !legacy.length;
         if (!legacy.length) return;
         const bySite = {};
@@ -83,14 +127,14 @@ export default async function mount() {
             for (let i = 0; i < items.length; i += 45) {
                 const r = await request('POST', '/api/slips/migrate', { slips: items.slice(i, i + 45) });
                 created += r.created; skipped += r.skipped;
-                $('migrateMsg').textContent = `Uploading… ${Math.min(i + 45, items.length)}/${items.length}`;
+                say('migrateMsg', `Uploading… ${Math.min(i + 45, items.length)}/${items.length}`);
             }
             await sync({ force: true });
-            $('migrateMsg').textContent = `Done: ${created} uploaded${skipped ? `, ${skipped} were already there` : ''}.`;
+            say('migrateMsg', `Done: ${created} uploaded${skipped ? `, ${skipped} were already there` : ''}.`);
         } catch (e) {
-            $('migrateMsg').textContent = (e instanceof UserError ? e.message : 'Upload failed.') + ` (${created} uploaded before the error — press Upload again to continue.)`;
+            say('migrateMsg', (e instanceof UserError ? e.message : 'Upload failed.') + ` (${created} uploaded before the error — press Upload again to continue.)`);
         } finally {
-            $('btnMigrate').disabled = false;
+            if ($('btnMigrate')) $('btnMigrate').disabled = false;
         }
     });
 
@@ -118,7 +162,7 @@ export default async function mount() {
     }
 
     async function patchDesk(id, change, done) {
-        try { renderDesks((await request('PATCH', `/api/desks/${id}`, change)).desks); $('deskMsg').textContent = done; renderAudit(); }
+        try { renderDesks((await ctx.guard(request('PATCH', `/api/desks/${id}`, change))).desks); $('deskMsg').textContent = done; renderAudit(); }
         catch (e) { $('deskMsg').textContent = e.message; loadDesks(); }
     }
 
@@ -143,7 +187,7 @@ export default async function mount() {
     $('newDesk').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
-            const r = await request('POST', '/api/desks', { name: $('ndName').value.trim(), site: $('ndSite').value, role: $('ndRole').value, password: $('ndPass').value });
+            const r = await ctx.guard(request('POST', '/api/desks', { name: $('ndName').value.trim(), site: $('ndSite').value, role: $('ndRole').value, password: $('ndPass').value }));
             renderDesks(r.desks);
             $('deskMsg').textContent = `Desk “${$('ndName').value.trim()}” added. Give its password to that desk.`;
             $('ndName').value = ''; $('ndPass').value = '';
@@ -152,13 +196,13 @@ export default async function mount() {
     });
 
     async function loadDesks() {
-        try { renderDesks((await request('GET', '/api/desks')).desks); }
+        try { renderDesks((await ctx.guard(request('GET', '/api/desks'))).desks); }
         catch (e) { $('deskMsg').textContent = e.message; }
     }
 
     async function renderAudit() {
         try {
-            const { audit } = await request('GET', '/api/audit?limit=100');
+            const { audit } = await ctx.guard(request('GET', '/api/audit?limit=100'));
             $('auditTbl').querySelector('tbody').innerHTML = audit.map(a => `<tr>
                 <td class="nowrap">${when(a.at)}</td><td>${esc(a.desk || '—')}</td><td>${esc(a.action)}</td>
                 <td>${a.slip_id ?? ''}</td><td class="small">${esc(a.detail || '')}</td></tr>`).join('')

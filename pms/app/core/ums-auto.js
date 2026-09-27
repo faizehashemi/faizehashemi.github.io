@@ -13,6 +13,7 @@
 import { UMS, SITES } from '../config.js';
 import { createDb, ConflictError } from './db.js';
 import { canWrite } from './cloud.js';
+import { umsConfig } from './settings.js';
 import { track } from './analytics.js';
 import { parseUms, planImport, applyPlan, summarize, hashText, writeLog, lastApplied, setLastApplied } from './ums.js';
 
@@ -56,12 +57,13 @@ export async function runImport({ siteId, html, fileName, via, fetchedAt, planOv
         const db = createDb(siteId);
         // Plan against the freshly synced data. If another desk changed a slip in between, the
         // server refuses that chunk; re-plan once against the new data.
-        let plan = planOverride || planImport(parsed, await db.all(), siteId);
+        const cfg = await umsConfig(); // admin's travel times (Setup page)
+        let plan = planOverride || planImport(parsed, await db.all(), siteId, cfg);
         let res;
         try { res = await applyPlan(db, plan); }
         catch (e) {
             if (!(e instanceof ConflictError)) throw e;
-            plan = planImport(parsed, await db.all(), siteId);
+            plan = planImport(parsed, await db.all(), siteId, cfg);
             res = await applyPlan(db, plan);
         }
         const sum = summarize(plan);

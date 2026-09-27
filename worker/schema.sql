@@ -68,6 +68,14 @@ CREATE TABLE IF NOT EXISTS buildings (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS buildings_site_name ON buildings(site, name) WHERE deleted = 0;
 
+-- System-wide settings an admin changes on the Setup page (e.g. travel buffers)
+CREATE TABLE IF NOT EXISTS settings (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL,              -- JSON
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER
+);
+
 -- Who changed what
 CREATE TABLE IF NOT EXISTS audit (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,

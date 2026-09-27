@@ -27,7 +27,7 @@ export default async function mount(ctx) {
     }
 
     // Buildings from Rooms & Buildings (plus the site config); capacities prefer the builder too
-    let BUILDINGS = await loadBuildings();
+    let BUILDINGS = await ctx.guard(loadBuildings());
     const addBuildingOption = (b) => {
         if ([...$('building').options].some(o => o.value === b)) return;
         const o = document.createElement('option');
@@ -225,7 +225,7 @@ export default async function mount(ctx) {
         const b = ($('building').value || '').trim();
         if (!b) { alert('Select a building first.'); return; }
         const capMap = buildCapacityMap(b);
-        BUILDINGS = await loadBuildings();
+        BUILDINGS = await ctx.guard(loadBuildings());
 
         let filled = 0, unknown = 0;
         ['gents', 'ladies'].forEach(group => {

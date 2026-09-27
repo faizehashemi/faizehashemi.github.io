@@ -57,7 +57,7 @@ export const NAV = [
 
 // Product analytics (PostHog). Empty key = analytics off. The project API key (phc_…) is meant
 // to be public. Host: https://us.i.posthog.com or https://eu.i.posthog.com, matching your project.
-export const POSTHOG = { key: '', host: 'https://us.i.posthog.com' };
+export const POSTHOG = { key: 'phc_YlTZ1kLBOp7jALAJnei5q50CDCQf2omLGdC7HczuZq5', host: 'https://us.i.posthog.com' };
 
 // Old standalone pages → view ids (used for redirects and for links inside view markup)
 export const LEGACY_PAGES = {
@@ -80,9 +80,13 @@ export const LEGACY_PAGES = {
 
 // UMS Group List import (app/core/ums.js)
 export const UMS = {
+    // Travel times. These are only the defaults: an admin sets the live values on the Setup page
+    // (stored on the server, the same for every desk — see core/settings.js).
+    arrivalCommuteHours: 3,          // hotel check-in  = flight landing + this (airport → hotel)
+    departureLeadHours: 6,           // hotel check-out = flight departure − this (hotel → airport)
     // UMS gives only a date when a group moves between cities; these are the hotel times used then.
     transferCheckinTime: '14:00',
-    checkoutTime: '07:00',          // also used on the final day, unless the flight is earlier
+    transferCheckoutTime: '07:00',
     // An existing slip with the same SH but no UMS link yet (typed in by hand, or an older list)
     // is adopted if its check-in is within this many days of the UMS stay.
     matchWindowDays: 7,

@@ -68,7 +68,7 @@ let BUILDINGS = [];
             sel.innerHTML = ''; merged.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = (v === 'ALL' ? 'ALL BUILDINGS' : v); sel.appendChild(o); }); sel.value = 'ALL';
         }
 
-        async function refreshDB() { BUILDINGS = await loadBuildings(); CANON_BUILDINGS = buildingNames(BUILDINGS, ctx.siteId); DB_CACHE = await getAllRecords(); $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`; populateBuildingFilter(); }
+        async function refreshDB() { BUILDINGS = await ctx.guard(loadBuildings()); CANON_BUILDINGS = buildingNames(BUILDINGS, ctx.siteId); DB_CACHE = await getAllRecords(); $('status').textContent = `${DB_CACHE.length} slip(s) loaded from DB.`; populateBuildingFilter(); }
         function currentWhen() { return parseDT($('when_date').value, $('when_time').value); }
 
         function runForecast() {

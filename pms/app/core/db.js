@@ -27,9 +27,11 @@ function readOnlyReason(siteId) {
     return `Signed in as “${d.name}” (${SITES[d.site]?.label}). ${SITES[siteId].label} slips are read-only here.`;
 }
 
-// Pull fresh data if we can; stay usable from the mirror if we cannot
-async function fresh() {
-    try { await sync(); } catch (e) { if (!(e instanceof UserError)) throw e; }
+// Pull fresh data if we can; stay usable from the mirror if we cannot.
+// After a write, `force` so the copy is guaranteed to include it (no throttling, no reuse of an
+// older sync that was already running).
+async function fresh(force = false) {
+    try { await sync({ force }); } catch (e) { if (!(e instanceof UserError)) throw e; }
 }
 
 async function send(fn) {
@@ -38,10 +40,10 @@ async function send(fn) {
         if (e instanceof ApiError && e.status === 409) {
             track('slip_conflict');
             if (e.extra.current) await mirrorPut(e.extra.current);
-            else await fresh();
+            else await fresh(true);
             throw new ConflictError(e.message);
         }
-        if (e instanceof ApiError && e.status === 404) await fresh();
+        if (e instanceof ApiError && e.status === 404) await fresh(true);
         throw e;
     }
 }
@@ -113,7 +115,7 @@ export function createDb(siteId) {
         async clear() {
             guard();
             const { deleted } = await send(() => request('POST', '/api/slips/clear', { site: siteId }));
-            await fresh();
+            await fresh(true);
             return { deleted, keptShared: 0 };
         },
 
@@ -134,7 +136,7 @@ export function createDb(siteId) {
                     total.created += r.created; total.updated += r.updated; total.skipped += r.skipped;
                 }
             } finally {
-                await fresh();
+                await fresh(true);
             }
             return total;
         },

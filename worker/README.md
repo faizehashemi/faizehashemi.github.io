@@ -32,14 +32,19 @@ Files: `worker.js` (the API, one file, no dependencies) · `schema.sql` (tables)
 
 ## Updating an existing deployment
 
-Whenever `worker.js` or `schema.sql` change (e.g. the Rooms & Buildings update added the `buildings` table):
+Whenever `worker.js` or `schema.sql` change (e.g. the Rooms & Buildings update added the `buildings`
+table, and the travel-times update the `settings` table):
 
 1. D1 → `pms` → *Console* → paste all of `schema.sql` → **Execute**. It only creates what is missing;
    existing slips, desks and logins are untouched.
 2. Worker `pms-api` → **Edit code** → replace everything with the new `worker.js` → **Deploy**.
 3. Check `https://pms-api.tkamlapur.workers.dev/api/health`.
 
-Until the Worker is updated, the PMS keeps working; the Rooms & Buildings page shows a notice instead.
+Until the Worker is updated, the PMS keeps working: Rooms & Buildings shows a notice, and travel times
+use the defaults (3 h / 6 h) and cannot be saved.
+
+`GET /api/settings` (any login) · `PUT /api/settings` (admin): `arrival_commute_hours`,
+`departure_lead_hours` (0–24, quarter hours), `transfer_checkin_time`, `transfer_checkout_time` (HH:MM).
 
 ## Deploy — from the command line (alternative)
 

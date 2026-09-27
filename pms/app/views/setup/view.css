@@ -114,3 +114,12 @@ h4 { margin: 16px 0 8px; color: #7a5b13 }
 td .row-actions { display: flex; gap: 6px; flex-wrap: wrap }
 td .row-actions button { padding: 3px 8px; font-size: 12px }
 tr.off td { color: var(--muted) }
+
+/* travel times */
+.travel { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 14px; margin: 10px 0 }
+.fld { display: grid; gap: 4px; font-size: 13px; color: var(--muted) }
+.fld input { padding: 7px 9px; border: 1px solid var(--edge2); border-radius: 8px; font: inherit; color: var(--text); background: #fff }
+.unit { display: flex; align-items: center; gap: 6px; color: var(--text) }
+.unit input { width: 90px }
+.example { display: grid; gap: 4px; padding: 10px 12px; border: 1px dashed var(--edge2); border-radius: 10px; background: #fffdf7; font-size: 13px }
+.example b { color: #7a5b13 }

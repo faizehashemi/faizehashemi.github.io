@@ -155,7 +155,8 @@ if (getSession()) {
 // Pull everything that changed since the last cursor. Cheap when nothing changed (one small request).
 export function sync({ force = false } = {}) {
     if (!getSession()) return Promise.resolve();
-    if (inflight) return inflight;
+    // a forced sync (after a write) must start after any sync already running, which may predate the write
+    if (inflight) return force ? inflight.catch(() => { }).then(() => sync({ force: true })) : inflight;
     if (!force && state.lastSync && Date.now() - state.lastSync < 3000) return Promise.resolve();
     inflight = (async () => {
         let cursor = (await tx(['meta'], 'readonly', t => req2p(t.objectStore('meta').get('cursor')))) || { seq: 0, id: 0 };

@@ -42,7 +42,7 @@ export default async function mount(ctx) {
     /* ------------------------------- loading ------------------------------- */
 
     async function load() {
-        const all = await loadBuildings({ force: true });
+        const all = await ctx.guard(loadBuildings({ force: true }));
         if (!roomsState.serverSupportsRooms) {
             notice('The PMS server has not been updated for Rooms & Buildings yet. Ask the admin to redeploy worker.js and run schema.sql (see worker/README.md).', true);
         } else if (!writable) {
@@ -387,7 +387,7 @@ export default async function mount(ctx) {
     async function renderSeed() {
         if (!writable || !roomsState.serverSupportsRooms) { $('seedCard').hidden = true; return; }
         if (!seed.length) {
-            try { seed = (await (await fetch('app/data/rooms-seed.json')).json()).buildings.filter(b => b.site === siteId); } catch { seed = []; }
+            try { seed = (await ctx.guard(fetch('app/data/rooms-seed.json').then(r => r.json()))).buildings.filter(b => b.site === siteId); } catch { seed = []; }
         }
         const todo = seed.filter(s => { const b = saved.find(x => x.name === s.name); return !b || !b.rooms.length; });
         $('seedCard').hidden = !todo.length;

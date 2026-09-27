@@ -82,7 +82,9 @@ function scopeDb(base) {
             return fn(...args).then(v => scope.alive ? v : never(), e => scope.alive ? Promise.reject(e) : never());
         };
     }
-    return { db, end: () => { scope.alive = false; } };
+    // ctx.guard(promise): the same for any other wait a view does (buildings, settings, requests)
+    const guard = (p) => Promise.resolve(p).then(v => scope.alive ? v : never(), e => scope.alive ? Promise.reject(e) : never());
+    return { db, guard, end: () => { scope.alive = false; } };
 }
 
 const htmlCache = new Map();
@@ -184,6 +186,7 @@ async function route() {
             site: SITES[siteId],
             siteId,
             db: scoped.db,
+            guard: scoped.guard,
             params,
             root: outlet,
             navigate: (v, p) => { location.hash = href(siteId, v, p); },

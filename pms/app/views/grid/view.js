@@ -318,7 +318,7 @@ let BUILDINGS = [];
             if (!$('asof_date').value) $('asof_date').value = `${y}-${m}-${d}`;
             if (!$('asof_time').value) $('asof_time').value = `${h}:${n}`;
 
-            BUILDINGS = await loadBuildings();
+            BUILDINGS = await ctx.guard(loadBuildings());
             const buildings = uniq([
                 ...buildingsOfSite(BUILDINGS, ctx.siteId).filter(b => b.rooms.length).map(b => b.name),
                 ...CACHE.map(r => (r.building || '').trim()).filter(Boolean),

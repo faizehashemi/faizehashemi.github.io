@@ -110,6 +110,9 @@ async function route(req, env) {
     if (mm && m === 'PUT') return updateSlip(req, env, me, Number(mm[1]));
     if (mm && m === 'DELETE') return deleteSlip(url, env, me, Number(mm[1]));
 
+    if (p === '/api/settings' && m === 'GET') return getSettings(env);
+    if (p === '/api/settings' && m === 'PUT') { requireAdmin(me); return putSettings(req, env, me); }
+
     if (p === '/api/buildings' && m === 'GET') return listBuildings(env);
     if (p === '/api/buildings' && m === 'POST') return createBuilding(req, env, me);
     mm = p.match(/^\/api\/buildings\/(\d+)$/);
@@ -362,6 +365,50 @@ async function clearSite(req, env, me) {
     ).bind(now(), me.id, site).run();
     await auditStmt(env, me, 'clear', null, `${site}: ${res.meta.changes} deleted`).run();
     return json({ deleted: res.meta.changes });
+}
+
+/* --------------------------------- settings --------------------------------- */
+
+// Known settings and their validation. Anything else is refused.
+const HHMM = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+const HOURS = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 24;
+const SETTINGS = {
+    arrival_commute_hours: { check: HOURS, msg: 'Arrival travel time must be 0–24 hours.' },
+    departure_lead_hours: { check: HOURS, msg: 'Departure lead time must be 0–24 hours.' },
+    transfer_checkin_time: { check: HHMM, msg: 'Check-in time between cities must be HH:MM.' },
+    transfer_checkout_time: { check: HHMM, msg: 'Check-out time between cities must be HH:MM.' },
+};
+
+async function getSettings(env) {
+    const { results } = await env.DB.prepare(
+        'SELECT s.key, s.value, s.updated_at, d.name AS updated_by FROM settings s LEFT JOIN desks d ON d.id = s.updated_by'
+    ).all();
+    const settings = {};
+    let last = null;
+    for (const r of results) {
+        settings[r.key] = JSON.parse(r.value);
+        if (!last || r.updated_at > last.updated_at) last = r;
+    }
+    return json({ settings, updated_at: last ? last.updated_at : null, updated_by: last ? last.updated_by : null });
+}
+
+async function putSettings(req, env, me) {
+    const { settings } = await body(req);
+    if (!settings || typeof settings !== 'object') throw new HttpError(400, 'settings must be an object.');
+    const stmts = [];
+    const notes = [];
+    for (const [k, v] of Object.entries(settings)) {
+        const def = SETTINGS[k];
+        if (!def) throw new HttpError(400, `Unknown setting "${k}".`);
+        const value = typeof v === 'number' ? Math.round(v * 4) / 4 : v; // quarter hours
+        if (!def.check(value)) throw new HttpError(400, def.msg);
+        stmts.push(env.DB.prepare('INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by')
+            .bind(k, JSON.stringify(value), now(), me.id));
+        notes.push(`${k}=${value}`);
+    }
+    if (!stmts.length) throw new HttpError(400, 'Nothing to change.');
+    await env.DB.batch([...stmts, auditStmt(env, me, 'settings', null, notes.join(', '))]);
+    return getSettings(env);
 }
 
 /* -------------------------------- buildings -------------------------------- */

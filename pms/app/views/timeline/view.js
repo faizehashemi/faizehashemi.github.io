@@ -77,7 +77,7 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
           eat(r.rooms?.gents); eat(r.rooms?.ladies);
         }
         // plus every room set up in Rooms & Buildings
-        for (const b of buildingsOfSite(await loadBuildings(), app.siteId)) {
+        for (const b of buildingsOfSite(await app.guard(loadBuildings()), app.siteId)) {
           if (!byB.has(b.name)) byB.set(b.name, new Set());
           b.rooms.forEach(r => byB.get(b.name).add(String(r.room_no).trim()));
         }

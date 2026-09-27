@@ -2,6 +2,7 @@
 
 import { parseUms, planImport, summarize, readLog, lastApplied } from '../../core/ums.js';
 import { ext, askExtension, getAutoSite, setAutoSite, runImport } from '../../core/ums-auto.js';
+import { umsConfig } from '../../core/settings.js';
 
 export default async function mount(ctx) {
     const { db, site, siteId } = ctx;
@@ -25,7 +26,7 @@ export default async function mount(ctx) {
         const parsed = parseUms(file.html);
         renderCheck(parsed, file);
         if (parsed.fatal) { $('planCard').hidden = true; plan = null; return; }
-        plan = planImport(parsed, await db.all(), siteId);
+        plan = planImport(parsed, await db.all(), siteId, await ctx.guard(umsConfig()));
         loaded.parsed = parsed;
         renderCheckPlan(parsed);
         tab = plan.create.length ? 'create' : plan.update.length ? 'update' : 'missing';
@@ -126,6 +127,7 @@ export default async function mount(ctx) {
         try {
             // Re-plan against current data inside the import lock, in case something changed meanwhile.
             const res = await runImport({ siteId, html: loaded.html, fileName: loaded.fileName, fetchedAt: loaded.fetchedAt, via: loaded.via, force: true });
+            if (!$('applyStatus')) return; // the import finished after the user left this page
             if (res.error) throw new Error(res.error);
             const r = res.summary;
             $('applyStatus').textContent = `Done: ${r.created} new, ${r.updated} updated${r.relinked ? `, ${r.relinked} linked` : ''}. Every desk sees it now.`;
@@ -134,6 +136,7 @@ export default async function mount(ctx) {
             $('applyStatus').textContent = `Done: ${r.created} new, ${r.updated} updated${r.relinked ? `, ${r.relinked} linked` : ''}. Every desk sees it now.`;
         } catch (e) {
             console.error(e);
+            if (!$('applyStatus')) return;
             $('applyStatus').textContent = 'Import failed: ' + (e.message || e);
             $('btnApply').disabled = false;
         }
