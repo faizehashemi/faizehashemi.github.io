@@ -100,6 +100,7 @@ async function route(req, env) {
         return json({ ok: true });
     }
     if (p === '/api/me' && m === 'GET') return json({ desk: publicDesk(me) });
+    if (p === '/api/me/password' && m === 'POST') return changeOwnPassword(req, env, me);
 
     if (p === '/api/slips' && m === 'GET') return pull(url, env);
     if (p === '/api/slips' && m === 'POST') return createSlip(req, env, me);
@@ -560,6 +561,29 @@ async function updateDesk(req, env, me, id) {
         auditStmt(env, me, 'desk-update', null, `${desk.name}: ${notes.join(', ')}`),
     ]);
     return listDesks(env);
+}
+
+// Any login changes its own password: the current one is required (and counts towards the lockout),
+// every other session of this desk is signed out, this one stays.
+async function changeOwnPassword(req, env, me) {
+    const { current, password } = await body(req);
+    const since = new Date(Date.now() - 15 * 60e3).toISOString();
+    const fails = await env.DB.prepare('SELECT COUNT(*) AS c FROM login_failures WHERE name = ? AND at > ?').bind(me.name, since).first('c');
+    if (fails >= LOGIN_MAX_FAILS) throw new HttpError(429, 'Too many wrong passwords. Wait 15 minutes and try again.');
+    const desk = await env.DB.prepare('SELECT * FROM desks WHERE id = ?').bind(me.id).first();
+    if (!desk || !current || !sameHex(await pbkdf2(String(current), desk.pw_salt, desk.pw_iter), desk.pw_hash)) {
+        await env.DB.prepare('INSERT INTO login_failures (name, at) VALUES (?, ?)').bind(me.name, now()).run();
+        throw new HttpError(400, 'The current password is wrong.');
+    }
+    checkPassword(password);
+    if (password === current) throw new HttpError(400, 'The new password is the same as the current one.');
+    const salt = randomHex(16);
+    await env.DB.batch([
+        env.DB.prepare('UPDATE desks SET pw_hash = ?, pw_salt = ?, pw_iter = ? WHERE id = ?').bind(await pbkdf2(password, salt, PBKDF2_ITER), salt, PBKDF2_ITER, me.id),
+        env.DB.prepare('DELETE FROM sessions WHERE desk_id = ? AND token_hash != ?').bind(me.id, me.tokenHash),
+        auditStmt(env, me, 'password-change', null, `${me.name}: own password changed`),
+    ]);
+    return json({ ok: true });
 }
 
 async function listAudit(url, env) {

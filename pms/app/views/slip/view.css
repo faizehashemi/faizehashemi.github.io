@@ -302,3 +302,10 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
     .rp .rp-head, .rp .rp-needs, .rp .rp-filters, .rp .rp-floors, .rp .rp-foot { padding-left: 12px; padding-right: 12px; }
 }
 @media print { dialog.rp { display: none; } }
+
+/* Highlighted actions (Pick rooms…, Edit on a loaded slip); locked Save */
+.wrap button.btn-hot { background: linear-gradient(#e6c65a, #d4af37); border-color: #b8931f; color: #3b2a06; font-weight: 700; box-shadow: 0 2px 6px rgba(150, 110, 20, .35); }
+.wrap button.btn-hot:hover { filter: brightness(1.06); background: linear-gradient(#e6c65a, #d4af37); }
+.wrap button.btn-warn { border-color: #c0392b; color: #a12a2a; background: #fdecea; }
+.wrap button:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: grayscale(.4); }
+.wrap button.linkish { border: 0; background: none; padding: 6px 4px; color: var(--muted); text-decoration: underline; font-size: 13px; }

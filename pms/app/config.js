@@ -24,7 +24,8 @@ export const SITES = {
 
 export const DEFAULT_SITE = 'makkah';
 
-// Every page. `key` is its Alt+<key> shortcut (unchanged from the old nav); `hint` shows in the menus.
+// Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
+// `hint` shows in the menus.
 export const VIEWS = [
     { id: 'slip',         label: 'Slip',               title: 'Slip',                  key: '1', hint: 'Create and edit accommodation slips' },
     { id: 'forecast',     label: 'Forecast',           title: 'Forecast',              key: '2', hint: 'Free and occupied rooms at a time' },
@@ -41,6 +42,7 @@ export const VIEWS = [
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
+    { id: 'settings',     label: 'Settings',           title: 'Settings',              hint: 'Your look, shortcuts and defaults (this browser)' },
     { id: 'help',         label: 'Help',               title: 'PMS Instructions',      hint: 'How the PMS works' },
     { id: 'home',         label: 'Home',               title: 'PMS', hidden: true },
     { id: 'login',        label: 'Log in',             title: 'Log in', hidden: true },
@@ -52,6 +54,7 @@ export const NAV = [
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid'] },
     { id: 'data',   label: 'Data',           views: ['ums', 'admin', 'setup'] },
+    { id: 'settings', label: 'Settings',     views: ['settings'] },
     { id: 'help',   label: 'Help',           views: ['help'] },
 ];
 

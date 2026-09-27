@@ -106,7 +106,7 @@ export function openRoomPicker(o) {
           <section class="rp-main">
             <div class="rp-filters">
               <select id="rpFloor" aria-label="Floor"><option value="">All floors</option>${floors.map(f => `<option value="${esc(f)}">Floor ${esc(f)}</option>`).join('')}</select>
-              <label><input type="checkbox" id="rpSpace" checked> Only rooms with space</label>
+              <label><input type="checkbox" id="rpSpace" ${o.onlyFree === false ? '' : 'checked'}> Only rooms with space</label>
               <input type="search" id="rpFind" placeholder="Find room…" aria-label="Find room">
               <span class="rp-legend"><i class="l-free"></i>free <i class="l-part"></i>part used <i class="l-full"></i>full <i class="l-mine"></i>this slip</span>
             </div>

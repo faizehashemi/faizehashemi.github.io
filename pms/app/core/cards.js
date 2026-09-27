@@ -18,7 +18,8 @@ function headerLabels(table) {
 
 function enhance(table) {
     if (table.closest(SKIP)) return;
-    const labels = headerLabels(table);
+    // Settings → "Tables as cards on phones" off: every table scrolls sideways instead
+    const labels = document.documentElement.hasAttribute('data-pms-no-cards') ? null : headerLabels(table);
     if (!labels) {
         table.classList.remove('pms-cards');
         table.classList.add('pms-scroll');

@@ -13,6 +13,9 @@ import './core/ums-auto.js'; // listens for the UMS extension from page load, on
 import { watchTables } from './core/cards.js';
 import { initAnalytics, pageview, identify, resetAnalytics, track } from './core/analytics.js';
 import { loadBuildings } from './core/rooms.js';
+import { applyPrefs, getPrefs } from './core/prefs.js';
+
+applyPrefs(); // this browser's Settings, before anything is drawn
 
 const nav = document.querySelector('site-nav');
 const outlet = document.getElementById('view');
@@ -48,6 +51,8 @@ function parseHash() {
 }
 
 function lastSite() {
+    const pref = getPrefs().startSite;
+    if (SITES[pref]) return pref;
     try { const s = localStorage.getItem(LAST_SITE_KEY); return SITES[s] ? s : DEFAULT_SITE; }
     catch { return DEFAULT_SITE; }
 }
@@ -133,8 +138,10 @@ async function route() {
 
     if (!SITES[siteId]) siteId = desk?.site || lastSite();
     // Not logged in: the login screen, whatever the address says (it is kept for after login)
+    // no page in the address (opening the app): the start page from Settings
+    const start = !viewId && VIEWS.find(v => v.id === getPrefs().startView && !['login'].includes(v.id));
     const view = !desk ? VIEWS.find(v => v.id === 'login')
-        : VIEWS.find(v => v.id === viewId && v.id !== 'login') || VIEWS.find(v => v.id === 'home');
+        : VIEWS.find(v => v.id === viewId && v.id !== 'login') || start || VIEWS.find(v => v.id === 'home');
 
     params.delete('source'); // old *_web redirects asked for the Cloud source; everything is cloud now
     if (desk && (siteId !== parseHash().siteId || view.id !== viewId || parseHash().params.has('source'))) {
@@ -225,7 +232,7 @@ nav.addEventListener('site-change', (e) => {
     location.hash = href(e.detail, viewId || 'home', params);
 });
 nav.addEventListener('logout', async () => {
-    if (!confirm('Log out of this desk? This computer\'s copy of the data is removed until you log in again.')) return;
+    if (getPrefs().confirmLogout && !confirm('Log out of this desk? This computer\'s copy of the data is removed until you log in again.')) return;
     await logout(); // → 'pms:logged-out' → route()
 });
 origAdd.call(window, 'pms:logged-in', () => {
@@ -249,7 +256,15 @@ origAdd.call(window, 'pms:sync', (e) => {
 });
 origAdd.call(window, 'online', () => sync({ force: true }).catch(() => { }));
 // keep every open desk current without anyone pressing Refresh
-setInterval(() => { if (document.visibilityState === 'visible') sync().catch(() => { }); }, 30000);
+// (every 30 s by default; Settings → Data can change or stop it)
+let syncTimer = null;
+function startSyncTimer() {
+    clearInterval(syncTimer);
+    const s = Number(getPrefs().syncSeconds) || 0;
+    if (s > 0) syncTimer = setInterval(() => { if (document.visibilityState === 'visible') sync().catch(() => { }); }, Math.max(10, s) * 1000);
+}
+startSyncTimer();
+origAdd.call(window, 'pms:prefs', startSyncTimer);
 origAdd.call(document, 'visibilitychange', () => { if (document.visibilityState === 'visible') sync().catch(() => { }); });
 origAdd.call(window, 'hashchange', route);
 origAdd.call(window, 'pms:ums-applied', (e) => {

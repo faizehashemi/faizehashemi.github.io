@@ -5,6 +5,7 @@ import { UserError, sync } from '../../core/cloud.js';
 import { loadBuildings, buildingNames, builderCapacity } from '../../core/rooms.js';
 import { baseSh } from '../../core/ums.js';
 import { openRoomPicker } from './room-picker.js';
+import { getPrefs } from '../../core/prefs.js';
 
 // SH numbers: 44030, or S44030 for a group's second check-in at this site
 const SH_RE = /^S?\d+$/i;
@@ -27,6 +28,18 @@ export default async function mount(ctx) {
     function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
     function fmt(dt) { if (!dt) return ''; return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(dt); }
     function cleanRoom(x) { return String(x ?? '').trim(); }
+
+    // A loaded slip is changed with Edit; Save (a new slip) is locked so it can't be duplicated by accident.
+    function setCurrent(id) {
+        CURRENT_ID = id ?? null;
+        const loaded = CURRENT_ID != null;
+        $('btnSave').disabled = loaded || !!db.readonly;
+        $('btnSave').title = loaded ? 'This slip is already saved — use Edit to change it (New Slip to start another)' : 'Save as a new slip';
+        $('btnEdit').disabled = !loaded || !!db.readonly;
+        $('btnEdit').classList.toggle('btn-hot', loaded);
+        $('btnUnlockSave').hidden = !loaded || !!db.readonly;
+        $('btnSave').classList.remove('btn-warn');
+    }
 
     async function refreshDBCache() {
         DB_CACHE = await getAllRecords();
@@ -190,13 +203,18 @@ export default async function mount(ctx) {
     }
 
     function clearForm() {
-        CURRENT_ID = null;
+        setCurrent(null);
         setFormData({
             tour_name: '', group_leader: '', checkin_date: '', checkin_time: '',
             checkout_date: '', checkout_time: '', building: '', sh_no: '',
             total: '', gents: '', ladies: '', infants: '', children: '',
             rooms: { gents: [], ladies: [] }
         });
+        // this browser's defaults for a new slip (Settings → Slip page)
+        const p = getPrefs();
+        if (p.slipDefaultBuilding) { addBuildingOption(p.slipDefaultBuilding); $('building').value = p.slipDefaultBuilding; }
+        if (p.slipCheckinTime) $('checkin_time').value = p.slipCheckinTime;
+        if (p.slipCheckoutTime) $('checkout_time').value = p.slipCheckoutTime;
     }
 
     /* ---------------- Capacity lookup (most recent per building|room) --------------- */
@@ -452,7 +470,7 @@ export default async function mount(ctx) {
             const ok = await checkAvailability(); // guard before saving
             if (ok === false) return;
             const id = await addRecord(data);
-            CURRENT_ID = id;
+            setCurrent(id);
             $('status').textContent = `Saved as #${id}`;
         } catch (err) {
             $('status').textContent = err instanceof UserError ? err.message : 'Save failed. Check console.';
@@ -475,6 +493,13 @@ export default async function mount(ctx) {
             console.error('Edit error:', err);
             saveFailed(err, 'Edit failed.');
         }
+    });
+
+    $('btnUnlockSave').addEventListener('click', () => {
+        if (!confirm('Save creates a SECOND, separate slip (the loaded one stays). Rooms and pax would count twice.' + '\n\n' + 'Unlock Save for a copy?')) return;
+        $('btnSave').disabled = false;
+        $('btnSave').classList.add('btn-warn');
+        $('btnUnlockSave').hidden = true;
     });
 
     $('btnNew').addEventListener('click', () => {
@@ -507,7 +532,7 @@ export default async function mount(ctx) {
         if (!SH_RE.test(raw)) { alert('Enter a valid SH No. (e.g. 44030, or S44030 for a second check-in).'); return; }
         const rec = await pickStayFor(raw);
         if (!rec) { $('status').textContent = 'No slip found for that SH.'; return; }
-        CURRENT_ID = rec.id;
+        setCurrent(rec.id);
         setFormData(rec);
         $('status').textContent = `Loaded latest slip for SH ${rec.sh_no} (#${rec.id})`;
     }
@@ -516,19 +541,21 @@ export default async function mount(ctx) {
     $('stayPick').addEventListener('change', async () => {
         const rec = (await getAllRecords()).find(r => r.id === Number($('stayPick').value));
         if (!rec) return;
-        CURRENT_ID = rec.id;
+        setCurrent(rec.id);
         setFormData(rec);
         $('status').textContent = `Loaded stay #${rec.id} for SH ${rec.sh_no}`;
     });
 
     $('sh_no').addEventListener('blur', async () => {
-        const hasAny = ($('tour_name').value || $('group_leader').value || $('building').value);
+        if (!getPrefs().slipAutoLoadSh) return;
+        // a default building alone does not count as "already filled in"
+        const hasAny = ($('tour_name').value || $('group_leader').value || ($('building').value && $('building').value !== getPrefs().slipDefaultBuilding));
         if (hasAny) return;
         const raw = $('sh_no').value.trim();
         if (SH_RE.test(raw)) {
             const rec = await pickStayFor(raw);
             if (rec) {
-                CURRENT_ID = rec.id;
+                setCurrent(rec.id);
                 setFormData(rec);
                 $('status').textContent = `Auto-loaded latest slip for SH ${rec.sh_no} (#${rec.id})`;
             }
@@ -549,7 +576,7 @@ export default async function mount(ctx) {
         BUILDINGS = await ctx.guard(loadBuildings());
         const history = buildCapacityMap(building);
         openRoomPicker({
-            building, host: ctx.root,
+            building, host: ctx.root, onlyFree: getPrefs().pickerOnlyFree,
             checkin: { date: $('checkin_date').value, time: $('checkin_time').value },
             checkout: { date: $('checkout_date').value, time: $('checkout_time').value },
             slips: DB_CACHE, buildings: BUILDINGS, excludeId: CURRENT_ID,

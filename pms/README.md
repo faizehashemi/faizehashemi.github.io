@@ -109,8 +109,8 @@ moment, counting every other slip that overlaps) and a small timeline of when it
 see who is in it and when, give it gents or ladies beds (never more than are free), or use *Fill
 automatically*; *Apply to slip* fills the room tables. Code: `app/views/slip/room-picker.js`.
 
-On the Slip page, an SH with more than one stay here gets a stay picker. Use **Edit** (not Save) on
-imported slips; Save makes a separate copy.
+On the Slip page, an SH with more than one stay here gets a stay picker. Once a slip is loaded, **Save is
+locked** (it would make a duplicate) and **Edit** is highlighted; *Save a copy instead…* unlocks it after a warning.
 
 ## Travel times (Setup page, admin)
 
@@ -122,6 +122,19 @@ Slips show **hotel** times, not flight times. For UMS imports:
 An admin changes these on **Setup → Travel times**; they are stored on the server and the same for
 every desk (defaults in `UMS` in `app/config.js`). Imported slips pick up a change at the next import
 (desk edits to a time are kept; stays with rooms assigned show under *Needs attention*).
+
+## Settings (per browser)
+
+**Settings** (top bar, or the desk menu) changes this browser only — stored in `localStorage` (`pms_prefs`),
+never sent to the server: text/page size, table spacing, night mode / high contrast, reduce motion,
+sticky menu, shortcut hints, sync text, footer, tables as cards on phones, start page and site,
+every page's shortcut key and the modifier (Alt / Alt+Shift / Ctrl+Alt), Slip defaults (building,
+check-in/out times, auto-load by SH, Pick rooms filter), sync interval, logout confirmation and
+analytics opt-out. Settings can be downloaded, loaded on another computer, or reset.
+Code: `app/core/prefs.js` (defaults, apply) and `app/views/settings/`.
+
+**Change password** (Settings, or the desk menu) works for every login: it needs the current password,
+logs the desk out on other computers and keeps this one logged in (`POST /api/me/password`).
 
 ## Analytics (PostHog)
 

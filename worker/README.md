@@ -50,6 +50,9 @@ Buildings update added the `buildings` table, and the travel-times update the `s
 Until the Worker is updated, the PMS keeps working: Rooms & Buildings shows a notice, and travel times
 use the defaults (3 h / 6 h) and cannot be saved.
 
+`POST /api/me/password` (any login) `{ current, password }` — changes the caller's own password; wrong
+current passwords count towards the login lockout; other sessions of that desk are ended.
+
 `GET /api/settings` (any login) · `PUT /api/settings` (admin): `arrival_commute_hours`,
 `departure_lead_hours` (0–24, quarter hours), `transfer_checkin_time`, `transfer_checkout_time` (HH:MM).
 

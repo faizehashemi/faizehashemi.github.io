@@ -6,6 +6,7 @@
 // events: 'site-change' (detail = siteId), 'logout'.
 
 import { SITES, VIEWS, NAV } from '../config.js';
+import { getPrefs, shortcutFor, modLabel, matchesShortcut } from './prefs.js';
 
 const viewById = Object.fromEntries(VIEWS.map(v => [v.id, v]));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,7 +14,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 function menuItems(cat) {
     return cat.views.map(id => viewById[id]).filter(Boolean).map(v => `
         <a class="mi" role="menuitem" data-view="${v.id}" href="#">
-            <span class="mi-l">${esc(v.label)}${v.key ? `<kbd>Alt ${v.key}</kbd>` : ''}</span>
+            <span class="mi-l">${esc(v.label)}<kbd data-kbd="${v.id}" hidden></kbd></span>
             <span class="mi-h">${esc(v.hint || '')}</span>
         </a>`).join('');
 }
@@ -46,6 +47,8 @@ class SiteNav extends HTMLElement {
             <button type="button" class="desk" id="deskBtn" aria-haspopup="true" aria-expanded="false"><span id="deskName"></span><i class="caret"></i></button>
             <div class="menu right" role="menu">
               <div class="mi static" id="deskInfo"></div>
+              <a class="mi" role="menuitem" data-view="settings" href="#"><span class="mi-l">Settings</span><span class="mi-h">Look, shortcuts, defaults — this browser only</span></a>
+              <a class="mi" role="menuitem" data-view="settings" data-anchor="password" href="#"><span class="mi-l">Change password</span><span class="mi-h">For this desk login</span></a>
               <a class="mi" role="menuitem" data-view="setup" href="#"><span class="mi-l">Setup</span><span class="mi-h">This desk, sync, desk logins</span></a>
               <button type="button" class="mi logout" role="menuitem" data-logout><span class="mi-l">Log out</span><span class="mi-h">Removes this computer's copy of the data</span></button>
             </div>
@@ -68,6 +71,7 @@ class SiteNav extends HTMLElement {
         <div class="dr-foot">
           <div class="dr-desk" id="drDesk"></div>
           <div class="dr-sync" id="drSync"></div>
+          <a class="dr-link" data-view="settings" data-anchor="password" href="#">Change password</a>
           <button type="button" class="dr-logout" data-logout>Log out</button>
         </div>
       </aside>
@@ -130,6 +134,7 @@ class SiteNav extends HTMLElement {
         .desk:hover, .desk-dd.open .desk{ background:#fbf1d8 }
         .sync{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); white-space:nowrap }
         .sync i{ width:8px; height:8px; border-radius:50%; background:#2f9e44; box-shadow:0 0 0 3px rgba(47,158,68,.15) }
+        :host([data-no-sync-text]) #syncText{ display:none }
         .sync.warn{ color:#a12a2a; font-weight:650 }
         .sync.warn i{ background:#d9480f; box-shadow:0 0 0 3px rgba(217,72,15,.18) }
 
@@ -157,6 +162,7 @@ class SiteNav extends HTMLElement {
         .dr-foot{ border-top:1px solid var(--edge); padding:12px 14px calc(12px + env(safe-area-inset-bottom)); display:grid; gap:8px }
         .dr-desk{ font-weight:700 } .dr-desk small{ display:block; font-weight:500; color:var(--muted) }
         .dr-sync{ font-size:12px; color:var(--muted) } .dr-sync.warn{ color:#a12a2a; font-weight:650 }
+        .dr-link{ font-size:13px; color:#7a5b13; text-decoration:underline }
         .dr-logout{ border:1px solid #e6bcbc; background:#fff; color:#a12a2a; border-radius:10px; padding:9px; font-weight:650 }
 
         @media (max-width:1180px){ .sync #syncText{ display:none } .cat{ padding:8px 9px } }
@@ -200,7 +206,7 @@ class SiteNav extends HTMLElement {
         const onDocClick = (e) => { if (!e.composedPath().includes(this)) closeMenus(); };
         document.addEventListener('click', onDocClick);
         r.addEventListener('click', (e) => {
-            if (e.target.closest('.menu a, .dr-body a, a.cat, .brand')) { closeMenus(); this.closeDrawer(); }
+            if (e.target.closest('.menu a, .dr-body a, .dr-foot a, a.cat, .brand')) { closeMenus(); this.closeDrawer(); }
             if (e.target.closest('[data-logout]')) { closeMenus(); this.closeDrawer(); this.dispatchEvent(new CustomEvent('logout')); }
             const s = e.target.closest('[data-site]');
             if (s) { this.closeDrawer(); this.dispatchEvent(new CustomEvent('site-change', { detail: s.dataset.site })); }
@@ -216,12 +222,15 @@ class SiteNav extends HTMLElement {
         const onKey = (e) => {
             if (e.key === 'Escape') { closeMenus(); this.closeDrawer(); return; }
             if (!e.altKey || isEditable(document.activeElement)) return;
-            const v = VIEWS.find(x => x.key === e.key);
-            if (!v || !this._site) return;
+            const id = matchesShortcut(e); // keys and modifier from Settings
+            if (!id || !this._site) return;
             e.preventDefault();
-            location.hash = `#/${this._site}/${v.id}`;
+            location.hash = `#/${this._site}/${id}`;
         };
         window.addEventListener('keydown', onKey);
+        const onPrefs = () => this.applyPrefs();
+        window.addEventListener('pms:prefs', onPrefs);
+        this.applyPrefs();
         r.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenus(); this.closeDrawer(); } });
 
         // scroll progress
@@ -240,12 +249,24 @@ class SiteNav extends HTMLElement {
         this._cleanup = () => {
             document.removeEventListener('click', onDocClick);
             window.removeEventListener('keydown', onKey);
+            window.removeEventListener('pms:prefs', onPrefs);
             window.removeEventListener('scroll', onScroll);
             mq.removeEventListener('change', onMq);
         };
     }
 
     disconnectedCallback() { this._cleanup?.(); }
+
+    // Settings → shortcut labels in the menus, sync text
+    applyPrefs() {
+        const r = this.shadowRoot, p = getPrefs();
+        r.querySelectorAll('kbd[data-kbd]').forEach(k => {
+            const key = shortcutFor(k.dataset.kbd);
+            k.textContent = key ? `${modLabel()} ${key.toUpperCase()}` : '';
+            k.hidden = !key || !p.showKeyHints;
+        });
+        r.host.toggleAttribute('data-no-sync-text', !p.showSyncText);
+    }
 
     openDrawer() {
         const r = this.shadowRoot;
@@ -274,8 +295,8 @@ class SiteNav extends HTMLElement {
         this._site = siteId;
         r.querySelectorAll('.brand').forEach(b => { b.setAttribute('href', `#/${siteId}/home`); b.querySelector('.b2').textContent = SITES[siteId].brand; });
         r.querySelectorAll('[data-view]').forEach(a => {
-            a.setAttribute('href', `#/${siteId}/${a.dataset.view}`);
-            if (a.dataset.view === viewId) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+            a.setAttribute('href', `#/${siteId}/${a.dataset.view}${a.dataset.anchor ? '?section=' + a.dataset.anchor : ''}`);
+            if (a.dataset.view === viewId && !a.dataset.anchor) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
         const cat = NAV.find(c => c.views.includes(viewId));
         r.querySelectorAll('.bar [data-cat]').forEach(el => el.classList.toggle('active', !!cat && el.dataset.cat === cat.id));

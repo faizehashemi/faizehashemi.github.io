@@ -1,0 +1,125 @@
+<div class="st">
+    <header class="st-hero">
+        <h1>Settings</h1>
+        <p class="muted">Changes apply at once and are kept <b>on this browser only</b> — other desks and computers are not affected.
+            Only the password is changed on the server.</p>
+    </header>
+
+    <div class="st-layout">
+        <nav class="st-tabs" aria-label="Settings sections">
+            <a href="#" data-sec="password">Password</a>
+            <a href="#" data-sec="look">Appearance</a>
+            <a href="#" data-sec="layout">Menu &amp; layout</a>
+            <a href="#" data-sec="keys">Shortcuts</a>
+            <a href="#" data-sec="start">Start page</a>
+            <a href="#" data-sec="slip">Slip page</a>
+            <a href="#" data-sec="data">Data &amp; privacy</a>
+            <a href="#" data-sec="backup">Backup &amp; reset</a>
+        </nav>
+
+        <div class="st-main">
+            <section class="st-card" id="sec-password">
+                <h2>Change password</h2>
+                <p class="muted small" id="pwWho"></p>
+                <form id="pwForm" class="st-grid" autocomplete="on">
+                    <input type="text" name="username" id="pwUser" autocomplete="username" hidden>
+                    <label>Current password<input id="pwCur" type="password" autocomplete="current-password" required></label>
+                    <label>New password<input id="pwNew" type="password" autocomplete="new-password" minlength="8" required></label>
+                    <label>New password again<input id="pwNew2" type="password" autocomplete="new-password" minlength="8" required></label>
+                    <label class="chk"><input type="checkbox" id="pwShow"> Show passwords</label>
+                    <div class="pw-meter" aria-live="polite"><i id="pwBar"></i><span id="pwHint" class="small muted">At least 8 characters. Longer is stronger; mix words, digits and signs.</span></div>
+                    <div class="actions">
+                        <button type="submit" class="primary" id="pwBtn">Change password</button>
+                        <span id="pwMsg" class="small" role="status"></span>
+                    </div>
+                </form>
+                <p class="muted small">Every other computer logged in as this desk is logged out; this one stays logged in.
+                    Forgot it? The admin can set a new one on <a data-href="setup">Setup</a>.</p>
+            </section>
+
+            <section class="st-card" id="sec-look">
+                <h2>Appearance</h2>
+                <div class="row">
+                    <div><b>Text and page size</b><span class="muted small">Makes everything bigger or smaller (menus, pages, dialogs).</span></div>
+                    <div class="ctl scale"><button type="button" data-step="-5" aria-label="Smaller">A−</button>
+                        <input type="range" min="75" max="150" step="5" data-pref="textScale" aria-label="Text size">
+                        <button type="button" data-step="5" aria-label="Bigger">A+</button><output id="scaleOut"></output></div>
+                </div>
+                <div class="row">
+                    <div><b>Spacing in tables and forms</b><span class="muted small">Compact fits more rows on a laptop screen.</span></div>
+                    <div class="ctl seg" data-seg="density"><button type="button" data-val="compact">Compact</button><button type="button" data-val="normal">Normal</button><button type="button" data-val="comfortable">Roomy</button></div>
+                </div>
+                <div class="row">
+                    <div><b>Colours</b><span class="muted small">Night mode is easier on the eyes in the dark; high contrast darkens faint text and borders. Printing is always normal.</span></div>
+                    <div class="ctl seg" data-seg="theme"><button type="button" data-val="light">Normal</button><button type="button" data-val="dark">Night</button><button type="button" data-val="contrast">High contrast</button></div>
+                </div>
+                <div class="row">
+                    <div><b>Reduce motion</b><span class="muted small">No sliding menus or animations.</span></div>
+                    <div class="ctl"><label class="sw"><input type="checkbox" data-pref="reduceMotion"><i></i></label></div>
+                </div>
+            </section>
+
+            <section class="st-card" id="sec-layout">
+                <h2>Menu &amp; layout</h2>
+                <div class="row"><div><b>Keep the menu bar at the top while scrolling</b></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="stickyNav"><i></i></label></div></div>
+                <div class="row"><div><b>Show shortcut keys in the menus</b><span class="muted small">e.g. “Alt 1” next to Slip.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="showKeyHints"><i></i></label></div></div>
+                <div class="row"><div><b>Show sync time next to the green dot</b><span class="muted small">Hover the dot to see it anyway.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="showSyncText"><i></i></label></div></div>
+                <div class="row"><div><b>Show the support footer</b></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="showFooter"><i></i></label></div></div>
+                <div class="row"><div><b>Tables as cards on phones</b><span class="muted small">Off: tables keep their columns and scroll sideways. Takes effect when you open a page.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="phoneCards"><i></i></label></div></div>
+            </section>
+
+            <section class="st-card" id="sec-keys">
+                <h2>Keyboard shortcuts</h2>
+                <div class="row"><div><b>Use shortcuts</b><span class="muted small">They never fire while you type in a field.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="shortcutsOn"><i></i></label></div></div>
+                <div class="row">
+                    <div><b>Hold</b><span class="muted small">Pick another combination if Alt clashes with something on this computer.</span></div>
+                    <div class="ctl seg" data-seg="shortcutMod"><button type="button" data-val="alt">Alt</button><button type="button" data-val="alt+shift">Alt + Shift</button><button type="button" data-val="ctrl+alt">Ctrl + Alt</button></div>
+                </div>
+                <p class="muted small">Click a box and press a letter or digit. Backspace clears it.</p>
+                <div class="keys" id="keys"></div>
+                <div class="actions"><button type="button" data-reset="shortcuts,shortcutMod,shortcutsOn">Default shortcuts</button><span id="keysMsg" class="small bad"></span></div>
+            </section>
+
+            <section class="st-card" id="sec-start">
+                <h2>Start page</h2>
+                <div class="row"><div><b>Open this page</b><span class="muted small">When the PMS is opened without a page in the address.</span></div>
+                    <div class="ctl"><select data-pref="startView" id="startView"></select></div></div>
+                <div class="row"><div><b>Site</b><span class="muted small">“Last used” remembers Makkah or Medina.</span></div>
+                    <div class="ctl"><select data-pref="startSite" id="startSite"></select></div></div>
+            </section>
+
+            <section class="st-card" id="sec-slip">
+                <h2>Slip page</h2>
+                <div class="row"><div><b>Building for a new slip</b></div>
+                    <div class="ctl"><select data-pref="slipDefaultBuilding" id="slipBld"></select></div></div>
+                <div class="row"><div><b>Check-in time for a new slip</b><span class="muted small">Empty = none.</span></div>
+                    <div class="ctl"><input type="time" data-pref="slipCheckinTime"><button type="button" class="linkish" data-clear="slipCheckinTime">clear</button></div></div>
+                <div class="row"><div><b>Check-out time for a new slip</b></div>
+                    <div class="ctl"><input type="time" data-pref="slipCheckoutTime"><button type="button" class="linkish" data-clear="slipCheckoutTime">clear</button></div></div>
+                <div class="row"><div><b>Load the slip when an SH is typed into an empty form</b></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="slipAutoLoadSh"><i></i></label></div></div>
+                <div class="row"><div><b>Pick rooms…: hide full rooms at first</b></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="pickerOnlyFree"><i></i></label></div></div>
+            </section>
+
+            <section class="st-card" id="sec-data">
+                <h2>Data &amp; privacy</h2>
+                <div class="row"><div><b>Check for other desks' changes every</b><span class="muted small">Pages also refresh when you open them and when the connection returns.</span></div>
+                    <div class="ctl"><select data-pref="syncSeconds" data-num>
+                        <option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="0">Only when I open a page</option></select></div></div>
+                <div class="row"><div><b>Ask before logging out</b></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="confirmLogout"><i></i></label></div></div>
+                <div class="row"><div><b>Send anonymous usage statistics</b><span class="muted small">Which pages are used and errors, never guest names or numbers. Helps fix bugs.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="analytics"><i></i></label></div></div>
+            </section>
+
+            <section class="st-card" id="sec-backup">
+                <h2>Backup &amp; reset</h2>
+                <p class="muted small">Take your settings to another computer, or start over.</p>
+                <div class="actions">
+                    <button type="button" id="btnExport">Download my settings</button>
+                    <label class="filebtn"><input type="file" id="fileImport" accept=".json,application/json">Load settings file…</label>
+                    <button type="button" id="btnReset" class="danger">Reset everything to default</button>
+                    <span id="backupMsg" class="small" role="status"></span>
+                </div>
+            </section>
+        </div>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>

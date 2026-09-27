@@ -6,6 +6,7 @@
 // ums_import, building_saved, went_offline, app_error.
 
 import { POSTHOG } from '../config.js';
+import { getPrefs } from './prefs.js';
 
 const queue = [];
 let ready = false;
@@ -19,7 +20,15 @@ function assetsUrl(host) {
 // Local development (localhost) never reports, so tests don't pollute the real project.
 // To try analytics locally: localStorage.setItem('pms_analytics_dev', '1') and reload.
 const LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-const enabled = () => !!POSTHOG.key && (!LOCAL || (() => { try { return localStorage.getItem('pms_analytics_dev') === '1'; } catch { return false; } })());
+// Settings → Privacy can switch it off for this browser.
+const enabled = () => !!POSTHOG.key && getPrefs().analytics !== false && (!LOCAL || (() => { try { return localStorage.getItem('pms_analytics_dev') === '1'; } catch { return false; } })());
+
+// switched off in Settings: stop autocapture too; switched back on: resume (or load now)
+window.addEventListener('pms:prefs', () => {
+    const ph = window.posthog;
+    if (!enabled()) { try { ph?.opt_out_capturing?.(); } catch { } queue.length = 0; return; }
+    if (ready) { try { ph?.opt_in_capturing?.(); } catch { } } else initAnalytics();
+});
 
 export function initAnalytics() {
     if (!enabled() || loading) return;
