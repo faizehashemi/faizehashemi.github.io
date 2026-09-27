@@ -54,6 +54,9 @@ use the defaults (3 h / 6 h) and cannot be saved.
 all pages; unlike the other desk changes it does not log the desk out. `/api/login` and `/api/me` return
 `desk.pages` (always `null` for admins).
 
+`GET /api/me/prefs` · `PUT /api/me/prefs` `{ prefs }` (any login, own row only) — the login's Settings as
+one JSON object (max 16 KB).
+
 `POST /api/me/password` (any login) `{ current, password }` — changes the caller's own password; wrong
 current passwords count towards the login lockout; other sessions of that desk are ended.
 

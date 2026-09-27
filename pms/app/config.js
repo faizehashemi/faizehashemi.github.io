@@ -42,7 +42,7 @@ export const VIEWS = [
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
-    { id: 'settings',     label: 'Settings',           title: 'Settings',              hint: 'Your look, shortcuts and defaults (this browser)' },
+    { id: 'settings',     label: 'Settings',           title: 'Settings',              hint: 'Your look, quick links, shortcuts — follow your login' },
     { id: 'help',         label: 'Help',               title: 'PMS Instructions',      hint: 'How the PMS works' },
     { id: 'home',         label: 'Home',               title: 'PMS', hidden: true },
     { id: 'login',        label: 'Log in',             title: 'Log in', hidden: true },

@@ -76,6 +76,14 @@ CREATE TABLE IF NOT EXISTS desk_pages (
     updated_at  TEXT NOT NULL
 );
 
+-- Each login's own Settings (look, quick links, shortcuts, Slip defaults…) so they follow it to any device.
+-- Only what differs from the defaults is stored.
+CREATE TABLE IF NOT EXISTS desk_prefs (
+    desk_id     INTEGER PRIMARY KEY REFERENCES desks(id),
+    prefs       TEXT NOT NULL,              -- JSON object
+    updated_at  TEXT NOT NULL
+);
+
 -- System-wide settings an admin changes on the Setup page (e.g. travel buffers)
 CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,

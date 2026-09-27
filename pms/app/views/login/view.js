@@ -17,8 +17,7 @@ export default function mount() {
         $('btnLogin').disabled = true;
         $('btnLogin').textContent = 'Logging in…';
         try {
-            await login($('deskName').value.trim(), $('deskPass').value);
-            window.dispatchEvent(new CustomEvent('pms:logged-in'));
+            await login($('deskName').value.trim(), $('deskPass').value); // fires 'pms:logged-in'
         } catch (err) {
             console.error(err);
             $('err').textContent = err instanceof UserError ? err.message : 'Could not log in: ' + (err.message || err);

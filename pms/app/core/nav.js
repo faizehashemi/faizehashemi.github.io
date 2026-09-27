@@ -50,7 +50,7 @@ class SiteNav extends HTMLElement {
             <div class="menu right" role="menu">
               <div class="mi static" id="deskInfo"></div>
               <div class="site-sw" data-admin-only hidden>${sites}</div>
-              <a class="mi" role="menuitem" data-view="settings" href="#"><span class="mi-l">Settings</span><span class="mi-h">Look, shortcuts, defaults — this browser only</span></a>
+              <a class="mi" role="menuitem" data-view="settings" href="#"><span class="mi-l">Settings</span><span class="mi-h">Look, quick links, shortcuts — same on every device</span></a>
               <a class="mi" role="menuitem" data-view="settings" data-anchor="password" href="#"><span class="mi-l">Change password</span><span class="mi-h">For this desk login</span></a>
               <a class="mi" role="menuitem" data-view="setup" href="#"><span class="mi-l">Setup</span><span class="mi-h">This desk, sync, desk logins</span></a>
               <button type="button" class="mi logout" role="menuitem" data-logout><span class="mi-l">Log out</span><span class="mi-h">Removes this computer's copy of the data</span></button>
@@ -69,7 +69,6 @@ class SiteNav extends HTMLElement {
           <a class="brand" href="#" id="drBrand"><span class="b1">Faiz E Hashemi</span><span class="b2"></span></a>
           <button type="button" class="close" id="drClose" aria-label="Close menu">✕</button>
         </div>
-        <div class="dr-site" data-admin-only hidden><div class="seg" role="group" aria-label="Site">${Object.values(SITES).map(s => `<button type="button" data-site="${s.id}">${esc(s.label)}</button>`).join('')}</div></div>
         <div class="dr-body">
           ${NAV.map(c => `<section class="dr-sec"><h4>${esc(c.label)}</h4>${menuItems(c)}</section>`).join('')}
         </div>
@@ -77,6 +76,7 @@ class SiteNav extends HTMLElement {
           <div class="dr-desk" id="drDesk"></div>
           <div class="dr-sync" id="drSync"></div>
           <a class="dr-link" data-view="settings" data-anchor="password" href="#">Change password</a>
+          <div class="dr-admin" data-admin-only hidden>${Object.values(SITES).map(s => `<button type="button" class="dr-link" data-site="${s.id}">View ${esc(s.label)} (admin)</button>`).join('')}</div>
           <button type="button" class="dr-logout" data-logout>Log out</button>
         </div>
       </aside>
@@ -169,8 +169,6 @@ class SiteNav extends HTMLElement {
         .dr-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 14px 10px; border-bottom:1px solid var(--edge) }
         .close{ border:0; background:none; font-size:18px; width:40px; height:40px; border-radius:10px }
         .close:hover{ background:#fbf1d8 }
-        .dr-site{ padding:12px 14px }
-        .dr-site .seg{ display:flex } .dr-site .seg button{ flex:1; padding:8px }
         .dr-body{ flex:1; overflow:auto; overscroll-behavior:contain; padding:0 8px 12px }
         .dr-sec h4{ margin:14px 8px 4px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
         .dr-sec .mi{ padding:10px 10px }
@@ -178,7 +176,9 @@ class SiteNav extends HTMLElement {
         .dr-foot{ border-top:1px solid var(--edge); padding:12px 14px calc(12px + env(safe-area-inset-bottom)); display:grid; gap:8px }
         .dr-desk{ font-weight:700 } .dr-desk small{ display:block; font-weight:500; color:var(--muted) }
         .dr-sync{ font-size:12px; color:var(--muted) } .dr-sync.warn{ color:#a12a2a; font-weight:650 }
-        .dr-link{ font-size:13px; color:#7a5b13; text-decoration:underline }
+        .dr-link{ font-size:13px; color:#7a5b13; text-decoration:underline; border:0; background:none; padding:0; text-align:left }
+        .dr-admin{ display:flex; flex-wrap:wrap; gap:4px 14px }
+        .dr-admin [aria-pressed="true"]{ display:none }
         .dr-logout{ border:1px solid #e6bcbc; background:#fff; color:#a12a2a; border-radius:10px; padding:9px; font-weight:650 }
 
         @media (max-width:1180px){ .sync #syncText{ display:none } .cat{ padding:8px 9px } }

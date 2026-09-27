@@ -1,4 +1,5 @@
-// Settings: personal preferences for this browser (core/prefs.js) and the desk's own password.
+// Settings: this login's personal preferences (core/prefs.js — saved on the server, same on every device)
+// and the desk's own password.
 // Every control saves on change and the shell applies it immediately.
 
 import { SITES, VIEWS, NAV } from '../../config.js';
@@ -22,7 +23,7 @@ export default async function mount(ctx) {
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => $('toast')?.classList.remove('show'), 1600);
     };
-    const save = (patch, text = 'Saved on this browser') => { setPrefs(patch); render(); toast(text); };
+    const save = (patch, text = 'Saved') => { setPrefs(patch); render(); toast(text); };
 
     /* ------------------------------ fill choices ------------------------------ */
     // only pages this login may open (Setup → Page access)
@@ -215,11 +216,21 @@ export default async function mount(ctx) {
         $('fileImport').value = '';
     });
     $('btnReset').addEventListener('click', () => {
-        if (!confirm('Put every setting on this browser back to default? (Your password is not affected.)')) return;
+        if (!confirm('Put all your settings back to default (on every device)? (Your password is not affected.)')) return;
         resetPrefs();
         render();
         toast('Everything back to default');
     });
+
+    // saved to the login on the server, or waiting for the connection
+    window.addEventListener('pms:prefs-saved', (e) => {
+        const el = $('syncState');
+        if (!el) return;
+        el.textContent = e.detail?.ok ? '✓ Saved to your login.' : 'Not saved to the server yet (offline?) — kept on this device and sent when the connection is back.';
+        el.className = `small ${e.detail?.ok ? 'ok' : 'bad'}`;
+    });
+    // another device changed the settings while this page is open
+    window.addEventListener('pms:prefs', () => render());
 
     render();
     const sec = ctx.params.get('section');

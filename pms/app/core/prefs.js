@@ -1,15 +1,26 @@
-// Personal settings for THIS browser only (localStorage) — nothing here is sent to the server or
-// shared with other desks. The Settings page edits them; the shell applies them at once.
+// Personal settings of each login (look, quick links, shortcuts, Slip defaults…). They are saved on the
+// server with the login (GET/PUT /api/me/prefs), so the same login sees its own settings on any device;
+// each browser keeps a copy per login (localStorage "pms_prefs:<desk id>") for instant start and offline.
+// The Settings page edits them; the shell applies them at once.
 //
 //   getPrefs()            current settings (defaults filled in)
-//   setPrefs(patch)       merge + save + apply; fires 'pms:prefs' on window
+//   setPrefs(patch)       merge + save (here and on the server) + apply; fires 'pms:prefs' on window
 //   resetPrefs(section?)  back to defaults (all, or one section key list)
+//   loadServerPrefs()     after login / on start: take this login's settings from the server
 //   shortcutFor(viewId)   the key for Alt+<key> (or the chosen modifier)
 //   matchesShortcut(e)    view id for a keydown, or null
 
 import { VIEWS } from '../config.js';
+import { currentDesk, request } from './cloud.js';
 
-const KEY = 'pms_prefs';
+const LEGACY_KEY = 'pms_prefs'; // before settings moved to the server: one set per browser
+const keyFor = () => { const d = currentDesk(); return d ? `pms_prefs:${d.id}` : null; };
+const dirtyKey = () => { const k = keyFor(); return k && `${k}:unsaved`; };
+const ls = {
+    get: (k) => { try { return k ? localStorage.getItem(k) : null; } catch { return null; } },
+    set: (k, v) => { try { if (k) localStorage.setItem(k, v); } catch { } },
+    del: (k) => { try { if (k) localStorage.removeItem(k); } catch { } },
+};
 
 export const DEFAULT_PREFS = {
     // appearance
@@ -45,39 +56,98 @@ export const DEFAULT_PREFS = {
 };
 
 let cache = null;
+let cacheFor = undefined; // desk id the cache belongs to
 
 function read() {
-    try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { return {}; }
+    // a login's first start on this browser uses the browser's older (pre-server) settings until the server answers
+    try { return JSON.parse(ls.get(keyFor()) ?? ls.get(LEGACY_KEY) ?? '{}') || {}; } catch { return {}; }
 }
 
+const withDefaults = (saved) => ({ ...DEFAULT_PREFS, ...saved, shortcuts: { ...DEFAULT_PREFS.shortcuts, ...(saved.shortcuts || {}) } });
+
 export function getPrefs() {
-    if (!cache) {
-        const saved = read();
-        cache = { ...DEFAULT_PREFS, ...saved, shortcuts: { ...DEFAULT_PREFS.shortcuts, ...(saved.shortcuts || {}) } };
-    }
+    const id = currentDesk()?.id ?? null;
+    if (!cache || cacheFor !== id) { cache = withDefaults(id == null ? {} : read()); cacheFor = id; } // logged out: defaults
     return cache;
 }
 
-export function setPrefs(patch) {
-    const next = { ...getPrefs(), ...patch };
-    if (patch.shortcuts) next.shortcuts = { ...getPrefs().shortcuts, ...patch.shortcuts };
-    cache = next;
-    // only what differs from the defaults is stored, so later default changes still reach this browser
+// only what differs from the defaults is stored, so later default changes still reach every login
+function diffOf(p) {
     const diff = {};
-    for (const [k, v] of Object.entries(next)) {
+    for (const [k, v] of Object.entries(p)) {
+        if (!(k in DEFAULT_PREFS)) continue;
         if (k === 'shortcuts') {
             const s = Object.fromEntries(Object.entries(v).filter(([id, key]) => DEFAULT_PREFS.shortcuts[id] !== key));
             if (Object.keys(s).length) diff.shortcuts = s;
         } else if (JSON.stringify(v) !== JSON.stringify(DEFAULT_PREFS[k])) diff[k] = v;
     }
-    try { localStorage.setItem(KEY, JSON.stringify(diff)); } catch { }
+    return diff;
+}
+
+/* ------------------------------ server copy ------------------------------ */
+
+let pushTimer = null;
+function schedulePush() {
+    if (!keyFor()) return;
+    ls.set(dirtyKey(), '1');
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushNow, 700); // a slider drag sends one request, not twenty
+}
+
+async function pushNow() {
+    const key = keyFor(), dirty = dirtyKey();
+    if (!key) return false;
+    try {
+        await request('PUT', '/api/me/prefs', { prefs: JSON.parse(ls.get(key) || '{}') });
+        if (keyFor() === key) ls.del(dirty);
+        window.dispatchEvent(new CustomEvent('pms:prefs-saved', { detail: { ok: true } }));
+        return true;
+    } catch {
+        // offline or server not updated yet: kept here and sent at the next start or change
+        window.dispatchEvent(new CustomEvent('pms:prefs-saved', { detail: { ok: false } }));
+        return false;
+    }
+}
+
+/** Take this login's settings from the server (or send ours up if this browser has unsent changes). */
+export async function loadServerPrefs() {
+    const key = keyFor();
+    if (!key) { cache = null; applyPrefs(); return; }
+    if (ls.get(dirtyKey())) { await pushNow(); return; }
+    let server;
+    try { server = (await request('GET', '/api/me/prefs')).prefs; } catch { return; } // offline: keep the copy here
+    if (keyFor() !== key) return; // logged out meanwhile
+    if (server == null) {
+        // first time on the server: bring this browser's older settings along (from before the move)
+        const legacy = ls.get(LEGACY_KEY);
+        if (legacy && !ls.get(key)) ls.set(key, legacy);
+        if (ls.get(key) && ls.get(key) !== '{}') await pushNow();
+        ls.del(LEGACY_KEY);
+        return;
+    }
+    const text = JSON.stringify(server);
+    if (text === (ls.get(key) || '{}')) return;
+    ls.set(key, text);
+    cache = null;
+    applyPrefs();
+    window.dispatchEvent(new CustomEvent('pms:prefs', { detail: getPrefs() }));
+}
+
+/* --------------------------------- changes --------------------------------- */
+
+export function setPrefs(patch) {
+    const next = { ...getPrefs(), ...patch };
+    if (patch.shortcuts) next.shortcuts = { ...getPrefs().shortcuts, ...patch.shortcuts };
+    cache = next;
+    ls.set(keyFor(), JSON.stringify(diffOf(next)));
+    schedulePush();
     applyPrefs();
     window.dispatchEvent(new CustomEvent('pms:prefs', { detail: next }));
     return next;
 }
 
 export function resetPrefs(keys) {
-    if (!keys) { cache = null; try { localStorage.removeItem(KEY); } catch { } return setPrefs({}); }
+    if (!keys) { cache = null; ls.set(keyFor(), '{}'); return setPrefs({}); }
     return setPrefs(Object.fromEntries(keys.map(k => [k, structuredClone(DEFAULT_PREFS[k])])));
 }
 
@@ -88,7 +158,7 @@ export function importPrefs(text) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) throw new Error('Not a settings file.');
     const clean = Object.fromEntries(Object.entries(obj).filter(([k]) => k in DEFAULT_PREFS));
     cache = null;
-    try { localStorage.setItem(KEY, '{}'); } catch { }
+    ls.set(keyFor(), '{}');
     return setPrefs(clean);
 }
 

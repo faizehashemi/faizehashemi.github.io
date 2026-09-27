@@ -101,6 +101,8 @@ async function route(req, env) {
     }
     if (p === '/api/me' && m === 'GET') return json({ desk: publicDesk(me) });
     if (p === '/api/me/password' && m === 'POST') return changeOwnPassword(req, env, me);
+    if (p === '/api/me/prefs' && m === 'GET') return getPrefs(env, me);
+    if (p === '/api/me/prefs' && m === 'PUT') return putPrefs(req, env, me);
 
     if (p === '/api/slips' && m === 'GET') return pull(url, env);
     if (p === '/api/slips' && m === 'POST') return createSlip(req, env, me);
@@ -601,6 +603,23 @@ async function changeOwnPassword(req, env, me) {
         auditStmt(env, me, 'password-change', null, `${me.name}: own password changed`),
     ]);
     return json({ ok: true });
+}
+
+// A login's personal Settings (the page stores only what differs from the defaults). Any login, own row only.
+const MAX_PREFS_BYTES = 16 * 1024;
+async function getPrefs(env, me) {
+    const row = await env.DB.prepare('SELECT prefs, updated_at FROM desk_prefs WHERE desk_id = ?').bind(me.id).first();
+    return json({ prefs: row ? JSON.parse(row.prefs) : null, updated_at: row ? row.updated_at : null });
+}
+async function putPrefs(req, env, me) {
+    const { prefs } = await body(req);
+    if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) throw new HttpError(400, 'prefs must be an object.');
+    const text = JSON.stringify(cleanSlip(prefs, 1)); // same scrubbing as slips: no < >, bounded depth and size
+    if (text.length > MAX_PREFS_BYTES) throw new HttpError(413, 'Settings too large.');
+    const at = now();
+    await env.DB.prepare('INSERT INTO desk_prefs (desk_id, prefs, updated_at) VALUES (?, ?, ?) ON CONFLICT(desk_id) DO UPDATE SET prefs = excluded.prefs, updated_at = excluded.updated_at')
+        .bind(me.id, text, at).run();
+    return json({ ok: true, updated_at: at });
 }
 
 async function listAudit(url, env) {

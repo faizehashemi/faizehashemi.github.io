@@ -13,7 +13,7 @@ import './core/ums-auto.js'; // listens for the UMS extension from page load, on
 import { watchTables } from './core/cards.js';
 import { initAnalytics, pageview, identify, resetAnalytics, track } from './core/analytics.js';
 import { loadBuildings } from './core/rooms.js';
-import { applyPrefs, getPrefs } from './core/prefs.js';
+import { applyPrefs, getPrefs, loadServerPrefs } from './core/prefs.js';
 
 applyPrefs(); // this browser's Settings, before anything is drawn
 
@@ -242,13 +242,18 @@ nav.addEventListener('logout', async () => {
     if (getPrefs().confirmLogout && !confirm('Log out of this desk? This computer\'s copy of the data is removed until you log in again.')) return;
     await logout(); // → 'pms:logged-out' → route()
 });
+// Settings belong to the login: switch to its copy at once, then take the server's (other devices)
+const prefsChanged = () => { applyPrefs(); window.dispatchEvent(new CustomEvent('pms:prefs', { detail: getPrefs() })); };
 origAdd.call(window, 'pms:logged-in', () => {
+    prefsChanged();
+    loadServerPrefs().catch(() => { });
     identify(currentDesk());
     track('login');
     loadBuildings({ force: true }).catch(() => { });
     route(); // route key includes the desk, so the login view is replaced
 });
 origAdd.call(window, 'pms:logged-out', (e) => {
+    prefsChanged(); // back to the defaults on the login screen
     track('logout', { reason: e.detail?.reason ? 'expired' : 'manual' });
     resetAnalytics();
     try { if (e.detail?.reason) sessionStorage.setItem('pms_logout_reason', e.detail.reason); } catch { }
@@ -264,7 +269,11 @@ origAdd.call(window, 'pms:desk-changed', () => {
     if (!canOpen(viewId, desk) || siteFor(desk, siteId) !== siteId) { if (current) current.key = null; route(); }
     else nav.setRoute(siteId, viewId, desk);
 });
-const checkDesk = () => { if (currentDesk() && document.visibilityState === 'visible') refreshDesk().catch(() => { }); };
+const checkDesk = () => {
+    if (!currentDesk() || document.visibilityState !== 'visible') return;
+    refreshDesk().catch(() => { });
+    loadServerPrefs().catch(() => { }); // settings changed on another device
+};
 setInterval(checkDesk, 60000);
 origAdd.call(document, 'visibilitychange', checkDesk);
 let wasOnline = true;

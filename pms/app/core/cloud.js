@@ -3,7 +3,8 @@
 // The browser keeps a copy of every slip (IndexedDB "pms_cloud_mirror") and pulls only what
 // changed since its cursor, so pages open instantly and keep working read-only when the venue
 // Wi-Fi drops. Writes always go to the server (app/core/db.js), then land in the mirror.
-// Events: 'pms:sync' { lastSync, online }, 'pms:logged-out' { reason }.
+// Events: 'pms:sync' { lastSync, online }, 'pms:logged-in' { desk }, 'pms:logged-out' { reason },
+// 'pms:desk-changed' { desk }.
 
 import { API_URL } from '../config.js';
 
@@ -104,6 +105,7 @@ export async function login(name, password) {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ token: d.token, desk: d.desk, api: apiBase(), expiresAt: d.expiresAt }));
     if (!prev || prev.api !== apiBase()) await wipeMirror();
     await sync({ force: true });
+    emit('pms:logged-in', { desk: d.desk });
     return d.desk;
 }
 
