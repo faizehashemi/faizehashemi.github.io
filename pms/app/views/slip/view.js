@@ -3,6 +3,11 @@
 
 import { UserError } from '../../core/cloud.js';
 import { loadBuildings, buildingNames, builderCapacity } from '../../core/rooms.js';
+import { baseSh } from '../../core/ums.js';
+
+// SH numbers: 44030, or S44030 for a group's second check-in at this site
+const SH_RE = /^S?\d+$/i;
+const shValue = (v) => { const s = String(v ?? '').trim().toUpperCase(); return s === '' ? '' : /^\d+$/.test(s) ? Number(s) : s; };
 
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
@@ -150,7 +155,7 @@ export default async function mount(ctx) {
             checkout_date: $('checkout_date').value || '',
             checkout_time: $('checkout_time').value || '',
             building: $('building').value || '',
-            sh_no: $('sh_no').value === '' ? '' : Number($('sh_no').value),
+            sh_no: shValue($('sh_no').value),
             total: $('total').value === '' ? '' : Number($('total').value),
             gents: $('gents').value === '' ? '' : Number($('gents').value),
             ladies: $('ladies').value === '' ? '' : Number($('ladies').value),
@@ -477,27 +482,29 @@ export default async function mount(ctx) {
         $('status').textContent = 'New blank slip';
     });
 
-    // A UMS import can give one SH several stays at this site (e.g. Makkah before and after
-    // Madina). Those get a picker; without UMS stays the latest slip loads, as before.
+    // A group can check in twice at this site (e.g. Makkah before and after Madina). The UMS import
+    // numbers the second check-in S44030; typing either loads that stay, and the picker shows both.
     async function pickStayFor(sh) {
         const dmy = (d) => (d || '').split('-').reverse().join('/');
+        const wanted = String(sh).trim().toUpperCase();
         const stays = (await getAllRecords())
-            .filter(r => r.ums && String(r.sh_no ?? '').trim() === String(sh).trim())
+            .filter(r => r.ums && baseSh(r.sh_no) === baseSh(wanted))
             .sort((a, b) => `${a.checkin_date}T${a.checkin_time}`.localeCompare(`${b.checkin_date}T${b.checkin_time}`));
         const pick = $('stayPick');
         pick.hidden = stays.length < 2;
-        pick.innerHTML = stays.map(r => `<option value="${r.id}">Stay ${dmy(r.checkin_date)} → ${dmy(r.checkout_date)}${r.building ? ' · ' + r.building : ''}</option>`).join('');
-        if (!stays.length) return getLatestBySh(sh);
+        pick.innerHTML = stays.map(r => `<option value="${r.id}">${r.sh_no} · ${dmy(r.checkin_date)} → ${dmy(r.checkout_date)}${r.building ? ' · ' + r.building : ''}</option>`).join('');
+        if (!stays.length) return getLatestBySh(shValue(wanted));
         const today = new Date().toISOString().slice(0, 10);
-        const rec = stays.find(r => (r.checkout_date || '') >= today) || stays[stays.length - 1];
+        const rec = stays.find(r => String(r.sh_no).toUpperCase() === wanted)
+            || stays.find(r => (r.checkout_date || '') >= today) || stays[stays.length - 1];
         pick.value = String(rec.id);
         return rec;
     }
 
     async function fetchBySh() {
-        const raw = $('sh_no').value;
-        if (raw === '' || isNaN(Number(raw))) { alert('Enter a valid SH No.'); return; }
-        const rec = await pickStayFor(Number(raw));
+        const raw = $('sh_no').value.trim();
+        if (!SH_RE.test(raw)) { alert('Enter a valid SH No. (e.g. 44030, or S44030 for a second check-in).'); return; }
+        const rec = await pickStayFor(raw);
         if (!rec) { $('status').textContent = 'No slip found for that SH.'; return; }
         CURRENT_ID = rec.id;
         setFormData(rec);
@@ -516,9 +523,9 @@ export default async function mount(ctx) {
     $('sh_no').addEventListener('blur', async () => {
         const hasAny = ($('tour_name').value || $('group_leader').value || $('building').value);
         if (hasAny) return;
-        const raw = $('sh_no').value;
-        if (raw !== '' && !isNaN(Number(raw))) {
-            const rec = await pickStayFor(Number(raw));
+        const raw = $('sh_no').value.trim();
+        if (SH_RE.test(raw)) {
+            const rec = await pickStayFor(raw);
             if (rec) {
                 CURRENT_ID = rec.id;
                 setFormData(rec);

@@ -212,12 +212,18 @@ const DATE_FIELDS = ['checkin_date', 'checkin_time', 'checkout_date', 'checkout_
 const eq = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
 const dayNo = (ymd) => { const [y, m, d] = String(ymd || '').split('-').map(Number); return y ? Date.UTC(y, m - 1, d) / 864e5 : NaN; };
 
+export const secondSh = (sh) => `S${baseSh(sh)}`;
+/** The UMS SH without the second-check-in S: "S44030" → "44030", 44030 → "44030" */
+export const baseSh = (sh) => String(sh ?? '').trim().toUpperCase().replace(/^S+(?=\d)/, '');
+
 function umsValues(g, stay) {
     const op = g.operator;
     return {
         tour_name: op.name || `${op.family ? 'FAMILY' : 'GROUP'} SH ${g.sh}`,
         group_leader: op.glName,
-        sh_no: Number(g.sh),
+        // a group's second stay at the same site (e.g. Makkah again after Madina) is S44030, so the two
+        // check-ins are told apart everywhere the SH shows; the first stays plain 44030
+        sh_no: stay.n > 1 ? secondSh(g.sh) : Number(g.sh),
         checkin_date: stay.start.date, checkin_time: stay.start.time,
         checkout_date: stay.end.date, checkout_time: stay.end.time,
         gents: g.gents, ladies: g.ladies, children: g.children, infants: g.infants, total: g.total,
@@ -255,7 +261,7 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
     for (const s of existing) {
         if (s.ums?.key) byKey.set(s.ums.key, s);
         else if (String(s.sh_no ?? '').trim()) {
-            const k = String(s.sh_no).trim();
+            const k = baseSh(s.sh_no); // S44030 typed by hand still belongs to SH 44030
             if (!unlinkedBySh.has(k)) unlinkedBySh.set(k, []);
             unlinkedBySh.get(k).push(s);
         }

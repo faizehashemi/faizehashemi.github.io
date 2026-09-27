@@ -95,6 +95,9 @@ current site — by file, or automatically every hour through the Chrome extensi
 - A desk edit to a UMS field is kept until UMS itself changes that field; then UMS wins and the page
   lists it under *Needs attention*, together with stays whose dates changed while rooms are assigned.
 - Existing slips with the same SH (typed by hand or from an older list) are adopted, not duplicated.
+- A group's **second check-in at the same site** (e.g. Makkah again after Madina) gets its SH with a
+  leading S: 44030 is the first check-in, **S44030** the second. Slip, Print and deep links accept
+  both (S or s); the Slip page's stay picker lists both check-ins.
 - Nothing is deleted. Stays that disappear from the export are listed under *Not in this export*.
 - UMS gives only dates for moves between cities; the hotel times used then are in `UMS` in `app/config.js`.
 - Code: `app/core/ums.js` (parse / plan / apply), `app/core/ums-auto.js` (extension bridge, auto-import).
