@@ -3,7 +3,7 @@
 
 // The PMS cloud API (worker/worker.js). Set this to your Worker's address after deploying it
 // (see worker/README.md). The login screen can override it per browser for testing.
-export const API_URL = 'https://pms-api.CHANGE-ME.workers.dev';
+export const API_URL = 'https://pms-api.tkamlapur.workers.dev';
 
 export const SITES = {
     makkah: {
