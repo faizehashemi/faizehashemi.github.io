@@ -103,6 +103,12 @@ current site — by file, or automatically every hour through the Chrome extensi
 - Code: `app/core/ums.js` (parse / plan / apply), `app/core/ums-auto.js` (extension bridge, auto-import).
   Test data: `tools/fixtures/ums-grouplist-sample.xls` (anonymised real export).
 
+**Pick rooms…** (Slip page, next to *Check room availability*) opens a map of the slip's building for its
+check-in → check-out: every room shows the beds free for the **whole** stay (capacity minus the busiest
+moment, counting every other slip that overlaps) and a small timeline of when it is taken. Click a room to
+see who is in it and when, give it gents or ladies beds (never more than are free), or use *Fill
+automatically*; *Apply to slip* fills the room tables. Code: `app/views/slip/room-picker.js`.
+
 On the Slip page, an SH with more than one stay here gets a stay picker. Use **Edit** (not Save) on
 imported slips; Save makes a separate copy.
 

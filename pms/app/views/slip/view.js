@@ -1,9 +1,10 @@
 // Ported from pms/accommodation_slip.html (its five scripts merged into one module).
 // Behaviour is unchanged; storage goes through ctx.db (the cloud).
 
-import { UserError } from '../../core/cloud.js';
+import { UserError, sync } from '../../core/cloud.js';
 import { loadBuildings, buildingNames, builderCapacity } from '../../core/rooms.js';
 import { baseSh } from '../../core/ums.js';
+import { openRoomPicker } from './room-picker.js';
 
 // SH numbers: 44030, or S44030 for a group's second check-in at this site
 const SH_RE = /^S?\d+$/i;
@@ -536,6 +537,28 @@ export default async function mount(ctx) {
 
     $('btnFetchCap').addEventListener('click', fetchCapacities);
     $('btnCheckAvail').addEventListener('click', checkAvailability);
+    $('btnPickRooms').addEventListener('click', async () => {
+        const building = ($('building').value || '').trim();
+        const ci = parseDT($('checkin_date').value, $('checkin_time').value);
+        const co = parseDT($('checkout_date').value, $('checkout_time').value);
+        if (!building) { alert('Choose the building first.'); return; }
+        if (!ci || !co || co <= ci) { alert('Enter check-in and check-out (check-out after check-in) first.'); return; }
+        // latest assignments from every desk, so no bed is handed out twice (offline: the local copy)
+        try { await ctx.guard(sync({ force: true })); } catch (e) { if (!(e instanceof UserError)) throw e; }
+        await refreshDBCache();
+        BUILDINGS = await ctx.guard(loadBuildings());
+        const history = buildCapacityMap(building);
+        openRoomPicker({
+            building, host: ctx.root,
+            checkin: { date: $('checkin_date').value, time: $('checkin_time').value },
+            checkout: { date: $('checkout_date').value, time: $('checkout_time').value },
+            slips: DB_CACHE, buildings: BUILDINGS, excludeId: CURRENT_ID,
+            historyCap: (room) => history.get(`${building}|${cleanRoom(room)}`) ?? null,
+            current: { gents: collectRows('gents'), ladies: collectRows('ladies') },
+            needs: { gents: $('gents').value, ladies: $('ladies').value, children: $('children').value, infants: $('infants').value },
+            onApply: (gents, ladies) => { setRows('gents', gents); setRows('ladies', ladies); },
+        });
+    });
     document.querySelectorAll('[data-add-row]').forEach(b => b.addEventListener('click', () => addRow(b.dataset.addRow)));
 
     $('btnBulkLoad').addEventListener('click', bulkLoadRooms);
