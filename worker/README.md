@@ -32,8 +32,15 @@ Files: `worker.js` (the API, one file, no dependencies) · `schema.sql` (tables)
 
 ## Updating an existing deployment
 
-Whenever `worker.js` or `schema.sql` change (e.g. the Rooms & Buildings update added the `buildings`
-table, and the travel-times update the `settings` table):
+**With wrangler (set up on the desk computer, signed in as tkamlapur@gmail.com)** — from this folder:
+```
+npx wrangler d1 execute pms --remote --file schema.sql   # only adds what is missing
+npx wrangler deploy                                       # uploads worker.js
+```
+`wrangler.toml` already names the Worker (`pms-api`), the database (`pms`) and keeps dashboard variables.
+
+**Without wrangler (dashboard)** — whenever `worker.js` or `schema.sql` change (e.g. the Rooms &
+Buildings update added the `buildings` table, and the travel-times update the `settings` table):
 
 1. D1 → `pms` → *Console* → paste all of `schema.sql` → **Execute**. It only creates what is missing;
    existing slips, desks and logins are untouched.
