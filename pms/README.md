@@ -121,8 +121,15 @@ The start page greets the desk by name and shows: **today at a glance** (check-i
 **today's thaals** (breakfast, lunch, dinner — the Mawaid page's rules and default settings, from
 `app/core/meals.js`, which the Mawaid page uses too), **weather** (Open-Meteo) and **namaz timings**
 (Aladhan, Umm al-Qura method, with the next namaz and a countdown) for the site's city, the **Gregorian and
-Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com, with a link there
-for the day's miqaats) and a **tip**. Weather and namaz are cached in the browser (15 min / one day).
+Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com), **miqaats**
+(today and the next ones coming up) and a **tip**. Weather and namaz are cached in the browser (15 min / one day).
+
+Clicking the Hijri date, *📅 Calendar* or an upcoming miqaat opens the **in-house calendar**
+(`app/views/home/calendar.js`): one Hijri month at a time with the Gregorian dates, miqaat markers (✨ major,
+🌙 night, • other), month/year navigation and *Today*; click a day to see its miqaats. The miqaat list is the
+Mumineen Calendar project's (github.com/mygulamali/mumineen_calendar_js, MIT licence), shipped in
+`app/data/miqaats.json` with its licence in `app/data/miqaats.LICENSE.txt`; refresh that file from the project
+to pick up new entries.
 
 ## Check-ins: Print slips and GL copy
 

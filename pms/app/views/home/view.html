@@ -6,9 +6,9 @@
             <p class="hm-praise" id="hmPraise"></p>
         </div>
         <div class="hm-dates">
-            <div class="hm-hijri" id="hmHijri">—</div>
+            <button type="button" class="hm-hijri" id="hmHijri" title="Open the calendar">—</button>
             <div class="hm-greg" id="hmGreg">—</div>
-            <a class="hm-cal-link" href="https://www.mumineencalendar.com/" target="_blank" rel="noopener">Today's miqaats on Mumineen Calendar ↗</a>
+            <div class="hm-today-miqaat" id="hmTodayMiqaat"></div>
         </div>
     </header>
 
@@ -46,6 +46,11 @@
         <section class="hm-card hm-namaz" aria-labelledby="hmNzTitle">
             <h2 id="hmNzTitle">Namaz timings</h2>
             <div id="hmNz"><p class="hm-muted">Loading…</p></div>
+        </section>
+
+        <section class="hm-card hm-miqaat" aria-labelledby="hmMqTitle">
+            <div class="hm-card-head"><h2 id="hmMqTitle">Miqaats</h2><button type="button" class="hm-cal-btn" id="hmOpenCal">📅 Calendar</button></div>
+            <div id="hmMq"><p class="hm-muted">Loading…</p></div>
         </section>
 
         <section class="hm-card hm-tip" aria-labelledby="hmTipTitle">

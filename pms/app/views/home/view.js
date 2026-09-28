@@ -4,7 +4,8 @@
 
 import { currentDesk, mirrorAll } from '../../core/cloud.js';
 import { mealThalsFor } from '../../core/meals.js';
-import { toHijri, formatHijri } from '../../core/hijri.js';
+import { toHijri, formatHijri, loadMiqaats, miqaatsOn, upcomingMiqaats } from '../../core/hijri.js';
+import { openCalendar } from './calendar.js';
 
 const CITY = {
     makkah: { name: 'Makkah', lat: 21.4225, lon: 39.8262 },
@@ -179,11 +180,41 @@ export default async function mount(ctx) {
             <p class="hm-muted small">${esc(city.name)} time · Umm al-Qura method (as announced in the Haramain), from aladhan.com</p>`;
     }
 
+    /* ---------------------------------- miqaats ---------------------------------- */
+    async function miqaats() {
+        const list = await ctx.guard(loadMiqaats());
+        const today = miqaatsOn(list, toHijri(new Date()));
+        const item = (m) => `<li class="${m.priority === 1 ? 'major' : ''}"><span aria-hidden="true">${m.phase === 'night' ? '🌙' : m.priority === 1 ? '✨' : '•'}</span>
+            <span>${esc(m.title)}${m.phase === 'night' ? ' <small>(night)</small>' : ''}${m.description ? `<small>${esc(m.description)}</small>` : ''}</span></li>`;
+        $('hmTodayMiqaat').innerHTML = today.length ? `✨ ${esc(today[0].title)}${today.length > 1 ? ` <small>+${today.length - 1} more</small>` : ''}` : '';
+        const next = upcomingMiqaats(list, new Date(), 45, 3);
+        const when = (d) => d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+        $('hmMq').innerHTML = `
+            <h3>Today</h3>
+            ${today.length ? `<ul class="mq-list">${today.map(item).join('')}</ul>` : '<p class="hm-muted">No miqaat today.</p>'}
+            ${next.length ? `<h3>Coming up</h3>${next.map(n => `<div class="mq-day" data-cal="${n.date.getTime()}" role="button" tabindex="0" title="Show in the calendar"><div class="mq-date"><b>${n.hijri.day} ${esc(n.hijri.monthName.split(' ')[0])}</b><small>${esc(when(n.date))}</small></div>
+                <ul class="mq-list">${n.miqaats.map(item).join('')}</ul></div>`).join('')}` : ''}`;
+    }
+
+    // the in-house calendar: from the Hijri date, the Miqaats card, or an upcoming day
+    const cal = (date) => openCalendar({ host: ctx.root, date }).catch(e => console.warn('calendar', e));
+    $('hmHijri').addEventListener('click', () => cal(new Date()));
+    $('hmOpenCal').addEventListener('click', () => cal(new Date()));
+    const fromCard = (e) => {
+        const d = e.target.closest('[data-cal]');
+        if (!d || (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        cal(new Date(Number(d.dataset.cal)));
+    };
+    $('hmMq').addEventListener('click', fromCard);
+    $('hmMq').addEventListener('keydown', fromCard);
+
     const fail = (id, what) => (e) => { console.warn(what, e); $(id).innerHTML = `<p class="hm-muted">${what} is not available right now (no connection?).</p>`; };
     await Promise.all([
         numbers().catch(e => console.warn('home numbers', e)),
         weather().catch(fail('hmWx', 'The weather')),
         namaz().catch(fail('hmNz', 'Namaz timings')),
+        miqaats().catch(fail('hmMq', 'The miqaat list')),
     ]);
 
     // keep the countdown and the numbers current while the page stays open

@@ -39,3 +39,49 @@ export function toHijri(date = new Date()) {
 }
 
 export const formatHijri = (h) => `${h.day} ${h.monthName} ${h.year}H`;
+
+/** Gregorian date (local midnight) of a Hijri date; month 0-based. */
+export function fromHijri(year, month, day) {
+    const cycles = Math.floor(year / 30);
+    const dayOfYear = month === 0 ? day : MONTH_DAYS_BEFORE[month - 1] + day;
+    let jd = 1948083.5 + 10631 * cycles + dayOfYear;
+    if (year % 30 !== 0) jd += CYCLE_DAYS_BEFORE[year - 30 * cycles - 1];
+    // Julian day → Gregorian calendar date
+    const z = Math.floor(jd + 0.5);
+    const alpha = Math.floor((z - 1867216.25) / 36524.25);
+    const a = z < 2299161 ? z : z + 1 + alpha - Math.floor(alpha / 4);
+    const b = a + 1524, c = Math.floor((b - 122.1) / 365.25), d = Math.floor(365.25 * c), e = Math.floor((b - d) / 30.6001);
+    const dom = b - d - Math.floor(30.6001 * e);
+    const m = e < 14 ? e - 1 : e - 13;
+    return new Date(m > 2 ? c - 4716 : c - 4715, m - 1, dom);
+}
+
+/* --------------------------------- miqaats --------------------------------- */
+// The miqaat list of the Mumineen Calendar project (github.com/mygulamali/mumineen_calendar_js, MIT licence — see
+// app/data/miqaats.LICENSE.txt), shipped with the PMS: [{ month (0-based), date, miqaats: [{ title,
+// description, phase: 'day' | 'night', priority, year }] }]. As on that calendar, a miqaat with a `year`
+// is shown only from that Hijri year on.
+
+let miqaatData = null;
+export function loadMiqaats() {
+    if (!miqaatData) miqaatData = fetch(new URL('../data/miqaats.json', import.meta.url).href).then(r => r.ok ? r.json() : []).catch(() => []);
+    return miqaatData;
+}
+
+/** Miqaats on a Hijri date ({ year, month, day }). */
+export function miqaatsOn(list, h) {
+    const entry = (list || []).find(x => x.month === h.month && x.date === h.day);
+    return (entry?.miqaats || []).filter(m => !m.year || m.year <= h.year);
+}
+
+/** The next `count` days that have miqaats, starting tomorrow, looking up to `days` ahead. */
+export function upcomingMiqaats(list, from = new Date(), days = 30, count = 3) {
+    const out = [];
+    for (let i = 1; i <= days && out.length < count; i++) {
+        const date = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i);
+        const h = toHijri(date);
+        const ms = miqaatsOn(list, h);
+        if (ms.length) out.push({ date, hijri: h, miqaats: ms });
+    }
+    return out;
+}
