@@ -8,6 +8,7 @@ import { mealThalsFor } from '../../core/meals.js';
 import { toHijri, formatHijri, loadMiqaats, miqaatsOn, upcomingMiqaats } from '../../core/hijri.js';
 import { openCalendar } from './calendar.js';
 import { openInHouse } from './inhouse.js';
+import { renderOccupancy } from './occupancy.js';
 
 const CITY = {
     makkah: { name: 'Makkah', lat: 21.4225, lon: 39.8262 },
@@ -115,6 +116,7 @@ export default async function mount(ctx) {
             setStat('mlD', meals.dinner, `${meals.pax.dinner} guests`);
         }
         $('hmMealsTitle').textContent = `Thaals today · ${ctx.site.label}`;
+        await renderOccupancy(ctx, $('hmOcc'), here);
     }
 
     /* ---------------------------------- weather ---------------------------------- */

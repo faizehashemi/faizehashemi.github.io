@@ -122,7 +122,9 @@ The start page greets the desk by name and shows: **today at a glance** (check-i
 `app/core/meals.js`, which the Mawaid page uses too), **weather** (Open-Meteo) and **namaz timings**
 (Aladhan, Umm al-Qura method, with the next namaz and a countdown) for the site's city, the **Gregorian and
 Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com), **miqaats**
-(today and the next ones coming up). Weather and namaz are cached in the browser (15 min / one day).
+(today and the next ones coming up), and at the bottom **building occupancy** (the old Home tiles, `app/views/home/occupancy.js`):
+one battery per building with the share of its beds in use today (capacity from Rooms & Buildings, or a number
+typed on the tile for a building not set up there) and a chart of guests by check-in date. Weather and namaz are cached in the browser (15 min / one day).
 
 **Currently in Makkah** opens the list of groups staying there right now (`app/views/home/inhouse.js`):
 SH, group and leader, building and rooms, stay, guests (G/L/C/I) and beds, with checks for slips that look
