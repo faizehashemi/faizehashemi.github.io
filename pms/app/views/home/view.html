@@ -1,35 +1,57 @@
-<div class="wrap">
-        <!-- Left: Building batteries + chart -->
-        <section class="panel" id="occPanel" aria-label="Building occupancy">
-            <h2>Building Occupancy</h2>
-            <div class="sub">Batteries show percent of capacity in use today. Edit capacity per building as needed.</div>
-            <div class="battery-grid" id="batteryGrid"></div>
+<div class="hm">
+    <header class="hm-hero">
+        <div class="hm-hello">
+            <p class="hm-greet" id="hmGreet">Assalaamo Alaikum</p>
+            <h1 id="hmName">Welcome</h1>
+            <p class="hm-praise" id="hmPraise"></p>
+        </div>
+        <div class="hm-dates">
+            <div class="hm-hijri" id="hmHijri">—</div>
+            <div class="hm-greg" id="hmGreg">—</div>
+            <a class="hm-cal-link" href="https://www.mumineencalendar.com/" target="_blank" rel="noopener">Today's miqaats on Mumineen Calendar ↗</a>
+        </div>
+    </header>
 
-            <div class="chart-wrap" id="histWrap" aria-label="Totals by date">
-                <div class="chart-toolbar">
-                    <div class="left">
-                        <strong>Totals by date</strong>
-                        <span class="sub" id="chartSubtitle">All buildings</span>
-                    </div>
-                    <div class="left" id="buildingChips"></div>
-                </div>
-                <svg class="chart" id="histChart" viewBox="0 0 800 220" role="img" aria-label="Histogram of totals"></svg>
-            </div>
+    <section class="hm-section" aria-labelledby="hmTodayTitle">
+        <div class="hm-head">
+            <h2 id="hmTodayTitle">Today at a glance</h2>
+            <span class="hm-sub" id="hmTodaySub"></span>
+        </div>
+        <div class="hm-stats">
+            <a class="hm-stat in" id="stIn" href="#"><span class="hm-ico" aria-hidden="true">🛬</span><b>—</b><span class="hm-lbl">Check-ins today</span><small></small></a>
+            <a class="hm-stat out" id="stOut" href="#"><span class="hm-ico" aria-hidden="true">🧳</span><b>—</b><span class="hm-lbl">Check-outs today</span><small></small></a>
+            <div class="hm-stat mk" id="stMakkah"><span class="hm-ico" aria-hidden="true">🕋</span><b>—</b><span class="hm-lbl">Currently in Makkah</span><small></small></div>
+            <div class="hm-stat md" id="stMadina"><span class="hm-ico" aria-hidden="true">🕌</span><b>—</b><span class="hm-lbl">Currently in Madina</span><small></small></div>
+        </div>
+    </section>
+
+    <section class="hm-section" aria-labelledby="hmMealsTitle">
+        <div class="hm-head">
+            <h2 id="hmMealsTitle">Thaals today</h2>
+            <a class="hm-more" id="hmMealsLink" href="#">Open Mawaid →</a>
+        </div>
+        <div class="hm-stats meals">
+            <div class="hm-stat b" id="mlB"><span class="hm-ico" aria-hidden="true">🌅</span><b>—</b><span class="hm-lbl">Breakfast thaals</span><small></small></div>
+            <div class="hm-stat l" id="mlL"><span class="hm-ico" aria-hidden="true">☀️</span><b>—</b><span class="hm-lbl">Lunch thaals</span><small></small></div>
+            <div class="hm-stat d" id="mlD"><span class="hm-ico" aria-hidden="true">🌙</span><b>—</b><span class="hm-lbl">Dinner thaals</span><small></small></div>
+        </div>
+    </section>
+
+    <div class="hm-grid">
+        <section class="hm-card hm-weather" aria-labelledby="hmWxTitle">
+            <h2 id="hmWxTitle">Weather</h2>
+            <div class="hm-wx" id="hmWx"><p class="hm-muted">Loading…</p></div>
         </section>
 
-        <!-- Right: DB Health (kept from your file) -->
-        <aside class="db-card" aria-label="Database health">
-            <h3>Database Health</h3>
-            <div class="list">
-                <div class="row"><div class="name">Server</div><span id="dbOpen" class="pill wait">Testing…</span></div>
-                <div class="row"><div class="name">DB name</div><span class="mono">PMS cloud (D1)</span></div>
-                <div class="row"><div class="name">Last sync</div><span id="dbVersion" class="mono">—</span></div>
-                <div class="row"><div class="name">Connection</div><span id="dbStores" class="mono">—</span></div>
-                <div class="row"><div class="name">“slips” count</div><span id="slipCount" class="mono">—</span></div>
-            </div>
-            <div class="actions">
-                <button id="btnRecheck">Recheck</button>
-            </div>
-            <div class="foot" id="dbNote"></div>
-        </aside>
+        <section class="hm-card hm-namaz" aria-labelledby="hmNzTitle">
+            <h2 id="hmNzTitle">Namaz timings</h2>
+            <div id="hmNz"><p class="hm-muted">Loading…</p></div>
+        </section>
+
+        <section class="hm-card hm-tip" aria-labelledby="hmTipTitle">
+            <h2 id="hmTipTitle">💡 Tip</h2>
+            <p class="hm-tip-text" id="hmTip"></p>
+            <div class="hm-tip-foot"><span class="hm-muted" id="hmTipNo"></span><button type="button" id="hmTipNext">Next tip →</button></div>
+        </section>
     </div>
+</div>

@@ -27,7 +27,7 @@ are unchanged. The footer carries the support number (+91 77479 45253).
 
 **Rooms & Buildings** (Rooms menu) holds every building, room and bed count per site — editable,
 seeded once from the original room lists (MOHAMMEDI, MUFADDAL, SNOOD, BAHA: 705 rooms, 2,748 beds).
-Slip (Fetch & Assign, availability check), Forecast, Grid, Timeline and Home take capacities from
+Slip (Fetch & Assign, availability check), Forecast, Grid and Timeline take capacities from
 there; for a building not in the builder they fall back to capacities remembered from old slips.
 
 URLs look like `#/makkah/slip?sh_no=38480`, so any page can be bookmarked or shared.
@@ -84,7 +84,6 @@ used, plus `site`, a `version` and a change counter. Every slip belongs to exact
   (`pms_accommodation_db`): **Setup → Move this browser's old data to the cloud** uploads them once
   (repeat-safe). Old slips with no building go to the uploading desk's site.
 - Backups: **Admin → Export JSON** (per site). Import accepts old backups too.
-- Still per-browser (not in the cloud): the Home page's building capacities.
 
 ## UMS import
 
@@ -114,6 +113,16 @@ counts), so the last room may get only part of its beds; when gents are done it 
 when both are done it refuses more rooms. Click a chosen room again to take it back; the side panel shows
 who else is in the last room clicked and fine-tunes its beds. *Fill automatically* does the same by itself;
 *Apply to slip* fills the room tables (room, capacity, assigned). Code: `app/views/slip/room-picker.js`.
+
+## Home
+
+The start page greets the desk by name and shows: **today at a glance** (check-ins and check-outs from
+03:00 today to 03:00 tomorrow for this site, and guests in-house right now in Makkah and in Madina),
+**today's thaals** (breakfast, lunch, dinner — the Mawaid page's rules and default settings, from
+`app/core/meals.js`, which the Mawaid page uses too), **weather** (Open-Meteo) and **namaz timings**
+(Aladhan, Umm al-Qura method, with the next namaz and a countdown) for the site's city, the **Gregorian and
+Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com, with a link there
+for the day's miqaats) and a **tip**. Weather and namaz are cached in the browser (15 min / one day).
 
 ## Check-ins: Print slips and GL copy
 
