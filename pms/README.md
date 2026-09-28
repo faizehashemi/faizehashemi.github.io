@@ -200,7 +200,9 @@ the last active admin; to stop a login only for a while, use Disable.
 **Setup → Page access** is a grid of pages × logins: tick what each desk or viewer login may open, then
 *Save page access*. Unticked pages vanish from that login's menus, quick links and shortcuts, and opening
 one by address shows a notice and goes Home. Home and Settings are always open; admins see everything.
-What a login may *change* still follows its role and site. The desk picks the change up within a minute
+What a login may *change* still follows its role and site. Links from one page to another follow the same ticks: Check-ins shows the
+*Open* (slip) column only with Slip access and *Print slips* / *GL copy* only with Print slips access; Home's links to
+Check-ins, Mawaid and Rooms & Buildings (and the SH links in "Currently in Makkah") likewise. The desk picks the change up within a minute
 (it re-reads `/api/me`), without being logged out. Stored in the `desk_pages` table (no row = all pages).
 
 ## Settings (per login)

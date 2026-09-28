@@ -74,9 +74,16 @@ export default async function mount(ctx) {
     $('hmHijri').textContent = formatHijri(toHijri(now));
     $('hmGreg').textContent = now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    $('stIn').href = ctx.href('checkins');
-    $('stOut').href = ctx.href('checkins');
-    $('hmMealsLink').href = ctx.href('mawaid');
+    // cross-links only where this login may go (Setup → Page access)
+    function applyAccess() {
+        for (const id of ['stIn', 'stOut']) {
+            if (canOpen('checkins', desk)) $(id).href = ctx.href('checkins'); else $(id).removeAttribute('href');
+        }
+        $('hmMealsLink').hidden = !canOpen('mawaid', desk);
+        if (canOpen('mawaid', desk)) $('hmMealsLink').href = ctx.href('mawaid');
+    }
+    applyAccess();
+    window.addEventListener('pms:desk-changed', () => { location.reload(); });
 
     // "Currently in Makkah": the groups behind the number, to spot slips that need fixing
     for (const [id, site, label] of [['stMakkah', 'makkah', 'Makkah']]) {

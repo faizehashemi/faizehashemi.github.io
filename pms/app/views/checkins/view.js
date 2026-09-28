@@ -4,6 +4,7 @@
 // presets span 03:00 → 03:00 of the following day, and an empty/reversed range becomes 24h.
 
 import { printSlips, openGlCopies } from '../../core/slip-print.js';
+import { canOpen } from '../../core/cloud.js';
 
 export default async function mount(ctx) {
     const { db } = ctx;
@@ -45,6 +46,15 @@ export default async function mount(ctx) {
     }
 
     let CACHE = [];
+
+    // Cross-links follow the login's page access (Setup → Page access): no Slip page → no Open column,
+    // no Print slips page → no Print slips / GL copy buttons.
+    const may = { slip: canOpen('slip'), print: canOpen('print') };
+    function applyAccess() {
+        may.slip = canOpen('slip'); may.print = canOpen('print');
+        ['slipsIn', 'slipsOut', 'glIn', 'glOut'].forEach(id => { $(id).hidden = !may.print; });
+        ['tblIn', 'tblOut'].forEach(id => $(id).classList.toggle('no-open', !may.slip));
+    }
     let SHOWN = { in: [], out: [] }; // the rows in each table, in table order (Print slips / GL copy)
 
     /* ===== Date range wiring ===== */
@@ -126,8 +136,8 @@ export default async function mount(ctx) {
             const sh = String(r.sh_no || '').trim();
             const href = sh ? ctx.href('slip', { sh_no: sh }) : ctx.href('slip');
             const gl = (r.group_leader && String(r.group_leader).trim()) ? r.group_leader : 'unassigned';
-            const openCell = sh
-                ? `<a class="btn-open" href="${href}" target="_blank" rel="noopener">Open</a>`
+            const openCell = !may.slip ? ''
+                : sh ? `<a class="btn-open" href="${href}" target="_blank" rel="noopener">Open</a>`
                 : `<a class="btn-open" aria-disabled="true" title="No SH number">Open</a>`;
 
             const tr = document.createElement('tr');
@@ -223,10 +233,13 @@ export default async function mount(ctx) {
     $('printIn').addEventListener('click', () => printTableOnly('tblIn'));
     $('printOut').addEventListener('click', () => printTableOnly('tblOut'));
     const rangeLabel = () => `${$('dateFrom').value} ${$('timeFrom').value} → ${$('dateTo').value} ${$('timeTo').value}`;
-    $('slipsIn').addEventListener('click', () => printSlips(SHOWN.in, { title: `check-ins ${rangeLabel()}` }));
-    $('slipsOut').addEventListener('click', () => printSlips(SHOWN.out, { title: `check-outs ${rangeLabel()}` }));
-    $('glIn').addEventListener('click', () => openGlCopies(SHOWN.in, { title: `check-ins ${rangeLabel()}`, host: ctx.root }));
-    $('glOut').addEventListener('click', () => openGlCopies(SHOWN.out, { title: `check-outs ${rangeLabel()}`, host: ctx.root }));
+    // the admin changed this login's pages while the page is open
+    window.addEventListener('pms:desk-changed', () => { applyAccess(); run(); });
+    applyAccess();
+    $('slipsIn').addEventListener('click', () => may.print && printSlips(SHOWN.in, { title: `check-ins ${rangeLabel()}` }));
+    $('slipsOut').addEventListener('click', () => may.print && printSlips(SHOWN.out, { title: `check-outs ${rangeLabel()}` }));
+    $('glIn').addEventListener('click', () => may.print && openGlCopies(SHOWN.in, { title: `check-ins ${rangeLabel()}`, host: ctx.root }));
+    $('glOut').addEventListener('click', () => may.print && openGlCopies(SHOWN.out, { title: `check-outs ${rangeLabel()}`, host: ctx.root }));
 
     /* ===== Boot ===== */
     async function refresh() {

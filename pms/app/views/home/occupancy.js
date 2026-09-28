@@ -4,6 +4,7 @@
 // (kept in this browser, as before).
 
 import { loadBuildings, buildingsOfSite, totalBeds } from '../../core/rooms.js';
+import { canOpen } from '../../core/cloud.js';
 
 const CAP_KEY = 'pms_building_capacity_v1';
 const SVG = 'http://www.w3.org/2000/svg';
@@ -52,7 +53,7 @@ export async function renderOccupancy(ctx, root, slips) {
             <div class="b-head">
               <div><div class="b-name">${esc(b || '(Unassigned)')}</div><div class="b-cap">Capacity: <b>${cap}</b> • Used: <b>${u}</b></div></div>
               ${fromBuilder != null
-                ? `<a class="cap-link" href="${ctx.href('builder')}" title="Bed total from Rooms &amp; Buildings">Edit rooms</a>`
+                ? (canOpen('builder') ? `<a class="cap-link" href="${ctx.href('builder')}" title="Bed total from Rooms &amp; Buildings">Edit rooms</a>` : '')
                 : `<div class="cap-edit"><input type="number" min="0" value="${cap}" aria-label="Capacity of ${esc(b || 'unassigned')}"><button type="button" data-b="${esc(b)}">Save</button></div>`}
             </div>
             <div class="battery ${cls}"><div class="fill" style="width:${pct}%"></div><div class="meter">${pct}%</div></div>
