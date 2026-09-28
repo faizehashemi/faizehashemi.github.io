@@ -125,37 +125,52 @@ function ensureCss() {
 
 /* --------------------------------- printing --------------------------------- */
 
-/** Print the slips: A5 landscape, two copies side by side, one page per slip (like the Print page). */
-export async function printSlips(recs) {
+/**
+ * Print the slips: A5 landscape, two copies side by side, one page per slip (like the Print page).
+ * They open in a tab of their own that holds nothing but the slips (no page background, menus or page
+ * styles to leak into the print); that tab opens the print dialog itself. Call it straight from the
+ * click, so the browser allows the new tab.
+ */
+export function printSlips(recs, opts = {}) {
     if (!recs.length) { alert('No slips to print in this table.'); return; }
-    ensureCss();
-    const area = document.createElement('div');
-    area.id = 'pms-slip-print';
-    area.className = 'pms-slips';
-    area.innerHTML = recs.map(rec => { const rows = rowsFor(rec); return `<div class="sheet">${slipHTML(rec, rows)}${slipHTML(rec, rows)}</div>`; }).join('');
-    const pageCss = document.createElement('style');
-    pageCss.textContent = `
-      #pms-slip-print { display: none; }
-      @media print {
-        @page { size: A5 landscape; margin: 6mm; }
-        body.pms-printing-slips > *:not(#pms-slip-print) { display: none !important; }
-        body.pms-printing-slips #pms-slip-print { display: block !important; }
-        #pms-slip-print .sheet { break-inside: avoid; page-break-after: always; }
-        #pms-slip-print .sheet:last-child { page-break-after: auto; }
-      }`;
-    document.head.appendChild(pageCss);
-    document.body.appendChild(area);
-    document.body.classList.add('pms-printing-slips');
-    const done = () => {
-        document.body.classList.remove('pms-printing-slips');
-        area.remove(); pageCss.remove();
-        window.removeEventListener('afterprint', done);
-    };
-    window.addEventListener('afterprint', done);
-    try { if (document.fonts?.ready) await document.fonts.ready; } catch { }
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    window.print();
-    setTimeout(() => { if (area.isConnected && !window.matchMedia('print').matches) done(); }, 1500);
+    const w = window.open('', '_blank');
+    if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print slips again.'); return; }
+    const title = `Slips${opts.title ? ' — ' + opts.title : ''}`;
+    const sheets = recs.map(rec => { const rows = rowsFor(rec); return `<div class="sheet">${slipHTML(rec, rows)}${slipHTML(rec, rows)}</div>`; }).join('');
+    w.document.open();
+    w.document.write(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+${SLIP_CSS}
+@page { size: A5 landscape; margin: 6mm; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #fff; }
+body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sheet { break-inside: avoid; page-break-inside: avoid; }
+.sheet + .sheet { break-before: page; page-break-before: always; }
+.bar { position: sticky; top: 0; display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #fffaf1;
+  border-bottom: 1px solid #dcc7a4; font: 14px system-ui, sans-serif; color: #2b1e15; z-index: 1; }
+.bar button { font: inherit; padding: 6px 14px; border: 1px solid #d4af37; border-radius: 8px; background: #d4af37; color: #fff; font-weight: 700; cursor: pointer; }
+.bar span { color: #6b5e4a; font-size: 12px; }
+@media screen {
+  body { background: #e9e6df; }
+  /* each page as it will print: A5 landscape */
+  .sheet { width: 210mm; min-height: 148mm; padding: 6mm; margin: 10mm auto; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+}
+@media print { .bar { display: none; } }
+</style></head>
+<body class="pms-slips">
+<div class="bar"><button type="button" onclick="window.print()">Print</button>
+<span>${recs.length} slip${recs.length === 1 ? '' : 's'} · A5 landscape, two copies per page · choose paper size A5 and orientation Landscape if the printer asks</span></div>
+${sheets}
+<script>
+window.addEventListener('load', function () {
+  var go = function () { window.focus(); window.print(); };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(go, 200); }); else setTimeout(go, 300);
+});
+</script>
+</body></html>`);
+    w.document.close();
 }
 
 /* --------------------------------- GL copies --------------------------------- */

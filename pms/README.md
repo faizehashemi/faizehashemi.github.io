@@ -118,7 +118,9 @@ who else is in the last room clicked and fine-tunes its beds. *Fill automaticall
 ## Check-ins: Print slips and GL copy
 
 Each table (Check-ins, Check-outs) has **Print slips** — every slip in that table, printed like the Print
-slips page (A5 landscape, two copies per page, one page per slip) — and **GL copy**, a window with each slip
+slips page (A5 landscape, two copies per page, one page per slip). The slips open in a **new tab that holds
+only the slips** (no page background or styles) and that tab opens the print dialog itself; allow pop-ups
+for the site if the browser blocks it. There is also **GL copy**, a window with each slip
 as an A5 card in its building colour: snip it, or *Copy picture* (PNG on the clipboard, paste into the group
 leader's chat) or *Save JPEG*. The slip layout is shared with the Print slips page: `app/core/slip-print.js`.
 

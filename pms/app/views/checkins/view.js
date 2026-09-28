@@ -223,8 +223,8 @@ export default async function mount(ctx) {
     $('printIn').addEventListener('click', () => printTableOnly('tblIn'));
     $('printOut').addEventListener('click', () => printTableOnly('tblOut'));
     const rangeLabel = () => `${$('dateFrom').value} ${$('timeFrom').value} → ${$('dateTo').value} ${$('timeTo').value}`;
-    $('slipsIn').addEventListener('click', () => printSlips(SHOWN.in));
-    $('slipsOut').addEventListener('click', () => printSlips(SHOWN.out));
+    $('slipsIn').addEventListener('click', () => printSlips(SHOWN.in, { title: `check-ins ${rangeLabel()}` }));
+    $('slipsOut').addEventListener('click', () => printSlips(SHOWN.out, { title: `check-outs ${rangeLabel()}` }));
     $('glIn').addEventListener('click', () => openGlCopies(SHOWN.in, { title: `check-ins ${rangeLabel()}`, host: ctx.root }));
     $('glOut').addEventListener('click', () => openGlCopies(SHOWN.out, { title: `check-outs ${rangeLabel()}`, host: ctx.root }));
 
