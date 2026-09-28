@@ -126,15 +126,17 @@ Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineenca
 one battery per building with the share of its beds in use today (capacity from Rooms & Buildings, or a number
 typed on the tile for a building not set up there) and a chart of guests by check-in date. Weather and namaz are cached in the browser (15 min / one day).
 
-**Jeddah airport** (King Abdulaziz, `JED` — Terminal 1, North and Hajj terminals are all JED; the terminal is shown
-per flight): arrivals and departures with times, delays, status, terminal and belt/gate, filters for terminal,
-"only to/from India" and **only flights with our guests**. A flight carrying UMS groups (their arrival or
-departure flight in the UMS list, matched by flight or codeshare number within 6 hours) is highlighted with
-the groups and their pax. Data: Airlabs schedules API, fetched by the Worker (`/api/flights`, table
-`flight_board`, secret `AIRLABS_KEY`) on a 15-minute cron that only calls Airlabs when due. A free key returns
-100 flights per call, so a full board is ~8 calls; the Worker keeps to 750 calls a month (25% of the plan's
-1000 kept back) by spacing fetches evenly over what is left of the month, and never more often than hourly.
-The tile shows the last and next fetch and the lookups used; an admin can *Refresh now*.
+**Our guests' flights · Jeddah airport**: only the flights our groups are on — UMS groups whose arrival or
+departure flight (from the UMS list; flight or codeshare number, time within 6 hours) lands at or leaves Jeddah
+(King Abdulaziz, `JED` — Terminal 1, North and Hajj terminals) between 3 hours ago and 10 hours ahead — with live
+status, times, delays, terminal and belt/gate, and the groups and pax on each flight. When no guest flies in that
+window nothing is looked up and the tile says **No data found**. Data: Airlabs, fetched by the Worker
+(`/api/flights`, table `flight_board`, secret `AIRLABS_KEY`): a 15-minute cron checks the slips for free and calls
+Airlabs only when there are guest flights — one call per direction filtered to those airlines (a free key returns
+at most 100 flights and cannot page; a flight left out of a busy airline's list is looked up by number) — when
+due by the budget (750 of the plan's 1000 calls a month, 25% kept back, spread over the month, at most hourly) or
+at once when a new guest flight appears. The tile shows the last and next check, the lookups used and the flights
+watched; only an admin can *Refresh now*.
 
 **Currently in Makkah** opens the list of groups staying there right now (`app/views/home/inhouse.js`):
 SH, group and leader, building and rooms, stay, guests (G/L/C/I) and beds, with checks for slips that look

@@ -732,15 +732,19 @@ async function deleteDesk(env, me, id) {
 
 /* ------------------------------ Jeddah flight board ------------------------------ */
 // King Abdulaziz airport (JED: Terminal 1, North and Hajj terminals are all "JED"; the terminal is a field).
-// Airlabs schedules API, key in the Worker secret AIRLABS_KEY. A free key returns 100 flights per call, so
-// one full board = every page of arrivals + every page of departures. The monthly budget (FLIGHT_BUDGET
-// calls) is spread over the month: after each fetch the next one is scheduled from the calls and minutes
-// left. The cron runs every 15 minutes but only fetches when due; desks only ever read the stored board.
+// Only OUR guests' flights: the UMS arrival/departure flights at Jeddah due from 3 hours ago to 10 hours
+// ahead (Airlabs looks at most 10 hours ahead). No such flight → no Airlabs call at all ("no data found").
+// Otherwise one call per direction, filtered to those flights' airlines, keeping only our flights; if an
+// airline list is cut at 100 (a free key returns at most 100 and cannot page) a missing flight is looked up
+// by number. Key: Worker secret AIRLABS_KEY. The cron checks every 15 minutes from the database (free);
+// Airlabs is called when due — the monthly budget (FLIGHT_BUDGET) spread over what is left of the month —
+// or at once when a guest flight appears that was not looked up yet. Desks only read the stored board.
 
 const AIRLABS = 'https://airlabs.co/api/v9/schedules';
 const FLIGHT_BUDGET = 750;        // of the plan's 1000 calls a month: 25% kept back as a safety margin
 const FLIGHT_MIN_GAP = 60;        // minutes: never fetch more often than this
-const FLIGHT_MAX_PAGES = 8;       // per direction (800 flights)
+const FLIGHT_EXTRA_MAX = 3;       // per direction: single-flight lookups when an airline list is cut at 100
+const FLIGHT_CHECK_MIN = 15;      // minutes between free database checks when nothing needs a lookup
 const FLIGHT_FIELDS = ['flight_iata', 'airline_iata', 'cs_flight_iata', 'dep_iata', 'arr_iata', 'dep_terminal', 'arr_terminal',
     'dep_gate', 'arr_gate', 'arr_baggage', 'dep_time', 'dep_estimated', 'dep_actual', 'arr_time', 'arr_estimated', 'arr_actual',
     'status', 'dep_delayed', 'arr_delayed'];
@@ -756,30 +760,82 @@ async function getFlights(env) {
         configured: !!env.AIRLABS_KEY, fetched_at: row.fetched_at, next_fetch_at: row.next_fetch_at,
         calls_used: row.calls_month === monthKey() ? row.calls_used : 0, calls_budget: FLIGHT_BUDGET,
         calls_last: row.calls_last, error: row.last_error || null,
-        arrivals: data.arrivals || [], departures: data.departures || [],
+        arrivals: data.arrivals || [], departures: data.departures || [], codes: data.codes || null,
     });
 }
 
-async function fetchDirection(env, param, budgetLeft) {
-    const out = [];
-    let calls = 0;
-    for (let page = 0; page < FLIGHT_MAX_PAGES && calls < budgetLeft; page++) {
-        const url = `${AIRLABS}?${param}=JED&offset=${page * 100}&_fields=${FLIGHT_FIELDS.join(',')}&api_key=${encodeURIComponent(env.AIRLABS_KEY)}`;
-        const r = await fetch(url, { headers: { Accept: 'application/json' } });
-        calls++;
-        const body = await r.json().catch(() => ({}));
-        if (!r.ok || body.error) throw Object.assign(new Error((body.error && (body.error.message || body.error.code)) || `Airlabs ${r.status}`), { calls: calls });
-        out.push(...(body.response || []));
-        if (!body.request || !body.request.has_more) break;
+// UMS flight text is free-form ("SAUDIA -SV701", "INDIGO AIRLINES -6E-61", "FLYNAS AIR-0000"): the last
+// airline-code + number in it, leading zeros dropped; '' when unknown. (Same rule as the Home page.)
+function flightCode(text) {
+    const all = [...String(text || '').toUpperCase().matchAll(/\b([A-Z0-9]{2})\s*-?\s*(\d{1,4})\b/g)].filter(m => /[A-Z]/.test(m[1]));
+    const m = all[all.length - 1];
+    return m && Number(m[2]) ? m[1] + Number(m[2]) : '';
+}
+const normFlight = (iata) => { const m = String(iata || '').toUpperCase().match(/^([A-Z0-9]{2})(\d{1,4})$/); return m ? m[1] + Number(m[2]) : ''; };
+
+// Our guests' Jeddah flights from 3 hours ago to 10 hours ahead: { arr: [codes], dep: [codes] }
+async function ourFlights(env, now) {
+    const day = (ms) => new Date(ms + 3 * 3600e3).toISOString().slice(0, 10); // Jeddah date
+    const days = [...new Set([day(now - 864e5), day(now), day(now + 864e5)])];
+    const q = days.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(
+        `SELECT data FROM slips WHERE deleted = 0 AND ums_key IS NOT NULL
+         AND (json_extract(data, '$.ums.arrival.date') IN (${q}) OR json_extract(data, '$.ums.departure.date') IN (${q}))`
+    ).bind(...days, ...days).all();
+    const out = { arr: new Set(), dep: new Set() };
+    for (const r of results) {
+        const u = (JSON.parse(r.data) || {}).ums || {};
+        for (const [dir, f] of [['arr', u.arrival], ['dep', u.departure]]) {
+            if (!f || !/JEDDAH|\bJED\b/i.test(f.port || '')) continue;
+            const ts = Date.parse(`${f.date}T${f.time}:00+03:00`);
+            if (!(ts >= now - 3 * 3600e3 && ts <= now + 10 * 3600e3)) continue;
+            const code = flightCode(f.flight);
+            if (code) out[dir].add(code);
+        }
     }
-    return { flights: out, calls };
+    return { arr: [...out.arr].sort(), dep: [...out.dep].sort() };
+}
+
+async function airlabs(env, params) {
+    const qs = new URLSearchParams({ ...params, _fields: FLIGHT_FIELDS.join(','), api_key: env.AIRLABS_KEY });
+    const r = await fetch(`${AIRLABS}?${qs}`, { headers: { Accept: 'application/json' } });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.error) throw new Error((body.error && (body.error.message || body.error.code)) || `Airlabs ${r.status}`);
+    return { flights: body.response || [], cut: !!(body.request && body.request.has_more) };
+}
+
+// One direction: our flights only. No codes → no call.
+async function fetchDirection(env, dir, codes, budgetLeft) {
+    if (!codes.length) return { flights: [], calls: 0 };
+    const want = new Set(codes);
+    const param = dir === 'arr' ? 'arr_iata' : 'dep_iata';
+    const ours = (f) => want.has(normFlight(f.flight_iata)) || want.has(normFlight(f.cs_flight_iata));
+    let calls = 0;
+    const counted = async (fn) => { calls++; try { return await fn(); } catch (e) { e.calls = calls; throw e; } };
+    const airlines = [...new Set(codes.map(c => c.slice(0, 2)))];
+    const main = await counted(() => airlabs(env, { [param]: 'JED', airline_iata: airlines.join(',') }));
+    const flights = main.flights.filter(ours);
+    const have = new Set(flights.flatMap(f => [normFlight(f.flight_iata), normFlight(f.cs_flight_iata)]).filter(Boolean));
+    let extra = 0;
+    for (const code of codes.filter(c => !have.has(c))) {
+        if (!main.cut || extra >= FLIGHT_EXTRA_MAX || calls >= budgetLeft) break; // not cut = the flight is not flying in this window
+        extra++;
+        const one = await counted(() => airlabs(env, { flight_iata: code }));
+        flights.push(...one.flights.filter(f => (dir === 'arr' ? f.arr_iata : f.dep_iata) === 'JED'));
+    }
+    return { flights, calls };
 }
 
 async function refreshFlights(env, force) {
     const row = await env.DB.prepare('SELECT * FROM flight_board WHERE id = ?').bind('JED').first();
     const now = new Date(), month = monthKey(now);
     let used = row && row.calls_month === month ? row.calls_used : 0;
-    if (!force && row && row.next_fetch_at && now.toISOString() < row.next_fetch_at) return; // not due yet
+    const ours = await ourFlights(env, now.getTime());
+    const sig = JSON.stringify(ours);
+    const prev = row ? JSON.parse(row.data || '{}') : {};
+    const newFlights = sig !== JSON.stringify(prev.codes || null) && (ours.arr.length || ours.dep.length);
+    // not due, and no guest flight appeared that was not looked up yet
+    if (!force && row && row.next_fetch_at && now.toISOString() < row.next_fetch_at && !newFlights) return;
     const save = (fields) => env.DB.prepare(`INSERT INTO flight_board (id, data, fetched_at, next_fetch_at, calls_month, calls_used, calls_last, last_error)
         VALUES ('JED', ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at,
         next_fetch_at = excluded.next_fetch_at, calls_month = excluded.calls_month, calls_used = excluded.calls_used,
@@ -790,20 +846,25 @@ async function refreshFlights(env, force) {
     const nextMonth = () => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 5)).toISOString();
 
     if (!env.AIRLABS_KEY) return save({ ...keep, next_fetch_at: later(FLIGHT_MIN_GAP), calls_used: used, calls_last: 0, error: 'No Airlabs key on the server (AIRLABS_KEY).' });
-    if (FLIGHT_BUDGET - used < 2) return save({ ...keep, next_fetch_at: nextMonth(), calls_used: used, calls_last: 0, error: 'This month\'s flight lookups are used up; the board refreshes again next month.' });
+    if (!ours.arr.length && !ours.dep.length) {
+        // none of our guests flies into or out of Jeddah in the window: nothing to look up, no call used
+        return save({ data: JSON.stringify({ arrivals: [], departures: [], codes: ours }), fetched_at: now.toISOString(),
+            next_fetch_at: later(FLIGHT_CHECK_MIN), calls_used: used, calls_last: 0, error: null });
+    }
+    if (FLIGHT_BUDGET - used < 1) return save({ ...keep, next_fetch_at: nextMonth(), calls_used: used, calls_last: 0, error: 'This month\'s flight lookups are used up; the board refreshes again next month.' });
 
     let calls = 0;
     try {
-        const arr = await fetchDirection(env, 'arr_iata', FLIGHT_BUDGET - used);
+        const arr = await fetchDirection(env, 'arr', ours.arr, FLIGHT_BUDGET - used);
         calls += arr.calls;
-        const dep = await fetchDirection(env, 'dep_iata', FLIGHT_BUDGET - used - calls);
+        const dep = await fetchDirection(env, 'dep', ours.dep, FLIGHT_BUDGET - used - calls);
         calls += dep.calls;
         used += calls;
         // spread what is left of the month's calls evenly over what is left of the month
         const left = FLIGHT_BUDGET - used;
         const gap = left < calls ? minutesLeftInMonth(now) + 5 : Math.max(FLIGHT_MIN_GAP, Math.ceil(calls * minutesLeftInMonth(now) / left));
         await save({
-            data: JSON.stringify({ arrivals: arr.flights, departures: dep.flights }), fetched_at: now.toISOString(),
+            data: JSON.stringify({ arrivals: arr.flights, departures: dep.flights, codes: ours }), fetched_at: now.toISOString(),
             next_fetch_at: later(gap), calls_used: used, calls_last: calls, error: null,
         });
     } catch (e) {
