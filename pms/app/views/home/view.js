@@ -9,6 +9,7 @@ import { toHijri, formatHijri, loadMiqaats, miqaatsOn, upcomingMiqaats } from '.
 import { openCalendar } from './calendar.js';
 import { openInHouse } from './inhouse.js';
 import { renderOccupancy } from './occupancy.js';
+import { renderFlights } from './flights.js';
 
 const CITY = {
     makkah: { name: 'Makkah', lat: 21.4225, lon: 39.8262 },
@@ -201,6 +202,9 @@ export default async function mount(ctx) {
     $('hmMq').addEventListener('click', fromCard);
     $('hmMq').addEventListener('keydown', fromCard);
 
+    // Jeddah airport board (does not hold up the rest of the page)
+    const flightsTimer = renderFlights(ctx, $('hmFlights')).catch(e => console.warn('flights', e));
+
     const fail = (id, what) => (e) => { console.warn(what, e); $(id).innerHTML = `<p class="hm-muted">${what} is not available right now (no connection?).</p>`; };
     await Promise.all([
         numbers().catch(e => console.warn('home numbers', e)),
@@ -215,5 +219,5 @@ export default async function mount(ctx) {
         drawNamaz();
         if (++n % 2 === 0) numbers().catch(() => { }); // other desks' check-ins, every 2 minutes
     }, 60e3);
-    return () => clearInterval(tick);
+    return () => { clearInterval(tick); flightsTimer.then(t => clearInterval(t)); };
 }

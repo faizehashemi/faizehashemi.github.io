@@ -97,7 +97,9 @@ let current = null; // { key, endDb, cleanup, listeners, bodyBefore, headBefore,
 let routeSeq = 0;   // bumps on every navigation; an older in-flight route() gives up
 
 // Loads the view's stylesheet, then drops the previous one (no flash of unstyled content)
-async function loadCss(viewId) {
+// `seq` is the navigation it belongs to: a stylesheet that finishes loading after the user has already
+// moved on is dropped, so it can never replace the stylesheet of the page now showing.
+async function loadCss(viewId, seq) {
     const url = `app/views/${viewId}/view.css`;
     if (cssLink?.getAttribute('href') === url) return;
     const next = document.createElement('link');
@@ -106,7 +108,8 @@ async function loadCss(viewId) {
     next.dataset.shell = '';
     // before the shell's responsive.css so its phone rules win over page styles
     await new Promise(res => { next.onload = next.onerror = res; document.head.insertBefore(next, document.getElementById('responsive-css')); });
-    cssLink?.remove();
+    if (seq !== routeSeq) { next.remove(); return; }
+    if (cssLink !== next) cssLink?.remove();
     cssLink = next;
 }
 
@@ -175,7 +178,7 @@ async function route() {
         }
         const [{ default: mount }] = await Promise.all([
             import(`./views/${view.id}/view.js`),
-            loadCss(view.id),
+            loadCss(view.id, seq),
         ]);
         if (seq !== routeSeq) return; // user navigated (view, site or source) while loading
 

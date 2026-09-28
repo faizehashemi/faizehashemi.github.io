@@ -61,6 +61,10 @@ KG roster (one per site): `GET /api/kg?site=` · `POST /api/kg/op` `{ site, op: 
 bookmark | reset, name }` · `POST /api/kg/log` `{ site, entries: [{ ts, person, type, location }] }` (duplicates
 ignored) · `DELETE /api/kg/log/:id` — writes follow the same site rights as slips.
 
+`GET /api/flights` (any login) — the stored Jeddah board; `POST /api/flights/refresh` (admin) fetches now.
+Needs the secret `AIRLABS_KEY` (`npx wrangler secret put AIRLABS_KEY`) and the cron in `wrangler.toml`
+(`*/15 * * * *`); budget constants `FLIGHT_BUDGET` / `FLIGHT_MIN_GAP` in `worker.js`.
+
 `GET /api/me/prefs` · `PUT /api/me/prefs` `{ prefs }` (any login, own row only) — the login's Settings as
 one JSON object (max 16 KB).
 

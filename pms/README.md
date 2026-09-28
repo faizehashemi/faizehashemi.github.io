@@ -126,6 +126,16 @@ Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineenca
 one battery per building with the share of its beds in use today (capacity from Rooms & Buildings, or a number
 typed on the tile for a building not set up there) and a chart of guests by check-in date. Weather and namaz are cached in the browser (15 min / one day).
 
+**Jeddah airport** (King Abdulaziz, `JED` — Terminal 1, North and Hajj terminals are all JED; the terminal is shown
+per flight): arrivals and departures with times, delays, status, terminal and belt/gate, filters for terminal,
+"only to/from India" and **only flights with our guests**. A flight carrying UMS groups (their arrival or
+departure flight in the UMS list, matched by flight or codeshare number within 6 hours) is highlighted with
+the groups and their pax. Data: Airlabs schedules API, fetched by the Worker (`/api/flights`, table
+`flight_board`, secret `AIRLABS_KEY`) on a 15-minute cron that only calls Airlabs when due. A free key returns
+100 flights per call, so a full board is ~8 calls; the Worker keeps to 750 calls a month (25% of the plan's
+1000 kept back) by spacing fetches evenly over what is left of the month, and never more often than hourly.
+The tile shows the last and next fetch and the lookups used; an admin can *Refresh now*.
+
 **Currently in Makkah** opens the list of groups staying there right now (`app/views/home/inhouse.js`):
 SH, group and leader, building and rooms, stay, guests (G/L/C/I) and beds, with checks for slips that look
 wrong — no building or a building of the other city, no rooms, fewer or more beds than adults, total ≠

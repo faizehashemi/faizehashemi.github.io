@@ -116,6 +116,18 @@ CREATE TABLE IF NOT EXISTS deleted_desks (
     deleted_by  INTEGER
 );
 
+-- Jeddah airport flight board (Home page), refreshed by the Worker's cron from Airlabs; one row.
+CREATE TABLE IF NOT EXISTS flight_board (
+    id             TEXT PRIMARY KEY,           -- 'JED'
+    data           TEXT NOT NULL,              -- JSON { arrivals: [...], departures: [...] }
+    fetched_at     TEXT,
+    next_fetch_at  TEXT,
+    calls_month    TEXT,                       -- 'YYYY-MM' the counter belongs to
+    calls_used     INTEGER NOT NULL DEFAULT 0, -- Airlabs calls this month
+    calls_last     INTEGER NOT NULL DEFAULT 0, -- calls the last refresh took
+    last_error     TEXT
+);
+
 -- System-wide settings an admin changes on the Setup page (e.g. travel buffers)
 CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,
