@@ -314,3 +314,8 @@
 
 
     
+
+/* one-time: move this browser's old KG list to the cloud */
+.kg-move { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px auto; max-width: 1200px; padding: 10px 14px;
+  border: 1px solid #e0b24a; background: #fff6dd; color: #3b2a06; border-radius: 10px; font-size: 13px; }
+.kg-move span { flex: 1 1 320px; }

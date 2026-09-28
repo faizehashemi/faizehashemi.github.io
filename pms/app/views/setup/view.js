@@ -158,9 +158,15 @@ export default async function mount(ctx) {
                 <td class="nowrap">${when(d.last_login)}</td>
                 <td><div class="row-actions">
                     <button type="button" data-act="password">Reset password</button>
-                    ${d.id === me.id ? '' : `<button type="button" data-act="toggle">${d.disabled ? 'Enable' : 'Disable'}</button>`}
+                    ${d.id === me.id ? '' : `<button type="button" data-act="toggle">${d.disabled ? 'Enable' : 'Disable'}</button>
+                    <button type="button" data-act="delete" class="danger" title="Remove this login for good">Delete</button>`}
                 </div></td>
             </tr>`).join('');
+    }
+
+    async function deleteDesk(id, name) {
+        try { renderDesks((await ctx.guard(request('DELETE', `/api/desks/${id}`))).desks); $('deskMsg').textContent = `Login “${name}” deleted.`; renderAudit(); }
+        catch (e) { $('deskMsg').textContent = e?.status === 404 || e?.status === 405 ? 'The server does not support deleting logins yet (Worker not updated).' : e.message; loadDesks(); }
     }
 
     async function patchDesk(id, change, done) {
@@ -175,6 +181,14 @@ export default async function mount(ctx) {
         if (btn.dataset.act === 'password') {
             const pw = prompt(`New password for ${name} (8+ characters). They will be logged out on every computer.`);
             if (pw) patchDesk(id, { password: pw }, `Password of ${name} changed.`);
+        }
+        if (btn.dataset.act === 'delete') {
+            if (!confirm(`Delete the login “${name}” for good?
+
+It is logged out everywhere and can never log in again. Its page access and personal settings are removed. Slips and the change log are kept (the log shows it as “${name} (deleted)”).
+
+To stop it only for now, use Disable instead.`)) return;
+            deleteDesk(id, name);
         }
         if (btn.dataset.act === 'toggle') {
             const disable = btn.textContent === 'Disable';

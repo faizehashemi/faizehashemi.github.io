@@ -1,4 +1,5 @@
-        :root {
+/* Mawaid — redesigned after the pms_web version (Cooking Count, Manda Counts) */
+:root {
             /* Cream • Gold • Brown */
             --ink: #25170c; /* darkest brown text */
             --muted: #5e4a39; /* soft brown */
@@ -22,13 +23,8 @@
             margin: 0;
         }
 
-        site-nav {
-            display: block;
-            margin: 12px 12px 0
-        }
-
         .wrap {
-            max-width: 1750px;
+            max-width: 1200px;
             margin: 18px auto 36px;
             padding: 0 12px
         }
@@ -192,4 +188,25 @@
                 box-shadow: none
             }
         }
-    
+        /* Meal band background colors (light, readable) */
+        .mealB {
+            background: #fff8e6;
+        }
+        /* Breakfast = soft sunrise */
+        .mealL {
+            background: #eaf9ff;
+        }
+        /* Lunch = light sky */
+        .mealD {
+            background: #f3e9ff;
+        }
+        /* Dinner = evening lilac */
+
+        /* Building name gets a unique light font color via inline style */
+        .building-name {
+            font-weight: 700;
+        }
+        .building-name {
+            font-weight: 700;
+            color: inherit;
+        }

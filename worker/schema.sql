@@ -84,6 +84,38 @@ CREATE TABLE IF NOT EXISTS desk_prefs (
     updated_at  TEXT NOT NULL
 );
 
+-- KG page (Fakkul Ehraam & Atraaf duty roster), one per site: the name list + FE1 bookmark,
+-- and one row per saved assignment.
+CREATE TABLE IF NOT EXISTS kg_meta (
+    site        TEXT PRIMARY KEY CHECK (site IN ('makkah', 'medina')),
+    people      TEXT NOT NULL DEFAULT '[]', -- JSON list of names, in list order
+    bookmark    TEXT NOT NULL DEFAULT '',
+    version     INTEGER NOT NULL DEFAULT 1,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER
+);
+CREATE TABLE IF NOT EXISTS kg_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    site        TEXT NOT NULL CHECK (site IN ('makkah', 'medina')),
+    ts          TEXT NOT NULL,              -- when the duty is (ISO)
+    person      TEXT NOT NULL,
+    type        TEXT NOT NULL,              -- FE1 | FE2 | Atraaf
+    location    TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL,
+    created_by  INTEGER
+);
+CREATE UNIQUE INDEX IF NOT EXISTS kg_log_entry ON kg_log(site, ts, person, type, location);
+
+-- Logins deleted on the Setup page: the name stays so the change log can still show who did what
+CREATE TABLE IF NOT EXISTS deleted_desks (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL,
+    site        TEXT,
+    role        TEXT,
+    deleted_at  TEXT NOT NULL,
+    deleted_by  INTEGER
+);
+
 -- System-wide settings an admin changes on the Setup page (e.g. travel buffers)
 CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,

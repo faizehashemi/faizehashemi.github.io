@@ -3,6 +3,8 @@
 // default window today 03:00 → tomorrow 03:00, "Date to" follows "Date from" unless edited,
 // presets span 03:00 → 03:00 of the following day, and an empty/reversed range becomes 24h.
 
+import { printSlips, openGlCopies } from '../../core/slip-print.js';
+
 export default async function mount(ctx) {
     const { db } = ctx;
 
@@ -43,6 +45,7 @@ export default async function mount(ctx) {
     }
 
     let CACHE = [];
+    let SHOWN = { in: [], out: [] }; // the rows in each table, in table order (Print slips / GL copy)
 
     /* ===== Date range wiring ===== */
     let userEditedDateTo = false;
@@ -101,6 +104,7 @@ export default async function mount(ctx) {
         ins.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
         outs.sort((a, b) => parseDT(a.checkout_date, a.checkout_time) - parseDT(b.checkout_date, b.checkout_time));
 
+        SHOWN = { in: ins, out: outs };
         renderTable('In', ins, 'checkin');
         renderTable('Out', outs, 'checkout');
 
@@ -218,6 +222,11 @@ export default async function mount(ctx) {
     $('csvOut').addEventListener('click', () => exportRows('out'));
     $('printIn').addEventListener('click', () => printTableOnly('tblIn'));
     $('printOut').addEventListener('click', () => printTableOnly('tblOut'));
+    const rangeLabel = () => `${$('dateFrom').value} ${$('timeFrom').value} → ${$('dateTo').value} ${$('timeTo').value}`;
+    $('slipsIn').addEventListener('click', () => printSlips(SHOWN.in));
+    $('slipsOut').addEventListener('click', () => printSlips(SHOWN.out));
+    $('glIn').addEventListener('click', () => openGlCopies(SHOWN.in, { title: `check-ins ${rangeLabel()}`, host: ctx.root }));
+    $('glOut').addEventListener('click', () => openGlCopies(SHOWN.out, { title: `check-outs ${rangeLabel()}`, host: ctx.root }));
 
     /* ===== Boot ===== */
     async function refresh() {

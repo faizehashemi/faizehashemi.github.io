@@ -141,3 +141,6 @@ tr.off td { color: var(--muted) }
 #accessTbl .linkish { border: 0; background: none; padding: 0; font-size: 11px; color: var(--muted); text-decoration: underline }
 #accessTbl input { width: 18px; height: 18px; accent-color: #b8931f; cursor: pointer }
 #accessTbl td.chg { background: #fff4d6 }
+
+button.danger { border-color: #e6bcbc; color: var(--bad); }
+button.danger:hover { background: #fff1f1; }

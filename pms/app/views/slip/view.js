@@ -249,7 +249,7 @@ export default async function mount(ctx) {
         const b = ($('building').value || '').trim();
         if (!b) { alert('Select a building first.'); return; }
         const capMap = buildCapacityMap(b);
-        BUILDINGS = await ctx.guard(loadBuildings());
+        BUILDINGS = await ctx.guard(loadBuildings({ force: true })); // rooms edited on another desk count too
 
         let filled = 0, unknown = 0;
         ['gents', 'ladies'].forEach(group => {
@@ -573,7 +573,7 @@ export default async function mount(ctx) {
         // latest assignments from every desk, so no bed is handed out twice (offline: the local copy)
         try { await ctx.guard(sync({ force: true })); } catch (e) { if (!(e instanceof UserError)) throw e; }
         await refreshDBCache();
-        BUILDINGS = await ctx.guard(loadBuildings());
+        BUILDINGS = await ctx.guard(loadBuildings({ force: true })); // rooms edited on another desk count too
         const history = buildCapacityMap(building);
         openRoomPicker({
             building, host: ctx.root, onlyFree: getPrefs().pickerOnlyFree,

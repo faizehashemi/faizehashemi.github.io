@@ -262,3 +262,6 @@
                 pointer-events: none;
             }
     
+
+/* Print slips / GL copy: stand out from the table buttons */
+.toolbar button.hot { background: linear-gradient(#f3d984, #e6c65a); border-color: #b8931f; color: #3b2a06; font-weight: 700; }

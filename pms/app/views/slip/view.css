@@ -309,3 +309,13 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .wrap button.btn-warn { border-color: #c0392b; color: #a12a2a; background: #fdecea; }
 .wrap button:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: grayscale(.4); }
 .wrap button.linkish { border: 0; background: none; padding: 6px 4px; color: var(--muted); text-decoration: underline; font-size: 13px; }
+
+/* Pick rooms: side switch + feedback line */
+.rp .rp-lbl { font-size: 12px; color: #5b6778; }
+.rp button.rp-need { border: 2px solid transparent; cursor: pointer; font-size: 13px; padding: 4px 12px; border-radius: 999px; }
+.rp button.rp-need.free { background: #eef2f7; }
+.rp button.rp-need[aria-pressed="true"] { border-color: #1f4fa8; box-shadow: 0 0 0 2px rgba(31, 79, 168, .15); }
+.rp .rp-msg { min-height: 0; padding: 0 18px; font-size: 13px; color: #1f6f43; }
+.rp .rp-msg:not(:empty) { padding: 6px 18px; background: #f2faf5; border-bottom: 1px solid #e3e8ef; }
+.rp .rp-msg.warn:not(:empty) { color: #a12a2a; background: #fdf1f0; }
+@media (max-width: 800px) { .rp .rp-msg:not(:empty) { padding: 6px 12px; } }

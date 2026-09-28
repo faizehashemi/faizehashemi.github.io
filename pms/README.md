@@ -13,7 +13,7 @@ only views; `admin` does everything. The top bar has:
 
 - **Menus by category** — *Front desk* (Slip, Check-ins, Movement, Print slips), *Rooms* (Forecast,
   Grid, Timeline, Rooms & Buildings), *Groups & meals* (Grouping, Group export, KG, Mawaid),
-  *Data* (UMS import, Slip admin, Setup), *Help*. `Alt+1` … `Alt+0` still open Slip, Forecast, Grid,
+  *Data* (UMS import, Slip admin, Setup), *Settings*. `Alt+1` … `Alt+0` still open Slip, Forecast, Grid,
   Timeline, Check-ins, Grouping, KG, Print, Admin, Mawaid. Categories live in `NAV` in `app/config.js`.
 - **The site follows the login**: a Makkah desk works on Makkah, a Medina desk on Medina (there is no
   site switch). Only an **admin** can look at the other site: desk menu on laptops, a small link at the
@@ -84,7 +84,7 @@ used, plus `site`, a `version` and a change counter. Every slip belongs to exact
   (`pms_accommodation_db`): **Setup → Move this browser's old data to the cloud** uploads them once
   (repeat-safe). Old slips with no building go to the uploading desk's site.
 - Backups: **Admin → Export JSON** (per site). Import accepts old backups too.
-- Still per-browser (not in the cloud): the KG roster and the Home page's building capacities.
+- Still per-browser (not in the cloud): the Home page's building capacities.
 
 ## UMS import
 
@@ -106,11 +106,35 @@ current site — by file, or automatically every hour through the Chrome extensi
 - Code: `app/core/ums.js` (parse / plan / apply), `app/core/ums-auto.js` (extension bridge, auto-import).
   Test data: `tools/fixtures/ums-grouplist-sample.xls` (anonymised real export).
 
-**Pick rooms…** (Slip page, next to *Check room availability*) opens a map of the slip's building for its
-check-in → check-out: every room shows the beds free for the **whole** stay (capacity minus the busiest
-moment, counting every other slip that overlaps) and a small timeline of when it is taken. Click a room to
-see who is in it and when, give it gents or ladies beds (never more than are free), or use *Fill
-automatically*; *Apply to slip* fills the room tables. Code: `app/views/slip/room-picker.js`.
+**Pick rooms…** (Slip page, next to *Load*) opens a map of the slip's building for its check-in → check-out:
+every room shows the beds free for the **whole** stay (capacity minus the busiest moment, counting every other
+slip that overlaps) and a small timeline of when it is taken. **Click rooms to give them beds**: each click
+gives the room as many free beds as the slip still needs for the chosen side (Gents / Ladies, from the slip's
+counts), so the last room may get only part of its beds; when gents are done it carries on with ladies, and
+when both are done it refuses more rooms. Click a chosen room again to take it back; the side panel shows
+who else is in the last room clicked and fine-tunes its beds. *Fill automatically* does the same by itself;
+*Apply to slip* fills the room tables (room, capacity, assigned). Code: `app/views/slip/room-picker.js`.
+
+## Check-ins: Print slips and GL copy
+
+Each table (Check-ins, Check-outs) has **Print slips** — every slip in that table, printed like the Print
+slips page (A5 landscape, two copies per page, one page per slip) — and **GL copy**, a window with each slip
+as an A5 card in its building colour: snip it, or *Copy picture* (PNG on the clipboard, paste into the group
+leader's chat) or *Save JPEG*. The slip layout is shared with the Print slips page: `app/core/slip-print.js`.
+
+## Mawaid
+
+Redesigned after the old `pms_web` Mawaid page: building table (BAHA+HUSN merged), **Cooking Count**
+(BAHA+HUSN+MOHAMMEDI+MUFADDAL merged) and **Manda Counts** (lunch/dinner thals × multipliers, default 3 and
+2.5); meal windows, thal size, which guests count (children/infants off by default) and breakdown columns are
+set at the top. As before, a group checking in at exactly 15:00 is not counted for lunch that day.
+
+## KG (Fakkul Ehraam & Atraaf roster)
+
+One list per site in the cloud (tables `kg_meta`, `kg_log`): names, FE1 bookmark and every saved assignment
+are the same on every desk of that site and refresh every 30 s. Ticks stay on your screen until *Save
+assignment*. A browser that still has its own list from before offers **Move to cloud** once (names and
+assignments are merged, nothing is duplicated). Viewers see the list but cannot change it.
 
 On the Slip page, an SH with more than one stay here gets a stay picker. Once a slip is loaded, **Save is
 locked** (it would make a duplicate) and **Edit** is highlighted; *Save a copy instead…* unlocks it after a warning.
@@ -125,6 +149,13 @@ Slips show **hotel** times, not flight times. For UMS imports:
 An admin changes these on **Setup → Travel times**; they are stored on the server and the same for
 every desk (defaults in `UMS` in `app/config.js`). Imported slips pick up a change at the next import
 (desk edits to a time are kept; stays with rooms assigned show under *Needs attention*).
+
+## Desk logins (Setup, admin)
+
+Add, reset password, change role, disable/enable, or **Delete** a login. Delete is for good: the login is
+logged out everywhere and its page access and personal settings are removed; slips and the change log stay
+(the log shows it as “name (deleted)”, from the `deleted_desks` table). You cannot delete your own login or
+the last active admin; to stop a login only for a while, use Disable.
 
 ## Page access (Setup, admin)
 

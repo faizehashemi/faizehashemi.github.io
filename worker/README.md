@@ -54,6 +54,13 @@ use the defaults (3 h / 6 h) and cannot be saved.
 all pages; unlike the other desk changes it does not log the desk out. `/api/login` and `/api/me` return
 `desk.pages` (always `null` for admins).
 
+`DELETE /api/desks/:id` (admin) — removes a login for good (not your own, not the last active admin); its
+name is kept in `deleted_desks` for the change log. New logins never reuse a deleted login's id.
+
+KG roster (one per site): `GET /api/kg?site=` · `POST /api/kg/op` `{ site, op: add-person | remove-person |
+bookmark | reset, name }` · `POST /api/kg/log` `{ site, entries: [{ ts, person, type, location }] }` (duplicates
+ignored) · `DELETE /api/kg/log/:id` — writes follow the same site rights as slips.
+
 `GET /api/me/prefs` · `PUT /api/me/prefs` `{ prefs }` (any login, own row only) — the login's Settings as
 one JSON object (max 16 KB).
 

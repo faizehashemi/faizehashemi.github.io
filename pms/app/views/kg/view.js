@@ -1,7 +1,10 @@
-// Ported from pms/fea.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
+// Ported from pms/fea.html. The name list, FE1 bookmark and saved assignments are in the cloud, one
+// roster per site (GET /api/kg, POST /api/kg/op, POST /api/kg/log, DELETE /api/kg/log/:id), so every
+// desk of the site sees the same list and history. Ticks and the preview stay on this screen until saved.
+import { request, canWrite, UserError } from '../../core/cloud.js';
 
 export default async function mount(ctx) {
-const { db } = ctx;
+const site = ctx.siteId;
 
 /* ====== CONFIG & STORAGE ====== */
 const DEFAULT_PEOPLE = [
@@ -14,11 +17,10 @@ const TYPES = ["FE1","FE2","Atraaf"]; // FE split
 const LS_PEOPLE = "umrah-atraaf-people-v2";
 const LS_LOG    = "umrah-atraaf-log-v2";
 const LS_FE1_BOOKMARK = "umrah-fe1-bookmark-v1";
-let fe1Bookmark = loadBookmark();
-
-
-let people = loadPeople();
-let history = loadLog();
+let fe1Bookmark = "";
+let people = [];
+let history = [];   // { id, ts, person, type, location }
+let kgVersion = -1; // last state drawn (skip redraws when nothing changed)
 
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -56,7 +58,7 @@ function renderPeople(){
     del.title = "Remove person from list (history remains)";
     del.addEventListener("click", ()=>{
       if (!confirm(`Remove ${name}? History entries will stay.`)) return;
-      people = people.filter(p=>p!==name); savePeople(); renderPeople(); renderKPIs(); drawHistogram(); updatePreview();
+      kgOp("remove-person", name, `${name} removed.`);
     });
 
     row.append(nameDiv, fe1, fe2, at, loc, del);
@@ -167,20 +169,18 @@ function updatePreview(){
 /* ====== SAVE ====== */
 function saveAssignments(){
   const dt = ($("#sessionDate").value ? new Date($("#sessionDate").value) : new Date()).toISOString();
-  let added = 0;
+  const entries = [];
 
   for (const [name, obj] of transient.entries()){
     if (!obj || obj.type.size===0) continue;
     const loc = obj.location || "";
-    for (const t of obj.type){
-      history.push({ ts: dt, person: name, type: t, location: loc });
-      added++;
-    }
+    for (const t of obj.type) entries.push({ ts: dt, person: name, type: t, location: loc });
   }
-  if (!added){ flash("Nothing ticked. Revolutionary to tick first, then save."); return; }
-  saveLog(); renderHistory(); renderKPIs(); drawHistogram(); renderPeople();
-  $("#btnClearChecks").click();
-  flash(`Saved ${added} assignment${added>1?"s":""}.`);
+  if (!entries.length){ flash("Nothing ticked. Revolutionary to tick first, then save."); return; }
+  cloud(() => request("POST", "/api/kg/log", { site, entries }), (st) => {
+    $("#btnClearChecks").click();
+    flash(`Saved ${st.added} assignment${st.added===1?"":"s"}${st.added < entries.length ? ` (${entries.length - st.added} were already saved)` : ""}.`);
+  });
 }
 
 /* ====== HISTORY TABLE ====== */
@@ -217,11 +217,9 @@ document.querySelector("#logTable tbody").addEventListener("click", (e)=>{
   deleteHistoryEntry(key);
 });
 function deleteHistoryEntry(key){
-  const before = history.length;
-  history = history.filter(r => histKey(r) !== key);
-  saveLog();
-  renderHistory(); renderKPIs(); drawHistogram(); renderPeople(); updatePreview();
-  flash(before === history.length ? "Nothing deleted." : "Assignment deleted.");
+  const r = history.find(h => histKey(h) === key);
+  if (!r) return flash("Nothing deleted.");
+  cloud(() => request("DELETE", `/api/kg/log/${r.id}?site=${site}`), () => flash("Assignment deleted."));
 }
 
 
@@ -360,19 +358,17 @@ $("#btnImport").addEventListener("click", ()=>{
   inp.onchange = async e=>{
     const file = e.target.files[0]; if(!file) return;
     let data=[]; try{ data = JSON.parse(await file.text()); }catch{ flash("Invalid JSON. Nice try."); return; }
-    const before = history.length;
-    const key = r => [r.ts,r.person,r.type,r.location||""].join("|");
-    const have = new Set(history.map(key));
-    for (const r of data){ if (!r || !r.ts || !r.person || !r.type) continue; if (!have.has(key(r))) history.push(r); }
-    saveLog(); renderHistory(); renderKPIs(); drawHistogram(); renderPeople();
-    flash(`Imported ${history.length - before} new entries.`);
+    const entries = (Array.isArray(data) ? data : []).filter(r => r && r.ts && r.person && r.type)
+      .map(r => ({ ts: r.ts, person: r.person, type: r.type, location: r.location || "" }));
+    if (!entries.length) return flash("No entries in that file.");
+    uploadLog(entries, (added) => flash(`Imported ${added} new entr${added===1?"y":"ies"}.`));
   };
   inp.click();
 });
 
 $("#btnReset").addEventListener("click", ()=>{
-  if (!confirm("Wipe ALL saved history and people list?")) return;
-  history = []; people = []; saveLog(); savePeople(); renderEverything(); flash("Factory reset. May fortune favor your next decisions.");
+  if (!confirm(`Wipe ALL saved history and the people list for ${ctx.site.label}? Every desk of this site loses them.`)) return;
+  kgOp("reset", "", "Factory reset. May fortune favor your next decisions.");
 });
 
 /* ====== COPY & CLEAR ====== */
@@ -397,7 +393,7 @@ $("#btnAddPerson").addEventListener("click", ()=>{
   const name = ($("#newPersonName").value||"").trim();
   if (!name) return flash("Give the human a name.");
   if (people.includes(name)) return flash("Already exists.");
-  people.push(name); savePeople(); $("#newPersonName").value=""; renderPeople(); drawHistogram(); updatePreview();
+  kgOp("add-person", name, `${name} added.`, () => { $("#newPersonName").value=""; });
 });
 
 /* ====== BUTTON: SAVE ====== */
@@ -421,13 +417,41 @@ function flash(msg){
   x.style.cssText = "position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#162433; color:#dff6ff; border:1px solid #264459; padding:10px 14px; border-radius:12px; z-index:99";
   document.body.append(x); setTimeout(()=>x.remove(), 2200);
 }
-function savePeople(){ localStorage.setItem(LS_PEOPLE, JSON.stringify(people)); }
-function loadPeople(){
-  try{ const v = JSON.parse(localStorage.getItem(LS_PEOPLE)||"null"); return Array.isArray(v)&&v.length ? v : DEFAULT_PEOPLE.slice(); }
-  catch{ return DEFAULT_PEOPLE.slice(); }
+/* ====== CLOUD ====== */
+// Draw the server's state. Names being ticked are not redrawn while ticks are pending (auto-refresh).
+function applyState(st, { keepTicks = false } = {}){
+  const sig = JSON.stringify([st.people, st.bookmark, st.log.length, st.log.at(-1)?.id]);
+  const changed = sig !== kgVersion;
+  kgVersion = sig;
+  people = st.people; fe1Bookmark = st.bookmark || ""; history = st.log;
+  if (!changed) return;
+  if (keepTicks && transient.size) { renderHistory(); renderKPIs(); drawHistogram(); renderBookmarkUI(); return; }
+  renderEverything();
 }
-function saveLog(){ localStorage.setItem(LS_LOG, JSON.stringify(history)); }
-function loadLog(){ try{ return JSON.parse(localStorage.getItem(LS_LOG)||"[]"); } catch{ return []; } }
+async function loadKg(opts){
+  const st = await ctx.guard(request("GET", `/api/kg?site=${site}`));
+  applyState(st, opts);
+  return st;
+}
+// a write, then the new state; a refused write says why
+async function cloud(call, onDone, opts){
+  if (!canWrite(site)) return flash(`This login can only view the ${ctx.site.label} KG list.`);
+  try { const st = await ctx.guard(call()); applyState(st, opts); onDone && onDone(st); }
+  catch (e) { flash(e instanceof UserError ? e.message : "Could not save. Check the connection."); }
+}
+function kgOp(op, name, done, after, opts){
+  cloud(() => request("POST", "/api/kg/op", { site, op, name }), () => { after && after(); if (done) flash(done); }, opts);
+}
+async function uploadLog(entries, done){
+  let added = 0;
+  for (let i = 0; i < entries.length; i += 400) {
+    const part = entries.slice(i, i + 400);
+    let ok = true;
+    await cloud(() => request("POST", "/api/kg/log", { site, entries: part }), (st) => { added += st.added; }).catch(() => { ok = false; });
+    if (!ok) break;
+  }
+  done && done(added);
+}
 function cssEscape(s){ return s.replace(/[^\w-]/g, m=>`\\${m}`); }
 
 /* ====== EXCEL EXPORT (HTML .xls to match your format) ====== */
@@ -529,8 +553,7 @@ function exportExcelLikeSheet(){
 /* wire up the new button */
 document.getElementById("btnExportExcel").addEventListener("click", exportExcelLikeSheet);
 
-        function loadBookmark() { try { return localStorage.getItem(LS_FE1_BOOKMARK) || ""; } catch { return ""; } }
-        function saveBookmark(name) { fe1Bookmark = name || ""; localStorage.setItem(LS_FE1_BOOKMARK, fe1Bookmark); renderBookmarkUI(); }
+        function saveBookmark(name) { fe1Bookmark = name || ""; renderBookmarkUI(); kgOp("bookmark", fe1Bookmark, "", null, { keepTicks: true }); } // keeps the FE1 ticks just made
         function renderBookmarkUI() {
             const disp = document.getElementById("bookmarkDisplay");
             if (disp) disp.textContent = fe1Bookmark ? `Bookmark: ${fe1Bookmark}` : "Bookmark: —";
@@ -593,9 +616,45 @@ document.getElementById("btnExportExcel").addEventListener("click", exportExcelL
   $("#sessionDate").value = new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
   renderEverything();
 })();
+
+// This browser's list from before the cloud (kept in the browser only): offer to move it once
+function offerLocalMove(){
+  let oldPeople = [], oldLog = [];
+  try { oldPeople = JSON.parse(localStorage.getItem(LS_PEOPLE) || "[]") || []; } catch {}
+  try { oldLog = JSON.parse(localStorage.getItem(LS_LOG) || "[]") || []; } catch {}
+  const oldMark = (() => { try { return localStorage.getItem(LS_FE1_BOOKMARK) || ""; } catch { return ""; } })();
+  if ((!oldPeople.length && !oldLog.length) || !canWrite(site)) return;
+  const bar = document.createElement("div");
+  bar.className = "kg-move";
+  bar.innerHTML = `<span>This browser still has its own KG list from before (${oldPeople.length} name${oldPeople.length===1?"":"s"}, ${oldLog.length} saved assignment${oldLog.length===1?"":"s"}). Move it to the ${ctx.site.label} cloud list so every desk sees it?</span>
+    <button type="button" data-move>Move to cloud</button><button type="button" data-skip>Not now</button>`;
+  ctx.root.prepend(bar);
+  bar.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-skip]")) { bar.remove(); return; }
+    if (!e.target.closest("[data-move]")) return;
+    bar.querySelector("[data-move]").disabled = true;
+    for (const n of oldPeople) if (!people.includes(n)) await cloud(() => request("POST", "/api/kg/op", { site, op: "add-person", name: n }));
+    if (oldMark && !fe1Bookmark) await cloud(() => request("POST", "/api/kg/op", { site, op: "bookmark", name: oldMark }));
+    const entries = oldLog.filter(r => r && r.ts && r.person && r.type).map(r => ({ ts: r.ts, person: r.person, type: r.type, location: r.location || "" }));
+    await uploadLog(entries, (added) => {
+      [LS_PEOPLE, LS_LOG, LS_FE1_BOOKMARK].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+      bar.remove();
+      flash(`Moved: ${oldPeople.length} names, ${added} new assignments.`);
+    });
+  });
+}
+
+try { await loadKg(); }
+catch (e) { flash(e instanceof UserError ? e.message : "Could not load the KG list."); }
+offerLocalMove();
+// other desks' changes: every 30 s while the page is open, and when you come back to it
+const refresh = () => { if (document.visibilityState === "visible") loadKg({ keepTicks: true }).catch(() => {}); };
+const timer = setInterval(refresh, 30000);
+document.addEventListener("visibilitychange", refresh);
 function renderEverything(){
     renderPeople(); renderHistory(); renderKPIs(); drawHistogram(); updatePreview(); renderBookmarkUI();
 
 }
 
+return () => clearInterval(timer);
 }

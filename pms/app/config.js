@@ -43,7 +43,6 @@ export const VIEWS = [
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
     { id: 'settings',     label: 'Settings',           title: 'Settings',              hint: 'Your look, quick links, shortcuts — follow your login' },
-    { id: 'help',         label: 'Help',               title: 'PMS Instructions',      hint: 'How the PMS works' },
     { id: 'home',         label: 'Home',               title: 'PMS', hidden: true },
     { id: 'login',        label: 'Log in',             title: 'Log in', hidden: true },
 ];
@@ -55,7 +54,6 @@ export const NAV = [
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid'] },
     { id: 'data',   label: 'Data',           views: ['ums', 'admin', 'setup'] },
     { id: 'settings', label: 'Settings',     views: ['settings'] },
-    { id: 'help',   label: 'Help',           views: ['help'] },
 ];
 
 // Product analytics (PostHog). Empty key = analytics off. The project API key (phc_…) is meant
@@ -75,7 +73,7 @@ export const LEGACY_PAGES = {
     'print_slip_a5.html': 'print',
     'slip_admin.html': 'admin',
     'mawaid.html': 'mawaid',
-    'pms_instructions.html': 'help',
+    'pms_instructions.html': 'home', // the Help page was removed
     'movement.html': 'movement',
     'only-pdf.html': 'group-export',
     'only-docx.html': 'group-export',

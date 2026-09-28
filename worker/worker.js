@@ -116,6 +116,12 @@ async function route(req, env) {
     if (p === '/api/settings' && m === 'GET') return getSettings(env);
     if (p === '/api/settings' && m === 'PUT') { requireAdmin(me); return putSettings(req, env, me); }
 
+    if (p === '/api/kg' && m === 'GET') return getKg(env, String(url.searchParams.get('site') || me.site));
+    if (p === '/api/kg/op' && m === 'POST') return kgOp(req, env, me);
+    if (p === '/api/kg/log' && m === 'POST') return addKgLog(req, env, me);
+    mm = p.match(/^\/api\/kg\/log\/(\d+)$/);
+    if (mm && m === 'DELETE') return deleteKgLog(url, env, me, Number(mm[1]));
+
     if (p === '/api/buildings' && m === 'GET') return listBuildings(env);
     if (p === '/api/buildings' && m === 'POST') return createBuilding(req, env, me);
     mm = p.match(/^\/api\/buildings\/(\d+)$/);
@@ -126,6 +132,7 @@ async function route(req, env) {
     if (p === '/api/desks' && m === 'POST') { requireAdmin(me); return createDesk(req, env, me); }
     mm = p.match(/^\/api\/desks\/(\d+)$/);
     if (mm && m === 'PATCH') { requireAdmin(me); return updateDesk(req, env, me, Number(mm[1])); }
+    if (mm && m === 'DELETE') { requireAdmin(me); return deleteDesk(env, me, Number(mm[1])); }
     if (p === '/api/audit' && m === 'GET') { requireAdmin(me); return listAudit(url, env); }
 
     throw new HttpError(404, 'Not found');
@@ -532,7 +539,9 @@ async function createDesk(req, env, me) {
     checkPassword(password);
     const salt = randomHex(16);
     try {
-        await env.DB.prepare('INSERT INTO desks (name, site, role, pw_hash, pw_salt, pw_iter, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        // never reuse a deleted login's id (the change log still points at it)
+        await env.DB.prepare(`INSERT INTO desks (id, name, site, role, pw_hash, pw_salt, pw_iter, created_at)
+            VALUES (MAX(COALESCE((SELECT MAX(id) FROM desks), 0), COALESCE((SELECT MAX(id) FROM deleted_desks), 0)) + 1, ?, ?, ?, ?, ?, ?, ?)`)
             .bind(n, site, role, await pbkdf2(password, salt, PBKDF2_ITER), salt, PBKDF2_ITER, now()).run();
     } catch (e) {
         if (/UNIQUE/i.test(String(e && e.message))) throw new HttpError(409, `A desk named "${n}" already exists.`);
@@ -622,10 +631,102 @@ async function putPrefs(req, env, me) {
     return json({ ok: true, updated_at: at });
 }
 
+/* ---------------------------------- KG roster ---------------------------------- */
+
+const KG_TYPES = ['FE1', 'FE2', 'Atraaf'];
+const kgName = (v) => String(v == null ? '' : v).replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+
+async function getKg(env, site) {
+    if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+    const meta = await env.DB.prepare('SELECT people, bookmark, version, updated_at FROM kg_meta WHERE site = ?').bind(site).first();
+    const { results } = await env.DB.prepare('SELECT id, ts, person, type, location FROM kg_log WHERE site = ? ORDER BY ts, id').bind(site).all();
+    return json({ site, people: meta ? JSON.parse(meta.people) : [], bookmark: meta ? meta.bookmark : '', version: meta ? meta.version : 0, log: results });
+}
+
+// Name list / bookmark changes as small operations, applied on the latest list (retried if two desks collide)
+async function kgOp(req, env, me) {
+    const { site, op, name } = await body(req);
+    assertWrite(me, site);
+    const n = kgName(name);
+    for (let attempt = 0; attempt < 4; attempt++) {
+        const meta = await env.DB.prepare('SELECT people, bookmark, version FROM kg_meta WHERE site = ?').bind(site).first();
+        let people = meta ? JSON.parse(meta.people) : [], bookmark = meta ? meta.bookmark : '';
+        const extra = [];
+        if (op === 'add-person') { if (!n) throw new HttpError(400, 'Enter a name.'); if (!people.includes(n)) people.push(n); }
+        else if (op === 'remove-person') { people = people.filter(p => p !== n); if (bookmark === n) bookmark = ''; }
+        else if (op === 'bookmark') { if (n && !people.includes(n)) throw new HttpError(400, 'That name is not in the list.'); bookmark = n; }
+        else if (op === 'reset') { requireAdminOrDesk(me); people = []; bookmark = ''; extra.push(env.DB.prepare('DELETE FROM kg_log WHERE site = ?').bind(site)); }
+        else throw new HttpError(400, 'Unknown KG operation.');
+        if (people.length > 500) throw new HttpError(413, 'At most 500 names.');
+        const write = meta
+            ? env.DB.prepare('UPDATE kg_meta SET people = ?, bookmark = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE site = ? AND version = ?').bind(JSON.stringify(people), bookmark, now(), me.id, site, meta.version)
+            : env.DB.prepare('INSERT OR IGNORE INTO kg_meta (site, people, bookmark, version, updated_at, updated_by) VALUES (?, ?, ?, 1, ?, ?)').bind(site, JSON.stringify(people), bookmark, now(), me.id);
+        const [res] = await env.DB.batch([write, ...extra, ...(op === 'bookmark' ? [] : [auditStmt(env, me, 'kg-' + op, null, `${site}${n ? ': ' + n : ''}`)])]);
+        if (res.meta.changes) return getKg(env, site);
+    }
+    throw new HttpError(409, 'Another desk is changing the KG list right now. Try again.');
+}
+function requireAdminOrDesk(me) { if (me.role !== 'admin' && me.role !== 'desk') throw new HttpError(403, 'Not allowed.'); }
+
+// Saved assignments; the same entry twice is kept once (imports can be repeated)
+async function addKgLog(req, env, me) {
+    const { site, entries } = await body(req);
+    assertWrite(me, site);
+    if (!Array.isArray(entries) || !entries.length) throw new HttpError(400, 'Nothing to save.');
+    if (entries.length > 500) throw new HttpError(413, 'At most 500 entries at once.');
+    const stmts = [];
+    for (const e of entries) {
+        const ts = String(e && e.ts || ''), person = kgName(e && e.person), type = String(e && e.type || ''), loc = kgName(e && e.location);
+        if (isNaN(Date.parse(ts)) || !person || !KG_TYPES.includes(type)) continue;
+        stmts.push(env.DB.prepare('INSERT OR IGNORE INTO kg_log (site, ts, person, type, location, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .bind(site, new Date(ts).toISOString(), person, type, loc, now(), me.id));
+    }
+    if (!stmts.length) throw new HttpError(400, 'No valid entries.');
+    const res = await env.DB.batch(stmts);
+    const added = res.filter(r => r.meta.changes).length;
+    await auditStmt(env, me, 'kg-log', null, `${site}: ${added} assignment(s) saved`).run();
+    const out = await getKg(env, site);
+    const data = await out.json();
+    return json({ ...data, added });
+}
+
+async function deleteKgLog(url, env, me, id) {
+    const row = await env.DB.prepare('SELECT site, person, type, ts FROM kg_log WHERE id = ?').bind(id).first();
+    if (!row) return getKg(env, String(url.searchParams.get('site') || me.site));
+    assertWrite(me, row.site);
+    await env.DB.batch([
+        env.DB.prepare('DELETE FROM kg_log WHERE id = ?').bind(id),
+        auditStmt(env, me, 'kg-log-delete', null, `${row.site}: ${row.person} ${row.type} ${row.ts}`),
+    ]);
+    return getKg(env, row.site);
+}
+
+// Remove a login for good: its sessions, page access and personal settings go with it. Its name is kept in
+// deleted_desks so the change log still says who did what. Not your own login, not the last admin.
+async function deleteDesk(env, me, id) {
+    const desk = await env.DB.prepare('SELECT id, name, site, role FROM desks WHERE id = ?').bind(id).first();
+    if (!desk) throw new HttpError(404, 'No such desk.');
+    if (id === me.id) throw new HttpError(400, 'You cannot delete the login you are using.');
+    if (desk.role === 'admin') {
+        const admins = await env.DB.prepare("SELECT COUNT(*) AS c FROM desks WHERE role = 'admin' AND disabled = 0").first('c');
+        if (admins <= 1) throw new HttpError(400, 'This is the only active admin login; it cannot be deleted.');
+    }
+    await env.DB.batch([
+        env.DB.prepare('INSERT OR REPLACE INTO deleted_desks (id, name, site, role, deleted_at, deleted_by) VALUES (?, ?, ?, ?, ?, ?)').bind(desk.id, desk.name, desk.site, desk.role, now(), me.id),
+        env.DB.prepare('DELETE FROM sessions WHERE desk_id = ?').bind(id),
+        env.DB.prepare('DELETE FROM desk_pages WHERE desk_id = ?').bind(id),
+        env.DB.prepare('DELETE FROM desk_prefs WHERE desk_id = ?').bind(id),
+        env.DB.prepare('DELETE FROM login_failures WHERE name = ?').bind(desk.name),
+        env.DB.prepare('DELETE FROM desks WHERE id = ?').bind(id),
+        auditStmt(env, me, 'desk-delete', null, `${desk.name} (${desk.site}, ${desk.role})`),
+    ]);
+    return listDesks(env);
+}
+
 async function listAudit(url, env) {
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 200);
     const { results } = await env.DB.prepare(
-        'SELECT a.id, a.at, a.action, a.slip_id, a.detail, d.name AS desk FROM audit a LEFT JOIN desks d ON d.id = a.desk_id ORDER BY a.id DESC LIMIT ?'
+        "SELECT a.id, a.at, a.action, a.slip_id, a.detail, COALESCE(d.name, x.name || ' (deleted)') AS desk FROM audit a LEFT JOIN desks d ON d.id = a.desk_id LEFT JOIN deleted_desks x ON x.id = a.desk_id ORDER BY a.id DESC LIMIT ?"
     ).bind(limit).all();
     return json({ audit: results });
 }

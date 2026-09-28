@@ -1,4 +1,5 @@
 // Ported from pms/print_slip_a5.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
+import { slipHTML, themeForBuilding } from '../../core/slip-print.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -13,81 +14,7 @@ const { db } = ctx;
         function hhmmToHMS(hhmm) { if (!hhmm) return ''; const [h, m] = hhmm.split(':'); return `${h}:${m}:00` }
         function parseShList(text) { if (!text) return []; return Array.from(new Set(text.split(/[,.\-\s\*]+/).map(s => s.trim()).filter(Boolean))) }
 
-        // Theme mapping by BUILDING text (not leader)
-        function themeForBuilding(rec) {
-            const src = (rec.building || '').toString().toUpperCase();
-            if (src.includes('MOHAMMEDI')) return 'theme-mohammedi';
-            if (src.includes('MUFADDAL')) return 'theme-mufaddal';
-            if (src.includes('SNOOD')) return 'theme-snood';
-            if (src.includes('BAHA')) return 'theme-baha';
-            return 'theme-snood'; // default: black
-        }
-
-        /* Build the slip HTML for one copy */
-        function slipHTML(rec, rows) {
-            const title = 'ACCOMODATION DETAILS';
-            const ciDate = ymdToDMY(rec.checkin_date || '');
-            const coDate = ymdToDMY(rec.checkout_date || '');
-            const ciTime = hhmmToHMS(rec.checkin_time || '');
-            const coTime = hhmmToHMS(rec.checkout_time || '');
-
-            const gents = (rec.rooms?.gents || []).slice(0, rows);
-            const ladies = (rec.rooms?.ladies || []).slice(0, rows);
-
-            function fillRows(arr) {
-                const out = [];
-                for (let i = 0; i < rows; i++) {
-                    const r = arr[i];
-                    const room = r && r.room_no ? r.room_no : '-';
-                    const beds = r && (r.assigned !== '' && r.assigned != null) ? r.assigned
-                        : (r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0);
-                    out.push(`<tr><td>${room}</td><td>${beds}</td></tr>`);
-                }
-                return out.join('');
-            }
-
-            // Build the GL-only note for SNOOD combined rooms
-            let noteHTML = '';
-            const isSnood = String(rec.building || '').toUpperCase().includes('SNOOD');
-            if (isSnood) {
-                const combos = findCombinedRooms(rec, rows);
-                if (combos.length) {
-                    noteHTML = `<div class="gl-note">Please note: these rooms have combined entrance: ${combos.join(', ')}</div>`;
-                }
-            }
-
-            return `
-  <div class="slip" data-rec-id="${rec.id}">
-    <div class="title">${title}</div>
-    <table class="grid pair">
-      <tbody>
-        <tr><th>TOUR NAME</th><td colspan="3">${rec.tour_name || ''}</td></tr>
-        <tr><th>GRP LEADER</th><td colspan="3">${rec.group_leader || ''}</td></tr>
-        <tr><th>CHECK IN</th><td>${ciDate}</td><td>${ciTime}</td><td></td></tr>
-        <tr><th>CHECK OUT</th><td>${coDate}</td><td>${coTime}</td><td></td></tr>
-        <tr><th>BUILDING</th><td colspan="3">${rec.building || ''}</td></tr>
-        <tr><th>SH NO.</th><td>${rec.sh_no ?? ''}</td><th>TOTAL</th><td>${rec.total ?? ''}</td></tr>
-        <tr><th>GENTS</th><td>${rec.gents ?? ''}</td><th>LADIES</th><td>${rec.ladies ?? ''}</td></tr>
-        <tr><th>CHILDREN</th><td>${rec.children ?? ''}</td><th>INFANTS</th><td>${rec.infants ?? ''}</td></tr>
-      </tbody>
-    </table>
-
-    <div class="subtables">
-      <table class="mini">
-        <caption>GENTS</caption>
-        <thead><tr><th>Room No</th><th>Assigned Beds</th></tr></thead>
-        <tbody>${fillRows(gents)}</tbody>
-      </table>
-      <table class="mini">
-        <caption>LADIES</caption>
-        <thead><tr><th>Room No</th><th>Assigned Beds</th></tr></thead>
-        <tbody>${fillRows(ladies)}</tbody>
-      </table>
-    </div>
-
-    ${noteHTML}
-  </div>`;
-        }
+        // themeForBuilding, slipHTML, findCombinedRooms: app/core/slip-print.js (shared with Check-ins)
 
         function renderSlips() {
             const area = $('sheet'); area.innerHTML = '';
@@ -191,34 +118,6 @@ const { db } = ctx;
         });
 
         (async function init() { await refreshList(); renderSlips(); })();
-
-        function findCombinedRooms(rec, rows) {
-            const pairs = [['2', '3'], ['8', '9'], ['12', '13'], ['18', '19']];
-            const g = (rec.rooms?.gents || []).slice(0, rows);
-            const l = (rec.rooms?.ladies || []).slice(0, rows);
-            const rooms = new Set([...g, ...l].map(r => String(r?.room_no || '').trim()).filter(Boolean));
-
-            const combos = new Set();
-            for (const room of rooms) {
-                if (!/^\d+$/.test(room)) continue; // only pure numerics like 102, 113
-                for (const [a, b] of pairs) {
-                    // check both directions so any one present can discover its partner
-                    for (const [s1, s2] of [[a, b], [b, a]]) {
-                        const L = s1.length;
-                        if (room.endsWith(s1)) {
-                            const prefix = room.slice(0, room.length - L);
-                            const partner = prefix + s2;
-                            if (rooms.has(partner)) {
-                                const left = prefix + a;
-                                const right = prefix + b;
-                                combos.add(`${left} & ${right}`);
-                            }
-                        }
-                    }
-                }
-            }
-            return Array.from(combos).sort((x, y) => x.localeCompare(y, { numeric: true }));
-        }
 
         return () => stopPrintMql?.();
 }

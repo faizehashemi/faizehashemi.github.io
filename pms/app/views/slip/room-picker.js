@@ -85,7 +85,13 @@ export function openRoomPicker(o) {
         if (k && beds > 0 && !alloc.has(k)) alloc.set(k, { side, beds });
     }
     const allocated = (side) => [...alloc.values()].filter(a => a.side === side).reduce((n, a) => n + a.beds, 0);
+    const need = (side) => Number(o.needs[side]) || 0;
+    const anyNeed = () => need('gents') + need('ladies') > 0;
+    // beds still to give this side (no counts on the slip = no limit)
+    const remaining = (side) => anyNeed() ? Math.max(0, need(side) - allocated(side)) : Infinity;
     let selected = null;
+    // Clicking a room gives it beds for this side (switches by itself when one side is done)
+    let activeSide = need('gents') > 0 || !need('ladies') ? 'gents' : 'ladies';
 
     /* --------------------------------- dialog --------------------------------- */
     const dlg = document.createElement('dialog');
@@ -102,6 +108,7 @@ export function openRoomPicker(o) {
           <button type="button" class="rp-x" data-act="close" aria-label="Close">✕</button>
         </header>
         <div class="rp-needs" id="rpNeeds"></div>
+        <div class="rp-msg" id="rpMsg" role="status" aria-live="polite"></div>
         <div class="rp-body">
           <section class="rp-main">
             <div class="rp-filters">
@@ -113,7 +120,7 @@ export function openRoomPicker(o) {
             <div class="rp-floors" id="rpFloors"></div>
           </section>
           <aside class="rp-side">
-            <div class="rp-detail" id="rpDetail"><p class="rp-muted">Choose a room to see who is in it during this stay and to give it beds.</p></div>
+            <div class="rp-detail" id="rpDetail"><p class="rp-muted">Click rooms to give them beds; click again to take them back. The last room clicked shows here.</p></div>
             <h3>This slip's rooms</h3>
             <div class="rp-list" id="rpList"></div>
           </aside>
@@ -141,11 +148,14 @@ export function openRoomPicker(o) {
     function renderNeeds() {
         const n = o.needs;
         const part = (side) => {
-            const need = Number(n[side]) || 0, got = allocated(side);
-            const cls = got === need ? 'ok' : got > need ? 'over' : 'short';
-            return `<span class="rp-need ${cls}"><b>${SIDES[side]}</b> ${got} of ${need} bed${need === 1 ? '' : 's'}${cls === 'short' ? ` · ${need - got} to go` : cls === 'over' ? ` · ${got - need} extra` : ' ✓'}</span>`;
+            const want = need(side), got = allocated(side);
+            const cls = !anyNeed() ? 'free' : got === want ? 'ok' : got > want ? 'over' : 'short';
+            const text = !anyNeed() ? `${got} bed${got === 1 ? '' : 's'}`
+                : `${got} of ${want}${cls === 'short' ? ` · ${want - got} to go` : cls === 'over' ? ` · ${got - want} extra` : ' ✓'}`;
+            return `<button type="button" class="rp-need ${cls}" data-active="${side}" aria-pressed="${activeSide === side}" title="Rooms you click now go to ${SIDES[side]}"><b>${SIDES[side]}</b> ${text}</button>`;
         };
-        $('rpNeeds').innerHTML = part('gents') + part('ladies') +
+        $('rpNeeds').innerHTML = `<span class="rp-lbl">Clicking a room gives beds to:</span>` + part('gents') + part('ladies') +
+            (!anyNeed() ? `<span class="rp-note">No gents/ladies count on the slip, so each click gives the room's free beds.</span>` : '') +
             ((Number(n.children) || Number(n.infants)) ? `<span class="rp-note">+ ${Number(n.children) || 0} children, ${Number(n.infants) || 0} infants — add beds for them if they need their own</span>` : '');
     }
 
@@ -172,7 +182,7 @@ export function openRoomPicker(o) {
     }
 
     function renderDetail() {
-        if (!selected || !rooms.has(selected)) { $('rpDetail').innerHTML = '<p class="rp-muted">Choose a room to see who is in it during this stay and to give it beds.</p>'; return; }
+        if (!selected || !rooms.has(selected)) { $('rpDetail').innerHTML = '<p class="rp-muted">Click rooms to give them beds; click again to take them back. The last room clicked shows here.</p>'; return; }
         const r = rooms.get(selected), a = alloc.get(selected);
         const side = a?.side || (r.type === 'ladies' ? 'ladies' : 'gents');
         const beds = a?.beds || 0;
@@ -202,7 +212,8 @@ export function openRoomPicker(o) {
 
     function setAlloc(k, side, beds) {
         const r = rooms.get(k);
-        beds = Math.max(0, Math.min(r.free, beds));
+        const mine = alloc.get(k)?.side === side ? alloc.get(k).beds : 0;
+        beds = Math.max(0, Math.min(r.free, beds, mine + remaining(side)));
         if (!beds) alloc.delete(k); else alloc.set(k, { side, beds });
         renderAll();
     }
@@ -225,10 +236,40 @@ export function openRoomPicker(o) {
         renderAll();
     }
 
+    let msgTimer = null;
+    const say = (text, warn = false) => {
+        $('rpMsg').textContent = text;
+        $('rpMsg').className = `rp-msg${warn ? ' warn' : ''}`;
+        clearTimeout(msgTimer);
+        msgTimer = setTimeout(() => { $('rpMsg').textContent = ''; }, 4500);
+    };
+
+    // click a room: give it beds (as many as are free, but no more than still needed); click again: take them back
+    function toggleRoom(k) {
+        selected = k;
+        const r = rooms.get(k);
+        if (alloc.has(k)) { alloc.delete(k); say(`Room ${r.room_no} removed.`); renderAll(); return; }
+        if (r.free <= 0) { say(`Room ${r.room_no} has no bed free for the whole stay.`, true); renderAll(); return; }
+        if (remaining(activeSide) <= 0) {
+            const other = activeSide === 'gents' ? 'ladies' : 'gents';
+            if (remaining(other) > 0) activeSide = other;
+            else { say(`All ${need('gents') + need('ladies')} beds are given. Click a chosen room to take it back first.`, true); renderAll(); return; }
+        }
+        const beds = Math.min(r.free, remaining(activeSide));
+        alloc.set(k, { side: activeSide, beds });
+        const typeWarn = r.type && r.type !== 'family' && r.type !== activeSide ? ` (room is marked ${r.type})` : '';
+        say(`Room ${r.room_no}: ${beds} ${SIDES[activeSide].toLowerCase()} bed${beds === 1 ? '' : 's'}${beds < r.free ? ` of ${r.free} free` : ''}${typeWarn}.`, !!typeWarn);
+        // this side is done: carry on with the other one
+        if (remaining(activeSide) <= 0) { const other = activeSide === 'gents' ? 'ladies' : 'gents'; if (remaining(other) > 0) activeSide = other; }
+        renderAll();
+    }
+
     dlg.addEventListener('click', (e) => {
         const t = e.target.closest('button');
         if (!t) return;
         const act = t.dataset.act;
+        if (t.dataset.active) { activeSide = t.dataset.active; renderNeeds(); return; }
+        if (t.dataset.room && t.classList.contains('rp-tile')) { toggleRoom(t.dataset.room); return; }
         if (t.dataset.room) { selected = t.dataset.room; renderAll(); return; }
         if (t.dataset.remove) { alloc.delete(t.dataset.remove); renderAll(); return; }
         if (t.dataset.side && selected) { const a = alloc.get(selected); if (a) setAlloc(selected, t.dataset.side, a.beds); else { dlg._side = t.dataset.side; renderDetail(); dlg.querySelectorAll('[data-side]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.side === t.dataset.side))); } return; }
@@ -238,6 +279,7 @@ export function openRoomPicker(o) {
         if (act === 'clear') { alloc.clear(); renderAll(); }
         if (act === 'close') dlg.close();
         if (act === 'apply') {
+            if (!alloc.size && !confirm("No rooms are chosen. Apply anyway (this empties the slip's room tables)?")) return;
             const out = { gents: [], ladies: [] };
             for (const [k, a] of alloc) { const r = rooms.get(k); out[a.side].push({ room_no: r.room_no, capacity: r.cap, assigned: a.beds }); }
             out.gents.sort((x, y) => natural(x.room_no, y.room_no));
