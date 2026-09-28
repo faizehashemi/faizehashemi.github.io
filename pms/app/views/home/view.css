@@ -50,8 +50,7 @@ body {
 .hm-more { color: var(--gold-deep); font-size: 13px; font-weight: 600; text-decoration: none; }
 .hm-more:hover { text-decoration: underline; }
 
-.hm-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.hm-stats.meals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hm-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .hm-stat {
     position: relative; display: grid; gap: 2px; padding: 16px 16px 14px; border-radius: 14px;
     background: var(--panel); border: 1px solid var(--edge); box-shadow: var(--shade);
@@ -69,7 +68,6 @@ button.hm-stat:focus-visible, a.hm-stat:focus-visible { outline: 3px solid var(-
 .hm-stat.in { --accent: #2f9e44; --accent-ink: #1f6f33; }
 .hm-stat.out { --accent: #d9480f; --accent-ink: #a8380b; }
 .hm-stat.mk { --accent: #3b3b3b; }
-.hm-stat.md { --accent: #1c7c54; --accent-ink: #145c3e; }
 .hm-stat.b { --accent: #f2a93b; }
 .hm-stat.l { --accent: #2a9fd6; }
 .hm-stat.d { --accent: #7c5cc4; }
@@ -173,7 +171,7 @@ dialog.mc::backdrop { background: rgba(30, 20, 5, .5); }
 
 /* ---------- smaller screens ---------- */
 @media (max-width: 980px) {
-    .hm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hm-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .hm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .hm-miqaat { grid-column: 1 / -1; }
 }
@@ -182,9 +180,9 @@ dialog.mc::backdrop { background: rgba(30, 20, 5, .5); }
     .hm-hero { padding: 18px; }
     .hm-dates { text-align: left; }
     .hm-today-miqaat { margin-left: 0; }
-    .hm-stats.meals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .hm-stats.meals .hm-stat { padding: 12px 10px; }
-    .hm-stats.meals .hm-ico { display: none; }
+    .hm-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .hm-stats .hm-stat { padding: 12px 10px; }
+    .hm-stats .hm-ico { display: none; }
     .hm-stat b { font-size: 26px; }
     .hm-grid { grid-template-columns: 1fr; }
     .hm-miqaat { grid-column: auto; }

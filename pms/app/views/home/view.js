@@ -76,8 +76,8 @@ export default async function mount(ctx) {
     $('stOut').href = ctx.href('checkins');
     $('hmMealsLink').href = ctx.href('mawaid');
 
-    // "Currently in Makkah / Madina": the groups behind the number, to spot slips that need fixing
-    for (const [id, site, label] of [['stMakkah', 'makkah', 'Makkah'], ['stMadina', 'medina', 'Madina']]) {
+    // "Currently in Makkah": the groups behind the number, to spot slips that need fixing
+    for (const [id, site, label] of [['stMakkah', 'makkah', 'Makkah']]) {
         $(id).addEventListener('click', async () => {
             const slips = await ctx.guard(mirrorAll());
             // open a slip only where this login may (its own site; admins both) and only if it may open the Slip page
@@ -104,9 +104,8 @@ export default async function mount(ctx) {
             const list = all.filter(r => r.site === site).filter(r => { const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time); return ci && co && ci <= t && t < co; });
             return [list.reduce((s, r) => s + guests(r), 0), list.length];
         };
-        const [mk, mkG] = inHouse('makkah'), [md, mdG] = inHouse('medina');
+        const [mk, mkG] = inHouse('makkah');
         setStat('stMakkah', mk, `guests right now · ${groups(mkG)}`);
-        setStat('stMadina', md, `guests right now · ${groups(mdG)}`);
         $('hmTodaySub').textContent = `Check-ins and check-outs from 03:00 today to 03:00 tomorrow · ${ctx.site.label}`;
 
         const meals = mealThalsFor(here, ymd(t));

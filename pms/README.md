@@ -117,14 +117,14 @@ who else is in the last room clicked and fine-tunes its beds. *Fill automaticall
 ## Home
 
 The start page greets the desk by name and shows: **today at a glance** (check-ins and check-outs from
-03:00 today to 03:00 tomorrow for this site, and guests in-house right now in Makkah and in Madina),
+03:00 today to 03:00 tomorrow for this site, and guests in-house right now in Makkah),
 **today's thaals** (breakfast, lunch, dinner — the Mawaid page's rules and default settings, from
 `app/core/meals.js`, which the Mawaid page uses too), **weather** (Open-Meteo) and **namaz timings**
 (Aladhan, Umm al-Qura method, with the next namaz and a countdown) for the site's city, the **Gregorian and
 Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com), **miqaats**
 (today and the next ones coming up). Weather and namaz are cached in the browser (15 min / one day).
 
-**Currently in Makkah / Madina** open the list of groups staying there right now (`app/views/home/inhouse.js`):
+**Currently in Makkah** opens the list of groups staying there right now (`app/views/home/inhouse.js`):
 SH, group and leader, building and rooms, stay, guests (G/L/C/I) and beds, with checks for slips that look
 wrong — no building or a building of the other city, no rooms, fewer or more beds than adults, total ≠
 G+L+C+I, no SH / the same SH twice in-house, no group leader, a room listed twice. Search, sort (problems
