@@ -176,7 +176,7 @@ Changes made offline are sent when the connection returns; another device picks 
 minute. Covered: quick links (pages shown under the menu bar, in your order), text/page size, table spacing, night mode / high contrast, reduce motion,
 sticky menu, shortcut hints, sync text, footer, tables as cards on phones, start page and site,
 every page's shortcut key and the modifier (Alt / Alt+Shift / Ctrl+Alt), Slip defaults (building,
-check-in/out times, auto-load by SH, Pick rooms filter), sync interval, logout confirmation and
+check-in/out times, auto-load by SH, Pick rooms filter), sync interval and
 analytics opt-out. Settings can be downloaded, loaded on another computer, or reset.
 Code: `app/core/prefs.js` (defaults, apply) and `app/views/settings/`.
 

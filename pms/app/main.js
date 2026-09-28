@@ -239,7 +239,6 @@ nav.addEventListener('site-change', (e) => {
     location.hash = href(e.detail, viewId || 'home', params);
 });
 nav.addEventListener('logout', async () => {
-    if (getPrefs().confirmLogout && !confirm('Log out of this desk? This computer\'s copy of the data is removed until you log in again.')) return;
     await logout(); // → 'pms:logged-out' → route()
 });
 // Settings belong to the login: switch to its copy at once, then take the server's (other devices)

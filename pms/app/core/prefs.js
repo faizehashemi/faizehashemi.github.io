@@ -51,7 +51,6 @@ export const DEFAULT_PREFS = {
     pickerOnlyFree: true,      // Pick rooms…: hide full rooms at first
     // data + privacy
     syncSeconds: 30,           // 0 = only on page change / when back online
-    confirmLogout: true,
     analytics: true,           // anonymous usage statistics (PostHog)
 };
 
