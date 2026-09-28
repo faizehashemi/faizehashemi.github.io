@@ -122,7 +122,13 @@ The start page greets the desk by name and shows: **today at a glance** (check-i
 `app/core/meals.js`, which the Mawaid page uses too), **weather** (Open-Meteo) and **namaz timings**
 (Aladhan, Umm al-Qura method, with the next namaz and a countdown) for the site's city, the **Gregorian and
 Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com), **miqaats**
-(today and the next ones coming up) and a **tip**. Weather and namaz are cached in the browser (15 min / one day).
+(today and the next ones coming up). Weather and namaz are cached in the browser (15 min / one day).
+
+**Currently in Makkah / Madina** open the list of groups staying there right now (`app/views/home/inhouse.js`):
+SH, group and leader, building and rooms, stay, guests (G/L/C/I) and beds, with checks for slips that look
+wrong — no building or a building of the other city, no rooms, fewer or more beds than adults, total ≠
+G+L+C+I, no SH / the same SH twice in-house, no group leader, a room listed twice. Search, sort (problems
+first by default) and "only groups to check"; the SH opens the slip (where the login may open it).
 
 Clicking the Hijri date, *📅 Calendar* or an upcoming miqaat opens the **in-house calendar**
 (`app/views/home/calendar.js`): one Hijri month at a time with the Gregorian dates, miqaat markers (✨ major,

@@ -1,11 +1,13 @@
 // Home: a friendly start page — welcome, today's numbers (both cities), today's thaals (Mawaid rules),
-// weather and namaz timings for this site's city, Gregorian + Misri Hijri date, and a tip.
+// weather and namaz timings for this site's city, Gregorian + Misri Hijri date and miqaats.
+// "Currently in …" opens the list of groups staying there now (inhouse.js).
 // Weather: Open-Meteo; namaz: Aladhan (Umm al-Qura method). Both are cached briefly in this browser.
 
-import { currentDesk, mirrorAll } from '../../core/cloud.js';
+import { currentDesk, mirrorAll, canOpen } from '../../core/cloud.js';
 import { mealThalsFor } from '../../core/meals.js';
 import { toHijri, formatHijri, loadMiqaats, miqaatsOn, upcomingMiqaats } from '../../core/hijri.js';
 import { openCalendar } from './calendar.js';
+import { openInHouse } from './inhouse.js';
 
 const CITY = {
     makkah: { name: 'Makkah', lat: 21.4225, lon: 39.8262 },
@@ -24,22 +26,6 @@ const PRAISE = [
     'May Allah accept and reward the khidmat you do for His guests.',
     'Your attention to detail keeps hundreds of families comfortable.',
     'The smile at the desk starts with you — thank you for it.',
-];
-
-const TIPS = [
-    'On the Slip page, <b>Pick rooms…</b> shows every room free for the whole stay. Click rooms to give them beds — it stops by itself when the group is fully housed.',
-    'Once a slip is loaded, use <b>Edit</b> to change it. Save is locked so nobody makes a duplicate by accident.',
-    'A group\'s second check-in at the same city has an <b>S</b> in front of its SH, e.g. <b>S44030</b>. Type either on the Slip page.',
-    'On <b>Check-ins</b>, <b>GL copy</b> turns each slip into an A5 picture you can copy straight into the group leader\'s chat.',
-    '<b>Print slips</b> on the Check-ins page prints every slip in the table at once, two copies per A5 page.',
-    'Put the pages you use most under the menu bar: <b>Settings → Quick links</b>.',
-    'Keyboard shortcuts: <b>Alt+1</b> Slip, <b>Alt+5</b> Check-ins, <b>Alt+0</b> Mawaid. Change them in <b>Settings → Shortcuts</b>.',
-    'Working late? <b>Settings → Appearance → Night</b> is easier on the eyes. Your settings follow your login to any device.',
-    'Text too small on this screen? <b>Settings → Appearance</b> makes the whole PMS bigger or smaller.',
-    'On a phone, tap <b>☰</b> for the menu; tables turn into easy-to-read cards.',
-    'Mawaid counts follow the meal times and thal size at the top of the Mawaid page — adjust them there for special days.',
-    'The KG list is shared by every desk of your site, so a saved assignment shows up everywhere within half a minute.',
-    'Forgot to note a room change? The <b>Timeline</b> page shows who is in each room day by day.',
 ];
 
 const WX = { // WMO weather codes
@@ -86,15 +72,20 @@ export default async function mount(ctx) {
     $('hmHijri').textContent = formatHijri(toHijri(now));
     $('hmGreg').textContent = now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    /* ---------------------------------- tips ---------------------------------- */
-    let tip = TIPS.indexOf(dayPick(TIPS, 'tip'));
-    const showTip = () => { $('hmTip').innerHTML = TIPS[tip]; $('hmTipNo').textContent = `${tip + 1} of ${TIPS.length}`; };
-    $('hmTipNext').addEventListener('click', () => { tip = (tip + 1) % TIPS.length; showTip(); });
-    showTip();
-
     $('stIn').href = ctx.href('checkins');
     $('stOut').href = ctx.href('checkins');
     $('hmMealsLink').href = ctx.href('mawaid');
+
+    // "Currently in Makkah / Madina": the groups behind the number, to spot slips that need fixing
+    for (const [id, site, label] of [['stMakkah', 'makkah', 'Makkah'], ['stMadina', 'medina', 'Madina']]) {
+        $(id).addEventListener('click', async () => {
+            const slips = await ctx.guard(mirrorAll());
+            // open a slip only where this login may (its own site; admins both) and only if it may open the Slip page
+            const mayOpen = canOpen('slip', desk) && (desk?.role === 'admin' || desk?.site === site);
+            openInHouse({ site, label, slips, canOpen: mayOpen, host: ctx.root,
+                slipHref: (sh) => `#/${site}/slip?sh_no=${encodeURIComponent(sh)}` });
+        });
+    }
 
     /* ------------------------------ today's numbers ------------------------------ */
     const setStat = (id, big, small) => { $(id).querySelector('b').textContent = big; $(id).querySelector('small').textContent = small; };
