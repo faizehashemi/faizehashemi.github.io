@@ -42,6 +42,9 @@ export const VIEWS = [
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
+    { id: 'laundry',      label: 'Laundry',            title: 'Laundry',               hint: 'New bill, free staff laundry, pending, close day' },
+    { id: 'laundry-admin', label: 'Laundry admin',     title: 'Laundry admin',         hint: 'Sales, reports, bills, prices, staff' },
+    { id: 'blank',        label: 'No pages',           title: 'PMS', hidden: true },
     { id: 'settings',     label: 'Settings',           title: 'Settings',              hint: 'Your look, quick links, shortcuts — follow your login' },
     { id: 'home',         label: 'Home',               title: 'PMS', hidden: true },
     { id: 'login',        label: 'Log in',             title: 'Log in', hidden: true },
@@ -52,6 +55,7 @@ export const NAV = [
     { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'movement', 'print'] },
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid'] },
+    { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
     { id: 'data',   label: 'Data',           views: ['ums', 'admin', 'setup'] },
     { id: 'settings', label: 'Settings',     views: ['settings'] },
 ];

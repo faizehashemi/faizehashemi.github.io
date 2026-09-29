@@ -1,0 +1,65 @@
+<div class="ld">
+    <nav class="ld-tabs" role="tablist" aria-label="Laundry">
+        <button type="button" role="tab" data-tab="bill" aria-selected="true"><span aria-hidden="true">🧺</span>New bill</button>
+        <button type="button" role="tab" data-tab="free"><span aria-hidden="true">🆓</span>Free (staff)</button>
+        <button type="button" role="tab" data-tab="pending"><span aria-hidden="true">📦</span>Pending <b class="ld-count" id="ldPendingCount"></b></button>
+        <button type="button" role="tab" data-tab="today"><span aria-hidden="true">📋</span>My day</button>
+        <button type="button" role="tab" data-tab="close"><span aria-hidden="true">🔒</span>Close day</button>
+    </nav>
+
+    <div class="ld-info" id="ldInfo"></div>
+    <div class="ld-offline" id="ldOffline" hidden></div>
+
+    <!-- NEW BILL / FREE: the same screen; free swaps the customer box for the staff card -->
+    <section class="ld-pane" id="paneBill">
+        <div class="ld-who" id="ldCustomer">
+            <label class="ld-big-in"><span>🚪 Room</span><input id="ldRoom" inputmode="numeric" autocomplete="off" placeholder="405"></label>
+            <label class="ld-big-in"><span>🙂 Name</span><input id="ldName" autocomplete="off" placeholder="Name"></label>
+            <div class="ld-sugg" id="ldSugg"></div>
+        </div>
+        <div class="ld-who" id="ldStaff" hidden>
+            <label class="ld-big-in wide"><span>🔎 Staff</span><input id="ldStaffFind" autocomplete="off" placeholder="Name, staff ID, room or mobile"></label>
+            <div class="ld-staff-list" id="ldStaffList"></div>
+            <div class="ld-staff-card" id="ldStaffCard" hidden></div>
+        </div>
+
+        <div class="ld-items" id="ldItems"></div>
+
+        <div class="ld-cart" id="ldCart"></div>
+
+        <div class="ld-pay" id="ldPay">
+            <div class="ld-methods" id="ldMethods" role="group" aria-label="Payment">
+                <button type="button" data-method="cash" aria-pressed="true"><span>💵</span>Cash</button>
+                <button type="button" data-method="card" aria-pressed="false"><span>💳</span>Card</button>
+                <button type="button" data-method="other" aria-pressed="false"><span>🔁</span>Other</button>
+            </div>
+            <div class="ld-recv" id="ldRecvBox">
+                <span>Given</span>
+                <div class="ld-quick" id="ldQuick"></div>
+                <input id="ldReceived" inputmode="decimal" placeholder="exact" aria-label="Cash given">
+                <b class="ld-change" id="ldChange"></b>
+            </div>
+        </div>
+
+        <div class="ld-bar">
+            <div class="ld-total"><small id="ldTotalLbl">TOTAL</small><b id="ldTotal">0</b><small>SAR · <span id="ldPieces">0</span> pcs</small></div>
+            <button type="button" class="ld-clear" id="ldClear" aria-label="Clear the bill">✖</button>
+            <button type="button" class="ld-save" id="ldSave" disabled><span aria-hidden="true">✔</span> SAVE</button>
+        </div>
+    </section>
+
+    <section class="ld-pane" id="panePending" hidden>
+        <label class="ld-big-in wide"><span>🔎</span><input id="ldPendFind" autocomplete="off" placeholder="Room, name, receipt"></label>
+        <div class="ld-cards" id="ldPendList"></div>
+    </section>
+
+    <section class="ld-pane" id="paneToday" hidden>
+        <div class="ld-kpis" id="ldMyKpis"></div>
+        <div class="ld-queue" id="ldQueue"></div>
+        <div class="ld-cards" id="ldMyList"></div>
+    </section>
+
+    <section class="ld-pane" id="paneClose" hidden>
+        <div class="ld-close" id="ldClose"></div>
+    </section>
+</div>

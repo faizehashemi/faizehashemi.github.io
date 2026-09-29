@@ -219,7 +219,7 @@ To stop it only for now, use Disable instead.`)) return;
     /* --------------------------- admin: page access --------------------------- */
 
     // pages an admin can give or take (Home, Login and Settings are always open)
-    const ACCESS_GROUPS = NAV.map(c => ({ label: c.label, views: c.views.filter(id => !ALWAYS_OPEN.includes(id)) })).filter(g => g.views.length);
+    const ACCESS_GROUPS = [{ label: 'Start', views: ['home'] }, ...NAV.map(c => ({ label: c.label, views: c.views.filter(id => !ALWAYS_OPEN.includes(id)) }))].filter(g => g.views.length);
     const ALL_PAGES = ACCESS_GROUPS.flatMap(g => g.views);
     const pageLabel = (id) => VIEWS.find(v => v.id === id)?.label || id;
     let accessDesks = [];            // non-admin desks shown as columns
@@ -288,7 +288,7 @@ To stop it only for now, use Disable instead.`)) return;
     $('btnAccess').addEventListener('click', async () => {
         const ids = dirtyIds();
         const empty = ids.filter(id => !access.get(id).size).map(id => accessDesks.find(d => d.id === id).name);
-        if (empty.length && !confirm(`${empty.join(', ')} will only see Home and Settings. Save anyway?`)) return;
+        if (empty.length && !confirm(`${empty.join(', ')} will see no page (only Settings). Save anyway?`)) return;
         $('btnAccess').disabled = true;
         $('accessMsg').textContent = 'Saving…';
         let desks = null;

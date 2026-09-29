@@ -128,6 +128,88 @@ CREATE TABLE IF NOT EXISTS flight_board (
     last_error     TEXT
 );
 
+-- Laundry (Laundry + Laundry admin pages). Money in halalas (SAR × 100).
+CREATE TABLE IF NOT EXISTS laundry_items (          -- price master; bills keep the price at billing time
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    site        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    name_local  TEXT NOT NULL DEFAULT '',            -- optional second-language name
+    price       INTEGER NOT NULL,
+    image       TEXT NOT NULL DEFAULT '',            -- small data: URL picture, or one emoji
+    sort        INTEGER NOT NULL DEFAULT 0,
+    active      INTEGER NOT NULL DEFAULT 1,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER
+);
+CREATE TABLE IF NOT EXISTS laundry_staff (          -- free (complimentary) laundry profiles
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    site        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    staff_code  TEXT NOT NULL DEFAULT '',
+    room        TEXT NOT NULL DEFAULT '',
+    department  TEXT NOT NULL DEFAULT '',
+    contact     TEXT NOT NULL DEFAULT '',
+    photo       TEXT NOT NULL DEFAULT '',            -- data: URL
+    free        INTEGER NOT NULL DEFAULT 1,
+    active      INTEGER NOT NULL DEFAULT 1,
+    started_on  TEXT,
+    remarks     TEXT NOT NULL DEFAULT '',
+    limits      TEXT NOT NULL DEFAULT '{}',          -- JSON: per_bill_items, per_day_items, per_week_items, per_month_value, per_month_bills, enforce
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER
+);
+CREATE TABLE IF NOT EXISTS laundry_bills (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    site        TEXT NOT NULL,
+    receipt_no  TEXT NOT NULL UNIQUE,                -- MM-LD-20260929-001
+    client_uid  TEXT NOT NULL UNIQUE,                -- made on the device: an offline bill sent twice is stored once
+    kind        TEXT NOT NULL,                       -- paid | free
+    customer    TEXT NOT NULL,                       -- JSON { name, room, building, contact, group }
+    staff_id    INTEGER,
+    staff_name  TEXT,
+    lines       TEXT NOT NULL,                       -- JSON [{ item_id, name, price, qty, amount }]
+    items       INTEGER NOT NULL,
+    value       INTEGER NOT NULL,                    -- laundry value (price list)
+    paid        INTEGER NOT NULL,                    -- collected (0 for free laundry)
+    method      TEXT NOT NULL DEFAULT '',            -- cash | card | other
+    received    INTEGER NOT NULL DEFAULT 0,          -- cash handed over (change = received − paid)
+    status      TEXT NOT NULL,                       -- received | ready | collected
+    voided      INTEGER NOT NULL DEFAULT 0,
+    void_reason TEXT,
+    given_at    TEXT NOT NULL,
+    ready_at    TEXT,
+    collected_at TEXT,
+    collected_by INTEGER,
+    worker_id   INTEGER NOT NULL,
+    worker_name TEXT NOT NULL,
+    day         TEXT NOT NULL,                       -- Jeddah date of the bill
+    approval_by TEXT,
+    warnings    TEXT NOT NULL DEFAULT '[]',
+    version     INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER
+);
+CREATE INDEX IF NOT EXISTS laundry_bills_day ON laundry_bills(site, day);
+CREATE INDEX IF NOT EXISTS laundry_bills_staff ON laundry_bills(staff_id, day);
+CREATE TABLE IF NOT EXISTS laundry_counters (key TEXT PRIMARY KEY, n INTEGER NOT NULL);   -- receipt numbers per site and day
+CREATE TABLE IF NOT EXISTS laundry_closings (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    site          TEXT NOT NULL,
+    day           TEXT NOT NULL,
+    worker_id     INTEGER NOT NULL,
+    worker_name   TEXT NOT NULL,
+    bills         INTEGER NOT NULL,
+    sales         INTEGER NOT NULL,
+    cash_expected INTEGER NOT NULL,
+    cash_actual   INTEGER NOT NULL,
+    diff          INTEGER NOT NULL,
+    note          TEXT NOT NULL DEFAULT '',
+    created_at    TEXT NOT NULL,
+    UNIQUE (site, day, worker_id)
+);
+
 -- System-wide settings an admin changes on the Setup page (e.g. travel buffers)
 CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,

@@ -1,0 +1,70 @@
+<div class="la">
+    <header class="la-head">
+        <h1>🧺 Laundry admin</h1>
+        <span class="la-sub" id="laSub"></span>
+    </header>
+    <nav class="la-tabs" role="tablist" aria-label="Laundry admin">
+        <button type="button" data-tab="dash" aria-selected="true">📊 Today</button>
+        <button type="button" data-tab="reports">📈 Reports</button>
+        <button type="button" data-tab="bills">🧾 Bills</button>
+        <button type="button" data-tab="free">🆓 Free laundry</button>
+        <button type="button" data-tab="closings">🔒 Day closings</button>
+        <button type="button" data-tab="prices">🏷️ Prices</button>
+        <button type="button" data-tab="staff">👤 Staff</button>
+        <button type="button" data-tab="notice">📝 Notice &amp; log</button>
+    </nav>
+
+    <section class="la-pane" id="tab-dash"></section>
+
+    <section class="la-pane" id="tab-reports" hidden>
+        <div class="la-range" data-range="reports"></div>
+        <div id="repBody"></div>
+    </section>
+
+    <section class="la-pane" id="tab-bills" hidden>
+        <div class="la-filters">
+            <input type="search" id="bQ" placeholder="🔎 Receipt, name, room, staff, mobile — searches all dates">
+            <div class="la-range" data-range="bills"></div>
+            <select id="bWorker" aria-label="Worker"><option value="">All workers</option></select>
+            <select id="bKind" aria-label="Type"><option value="">Paid + free</option><option value="paid">Paid</option><option value="free">Free (staff)</option></select>
+            <select id="bMethod" aria-label="Payment"><option value="">Any payment</option><option value="cash">Cash</option><option value="card">Card</option><option value="other">Other</option></select>
+            <select id="bItem" aria-label="Item"><option value="">Any item</option></select>
+            <input type="number" id="bMin" placeholder="min SAR" step="0.5" aria-label="Minimum amount">
+            <input type="number" id="bMax" placeholder="max SAR" step="0.5" aria-label="Maximum amount">
+            <label class="la-chk"><input type="checkbox" id="bVoid"> show cancelled</label>
+        </div>
+        <div id="bBody"></div>
+    </section>
+
+    <section class="la-pane" id="tab-free" hidden>
+        <div class="la-range" data-range="free"></div>
+        <div id="freeBody"></div>
+    </section>
+
+    <section class="la-pane" id="tab-closings" hidden>
+        <div class="la-range" data-range="closings"></div>
+        <div id="closeBody"></div>
+    </section>
+
+    <section class="la-pane" id="tab-prices" hidden>
+        <div class="la-bar"><p class="la-muted">New prices apply to new bills only; old bills keep the price they were billed at.</p><button type="button" class="la-primary" id="addItem" data-admin>➕ Add item</button></div>
+        <div id="priceBody"></div>
+    </section>
+
+    <section class="la-pane" id="tab-staff" hidden>
+        <div class="la-bar"><input type="search" id="sQ" placeholder="🔎 Name, staff ID, room, mobile"><button type="button" class="la-primary" id="addStaff" data-admin>➕ Add staff</button></div>
+        <div id="staffBody"></div>
+    </section>
+
+    <section class="la-pane" id="tab-notice" hidden>
+        <div class="la-card">
+            <h2>Notice for the laundry screen and receipts</h2>
+            <textarea id="nText" rows="4" maxlength="600"></textarea>
+            <div class="la-bar"><span class="la-muted" id="nMsg"></span><button type="button" class="la-primary" id="nSave" data-admin>Save notice</button></div>
+        </div>
+        <div class="la-card">
+            <h2>Laundry change log</h2>
+            <div id="logBody"></div>
+        </div>
+    </section>
+</div>

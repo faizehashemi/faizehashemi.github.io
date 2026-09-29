@@ -1,0 +1,7 @@
+/* The page for a login that may open no page (Setup → Page access) */
+body { margin: 0; background: #f5efe3; color: #22170d; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.blank { min-height: 60vh; display: grid; place-items: center; padding: 20px; }
+.blank-card { max-width: 480px; text-align: center; background: #fffaf1; border: 1px solid #e3d2b1; border-radius: 16px; padding: 24px; }
+.blank-ico { font-size: 48px; }
+.blank h1 { font-size: 20px; margin: 8px 0; }
+.blank a { color: #9a7414; font-weight: 700; }

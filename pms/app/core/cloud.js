@@ -40,7 +40,13 @@ export function setApiOverride(url) {
 }
 
 // Pages every login may open whatever the admin ticked (Settings holds the password change)
-export const ALWAYS_OPEN = ['home', 'login', 'settings'];
+export const ALWAYS_OPEN = ['login', 'settings', 'blank'];
+
+/** The page a login lands on when it may not open Home: its first allowed page in menu order, else 'blank'. */
+export function firstPage(desk = currentDesk(), order = []) {
+    if (canOpen('home', desk)) return 'home';
+    return order.find(id => canOpen(id, desk) && id !== 'settings') || 'blank';
+}
 
 /** May this login open the page? Admins: every page; others: the pages ticked on Setup (none ticked = all). */
 export function canOpen(viewId, desk = currentDesk()) {

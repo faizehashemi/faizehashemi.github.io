@@ -61,6 +61,14 @@ KG roster (one per site): `GET /api/kg?site=` · `POST /api/kg/op` `{ site, op: 
 bookmark | reset, name }` · `POST /api/kg/log` `{ site, entries: [{ ts, person, type, location }] }` (duplicates
 ignored) · `DELETE /api/kg/log/:id` — writes follow the same site rights as slips.
 
+Laundry (`/api/laundry/…`): `items` (GET; POST/PUT admin), `staff` (GET; POST/PUT admin; `GET staff/:id[?bills=1]`
+with this day/week/month usage), `bills` (GET `?site&from&to` — workers get their own, `&pending=1` all clothes not
+yet collected; POST a bill `{ site, client_uid, kind: paid|free, customer, staff_id, lines: [{ item_id, qty }],
+method, received, approval? }` — priced on the server, stored once per `client_uid`, 409 `needs_approval` over an
+enforced staff limit), `bills/:id` PUT (admin edit, `version`), `bills/:id/status` POST (received|ready|collected),
+`bills/:id/void` POST (admin, `reason`), `close` POST (worker's day close, once), `search?q=` and `audit` (admin/viewer),
+`customers` (recent names per room). Setting `laundry_info` (admin) = the notice text.
+
 `GET /api/flights` (any login) — the stored Jeddah board; `POST /api/flights/refresh` (admin) fetches now.
 Needs the secret `AIRLABS_KEY` (`npx wrangler secret put AIRLABS_KEY`) and the cron in `wrangler.toml`
 (`*/15 * * * *`); budget constants `FLIGHT_BUDGET` / `FLIGHT_MIN_GAP` in `worker.js`.

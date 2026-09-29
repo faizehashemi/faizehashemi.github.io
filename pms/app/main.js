@@ -5,9 +5,9 @@
 // Only one view is mounted at a time, so each view keeps its original page-level CSS untouched.
 // Anything a view attaches to window/document/body/head is tracked and undone on navigation.
 
-import { SITES, VIEWS, DEFAULT_SITE, LEGACY_PAGES } from './config.js';
+import { SITES, VIEWS, NAV, DEFAULT_SITE, LEGACY_PAGES } from './config.js';
 import { createDb } from './core/db.js';
-import { currentDesk, logout, sync, state, mirrorAll, canOpen, siteFor, refreshDesk } from './core/cloud.js';
+import { currentDesk, logout, sync, state, mirrorAll, canOpen, siteFor, refreshDesk, firstPage } from './core/cloud.js';
 import './core/nav.js';
 import './core/ums-auto.js'; // listens for the UMS extension from page load, on every view
 import { watchTables } from './core/cards.js';
@@ -149,8 +149,10 @@ async function route() {
         : VIEWS.find(v => v.id === viewId && v.id !== 'login') || start || VIEWS.find(v => v.id === 'home');
     // pages the admin has not given this login (Setup → Page access)
     if (desk && !canOpen(view.id, desk)) {
-        nav.notice(`${view.label} is not available for ${desk.name}. Ask the admin if you need it.`);
-        view = VIEWS.find(v => v.id === 'home');
+        // Home not allowed (or the start page): go to the login's first allowed page — quietly for Home
+        if (view.id !== 'home') nav.notice(`${view.label} is not available for ${desk.name}. Ask the admin if you need it.`);
+        view = VIEWS.find(v => v.id === firstPage(desk, NAV.flatMap(c => c.views)));
+        history.replaceState(null, '', href(siteId, view.id));
     }
 
     params.delete('source'); // old *_web redirects asked for the Cloud source; everything is cloud now

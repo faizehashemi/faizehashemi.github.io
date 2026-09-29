@@ -195,11 +195,53 @@ logged out everywhere and its page access and personal settings are removed; sli
 (the log shows it as “name (deleted)”, from the `deleted_desks` table). You cannot delete your own login or
 the last active admin; to stop a login only for a while, use Disable.
 
+## Laundry (Mohammedi Makan)
+
+A simple laundry POS inside the PMS — built for workers who read little: big pictures of each item, big numbers,
+icons, one SAVE button. **Workers** are ordinary desk logins with only *Laundry* ticked in Page access; the
+**admin** runs *Laundry admin* from a PC. Everything is in the cloud database (tables `laundry_*`), so the PC
+sees each bill as soon as it is saved (the dashboard refreshes every 20 s); D1 is the backup.
+
+**Laundry** (phone / tablet): 🧺 *New bill* — room number (the last name for that room and the in-house group come
+up to tap), name, tap item pictures (each tap = one more; − / + in the list), Cash / Card / Other with the money
+given and the change, SAVE → receipt (print on any printer or 80 mm roll). 🆓 *Free (staff)* — find the staff
+member (name, ID, room, mobile), check the **photo**, tap items, SAVE: the laundry value is recorded, 0 is collected,
+nothing goes into cash; over a staff limit it warns, or (if the admin set "approval needed") asks for a supervisor's
+admin login + password. 📦 *Pending* — clothes still at the laundry → ✅ Ready → 🤲 Given back (who and when is kept).
+📋 *My day* — my bills and money today. 🔒 *Close day* — count the cash; expected vs counted and the difference go to
+the admin (once per worker and day). **Offline**: bills are kept on the phone (numbered OFFLINE-01…) and sent when the
+internet is back; each bill has an id made on the phone, so a bill sent twice is stored once.
+
+**Receipt numbers**: `MM-LD-YYYYMMDD-NNN` (Jeddah date, counted per day on the server; Medina `MD-LD-…`).
+**Prices** are never in the code: *Laundry admin → Prices* (with a photo or emoji per item, an optional
+second-language name, order, show/hide). A bill keeps each line's price at the time of billing; price changes apply
+to new bills only. The worker cannot set prices (the server prices every line).
+
+**Laundry admin** (PC): 📊 *Today* (normal: customers, bills, items, sales, cash, card; free: staff, bills, items,
+value, 0 collected; total items processed and actual cash; worker-wise; today's transactions), 📈 *Reports*
+(today / yesterday / this or last week / this or last month / custom: the same figures, daily sales chart,
+worker-wise, item-wise quantity and revenue; **Excel** and **PDF** export), 🧾 *Bills* (search by receipt, name, room,
+staff, mobile over all dates; filter by date, worker, type, payment, item, amount; open a bill: details, status
+history, change log, reprint; admin: **edit** customer / room / quantities / payment, **cancel** with a reason — never
+deleted, every change logged before → after with who and when), 🆓 *Free laundry* (dashboard, staff-wise, the
+**register** like the paper card: photo, given, collection, count, value, status, accepted by; click a staff member
+for the full history by month and transaction), 🔒 *Day closings* (expected, counted, difference; days not closed
+yet), 🏷️ *Prices*, 👤 *Staff* (free-laundry profiles: photo from the camera, staff ID, room, department, mobile, start
+date, remarks, active, limits per submission / day / week / month value / month count, warn or require approval),
+📝 *Notice & log* (the timings text shown to the worker and on receipts; the laundry change log).
+
+Rights (server-side): workers create bills, mark ready/collected and close their own day, and see their own
+bills (and all pending clothes); admins and viewers see everything; only admins change prices, staff, bills.
+Not built yet (the tables leave room): WhatsApp/SMS receipts, QR status for customers, room/group monthly accounts,
+several laundries, inventory, machines, attendance, expenses.
+
 ## Page access (Setup, admin)
 
 **Setup → Page access** is a grid of pages × logins: tick what each desk or viewer login may open, then
 *Save page access*. Unticked pages vanish from that login's menus, quick links and shortcuts, and opening
-one by address shows a notice and goes Home. Home and Settings are always open; admins see everything.
+one by address shows a notice and goes to the login's start page. **Home is a page like the others**: a login
+without Home starts on its first ticked page (menu order), and one with nothing ticked sees an empty page. Settings
+is always open; admins see everything.
 What a login may *change* still follows its role and site. Links from one page to another follow the same ticks: Check-ins shows the
 *Open* (slip) column only with Slip access and *Print slips* / *GL copy* only with Print slips access; Home's links to
 Check-ins, Mawaid and Rooms & Buildings (and the SH links in "Currently in Makkah") likewise. The desk picks the change up within a minute
