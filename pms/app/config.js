@@ -2,7 +2,7 @@
 // Views never hardcode a building list or endpoint — they read it from here.
 
 // The PMS cloud API (worker/worker.js). Set this to your Worker's address after deploying it
-// (see worker/README.md). The login screen can override it per browser for testing.
+// (see worker/README.md). Tests can point one browser elsewhere with localStorage "pms_api_url" (no login field).
 export const API_URL = 'https://pms-api.tkamlapur.workers.dev';
 
 export const SITES = {

@@ -23,7 +23,7 @@ only views; `admin` does everything. The top bar has:
 
 On phones and small tablets (≤ 900 px) the bar shrinks to ☰ + the page name and the menu opens as a
 side drawer. Data tables turn into cards (≤ 700 px); wide forms and toolbars re-flow. Laptop layouts
-are unchanged. The footer carries the support number (+91 77479 45253).
+are unchanged. The footer has the support e-mail (taha@raajsoftware.com) and a link to Raaj Software (raajsoftware.com).
 
 **Rooms & Buildings** (Rooms menu) holds every building, room and bed count per site — editable,
 seeded once from the original room lists (MOHAMMEDI, MUFADDAL, SNOOD, BAHA: 705 rooms, 2,748 beds).
