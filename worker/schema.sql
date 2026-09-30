@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS laundry_staff (          -- free (complimentary) laun
     started_on  TEXT,
     remarks     TEXT NOT NULL DEFAULT '',
     limits      TEXT NOT NULL DEFAULT '{}',          -- JSON: per_bill_items, per_day_items, per_week_items, per_month_value, per_month_bills, enforce
+    deleted     INTEGER NOT NULL DEFAULT 0,          -- 1 = deleted by the admin: hidden, but kept with its history
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL,
     updated_by  INTEGER

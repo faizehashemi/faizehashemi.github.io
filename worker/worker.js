@@ -972,12 +972,14 @@ const LIMIT_KEYS = ['per_bill_items', 'per_day_items', 'per_week_items', 'per_mo
 function rowToStaff(r, withPhoto = true) {
     return {
         id: r.id, site: r.site, name: r.name, staff_code: r.staff_code, room: r.room, department: r.department, contact: r.contact,
-        photo: withPhoto ? r.photo : undefined, has_photo: !!r.photo, free: !!r.free, active: !!r.active, started_on: r.started_on,
+        photo: withPhoto ? r.photo : undefined, has_photo: !!r.photo, deleted: !!r.deleted, free: !!r.free, active: !!r.active, started_on: r.started_on,
         remarks: r.remarks, limits: JSON.parse(r.limits || '{}'), updated_at: r.updated_at,
     };
 }
-async function listLaundryStaff(env, site) {
-    const { results } = await env.DB.prepare('SELECT * FROM laundry_staff WHERE site = ? ORDER BY active DESC, name').bind(site).all();
+// Deleted profiles stay in the table (their bills keep pointing at them); `withDeleted` is for the admin's
+// history views (photos in the register), everyone else never sees them.
+async function listLaundryStaff(env, site, withDeleted = false) {
+    const { results } = await env.DB.prepare(`SELECT * FROM laundry_staff WHERE site = ?${withDeleted ? '' : ' AND deleted = 0'} ORDER BY active DESC, name`).bind(site).all();
     return results.map(r => rowToStaff(r));
 }
 function prepareStaff(b) {
@@ -1024,6 +1026,20 @@ async function saveLaundryStaff(req, env, me, id) {
         auditStmt(env, me, 'laundry-staff', null, `${site} ${x.name}: free-laundry profile added`),
     ]);
     return json({ staff: await listLaundryStaff(env, site) }, 201);
+}
+
+// Admin: "delete" a profile = hide it (kept in the database with its whole free-laundry history)
+async function deleteLaundryStaff(env, me, id) {
+    requireAdmin(me);
+    const s = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ?').bind(id).first();
+    if (!s) throw new HttpError(404, 'No such staff profile.');
+    if (!s.deleted) {
+        await env.DB.batch([
+            env.DB.prepare('UPDATE laundry_staff SET deleted = 1, active = 0, updated_at = ?, updated_by = ? WHERE id = ?').bind(now(), me.id, id),
+            auditStmt(env, me, 'laundry-staff', null, `${s.site} ${s.name}: profile deleted (hidden; record and history kept)`),
+        ]);
+    }
+    return json({ staff: await listLaundryStaff(env, s.site, true) });
 }
 
 // A staff member's free laundry so far: this day / week (last 7 days) / month (Jeddah dates), active bills only
@@ -1144,7 +1160,7 @@ async function createLaundryBill(req, env, me) {
     let customer = prepareCustomer(b.customer), staff = null, warnings = [], approvalBy = null;
     let paid = 0, method = '', received = 0;
     if (kind === 'free') {
-        staff = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ? AND site = ?').bind(Number(b.staff_id), site).first();
+        staff = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ? AND site = ? AND deleted = 0').bind(Number(b.staff_id), site).first();
         if (!staff) throw new HttpError(400, 'Choose the staff member for free laundry.');
         if (!staff.active || !staff.free) throw new HttpError(400, `${staff.name} does not have free laundry (profile inactive).`);
         customer = { name: staff.name, room: staff.room, building: '', contact: staff.contact, group: staff.department };
@@ -1323,11 +1339,12 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (p === '/api/laundry/items' && m === 'POST') return saveLaundryItem(req, env, me, 0);
     let mm = p.match(/^\/api\/laundry\/items\/(\d+)$/);
     if (mm && m === 'PUT') return saveLaundryItem(req, env, me, Number(mm[1]));
-    if (p === '/api/laundry/staff' && m === 'GET') return json({ staff: await listLaundryStaff(env, laundrySite(me, url.searchParams.get('site'))) });
+    if (p === '/api/laundry/staff' && m === 'GET') return json({ staff: await listLaundryStaff(env, laundrySite(me, url.searchParams.get('site')), url.searchParams.get('deleted') === '1' && canSeeAll(me)) });
     if (p === '/api/laundry/staff' && m === 'POST') return saveLaundryStaff(req, env, me, 0);
     mm = p.match(/^\/api\/laundry\/staff\/(\d+)$/);
     if (mm && m === 'PUT') return saveLaundryStaff(req, env, me, Number(mm[1]));
     if (mm && m === 'GET') return staffInfo(env, me, Number(mm[1]), url);
+    if (mm && m === 'DELETE') return deleteLaundryStaff(env, me, Number(mm[1]));
     if (p === '/api/laundry/bills' && m === 'GET') return listLaundryBills(url, env, me);
     if (p === '/api/laundry/bills' && m === 'POST') return createLaundryBill(req, env, me);
     if (p === '/api/laundry/search' && m === 'GET') return searchLaundry(url, env, me);

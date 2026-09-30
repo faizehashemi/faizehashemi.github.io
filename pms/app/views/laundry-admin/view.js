@@ -32,7 +32,8 @@ export default async function mount(ctx) {
 
     const api = (m, p, b) => ctx.guard(request(m, p, b));
     const loadItems = async () => { S.items = (await api('GET', `/api/laundry/items?site=${site}`)).items; };
-    const loadStaff = async () => { S.staff = (await api('GET', `/api/laundry/staff?site=${site}`)).staff; };
+    // deleted profiles come too: their photos still show in the register and histories, never in the Staff list
+    const loadStaff = async () => { S.staff = (await api('GET', `/api/laundry/staff?site=${site}&deleted=1`)).staff; };
     const billsIn = async (from, to) => (await api('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}`));
     const who = (b) => b.kind === 'free' ? `🆓 ${esc(b.staff_name)}` : esc(b.customer?.name || '—');
     const staffPhoto = (id, cls = 'la-thumb') => { const s = S.staff.find(x => x.id === id); return s?.photo ? `<img class="${cls}" src="${s.photo}" alt="">` : `<span class="${cls} none">👤</span>`; };
@@ -467,22 +468,33 @@ export default async function mount(ctx) {
         try {
             await loadStaff();
             const q = $('sQ').value.trim().toLowerCase();
-            const list = S.staff.filter(s => !q || [s.name, s.staff_code, s.room, s.contact, s.department].some(v => String(v || '').toLowerCase().includes(q)));
+            const list = S.staff.filter(s => !s.deleted).filter(s => !q || [s.name, s.staff_code, s.room, s.contact, s.department].some(v => String(v || '').toLowerCase().includes(q)));
             body.innerHTML = `<div class="la-staffgrid">${list.map(s => `<div class="la-staffcard ${s.active && s.free ? '' : 'off'}">
                 ${s.photo ? `<img src="${s.photo}" alt="">` : '<span class="la-photo-none">👤</span>'}
                 <div><b>${esc(s.name)}</b><small>${esc([s.staff_code && 'ID ' + s.staff_code, s.department, s.room && 'Room ' + s.room].filter(Boolean).join(' · '))}</small>
                   <small>${s.active && s.free ? '🆓 Free laundry' : '⛔ Not active'}${Object.keys(s.limits || {}).some(k => k !== 'enforce' && s.limits[k]) ? ' · ' + esc(limitText(s.limits)) : ''}</small>
-                  <span class="la-actions"><button type="button" data-hist="${s.id}">📒 History</button>${isAdmin ? `<button type="button" data-staff="${s.id}">✏️ Edit</button>` : ''}</span></div></div>`).join('')
-                || `<p class="la-muted">${S.staff.length ? 'Nobody matches.' : 'No free-laundry staff yet.'}</p>`}</div>`;
+                  <span class="la-actions"><button type="button" data-hist="${s.id}">📒 History</button>${isAdmin ? `<button type="button" data-staff="${s.id}">✏️ Edit</button><button type="button" class="danger" data-del="${s.id}">🗑 Delete</button>` : ''}</span></div></div>`).join('')
+                || `<p class="la-muted">${S.staff.some(s => !s.deleted) ? 'Nobody matches.' : 'No free-laundry staff yet.'}</p>`}</div>`;
         } catch (e) { body.innerHTML = errBox(e); }
     }
     $('sQ').addEventListener('input', drawStaff);
     $('staffBody').addEventListener('click', (e) => {
-        const ed = e.target.closest('[data-staff]'), h = e.target.closest('[data-hist]');
+        const ed = e.target.closest('[data-staff]'), h = e.target.closest('[data-hist]'), del = e.target.closest('[data-del]');
         if (ed) staffForm(S.staff.find(s => s.id === Number(ed.dataset.staff)));
         if (h) staffHistory(Number(h.dataset.hist));
+        if (del) deleteStaff(S.staff.find(s => s.id === Number(del.dataset.del)));
     });
     $('addStaff').addEventListener('click', () => staffForm(null));
+
+    // "Delete" hides the profile everywhere; the record and its free-laundry history stay in the database
+    async function deleteStaff(s) {
+        if (!s || !confirm(`Delete ${s.name}?
+
+The profile disappears from this list and from the worker's free-laundry search, so no new free laundry can be given.
+The record and all past free-laundry entries stay saved (register, reports, history).`)) return;
+        try { S.staff = (await api('DELETE', `/api/laundry/staff/${s.id}`)).staff; drawStaff(); }
+        catch (err) { alert(err.message); }
+    }
 
     function staffForm(s) {
         let photo = s?.photo || '';
