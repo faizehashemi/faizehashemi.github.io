@@ -25,7 +25,7 @@ Files: `worker.js` (the API, one file, no dependencies) · `schema.sql` (tables)
 5. **Connect the database.** Worker → *Settings* → *Bindings* → **Add** → *D1 database* →
    variable name `DB`, database `pms` → **Save**.
 6. **Allow the PMS site.** Worker → *Settings* → *Variables and Secrets* → **Add** → type *Text*,
-   name `ALLOWED_ORIGINS`, value `https://faizehashemi.github.io` → **Save** (then *Deploy* if asked).
+   name `ALLOWED_ORIGINS`, value `https://pms.raajsoftware.com,https://faizehashemi.github.io` → **Save** (then *Deploy* if asked).
 7. **Check it.** Open `https://pms-api.<your-subdomain>.workers.dev/api/health` — it should show `{"ok":true,…}`.
 8. **Point the PMS at it.** In `pms/app/config.js` set
    `export const API_URL = 'https://pms-api.<your-subdomain>.workers.dev';` and publish the site.

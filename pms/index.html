@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#fff9ec" />
     <title>PMS</title>
+    <script>
+        // The PMS lives at pms.raajsoftware.com. The old GitHub address forwards there, keeping the page
+        // (#/makkah/slip?sh_no=…) — unless this browser still holds laundry bills saved offline here, which
+        // must be sent from this address first (they are kept per address).
+        (function () {
+            if (location.hostname !== 'faizehashemi.github.io') return;
+            try {
+                for (var i = 0; i < localStorage.length; i++) {
+                    var k = localStorage.key(i);
+                    if (k.indexOf('pms_laundry_queue:') === 0 && JSON.parse(localStorage.getItem(k) || '[]').length) return;
+                }
+            } catch (e) { }
+            location.replace('https://pms.raajsoftware.com/' + location.search + location.hash);
+        })();
+    </script>
     <link rel="icon" type="image/png" href="assets/logo.png">
     <style>
         /* Shell only. Every view brings its own stylesheet (app/views/<id>/view.css). */

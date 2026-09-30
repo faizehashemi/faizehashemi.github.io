@@ -7,7 +7,7 @@ the data lives in a Cloudflare Worker + D1 database shared by every desk (`worke
 
 ## Using it
 
-Open **https://faizehashemi.github.io/pms/** and log in with your **desk's name and password** (created by the admin on the
+Open **https://pms.raajsoftware.com/** and log in with your **desk's name and password** (created by the admin on the
 Setup page). A `desk` login changes its own site and views the other; a `viewer` login (phones)
 only views; `admin` does everything. The top bar has:
 
@@ -31,6 +31,8 @@ Slip (Fetch & Assign, availability check), Forecast, Grid and Timeline take capa
 there; for a building not in the builder they fall back to capacities remembered from old slips.
 
 URLs look like `#/makkah/slip?sh_no=38480`, so any page can be bookmarked or shared.
+The old address **faizehashemi.github.io/pms/** (and every old page link) forwards to pms.raajsoftware.com with the
+same page — except in a browser that still holds laundry bills saved offline there, which first sends them.
 Old links (`pms/accommodation_slip.html?sh_no=…`, `pms_web/movement.html`, …) still work: each
 old file is now a tiny redirect to its new route.
 
@@ -276,6 +278,20 @@ numbers on screen are not sent.
 - **Buildings / endpoints** — edit `app/config.js`. Nothing else hardcodes them.
 - **Add a page** — create `app/views/<id>/view.{html,css,js}` and add it to `VIEWS` in `app/config.js`.
 - **Add a site** — add an entry to `SITES` in `app/config.js`.
+
+## Publishing
+
+The site is **pms.raajsoftware.com**: the `pms/` folder served by Cloudflare (Worker `pms-web`, static assets,
+custom domain on the raajsoftware.com zone; `web/wrangler.toml`). After changing anything in `pms/`:
+
+```
+cd web
+npx wrangler deploy
+```
+
+Also push to GitHub (faizehashemi.github.io keeps the source and the forwarding page). The API is the Worker
+`pms-api` (`worker/`, `npx wrangler deploy` there); its `ALLOWED_ORIGINS` lists pms.raajsoftware.com and the old
+github.io address. `pms/.assetsignore` keeps this README off the public site.
 
 ## Local development
 

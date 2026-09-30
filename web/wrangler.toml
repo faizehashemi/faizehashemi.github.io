@@ -1,0 +1,13 @@
+# The PMS website at https://pms.raajsoftware.com — the files in ../pms served by Cloudflare (static assets).
+# Publish from this folder:  npx wrangler deploy
+# (the GitHub copy at faizehashemi.github.io/pms only forwards here; see pms/index.html)
+name = "pms-web"
+compatibility_date = "2026-09-01"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "pms.raajsoftware.com", custom_domain = true },
+]
+
+[assets]
+directory = "../pms"

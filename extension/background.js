@@ -2,7 +2,7 @@
 // Hourly: export the Group List from the logged-in UMS tab → keep it → hand it to open PMS tabs.
 importScripts('ums-export.js');
 
-const PMS_TABS = ['https://faizehashemi.github.io/*', 'http://localhost/*', 'http://127.0.0.1/*'];
+const PMS_TABS = ['https://pms.raajsoftware.com/*', 'https://faizehashemi.github.io/*', 'http://localhost/*', 'http://127.0.0.1/*'];
 const DEFAULTS = {
     umsUrl: '',          // the UMS Group List page, e.g. https://ums.example.com/GroupList.aspx
     exportSelector: '',  // optional CSS selector of the export control (auto-detected if empty)
