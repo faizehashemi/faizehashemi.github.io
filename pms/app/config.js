@@ -44,6 +44,7 @@ export const VIEWS = [
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
     { id: 'laundry',      label: 'Laundry',            title: 'Laundry',               hint: 'New bill, free staff laundry, pending, close day' },
     { id: 'laundry-admin', label: 'Laundry admin',     title: 'Laundry admin',         hint: 'Sales, reports, bills, prices, staff' },
+    { id: 'pending-checkouts', label: 'Pending checkouts', title: 'Pending Checkouts',    hint: 'UMS checkout list: zero-advance groups and their rooms' },
     { id: 'blank',        label: 'No pages',           title: 'PMS', hidden: true },
     { id: 'settings',     label: 'Settings',           title: 'Settings',              hint: 'Your look, quick links, shortcuts — follow your login' },
     { id: 'home',         label: 'Home',               title: 'PMS', hidden: true },
@@ -56,6 +57,7 @@ export const NAV = [
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
+    { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts'] },
     { id: 'data',   label: 'Data',           views: ['ums', 'admin', 'setup'] },
     { id: 'settings', label: 'Settings',     views: ['settings'] },
 ];

@@ -1,0 +1,51 @@
+<div class="wrap">
+    <header class="hero">
+        <h1>Pending Checkouts — <span id="siteName"></span></h1>
+        <p class="muted">Load the UMS checkout list (Excel or PDF). Each group is found in the PMS by its SH
+            (the list's Booking Ref) to show its building and rooms.</p>
+    </header>
+
+    <div class="wipe" role="alert">
+        <b>⚠ Nothing on this page is saved.</b>
+        Closing the tab, refreshing or opening another page wipes the list. Take a screenshot (or print) before you close it.
+    </div>
+
+    <section class="card">
+        <h3>Load the list</h3>
+        <label class="drop" id="drop">
+            <input type="file" id="file" accept=".xlsx,.xls,.pdf,application/pdf">
+            <span>Drop the <b>Excel</b> or <b>PDF</b> here, or <u>choose the file</u></span>
+        </label>
+        <div class="pills" id="filePills"></div>
+        <p class="bad" id="fatal" hidden></p>
+        <details id="warnBox" hidden>
+            <summary id="warnSum"></summary>
+            <ul id="warnList"></ul>
+        </details>
+    </section>
+
+    <section class="card" id="listCard" hidden>
+        <div class="bar">
+            <div class="tabs" role="tablist">
+                <button type="button" role="tab" data-tab="zero" aria-selected="true">Advance 0 <span class="n" id="nZero"></span></button>
+                <button type="button" role="tab" data-tab="all" aria-selected="false">Full list <span class="n" id="nAll"></span></button>
+            </div>
+            <input type="search" id="search" placeholder="Search SH, name, room…">
+            <button type="button" id="btnPrint">Print</button>
+        </div>
+        <p class="note" id="noAdvance" hidden>This file has no <b>Total Advance</b> column (the PDF export leaves it out),
+            so groups with zero advance cannot be picked out. Load the Excel file for this view, or use the full list.</p>
+
+        <div id="byBuilding"></div>
+
+        <div class="table-wrap">
+            <table id="tbl">
+                <thead>
+                    <tr><th>SH</th><th>Group leader</th><th>Pax</th><th>Expected checkout</th><th>Location</th><th class="num">Advance</th><th>Building &amp; rooms (PMS)</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <p class="muted small">Rooms come from this site's slips. <span class="flag">UMS: …</span> marks a room UMS lists that the slip does not have.</p>
+    </section>
+</div>
