@@ -13,7 +13,20 @@ export const DEFAULTS = {
     departure_lead_hours: UMS.departureLeadHours,
     transfer_checkin_time: UMS.transferCheckinTime,
     transfer_checkout_time: UMS.transferCheckoutTime,
+    // KG page events (Setup → KG event times)
+    kg_sessions: [
+        { name: 'Aaje Raate Haram', time: '20:30' },
+        { name: 'Kaale Fajare Haram', time: '07:00' },
+        { name: 'Aaje Dupehre Atraaf', time: '15:00' },
+    ],
 };
+
+/** '20:30' → '08:30 PM' (the KG message format) */
+export function to12h(hhmm) {
+    const [h, m] = String(hhmm || '').split(':').map(Number);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return '';
+    return `${String(((h + 11) % 12) + 1).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
 
 let cached = (() => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; } })();
 

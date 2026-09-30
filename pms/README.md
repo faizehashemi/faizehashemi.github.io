@@ -171,6 +171,9 @@ set at the top. As before, a group checking in at exactly 15:00 is not counted f
 
 ## KG (Fakkul Ehraam & Atraaf roster)
 
+The events on the KG page (e.g. *Aaje Raate Haram 08:30 PM*, *Kaale Fajare Haram*, *Aaje Dupehre Atraaf*) and their
+times are set by an admin on **Setup → KG event times** (1–10 events, the same for every desk; setting `kg_sessions`).
+
 One list per site in the cloud (tables `kg_meta`, `kg_log`): names, FE1 bookmark and every saved assignment
 are the same on every desk of that site and refresh every 30 s. Ticks stay on your screen until *Save
 assignment*. A browser that still has its own list from before offers **Move to cloud** once (names and

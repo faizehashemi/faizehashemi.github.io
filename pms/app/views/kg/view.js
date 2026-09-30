@@ -2,9 +2,20 @@
 // roster per site (GET /api/kg, POST /api/kg/op, POST /api/kg/log, DELETE /api/kg/log/:id), so every
 // desk of the site sees the same list and history. Ticks and the preview stay on this screen until saved.
 import { request, canWrite, UserError } from '../../core/cloud.js';
+import { loadSettings, DEFAULTS, to12h } from '../../core/settings.js';
 
 export default async function mount(ctx) {
 const site = ctx.siteId;
+
+// The events and their times come from Setup → KG event times (the same for every desk)
+{
+  let sessions = DEFAULTS.kg_sessions;
+  try { sessions = (await ctx.guard(loadSettings())).settings.kg_sessions || sessions; } catch { }
+  document.getElementById('sessionTitle').innerHTML = sessions.map((s, i) => {
+    const label = `${s.name} ${to12h(s.time)}`.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    return `<option value="${label}"${i === 0 ? ' selected' : ''}>${label}</option>`;
+  }).join('');
+}
 
 /* ====== CONFIG & STORAGE ====== */
 const DEFAULT_PEOPLE = [

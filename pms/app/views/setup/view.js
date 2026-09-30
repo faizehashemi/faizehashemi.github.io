@@ -4,7 +4,7 @@
 import { SITES, VIEWS, NAV } from '../../config.js';
 import { currentDesk, request, sync, state, apiBase, UserError, ALWAYS_OPEN } from '../../core/cloud.js';
 import { legacyAllSlips, legacySiteOf } from '../../core/db.js';
-import { loadSettings, saveSettings, shiftTime } from '../../core/settings.js';
+import { loadSettings, saveSettings, shiftTime, DEFAULTS, to12h } from '../../core/settings.js';
 
 export default async function mount(ctx) {
     const $ = (id) => document.getElementById(id);
@@ -72,12 +72,42 @@ export default async function mount(ctx) {
                 transfer_checkout_time: $('tOut').value,
             });
             await renderTravel();
+
             $('travelMsg').textContent = 'Saved for every desk. Imported slips get the new times at the next UMS import (desk edits are kept).';
         } catch (err) {
             $('travelMsg').textContent = err.status === 404 ? 'The PMS server needs the update (worker.js + schema.sql) before this can be saved.' : (err.message || String(err));
         } finally { $('btnTravel').disabled = false; }
     });
     await renderTravel();
+
+    /* ------------------------------ KG event times ------------------------------ */
+    let kg = [];
+    function drawKg() {
+        $('kgRows').innerHTML = kg.map((s, i) => `<div class="kg-row">
+            <input data-kg="${i}" data-f="name" value="${esc(s.name)}" maxlength="60" placeholder="Event name" aria-label="Event name" ${isAdmin ? '' : 'disabled'}>
+            <input data-kg="${i}" data-f="time" type="time" value="${esc(s.time)}" aria-label="Time" ${isAdmin ? '' : 'disabled'}>
+            ${isAdmin ? `<button type="button" data-kgdel="${i}" aria-label="Remove ${esc(s.name)}" ${kg.length <= 1 ? 'disabled' : ''}>✕</button>` : `<span class="muted small">${esc(to12h(s.time))}</span>`}</div>`).join('');
+        $('kgAdd').hidden = !isAdmin || kg.length >= 10;
+        $('kgSave').hidden = !isAdmin;
+    }
+    async function renderKg() {
+        const s = await ctx.guard(loadSettings());
+        kg = (s.settings.kg_sessions || DEFAULTS.kg_sessions).map(x => ({ ...x }));
+        drawKg();
+        if (!isAdmin) $('kgMsg').textContent = 'Only an admin can change these.';
+    }
+    $('kgRows').addEventListener('input', (e) => { const el = e.target.closest('[data-kg]'); if (el) kg[Number(el.dataset.kg)][el.dataset.f] = el.value; });
+    $('kgRows').addEventListener('click', (e) => { const b = e.target.closest('[data-kgdel]'); if (b && kg.length > 1) { kg.splice(Number(b.dataset.kgdel), 1); drawKg(); } });
+    $('kgAdd').addEventListener('click', () => { if (kg.length < 10) { kg.push({ name: '', time: '12:00' }); drawKg(); $('kgRows').querySelector('.kg-row:last-child input')?.focus(); } });
+    $('kgSave').addEventListener('click', async () => {
+        const list = kg.map(x => ({ name: String(x.name || '').trim(), time: x.time })).filter(x => x.name);
+        if (!list.length || list.some(x => !/^\d{2}:\d{2}$/.test(x.time || ''))) { $('kgMsg').textContent = 'Every event needs a name and a time.'; return; }
+        $('kgSave').disabled = true;
+        try { await ctx.guard(saveSettings({ kg_sessions: list })); await renderKg(); $('kgMsg').textContent = 'Saved — the KG page shows these events on every desk.'; }
+        catch (err) { $('kgMsg').textContent = err.status === 400 ? err.message : (err.message || String(err)); }
+        finally { $('kgSave').disabled = false; }
+    });
+    await renderKg();
 
     /* ------------------------- upload old browser data ------------------------- */
 

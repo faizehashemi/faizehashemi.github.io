@@ -401,6 +401,12 @@ const SETTINGS = {
     transfer_checkout_time: { check: HHMM, msg: 'Check-out time between cities must be HH:MM.' },
     // Laundry page: timings and notice shown to the worker and on receipts
     laundry_info: { check: (v) => typeof v === 'string' && v.length <= 600 && !/[<>]/.test(v), msg: 'Laundry notice: up to 600 characters, no < or >.' },
+    // KG page: the duty events and their times, e.g. [{ name: 'Aaje Raate Haram', time: '20:30' }]
+    kg_sessions: {
+        check: (v) => Array.isArray(v) && v.length >= 1 && v.length <= 10 && v.every(x => x && typeof x.name === 'string' && x.name.trim().length >= 1
+            && x.name.length <= 60 && !/[<>]/.test(x.name) && HHMM(x.time)),
+        msg: 'KG events: 1–10 events, each a name (up to 60 characters) and a time HH:MM.',
+    },
 };
 
 async function getSettings(env) {

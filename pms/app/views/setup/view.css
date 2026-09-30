@@ -102,6 +102,10 @@ tr.empty td { text-align: center; color: var(--muted); padding: 18px }
 /* Setup page additions */
 h1 { margin: 6px 0 0; font-size: 22px }
 h4 { margin: 16px 0 8px; color: #7a5b13 }
+.kg-rows { display: grid; gap: 8px; margin-bottom: 4px; }
+.kg-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px auto; gap: 8px; align-items: center; }
+.kg-row input { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; background: #fff; }
+.kg-row button { padding: 6px 10px; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px }
 .kv dt { color: var(--muted) }
 .kv dd { margin: 0; font-weight: 600 }
