@@ -1,0 +1,10 @@
+# Build outputs and the signing key never go in the repo (key: D:aajsoftwarendroid-keys)
+*.apk
+*.aab
+*.idsig
+*.jks
+*.keystore
+.gradle/
+build/
+app/build/
+local.properties

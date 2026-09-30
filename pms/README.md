@@ -289,12 +289,30 @@ custom domain on the raajsoftware.com zone; `web/wrangler.toml`). After changing
 
 ```
 cd web
-npx wrangler deploy
+sh deploy.sh
 ```
 
 Also push to GitHub (faizehashemi.github.io keeps the source and the forwarding page). The API is the Worker
 `pms-api` (`worker/`, `npx wrangler deploy` there); its `ALLOWED_ORIGINS` lists pms.raajsoftware.com and the old
 github.io address. `pms/.assetsignore` keeps this README off the public site.
+
+(`deploy.sh` stamps a new build id into `pms/version.json` and then runs `npx wrangler deploy`.)
+
+## Updates and the Android app
+
+- **Website updates reach everyone by themselves.** `app/core/update.js` checks `version.json` every 5 minutes
+  and whenever the page comes back to the screen; a new build id shows "A new version of the PMS is out" and
+  reloads after 10 seconds. Offline laundry bills survive (they are in localStorage).
+- **Android app** (`android/`, package `com.raajsoftware.pms`) is a Trusted Web Activity built with Bubblewrap:
+  it opens `https://pms.raajsoftware.com/?app=android&appv=<versionCode>` full screen in Chrome. It is published at
+  https://raajsoftware.com/downloads/ (Worker `raaj-downloads`, source in `D:aajsoftware\downloads-site`).
+  `pms/.well-known/assetlinks.json` holds the signing key's SHA-256 so Chrome hides the address bar.
+- **Forcing a new APK:** bump `appVersionCode`/`appVersionName` and the `appv=` in `startUrl` in
+  `android/twa-manifest.json`, run `bubblewrap update` and `bubblewrap build`, publish the APK on the downloads
+  site, then set `android_min` (and `android_latest`) in `pms/version.json` to the new code and deploy. Older apps
+  then show a blocking "Update required" screen whose only action is downloading the new APK.
+- **The signing key** is `D:aajsoftwarendroid-keys\pms-release.jks` (passwords beside it). It is never
+  committed. Keep a backup: a lost key means users must uninstall before installing a new app.
 
 ## Local development
 

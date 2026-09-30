@@ -14,8 +14,10 @@ import { watchTables } from './core/cards.js';
 import { initAnalytics, pageview, identify, resetAnalytics, track } from './core/analytics.js';
 import { loadBuildings } from './core/rooms.js';
 import { applyPrefs, getPrefs, loadServerPrefs } from './core/prefs.js';
+import { watchForUpdates } from './core/update.js';
 
 applyPrefs(); // this browser's Settings, before anything is drawn
+watchForUpdates(); // new website build → reload; Android app too old → "Update required" (core/update.js)
 
 const nav = document.querySelector('site-nav');
 const outlet = document.getElementById('view');

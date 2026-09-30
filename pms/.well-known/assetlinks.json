@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.raajsoftware.pms",
+      "sha256_cert_fingerprints": ["C5:CC:D6:22:C9:3F:9D:B0:0F:0A:F1:8E:5B:73:94:D6:B6:54:6E:69:4B:49:8D:42:6F:A1:F9:36:E8:5F:FF:41"]
+    }
+  }
+]
