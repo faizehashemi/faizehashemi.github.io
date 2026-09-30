@@ -407,6 +407,12 @@ const SETTINGS = {
             && x.name.length <= 60 && !/[<>]/.test(x.name) && HHMM(x.time)),
         msg: 'KG events: 1–10 events, each a name (up to 60 characters) and a time HH:MM.',
     },
+    // Home → Fakkul Ehraam counts: Morning = morning_from (the day before) to split, Night = split to night_to
+    fe_windows: {
+        check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 3
+            && ['morning_from', 'split', 'night_to'].every(k => HHMM(v[k])) && v.split < v.night_to,
+        msg: 'Fakkul Ehraam windows: three times HH:MM, and Night must end after it starts.',
+    },
 };
 
 async function getSettings(env) {

@@ -1,4 +1,4 @@
-/* Home — welcome, today at a glance, thaals (cream • gold • brown) */
+/* Home — welcome, today at a glance, Fakkul Ehraam counts, thaals (cream • gold • brown) */
 :root {
     --bg: #f7efe1;
     --panel: #fffaf1;
@@ -73,6 +73,14 @@ button.hm-stat:focus-visible, a.hm-stat:focus-visible { outline: 3px solid var(-
 .hm-stat.b { --accent: #f2a93b; }
 .hm-stat.l { --accent: #2a9fd6; }
 .hm-stat.d { --accent: #7c5cc4; }
+.hm-stat.fm { --accent: #e8590c; }
+.hm-stat.fn { --accent: #364fc7; }
+.hm-stat.fs { --accent: #0c8599; }
+
+/* ---------- mega cards: one panel holding a row of tiles ---------- */
+.hm-mega { display: grid; gap: 12px; padding: 16px; border-radius: 18px; border: 1px solid var(--edge);
+    background: linear-gradient(180deg, #fff6e2, #fbefd6); box-shadow: var(--shade); }
+.hm-mega .hm-stat { background: #fffdf8; }
 
 /* ---------- cards ---------- */
 .hm-card { background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; padding: 16px; box-shadow: var(--shade); min-width: 0; }

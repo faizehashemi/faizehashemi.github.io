@@ -41,6 +41,21 @@
         </div>
     </section>
 
+    <section class="card" id="feCard">
+        <h3>Fakkul Ehraam windows <span class="muted small">— the counts on the Home page, every desk</span></h3>
+        <p class="muted small">Which Makkah check-ins count as <b>Morning</b> and as <b>Night</b>. <b>Night · from Madina</b> is the
+            Night window's groups whose SH starts with S.</p>
+        <div class="fe-rows">
+            <label>Morning from <span class="muted small">(the day before)</span><input type="time" id="feMorningFrom"></label>
+            <label>Morning ends / Night starts<input type="time" id="feSplit"></label>
+            <label>Night ends<input type="time" id="feNightTo"></label>
+        </div>
+        <div class="actions">
+            <button type="button" class="primary" id="feSave">Save windows</button>
+            <span class="muted small" id="feMsg"></span>
+        </div>
+    </section>
+
     <section class="card" id="migrateCard" hidden>
         <h3>Move this browser's old data to the cloud</h3>
         <p class="muted">Slips saved on this computer before the cloud switch are still in this browser. Upload them once;

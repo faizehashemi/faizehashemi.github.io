@@ -178,3 +178,22 @@ export function mealThalsFor(slips, dateStr, opts = MEAL_DEFAULTS) {
     const m = buildFirstMerged(stats, opts.thal);
     return { breakfast: m.totals.tBT, lunch: m.totals.tLT, dinner: m.totals.tDT, pax: { breakfast: m.totals.tBP, lunch: m.totals.tLP, dinner: m.totals.tDP } };
 }
+
+/** The groups behind each meal's count for one day (same rules as computeByBuilding): { B, L, D } of { r, pax }. */
+export function mealGuestsFor(slips, dateStr, opts = MEAL_DEFAULTS) {
+    const R = opts.ranges;
+    const bR = parseRange(dateStr, R.B.start, R.B.end), lR = parseRange(dateStr, R.L.start, R.L.end), dR = parseRange(dateStr, R.D.start, R.D.end);
+    if (!bR || !lR || !dR) return null;
+    const out = { B: [], L: [], D: [] };
+    for (const r of slips) {
+        if (!(r.building || '').trim()) continue;
+        const ci = parseLocalDateTime(r.checkin_date, r.checkin_time), co = parseLocalDateTime(r.checkout_date, r.checkout_time);
+        if (!ci || !co) continue;
+        const pax = paxOf(r, opts.incAdults, opts.incChildren, opts.incInfants);
+        if (overlap(ci, co, bR[0], bR[1])) out.B.push({ r, pax });
+        const skipLunchToday = dateStr === (r.checkin_date || '').trim() && (r.checkin_time || '').trim() === '15:00';
+        if (!skipLunchToday && overlap(ci, co, lR[0], lR[1])) out.L.push({ r, pax });
+        if (overlap(ci, co, dR[0], dR[1])) out.D.push({ r, pax });
+    }
+    return out;
+}

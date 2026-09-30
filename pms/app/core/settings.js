@@ -19,6 +19,9 @@ export const DEFAULTS = {
         { name: 'Kaale Fajare Haram', time: '07:00' },
         { name: 'Aaje Dupehre Atraaf', time: '15:00' },
     ],
+    // Home → Fakkul Ehraam counts (Setup → Fakkul Ehraam windows): Morning = check-ins from morning_from the day
+    // before to split today; Night = split to night_to today
+    fe_windows: { morning_from: '20:00', split: '07:00', night_to: '20:00' },
 };
 
 /** '20:30' → '08:30 PM' (the KG message format) */

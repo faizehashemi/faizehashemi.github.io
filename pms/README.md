@@ -120,8 +120,13 @@ who else is in the last room clicked and fine-tunes its beds. *Fill automaticall
 
 The start page greets the desk by name and shows: **today at a glance** (check-ins and check-outs from
 03:00 today to 03:00 tomorrow for this site, and guests in-house right now in Makkah),
+**Fakkul Ehraam counts** (Makkah check-ins: *Morning* from 20:00 yesterday to 07:00 today, *Night* from 07:00
+to 20:00 today including groups from Madina, and *Night · from Madina only* — SH starting with S; the times are
+set on **Setup → Fakkul Ehraam windows**, setting `fe_windows`),
 **today's thaals** (breakfast, lunch, dinner — the Mawaid page's rules and default settings, from
-`app/core/meals.js`, which the Mawaid page uses too), the **Gregorian and Misri Hijri date**
+`app/core/meals.js`, which the Mawaid page uses too; the Fakkul Ehraam and thaal tiles each sit in one large card, and
+every tile opens the groups behind its number — SH, group and leader, building and rooms, stay and guests,
+`app/views/home/groups.js`), the **Gregorian and Misri Hijri date**
 (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com), and at the bottom **building occupancy** (the old Home tiles, `app/views/home/occupancy.js`):
 one battery per building with the share of its beds in use today (capacity from Rooms & Buildings, or a number
 typed on the tile for a building not set up there) and a chart of guests by check-in date.
@@ -190,6 +195,12 @@ Slips show **hotel** times, not flight times. For UMS imports:
 An admin changes these on **Setup → Travel times**; they are stored on the server and the same for
 every desk (defaults in `UMS` in `app/config.js`). Imported slips pick up a change at the next import
 (desk edits to a time are kept; stays with rooms assigned show under *Needs attention*).
+
+## Fakkul Ehraam windows (Setup, admin)
+
+The three times behind the Home page's Fakkul Ehraam counts: *Morning from* (the day before, default 20:00),
+*Morning ends / Night starts* (default 07:00) and *Night ends* (default 20:00). Stored on the server as
+`fe_windows`, the same for every desk.
 
 ## Desk logins (Setup, admin)
 

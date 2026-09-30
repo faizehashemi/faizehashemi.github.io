@@ -109,6 +109,26 @@ export default async function mount(ctx) {
     });
     await renderKg();
 
+    /* --------------------------- Fakkul Ehraam windows --------------------------- */
+    const FE_IN = { morning_from: 'feMorningFrom', split: 'feSplit', night_to: 'feNightTo' };
+    async function renderFe() {
+        const s = await ctx.guard(loadSettings());
+        const w = { ...DEFAULTS.fe_windows, ...(s.settings.fe_windows || {}) };
+        for (const [k, id] of Object.entries(FE_IN)) { $(id).value = w[k]; $(id).disabled = !isAdmin; }
+        $('feSave').hidden = !isAdmin;
+        if (!isAdmin) $('feMsg').textContent = 'Only an admin can change these.';
+    }
+    $('feSave').addEventListener('click', async () => {
+        const w = Object.fromEntries(Object.entries(FE_IN).map(([k, id]) => [k, $(id).value]));
+        if (Object.values(w).some(v => !/^\d{2}:\d{2}$/.test(v || ''))) { $('feMsg').textContent = 'Fill in all three times.'; return; }
+        if (w.split >= w.night_to) { $('feMsg').textContent = 'Night must end after it starts.'; return; }
+        $('feSave').disabled = true;
+        try { await ctx.guard(saveSettings({ fe_windows: w })); await renderFe(); $('feMsg').textContent = 'Saved — the Home page counts use these on every desk.'; }
+        catch (err) { $('feMsg').textContent = err.status === 400 ? err.message : (err.message || String(err)); }
+        finally { $('feSave').disabled = false; }
+    });
+    await renderFe();
+
     /* ------------------------- upload old browser data ------------------------- */
 
     const deviceId = (() => {
