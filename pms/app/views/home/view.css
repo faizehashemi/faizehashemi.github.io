@@ -1,4 +1,4 @@
-/* Home — welcome, today at a glance, thaals, weather, namaz, tip (cream • gold • brown) */
+/* Home — welcome, today at a glance, thaals (cream • gold • brown) */
 :root {
     --bg: #f7efe1;
     --panel: #fffaf1;
@@ -75,47 +75,12 @@ button.hm-stat:focus-visible, a.hm-stat:focus-visible { outline: 3px solid var(-
 .hm-stat.d { --accent: #7c5cc4; }
 
 /* ---------- cards ---------- */
-.hm-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .hm-card { background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; padding: 16px; box-shadow: var(--shade); min-width: 0; }
 .hm-card h2 { margin-bottom: 10px; }
 
-.wx-now { display: flex; align-items: center; gap: 12px; }
-.wx-ico { font-size: 44px; line-height: 1; }
-.wx-temp { font-size: 42px; font-weight: 800; line-height: 1; }
-.wx-desc { display: grid; font-weight: 650; }
-.wx-desc small { color: var(--muted); font-weight: 500; }
-.wx-row { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-size: 13px; color: var(--muted); }
-.wx-row b { color: var(--ink); }
-.wx-warn { margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; background: #fff4de; color: #7a4d00; font-size: 13px; }
-
-.nz-next { margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; background: #f6ecd2; font-size: 13px; }
-.nz-list { list-style: none; margin: 0; padding: 0; display: grid; }
-.nz-list li { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px dashed #eadcc0; font-size: 14px; }
-.nz-list li:last-child { border-bottom: 0; }
-.nz-list li.minor { color: var(--muted); font-size: 13px; }
-.nz-list li.next { color: var(--gold-deep); font-weight: 700; background: #fff6dd; border-radius: 8px; }
-.nz-list b { font-variant-numeric: tabular-nums; }
 
 
-/* miqaats */
-.hm-today-miqaat { font-size: 13px; font-weight: 650; margin-top: 4px; max-width: 36ch; margin-left: auto; }
-.hm-today-miqaat small { font-weight: 500; opacity: .85; }
-.hm-miqaat h3 { margin: 10px 0 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.hm-miqaat h3:first-child { margin-top: 0; }
-.mq-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.mq-list li { display: grid; grid-template-columns: 18px 1fr; gap: 6px; font-size: 14px; }
-.mq-list li.major { font-weight: 700; color: var(--gold-deep); }
-.mq-list small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; }
-.mq-day { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #eadcc0; }
-.mq-day:last-child { border-bottom: 0; }
-.mq-date { display: grid; font-size: 13px; }
-.mq-date small { color: var(--muted); font-size: 11px; }
-.hm-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-.hm-card-head h2 { margin: 0; }
-.hm-cal-btn { font: inherit; font-size: 13px; padding: 5px 12px; border: 1px solid var(--gold); border-radius: 999px; background: #fffdf5; color: #7a5b13; cursor: pointer; }
-.hm-cal-btn:hover { background: #fff6dd; }
-.mq-day { cursor: pointer; border-radius: 8px; }
-.mq-day:hover, .mq-day:focus-visible { background: #fff6dd; outline: none; }
+
 
 /* ---------- in-house calendar (calendar.js) ---------- */
 dialog.mc { width: min(980px, 96vw); max-height: 94vh; padding: 0; border: 0; border-radius: 16px; background: var(--panel); color: var(--ink);
@@ -237,20 +202,15 @@ dialog.mc::backdrop { background: rgba(30, 20, 5, .5); }
 /* ---------- smaller screens ---------- */
 @media (max-width: 980px) {
     .hm-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .hm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .hm-miqaat { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
     .hm { padding: 12px 12px 24px; gap: 14px; }
     .hm-hero { padding: 18px; }
     .hm-dates { text-align: left; }
-    .hm-today-miqaat { margin-left: 0; }
     .hm-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .hm-stats .hm-stat { padding: 12px 10px; }
     .hm-stats .hm-ico { display: none; }
     .hm-stat b { font-size: 26px; }
-    .hm-grid { grid-template-columns: 1fr; }
-    .hm-miqaat { grid-column: auto; }
 }
 @media print { .hm-hero { box-shadow: none; } }
 

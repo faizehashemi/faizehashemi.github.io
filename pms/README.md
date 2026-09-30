@@ -121,12 +121,10 @@ who else is in the last room clicked and fine-tunes its beds. *Fill automaticall
 The start page greets the desk by name and shows: **today at a glance** (check-ins and check-outs from
 03:00 today to 03:00 tomorrow for this site, and guests in-house right now in Makkah),
 **today's thaals** (breakfast, lunch, dinner — the Mawaid page's rules and default settings, from
-`app/core/meals.js`, which the Mawaid page uses too), **weather** (Open-Meteo) and **namaz timings**
-(Aladhan, Umm al-Qura method, with the next namaz and a countdown) for the site's city, the **Gregorian and
-Misri Hijri date** (`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com), **miqaats**
-(today and the next ones coming up), and at the bottom **building occupancy** (the old Home tiles, `app/views/home/occupancy.js`):
+`app/core/meals.js`, which the Mawaid page uses too), the **Gregorian and Misri Hijri date**
+(`app/core/hijri.js`, the same tabular calendar as mumineencalendar.com), and at the bottom **building occupancy** (the old Home tiles, `app/views/home/occupancy.js`):
 one battery per building with the share of its beds in use today (capacity from Rooms & Buildings, or a number
-typed on the tile for a building not set up there) and a chart of guests by check-in date. Weather and namaz are cached in the browser (15 min / one day).
+typed on the tile for a building not set up there) and a chart of guests by check-in date.
 
 **Our guests' flights · Jeddah airport**: only the flights our groups are on — UMS groups whose arrival or
 departure flight (from the UMS list; flight or codeshare number, time within 6 hours) lands at or leaves Jeddah
@@ -146,7 +144,7 @@ wrong — no building or a building of the other city, no rooms, fewer or more b
 G+L+C+I, no SH / the same SH twice in-house, no group leader, a room listed twice. Search, sort (problems
 first by default) and "only groups to check"; the SH opens the slip (where the login may open it).
 
-Clicking the Hijri date, *📅 Calendar* or an upcoming miqaat opens the **in-house calendar**
+Clicking the Hijri date opens the **in-house calendar**
 (`app/views/home/calendar.js`): one Hijri month at a time with the Gregorian dates, miqaat markers (✨ major,
 🌙 night, • other), month/year navigation and *Today*; click a day to see its miqaats. The miqaat list is the
 Mumineen Calendar project's (github.com/mygulamali/mumineen_calendar_js, MIT licence), shipped in
