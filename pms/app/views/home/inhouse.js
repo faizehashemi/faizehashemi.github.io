@@ -18,13 +18,14 @@ const roomsOf = (r) => ['gents', 'ladies'].flatMap(side => (r.rooms?.[side] || [
 /** Things that look wrong on an in-house slip (short labels; empty = fine). */
 function issuesOf(r, site, dupes) {
     const out = [];
-    const g = num(r.gents), l = num(r.ladies), adults = g + l;
+    const g = num(r.gents), l = num(r.ladies), adults = g + l, sleepers = adults + num(r.children);
     const beds = bedsOf(r), rooms = roomsOf(r);
     if (!String(r.building || '').trim()) out.push('No building');
     else if (siteOfBuilding(r.building) && siteOfBuilding(r.building) !== site) out.push(`Building ${r.building} is not in this city`);
     if (!rooms.length) out.push('No rooms assigned');
-    else if (adults && beds < adults) out.push(`${adults - beds} adult${adults - beds === 1 ? '' : 's'} without a bed (${beds} beds for ${adults})`);
-    else if (adults && beds > adults) out.push(`${beds - adults} bed${beds - adults === 1 ? '' : 's'} more than adults (${beds} for ${adults})`);
+    // beds: gents + ladies + children (children sleep on the ladies' side; infants get none)
+    else if (sleepers && beds < sleepers) out.push(`${sleepers - beds} guest${sleepers - beds === 1 ? '' : 's'} without a bed (${beds} beds for ${sleepers})`);
+    else if (sleepers && beds > sleepers) out.push(`${beds - sleepers} bed${beds - sleepers === 1 ? '' : 's'} more than guests (${beds} for ${sleepers})`);
     if (!adults && !num(r.total)) out.push('No guest counts');
     const tot = num(r.total), parts = adults + num(r.children) + num(r.infants);
     if (tot && parts && tot !== parts) out.push(`Total ${tot} ≠ G+L+C+I ${parts}`);

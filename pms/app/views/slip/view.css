@@ -239,6 +239,14 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .rp .rp-need.short { background: #fff4de; color: #8a5a00; }
 .rp .rp-need.over { background: #fde7e7; color: #a12a2a; }
 .rp .rp-note { color: #5b6778; font-size: 12px; }
+.rp .rp-gl { display: flex; flex-wrap: wrap; gap: 8px 12px; padding: 8px 18px; align-items: center; border-bottom: 1px solid #e3e8ef; background: #fffbea; }
+.rp .rp-gl-on { display: inline-flex; gap: 6px; align-items: center; font-weight: 700; font-size: 13px; }
+.rp .rp-gl .rp-seg button { padding: 3px 12px; font-size: 13px; }
+.rp .rp-gl .rp-seg button:disabled { opacity: .5; }
+.rp .rp-gl-state { font-size: 13px; color: #5b6778; }
+.rp .rp-gl-state.wait { color: #9a5b00; font-weight: 600; }
+.rp .rp-gl-state.ok { color: #1f7a3a; }
+.rp .rp-gltag { font-style: normal; font-weight: 800; color: #9a5b00; }
 .rp .rp-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; }
 .rp .rp-main { display: flex; flex-direction: column; min-height: 0; }
 .rp .rp-filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 18px; font-size: 13px; }
@@ -306,6 +314,11 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 /* Highlighted actions (Pick rooms…, Edit on a loaded slip); locked Save */
 .wrap button.btn-hot { background: linear-gradient(#e6c65a, #d4af37); border-color: #b8931f; color: #3b2a06; font-weight: 700; box-shadow: 0 2px 6px rgba(150, 110, 20, .35); }
 .wrap button.btn-hot:hover { filter: brightness(1.06); background: linear-gradient(#e6c65a, #d4af37); }
+/* beds given on the room tables vs the slip's counts (Gents; Ladies + Children) */
+.alloc-sum { display: inline-flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; color: #c40000; font-weight: 800; font-size: 20px; line-height: 1.25; }
+.alloc-sum b { font-size: 26px; }
+.alloc-sum small { font-size: 13px; font-weight: 700; }
+.gl-badge { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 6px; background: #9a5b00; color: #fff; font-size: 11px; font-weight: 800; vertical-align: middle; cursor: default; }
 .wrap button.btn-warn { border-color: #c0392b; color: #a12a2a; background: #fdecea; }
 .wrap button:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: grayscale(.4); }
 .wrap button.linkish { border: 0; background: none; padding: 6px 4px; color: var(--muted); text-decoration: underline; font-size: 13px; }

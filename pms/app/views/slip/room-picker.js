@@ -6,6 +6,9 @@
 // the selected room and when. Allocating is per room and per side (gents or ladies), capped at
 // the room's free beds. Apply writes the choice into the slip's room tables; Save/Edit still runs
 // the normal availability check.
+// Beds needed: gents = Gents; ladies = Ladies + Children (children sleep on the ladies' side; infants get no bed).
+// Group leader (on by default): the next room clicked becomes the group leader's room — 1 bed on the chosen side
+// (gents unless changed), counted inside that side's number. The row is saved with gl: true.
 
 import { findBuilding, normRoom, floorOf } from '../../core/rooms.js';
 
@@ -78,14 +81,18 @@ export function openRoomPicker(o) {
     }
 
     /* ------------------------------- allocation ------------------------------- */
-    const alloc = new Map(); // norm → { side, beds }
+    const alloc = new Map(); // norm → { side, beds, gl? }
+    let glOn = true, glSide = 'gents', glRoom = null; // group leader's room
     for (const side of ['gents', 'ladies']) for (const x of o.current[side] || []) {
         const k = normRoom(x.room_no);
         const beds = Number(x.assigned) || Number(x.capacity) || 0;
-        if (k && beds > 0 && !alloc.has(k)) alloc.set(k, { side, beds });
+        if (k && beds > 0 && !alloc.has(k)) {
+            alloc.set(k, { side, beds, gl: !!x.gl && !glRoom });
+            if (x.gl && !glRoom) { glRoom = k; glSide = side; }
+        }
     }
     const allocated = (side) => [...alloc.values()].filter(a => a.side === side).reduce((n, a) => n + a.beds, 0);
-    const need = (side) => Number(o.needs[side]) || 0;
+    const need = (side) => (Number(o.needs[side]) || 0) + (side === 'ladies' ? Number(o.needs.children) || 0 : 0);
     const anyNeed = () => need('gents') + need('ladies') > 0;
     // beds still to give this side (no counts on the slip = no limit)
     const remaining = (side) => anyNeed() ? Math.max(0, need(side) - allocated(side)) : Infinity;
@@ -108,6 +115,7 @@ export function openRoomPicker(o) {
           <button type="button" class="rp-x" data-act="close" aria-label="Close">✕</button>
         </header>
         <div class="rp-needs" id="rpNeeds"></div>
+        <div class="rp-gl" id="rpGl"></div>
         <div class="rp-msg" id="rpMsg" role="status" aria-live="polite"></div>
         <div class="rp-body">
           <section class="rp-main">
@@ -154,9 +162,24 @@ export function openRoomPicker(o) {
                 : `${got} of ${want}${cls === 'short' ? ` · ${want - got} to go` : cls === 'over' ? ` · ${got - want} extra` : ' ✓'}`;
             return `<button type="button" class="rp-need ${cls}" data-active="${side}" aria-pressed="${activeSide === side}" title="Rooms you click now go to ${SIDES[side]}"><b>${SIDES[side]}</b> ${text}</button>`;
         };
+        const kids = Number(n.children) || 0, inf = Number(n.infants) || 0;
         $('rpNeeds').innerHTML = `<span class="rp-lbl">Clicking a room gives beds to:</span>` + part('gents') + part('ladies') +
             (!anyNeed() ? `<span class="rp-note">No gents/ladies count on the slip, so each click gives the room's free beds.</span>` : '') +
-            ((Number(n.children) || Number(n.infants)) ? `<span class="rp-note">+ ${Number(n.children) || 0} children, ${Number(n.infants) || 0} infants — add beds for them if they need their own</span>` : '');
+            ((kids || inf) ? `<span class="rp-note">Ladies = ${Number(n.ladies) || 0} ladies + ${kids} children${inf ? ` · ${inf} infant${inf === 1 ? '' : 's'}, no bed` : ''}</span>` : '');
+        const glRoomNo = glRoom && rooms.get(glRoom)?.room_no;
+        $('rpGl').innerHTML = `
+            <label class="rp-gl-on"><input type="checkbox" id="rpGlOn" ${glOn ? 'checked' : ''}> Room for the group leader</label>
+            <div class="rp-seg" role="group" aria-label="Group leader is">${Object.entries(SIDES).map(([k, l]) =>
+                `<button type="button" data-glside="${k}" aria-pressed="${k === glSide}" ${glOn ? '' : 'disabled'}>${l}</button>`).join('')}</div>
+            <span class="rp-gl-state ${glRoom ? 'ok' : glOn ? 'wait' : ''}">${!glOn ? 'Off — the group leader is not given a room of their own'
+                : glRoomNo ? `Room <b>${esc(glRoomNo)}</b> · 1 ${SIDES[glSide].toLowerCase()} bed, counted in ${SIDES[glSide]}`
+                : `The next room you click is the group leader's (1 ${SIDES[glSide].toLowerCase()} bed)`}</span>`;
+    }
+    function setGlSide(side) {
+        glSide = side;
+        const a = glRoom && alloc.get(glRoom);
+        if (a) a.side = side;
+        renderAll();
     }
 
     function renderRooms() {
@@ -175,7 +198,7 @@ export function openRoomPicker(o) {
                 return `<button type="button" class="rp-tile ${state} ${selected === k ? 'sel' : ''}" data-room="${esc(k)}"
                     title="${esc(r.room_no)}: ${r.free} of ${r.cap} beds free for the whole stay${r.events.length ? ` · shared with ${r.events.map(e => 'SH ' + e.sh).join(', ')}` : ''}">
                     <span class="rp-no">${esc(r.room_no)}${r.type ? `<em>${esc(r.type[0].toUpperCase())}</em>` : ''}</span>
-                    <span class="rp-free">${a ? `${SIDES[a.side][0]} ${a.beds} · ${left} left` : `${r.free}/${r.cap} free`}</span>
+                    <span class="rp-free">${a ? `${a.gl ? 'GL · ' : ''}${SIDES[a.side][0]} ${a.beds} · ${left} left` : `${r.free}/${r.cap} free`}</span>
                     ${bar(r)}
                 </button>`;
             }).join('')}</div></div>`).join('') || `<p class="rp-muted">${rooms.size ? 'No room matches. Untick “Only rooms with space” to see full rooms.' : `No rooms known for ${esc(bld)}. Add them in Rooms & Buildings.`}</p>`;
@@ -205,7 +228,7 @@ export function openRoomPicker(o) {
 
     function renderList() {
         const rows = [...alloc.entries()].sort((x, y) => natural(x[1].side + rooms.get(x[0])?.room_no, y[1].side + rooms.get(y[0])?.room_no));
-        $('rpList').innerHTML = rows.length ? rows.map(([k, a]) => `<div class="rp-item"><button type="button" class="rp-link" data-room="${esc(k)}">${esc(rooms.get(k)?.room_no || k)}</button><span>${SIDES[a.side]}</span><b>${a.beds}</b><button type="button" class="rp-rm" data-remove="${esc(k)}" aria-label="Remove">✕</button></div>`).join('') : '<p class="rp-muted">No rooms yet.</p>';
+        $('rpList').innerHTML = rows.length ? rows.map(([k, a]) => `<div class="rp-item"><button type="button" class="rp-link" data-room="${esc(k)}">${esc(rooms.get(k)?.room_no || k)}</button><span>${SIDES[a.side]}${a.gl ? ' · <em class="rp-gltag">GL</em>' : ''}</span><b>${a.beds}</b><button type="button" class="rp-rm" data-remove="${esc(k)}" aria-label="Remove">✕</button></div>`).join('') : '<p class="rp-muted">No rooms yet.</p>';
     }
 
     const renderAll = () => { renderNeeds(); renderRooms(); renderDetail(); renderList(); };
@@ -214,16 +237,25 @@ export function openRoomPicker(o) {
         const r = rooms.get(k);
         const mine = alloc.get(k)?.side === side ? alloc.get(k).beds : 0;
         beds = Math.max(0, Math.min(r.free, beds, mine + remaining(side)));
-        if (!beds) alloc.delete(k); else alloc.set(k, { side, beds });
+        const gl = alloc.get(k)?.gl;
+        if (!beds) { alloc.delete(k); if (k === glRoom) glRoom = null; }
+        else { alloc.set(k, { side, beds, gl }); if (gl) glSide = side; }
         renderAll();
     }
 
+    const fits = (r, side) => !r.type || r.type === 'family' || r.type === side;
     function autoFill() {
+        // the group leader first: the smallest free room of their side
+        if (glOn && !glRoom && (!anyNeed() || remaining(glSide) > 0)) {
+            const c = [...rooms.entries()].filter(([k, r]) => !alloc.has(k) && r.free > 0 && fits(r, glSide))
+                .sort((a, b) => (a[1].peak > 0) - (b[1].peak > 0) || a[1].cap - b[1].cap || natural(a[1].floor, b[1].floor) || natural(a[1].room_no, b[1].room_no))[0];
+            if (c) { alloc.set(c[0], { side: glSide, beds: 1, gl: true }); glRoom = c[0]; }
+        }
         for (const side of ['gents', 'ladies']) {
-            let left = (Number(o.needs[side]) || 0) - allocated(side);
+            let left = need(side) - allocated(side);
             if (left <= 0) continue;
             const cands = [...rooms.entries()]
-                .filter(([k, r]) => !alloc.has(k) && r.free > 0 && (!r.type || r.type === 'family' || r.type === side))
+                .filter(([k, r]) => !alloc.has(k) && r.free > 0 && fits(r, side))
                 // empty rooms first, then the most free beds, then keep to low floors / room order
                 .sort((a, b) => (a[1].peak > 0) - (b[1].peak > 0) || b[1].free - a[1].free || natural(a[1].floor, b[1].floor) || natural(a[1].room_no, b[1].room_no));
             for (const [k, r] of cands) {
@@ -248,8 +280,18 @@ export function openRoomPicker(o) {
     function toggleRoom(k) {
         selected = k;
         const r = rooms.get(k);
-        if (alloc.has(k)) { alloc.delete(k); say(`Room ${r.room_no} removed.`); renderAll(); return; }
+        if (alloc.has(k)) { alloc.delete(k); if (k === glRoom) glRoom = null; say(`Room ${r.room_no} removed.`); renderAll(); return; }
         if (r.free <= 0) { say(`Room ${r.room_no} has no bed free for the whole stay.`, true); renderAll(); return; }
+        // the group leader's room comes first while the toggle is on
+        if (glOn && !glRoom) {
+            if (anyNeed() && remaining(glSide) <= 0) { say(`No ${SIDES[glSide].toLowerCase()} bed is left for the group leader — switch the side or take a room back.`, true); renderAll(); return; }
+            alloc.set(k, { side: glSide, beds: 1, gl: true });
+            glRoom = k;
+            const typeWarn = !fits(r, glSide) ? ` (room is marked ${r.type})` : '';
+            say(`Room ${r.room_no}: the group leader (1 ${SIDES[glSide].toLowerCase()} bed)${typeWarn}.`, !!typeWarn);
+            renderAll();
+            return;
+        }
         if (remaining(activeSide) <= 0) {
             const other = activeSide === 'gents' ? 'ladies' : 'gents';
             if (remaining(other) > 0) activeSide = other;
@@ -269,24 +311,32 @@ export function openRoomPicker(o) {
         if (!t) return;
         const act = t.dataset.act;
         if (t.dataset.active) { activeSide = t.dataset.active; renderNeeds(); return; }
+        if (t.dataset.glside) { setGlSide(t.dataset.glside); return; }
         if (t.dataset.room && t.classList.contains('rp-tile')) { toggleRoom(t.dataset.room); return; }
         if (t.dataset.room) { selected = t.dataset.room; renderAll(); return; }
-        if (t.dataset.remove) { alloc.delete(t.dataset.remove); renderAll(); return; }
+        if (t.dataset.remove) { alloc.delete(t.dataset.remove); if (t.dataset.remove === glRoom) glRoom = null; renderAll(); return; }
         if (t.dataset.side && selected) { const a = alloc.get(selected); if (a) setAlloc(selected, t.dataset.side, a.beds); else { dlg._side = t.dataset.side; renderDetail(); dlg.querySelectorAll('[data-side]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.side === t.dataset.side))); } return; }
         if (t.dataset.step && selected) { const a = alloc.get(selected); setAlloc(selected, a?.side || dlg._side, (a?.beds || 0) + Number(t.dataset.step)); return; }
         if (act === 'max' && selected) { setAlloc(selected, alloc.get(selected)?.side || dlg._side, rooms.get(selected).free); return; }
         if (act === 'auto') autoFill();
-        if (act === 'clear') { alloc.clear(); renderAll(); }
+        if (act === 'clear') { alloc.clear(); glRoom = null; renderAll(); }
         if (act === 'close') dlg.close();
         if (act === 'apply') {
             if (!alloc.size && !confirm("No rooms are chosen. Apply anyway (this empties the slip's room tables)?")) return;
             const out = { gents: [], ladies: [] };
-            for (const [k, a] of alloc) { const r = rooms.get(k); out[a.side].push({ room_no: r.room_no, capacity: r.cap, assigned: a.beds }); }
+            for (const [k, a] of alloc) { const r = rooms.get(k); out[a.side].push({ room_no: r.room_no, capacity: r.cap, assigned: a.beds, ...(a.gl ? { gl: true } : {}) }); }
             out.gents.sort((x, y) => natural(x.room_no, y.room_no));
             out.ladies.sort((x, y) => natural(x.room_no, y.room_no));
             o.onApply(out.gents, out.ladies);
             dlg.close();
         }
+    });
+    // turning it off keeps the room but makes it an ordinary one
+    dlg.addEventListener('change', (e) => {
+        if (e.target.id !== 'rpGlOn') return;
+        glOn = e.target.checked;
+        if (!glOn && glRoom) { const a = alloc.get(glRoom); if (a) a.gl = false; glRoom = null; }
+        renderAll();
     });
     $('rpFloor').addEventListener('change', renderRooms);
     $('rpSpace').addEventListener('change', renderRooms);

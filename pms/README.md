@@ -116,6 +116,13 @@ when both are done it refuses more rooms. Click a chosen room again to take it b
 who else is in the last room clicked and fine-tunes its beds. *Fill automatically* does the same by itself;
 *Apply to slip* fills the room tables (room, capacity, assigned). Code: `app/views/slip/room-picker.js`.
 
+Beds needed: **Gents** = gents; **Ladies** = ladies + children (children sleep on the ladies' side; infants get no
+bed). **Room for the group leader** (on by default, Gents unless switched to Ladies): the next room clicked — or the
+smallest free room with *Fill automatically* — becomes the group leader's room with 1 bed, counted inside that side's
+number; it is saved on the row as `gl: true` and shows a **GL** tag in the room table. Unticking it keeps the room as
+an ordinary one. Beside *Pick rooms…* the slip shows, in large red type, the beds on its room tables against the
+counts: *Gents x / gents* and *Ladies y / ladies + children*, marked *incl. GL* on the group leader's side.
+
 ## Home
 
 The start page greets the desk by name and shows: **today at a glance** (check-ins and check-outs from

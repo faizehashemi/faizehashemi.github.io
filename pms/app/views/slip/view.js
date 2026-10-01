@@ -66,6 +66,15 @@ export default async function mount(ctx) {
         inpRoom.placeholder = '';
         inpRoom.value = data.room_no || '';
         tdRoom.appendChild(inpRoom);
+        // the group leader's room (set by Pick rooms…), kept on the row as gl: true
+        if (data.gl) {
+            tr.dataset.gl = '1';
+            const tag = document.createElement('span');
+            tag.className = 'gl-badge';
+            tag.textContent = 'GL';
+            tag.title = "Group leader's room";
+            tdRoom.appendChild(tag);
+        }
 
         // Capacity (reference/nominal)
         const tdCap = document.createElement('td');
@@ -130,7 +139,7 @@ export default async function mount(ctx) {
         btnDel.type = 'button';
         btnDel.textContent = 'X';
         btnDel.title = 'Delete row';
-        btnDel.onclick = () => tr.remove();
+        btnDel.onclick = () => { tr.remove(); showAllocSum(); };
         tdDel.appendChild(btnDel);
 
         tr.append(tdRoom, tdCap, tdAsg, tdDel);
@@ -147,7 +156,7 @@ export default async function mount(ctx) {
             const asgRaw = (asgEl?.value || '').trim();
             const assigned = /^\d+$/.test(asgRaw) ? Number(asgRaw) : '';
             if (room_no !== '' || capRaw !== '' || asgRaw !== '') {
-                rows.push({ room_no, capacity, assigned });
+                rows.push({ room_no, capacity, assigned, ...(tr.dataset.gl ? { gl: true } : {}) });
             }
         });
         return rows;
@@ -156,9 +165,26 @@ export default async function mount(ctx) {
     function setRows(group, arr) {
         const tbody = $(group + '-tbody');
         tbody.innerHTML = '';
-        if (!arr || !arr.length) { addRow(group); return; }
-        arr.forEach(r => addRow(group, r));
+        if (!arr || !arr.length) addRow(group); else arr.forEach(r => addRow(group, r));
+        showAllocSum();
     }
+
+    // Beside Pick rooms…: beds on the room tables vs the counts — Gents, and Ladies + Children (infants get
+    // no bed). The group leader is inside the Gents or Ladies count, on the side of their room (GL).
+    function showAllocSum() {
+        const el = $('allocSum');
+        if (!el) return;
+        const beds = (group) => collectRows(group).reduce((n, r) => n + (r.assigned !== '' ? r.assigned : Number(r.capacity) || 0), 0);
+        const num = (id) => Number($(id).value) || 0;
+        const glSide = collectRows('gents').some(r => r.gl) ? 'Gents' : collectRows('ladies').some(r => r.gl) ? 'Ladies' : '';
+        const g = beds('gents'), l = beds('ladies'), wantG = num('gents'), wantL = num('ladies') + num('children');
+        if (!g && !l && !wantG && !wantL) { el.innerHTML = ''; return; }
+        const part = (label, got, want, note) => `<span class="${want && got === want ? 'ok' : ''}">${label} <b>${got}</b>${want ? ` / ${want}` : ''}${note ? ` <small>${note}</small>` : ''}</span>`;
+        el.innerHTML = 'Assigned: ' + part('Gents', g, wantG, glSide === 'Gents' ? 'incl. GL' : '')
+            + part('Ladies', l, wantL, [num('children') ? `${num('ladies')} + ${num('children')} children` : '', glSide === 'Ladies' ? 'incl. GL' : ''].filter(Boolean).join(' · '));
+    }
+    for (const id of ['gents-tbody', 'ladies-tbody']) $(id).addEventListener('input', showAllocSum);
+    for (const id of ['gents', 'ladies', 'children']) $(id).addEventListener('input', showAllocSum);
 
     function getFormData() {
         return {
