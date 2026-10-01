@@ -12,13 +12,17 @@
 
     <!-- NEW BILL / FREE: the same screen; free swaps the customer box for the staff card -->
     <section class="ld-pane" id="paneBill">
+        <!-- room: three scroll wheels (building → floor → room), no typing on the touch screen -->
         <div class="ld-who" id="ldCustomer">
-            <label class="ld-big-in"><span>🚪 Room</span><input id="ldRoom" inputmode="numeric" autocomplete="off" placeholder="405"></label>
-            <label class="ld-big-in"><span>🙂 Name</span><input id="ldName" autocomplete="off" placeholder="Name"></label>
-            <div class="ld-sugg" id="ldSugg"></div>
+            <div class="ld-wheels" id="ldWheels">
+                <div class="ld-wcol"><small>🏨 Building</small><div class="ld-wheel" id="ldWBuilding" role="listbox" aria-label="Building"></div></div>
+                <div class="ld-wcol narrow"><small>⬆️ Floor</small><div class="ld-wheel" id="ldWFloor" role="listbox" aria-label="Floor"></div></div>
+                <div class="ld-wcol"><small>🚪 Room</small><div class="ld-wheel" id="ldWRoom" role="listbox" aria-label="Room"></div></div>
+            </div>
+            <div class="ld-picked" id="ldPicked"></div>
         </div>
         <div class="ld-who" id="ldStaff" hidden>
-            <label class="ld-big-in wide"><span>🔎 Staff</span><input id="ldStaffFind" autocomplete="off" placeholder="Name, staff ID, room or mobile"></label>
+            <label class="ld-big-in wide"><span>🔎 Staff</span><input id="ldStaffFind" autocomplete="off" placeholder="Filter (optional) — or tap a name below"></label>
             <div class="ld-staff-list" id="ldStaffList"></div>
             <div class="ld-staff-card" id="ldStaffCard" hidden></div>
         </div>

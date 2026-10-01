@@ -1,7 +1,7 @@
 // Laundry POS — the worker's phone/tablet screen. Built for speed and for people who read little:
 // big pictures of each item (tap = one more), big numbers, a few icons, one SAVE button.
-//   🧺 New bill: room → name (remembered / from the hotel list) → tap items → Cash → SAVE → receipt
-//   🆓 Free (staff): find the staff member, check the PHOTO, tap items → SAVE (value recorded, 0 collected)
+//   🧺 New bill: swipe building → floor → room (wheels, no keyboard) → tap items → Cash → SAVE → receipt
+//   🆓 Free (staff): tap the staff member (all listed, filter optional), check the PHOTO, tap items → SAVE (value recorded, 0 collected)
 //   📦 Pending: clothes still here → ✅ Ready → 🤲 Collected
 //   📋 My day: my bills and money today (and bills waiting on this phone when offline)
 //   🔒 Close day: count the cash, see the difference
@@ -12,12 +12,16 @@ import {
     sar, esc, jeddahDay, jeddahTime, METHOD, STATUS, DEFAULT_INFO, itemPic, cached, saveBill, flushQueue, queued, dropQueued,
     receiptHTML, printReceipt, RECEIPT_CSS, ApiError,
 } from '../../core/laundry.js';
+import { loadBuildings, buildingsOfSite, floorOf, normRoom, normBuilding } from '../../core/rooms.js';
+import { wheel } from './wheel.js';
+
+const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 
 export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
     const site = ctx.siteId;
     const me = currentDesk();
-    const st = { tab: 'bill', cart: new Map(), method: 'cash', staff: null, usage: null, items: [], staffList: [], customers: [], slips: [], info: DEFAULT_INFO };
+    const st = { tab: 'bill', cart: new Map(), method: 'cash', staff: null, usage: null, items: [], staffList: [], buildings: [], slips: [], info: DEFAULT_INFO };
 
     // receipt styles for the on-screen receipt
     const rcss = document.createElement('style'); rcss.textContent = RECEIPT_CSS; document.head.appendChild(rcss);
@@ -36,9 +40,21 @@ export default async function mount(ctx) {
         try { const r = await ctx.guard(cached('pms_laundry_info', () => request('GET', '/api/settings'))); st.info = r.data.settings?.laundry_info || DEFAULT_INFO; } catch { }
         $('ldInfo').innerHTML = `<span aria-hidden="true">🕗</span><div>${esc(st.info).replace(/\n/g, '<br>')}</div>`;
     }
-    async function loadCustomers() {
-        try { const r = await ctx.guard(cached(`pms_laundry_customers:${site}`, () => request('GET', `/api/laundry/customers?site=${site}`))); st.customers = r.data.customers; } catch { }
+    // in-house slips: tell which group is in the chosen room
+    async function loadSlips() {
         try { st.slips = (await ctx.guard(mirrorAll(site))).filter(s => !s.deleted); } catch { }
+    }
+    // buildings and rooms from Rooms & Buildings (this site's; all when the site has none)
+    async function loadRooms() {
+        const all = await ctx.guard(loadBuildings({ force: true }));
+        const own = buildingsOfSite(all, site);
+        st.buildings = (own.length ? own : all)
+            .map(b => ({ name: b.name, sort: b.sort || 0, rooms: (b.rooms || []).filter(r => r.active !== false && r.room_no) }))
+            .filter(b => b.rooms.length)
+            .sort((a, b) => a.sort - b.sort || natural(a.name, b.name));
+        let keep = ''; try { keep = localStorage.getItem(`pms_laundry_building:${site}`) || ''; } catch { }
+        wB.set(st.buildings.map(b => ({ value: b.name, label: b.name })), keep);
+        pickBuilding(wB.value);
     }
 
     /* --------------------------- tabs & mode --------------------------- */
@@ -55,7 +71,8 @@ export default async function mount(ctx) {
             $('ldStaff').hidden = tab !== 'free';
             $('ldPay').hidden = tab === 'free';
             ctx.root.querySelector('.ld').classList.toggle('free', tab === 'free');
-            if (tab === 'free' && !st.staffList.length) loadStaff().then(drawStaffList).catch(() => { });
+            if (tab === 'free') { drawStaffList(); if (!st.staffList.length) loadStaff().then(drawStaffList).catch(() => { }); }
+            if (tab === 'bill') [wB, wF, wR].forEach(w => w.sync());
             drawCart();
         }
         if (tab === 'pending') loadPending();
@@ -131,57 +148,57 @@ export default async function mount(ctx) {
 
     function resetBill() {
         st.cart.clear();
-        $('ldRoom').value = ''; $('ldName').value = ''; $('ldReceived').value = ''; $('ldSugg').innerHTML = '';
-        delete $('ldRoom').dataset.group; delete $('ldRoom').dataset.building;
+        $('ldReceived').value = '';
+        pickFloor(wF.value); // keep building and floor (the next customer is often a neighbour), room back to —
         st.staff = null; st.usage = null; $('ldStaffFind').value = ''; $('ldStaffCard').hidden = true; drawStaffList();
         st.method = 'cash'; $('ldMethods').querySelectorAll('[data-method]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.method === 'cash')));
         drawItems(); drawCart();
     }
 
-    /* ------------------------ customer: room & name ------------------------ */
-    function roomsOf(s) { return ['gents', 'ladies'].flatMap(k => (s.rooms?.[k] || []).map(r => String(r.room_no || '').trim().toUpperCase())); }
-    function suggest() {
-        const room = $('ldRoom').value.trim().toUpperCase(), name = $('ldName').value.trim().toLowerCase();
-        const out = [];
-        if (room || name) {
-            const seen = new Set();
-            for (const c of st.customers) {
-                const r = String(c.room || '').toUpperCase(), n = String(c.name || '');
-                if ((room && r.startsWith(room)) || (name && n.toLowerCase().includes(name))) {
-                    const k = `${r}|${n.toLowerCase()}`;
-                    if (seen.has(k) || !n) continue;
-                    seen.add(k);
-                    out.push(`<button type="button" data-c='${esc(JSON.stringify({ name: c.name, room: c.room, building: c.building, group: c.group, contact: c.contact }))}'>🙂 ${esc(c.name)} · 🚪 ${esc(c.room || '—')}</button>`);
-                    if (out.length >= 6) break;
-                }
-            }
-            if (room) {
-                const now = Date.now();
-                for (const s of st.slips) {
-                    const ci = Date.parse(`${s.checkin_date}T${s.checkin_time || '00:00'}`), co = Date.parse(`${s.checkout_date}T${s.checkout_time || '23:59'}`);
-                    if (!(ci <= now && now < co) || !roomsOf(s).includes(room)) continue;
-                    out.push(`<button type="button" class="grp" data-g='${esc(JSON.stringify({ group: s.tour_name || '', building: s.building || '', leader: s.group_leader || '' }))}'>🏨 ${esc(s.building || '')} ${esc(room)} · ${esc(s.tour_name || 'group')}</button>`);
-                    if (out.length >= 8) break;
-                }
-            }
-        }
-        $('ldSugg').innerHTML = out.join('');
+    /* ---------------------- customer: building → floor → room ---------------------- */
+    const floorOfRoom = (r) => String(r.floor || floorOf(r.room_no) || '0');
+    const bld = () => st.buildings.find(b => b.name === wB.value);
+    const wB = wheel($('ldWBuilding'), (v) => pickBuilding(v));
+    const wF = wheel($('ldWFloor'), (v) => pickFloor(v));
+    const wR = wheel($('ldWRoom'), () => drawPicked());
+    function pickBuilding(name) {
+        try { if (name) localStorage.setItem(`pms_laundry_building:${site}`, name); } catch { }
+        const floors = [...new Set((bld()?.rooms || []).map(floorOfRoom))].sort(natural);
+        wF.set(floors.map(f => ({ value: f, label: f === '0' ? 'G' : f })), floors[0]);
+        pickFloor(wF.value);
     }
-    $('ldRoom').addEventListener('input', suggest);
-    $('ldName').addEventListener('input', suggest);
-    $('ldSugg').addEventListener('click', (e) => {
-        const c = e.target.closest('[data-c]'), g = e.target.closest('[data-g]');
-        if (c) { const v = JSON.parse(c.dataset.c); $('ldRoom').value = v.room || ''; $('ldName').value = v.name || ''; $('ldRoom').dataset.group = v.group || ''; $('ldRoom').dataset.building = v.building || ''; }
-        if (g) { const v = JSON.parse(g.dataset.g); $('ldRoom').dataset.group = v.group; $('ldRoom').dataset.building = v.building; if (!$('ldName').value) $('ldName').focus(); }
-        $('ldSugg').innerHTML = '';
-    });
+    function pickFloor(floor) {
+        const rooms = (bld()?.rooms || []).filter(r => floorOfRoom(r) === floor).map(r => normRoom(r.room_no)).sort(natural);
+        wR.set([{ value: '', label: '—', cls: 'none' }, ...rooms.map(r => ({ value: r, label: r }))], '');
+        drawPicked();
+    }
+    // the group staying in that room right now (from the slips), kept on the bill
+    function groupIn(building, room) {
+        const now = Date.now();
+        for (const s of st.slips) {
+            const ci = Date.parse(`${s.checkin_date}T${s.checkin_time || '00:00'}`), co = Date.parse(`${s.checkout_date}T${s.checkout_time || '23:59'}`);
+            if (!(ci <= now && now < co) || normBuilding(s.building) !== building) continue;
+            if (['gents', 'ladies'].some(k => (s.rooms?.[k] || []).some(r => normRoom(r.room_no) === room))) return s.tour_name || '';
+        }
+        return '';
+    }
+    function customer() {
+        const building = wB.value || '', room = wR.value || '';
+        return { name: '', room, building, group: room ? groupIn(building, room) : '' };
+    }
+    function drawPicked() {
+        const c = customer();
+        $('ldPicked').innerHTML = !st.buildings.length ? '<small>No rooms yet — the admin adds them on Rooms &amp; Buildings.</small>'
+            : c.room ? `🚪 ${esc(c.building)} · ${esc(c.room)}${c.group ? `<span class="grp">🏨 ${esc(c.group)}</span>` : ''}`
+                : '<small>👆 Swipe the wheels to the room</small>';
+    }
 
     /* ------------------------------ free: staff ------------------------------ */
     function drawStaffList() {
         const q = $('ldStaffFind').value.trim().toLowerCase();
         const list = st.staffList.filter(s => !q || [s.name, s.staff_code, s.room, s.contact].some(v => String(v || '').toLowerCase().includes(q)));
         $('ldStaffList').hidden = !!st.staff;
-        $('ldStaffList').innerHTML = list.slice(0, 30).map(s => `<button type="button" class="ld-staff" data-staff="${s.id}">
+        $('ldStaffList').innerHTML = list.map(s => `<button type="button" class="ld-staff" data-staff="${s.id}">
             ${s.photo ? `<img src="${s.photo}" alt="">` : '<span class="nophoto">👤</span>'}<span><b>${esc(s.name)}</b><small>${esc([s.staff_code, s.department, s.room && '🚪 ' + s.room].filter(Boolean).join(' · '))}</small></span></button>`).join('')
             || `<p class="ld-muted">${st.staffList.length ? 'Nobody matches.' : 'No free-laundry staff yet — the admin adds them on Laundry admin → Staff.'}</p>`;
     }
@@ -214,17 +231,17 @@ export default async function mount(ctx) {
               ${warn.length ? `<span class="ld-warn">⚠️ ${warn.map(esc).join('<br>⚠️ ')}${L.enforce ? '<br>Supervisor approval needed.' : ''}</span>` : ''}
               <button type="button" class="ld-change-staff" data-unstaff>Change person</button></div>`;
     }
-    $('ldStaffCard').addEventListener('click', (e) => { if (e.target.closest('[data-unstaff]')) { st.staff = null; $('ldStaffFind').value = ''; $('ldStaffCard').hidden = true; drawStaffList(); drawCart(); $('ldStaffFind').focus(); } });
+    $('ldStaffCard').addEventListener('click', (e) => { if (e.target.closest('[data-unstaff]')) { st.staff = null; $('ldStaffFind').value = ''; $('ldStaffCard').hidden = true; drawStaffList(); drawCart(); } });
 
     /* ---------------------------------- save ---------------------------------- */
     async function save(approval) {
         const free = st.tab === 'free', ls = lines();
         if (!ls.length) return;
-        const customer = { name: $('ldName').value.trim(), room: $('ldRoom').value.trim(), group: $('ldRoom').dataset.group || '', building: $('ldRoom').dataset.building || '' };
-        if (!free && !customer.name && !customer.room) { alert('Enter the room number or the name.'); $('ldRoom').focus(); return; }
+        const cust = customer();
+        if (!free && !cust.room) { alert('Choose the room first (swipe the wheels).'); return; }
         const recv = $('ldReceived').value.trim();
         const payload = {
-            site, kind: free ? 'free' : 'paid', customer: free ? undefined : customer, staff_id: free ? st.staff?.id : undefined,
+            site, kind: free ? 'free' : 'paid', customer: free ? undefined : cust, staff_id: free ? st.staff?.id : undefined,
             lines: ls.map(l => ({ item_id: l.item_id, qty: l.qty })), method: free ? undefined : st.method,
             received: free || st.method !== 'cash' || recv === '' ? undefined : Number(recv),
             preview_lines: ls.map(({ image, ...l }) => l), preview_value: total(), staff_name: free ? st.staff?.name : undefined,
@@ -239,7 +256,7 @@ export default async function mount(ctx) {
             showReceipt(r.bill, r.warnings, r.offline);
             resetBill();
             refreshOffline();
-            loadCustomers();
+            loadSlips();
         } catch (e) {
             if (e instanceof ApiError && e.status === 409 && e.extra?.needs_approval) askApproval(e.extra.warnings || []);
             else alert(e instanceof UserError ? e.message : 'Could not save. Try again.');
@@ -274,9 +291,11 @@ export default async function mount(ctx) {
         ctx.root.appendChild(dlg);
         dlg.querySelector('[data-print]').onclick = () => printReceipt(b, st.info);
         dlg.querySelector('[data-x]').onclick = () => dlg.close();
-        dlg.addEventListener('close', () => { dlg.remove(); (st.tab === 'free' ? $('ldStaffFind') : $('ldRoom')).focus(); });
+        dlg.addEventListener('close', () => dlg.remove());
         dlg.showModal();
     }
+
+    const custLabel = (c) => `🚪 ${esc([c.building, c.room || '—'].filter(Boolean).join(' · '))}${c.name ? ' · ' + esc(c.name) : ''}`;
 
     /* -------------------------------- pending -------------------------------- */
     let pending = [];
@@ -292,7 +311,7 @@ export default async function mount(ctx) {
         const photo = (b) => { const s = b.staff_id && st.staffList.find(x => x.id === b.staff_id); return s?.photo ? `<img class="ld-mini" src="${s.photo}" alt="">` : ''; };
         $('ldPendList').innerHTML = list.map(b => `<div class="ld-card ${b.status}">
             ${photo(b)}
-            <div class="ld-cmain"><b>${b.kind === 'free' ? '🆓 ' + esc(b.staff_name) : `🚪 ${esc(b.customer.room || '—')} · ${esc(b.customer.name || '')}`}</b>
+            <div class="ld-cmain"><b>${b.kind === 'free' ? '🆓 ' + esc(b.staff_name) : custLabel(b.customer)}</b>
               <small>${esc(b.receipt_no)} · ${esc(jeddahTime(b.given_at))} ${b.day !== jeddahDay() ? esc(b.day.slice(5)) : ''} · ${b.items} pcs</small>
               <span class="ld-st">${STATUS[b.status]}</span></div>
             <div class="ld-cbtn">${b.status === 'received' ? `<button type="button" data-st="ready" data-id="${b.id}">✅ Ready</button>` : ''}
@@ -304,7 +323,7 @@ export default async function mount(ctx) {
         const b = e.target.closest('[data-st]');
         if (!b) return;
         const bill = pending.find(x => x.id === Number(b.dataset.id));
-        if (b.dataset.st === 'collected' && !confirm(`Clothes given back?\n${bill.receipt_no} · ${bill.kind === 'free' ? bill.staff_name : (bill.customer.room || '') + ' ' + (bill.customer.name || '')} · ${bill.items} pcs`)) return;
+        if (b.dataset.st === 'collected' && !confirm(`Clothes given back?\n${bill.receipt_no} · ${bill.kind === 'free' ? bill.staff_name : [bill.customer.building, bill.customer.room, bill.customer.name].filter(Boolean).join(' ')} · ${bill.items} pcs`)) return;
         b.disabled = true;
         try { await ctx.guard(request('POST', `/api/laundry/bills/${bill.id}/status`, { status: b.dataset.st })); await loadPending(); }
         catch (err) { alert(err.message || 'Could not change it.'); b.disabled = false; }
@@ -328,7 +347,7 @@ export default async function mount(ctx) {
             ['💳', sar(by('card')), 'card SAR'], ['🔁', sar(by('other')), 'other SAR'], ['🆓', `${free.length} · ${sar(free.reduce((n, b) => n + b.value, 0))}`, 'free · value SAR'],
         ].map(([i, v, l]) => `<div class="ld-kpi"><span>${i}</span><b>${v}</b><small>${l}</small></div>`).join('');
         $('ldMyList').innerHTML = mine.bills.map(b => `<button type="button" class="ld-card row ${b.voided ? 'void' : ''}" data-bill="${b.id}">
-            <div class="ld-cmain"><b>${b.kind === 'free' ? '🆓 ' + esc(b.staff_name) : `🚪 ${esc(b.customer.room || '—')} · ${esc(b.customer.name || '')}`}</b>
+            <div class="ld-cmain"><b>${b.kind === 'free' ? '🆓 ' + esc(b.staff_name) : custLabel(b.customer)}</b>
               <small>${esc(jeddahTime(b.given_at))} · ${esc(b.receipt_no)} · ${b.items} pcs${b.voided ? ' · ❌ cancelled' : ''}</small></div>
             <b class="ld-amt">${b.kind === 'free' ? 'FREE' : sar(b.paid)}</b></button>`).join('') || '<p class="ld-muted">No bills yet today.</p>';
     }
@@ -337,7 +356,7 @@ export default async function mount(ctx) {
     function drawQueue() {
         const q = queued();
         $('ldQueue').innerHTML = q.length ? `<div class="ld-qbox"><b>⏳ ${q.length} bill${q.length === 1 ? '' : 's'} waiting on this phone</b>
-            ${q.map(x => `<div class="ld-qrow"><span>${esc(x.local_no)} · ${x.kind === 'free' ? '🆓 ' + esc(x.staff_name || '') : esc(x.customer?.room || '') + ' ' + esc(x.customer?.name || '')} · ${sar(x.preview_value || 0)} SAR</span>
+            ${q.map(x => `<div class="ld-qrow"><span>${esc(x.local_no)} · ${x.kind === 'free' ? '🆓 ' + esc(x.staff_name || '') : esc([x.customer?.building, x.customer?.room, x.customer?.name].filter(Boolean).join(' '))} · ${sar(x.preview_value || 0)} SAR</span>
               ${x.error ? `<small class="bad">${esc(x.error)}</small><button type="button" data-drop="${esc(x.client_uid)}">Remove</button>` : ''}</div>`).join('')}
             <button type="button" class="ok" data-flush>📤 Send now</button></div>` : '';
     }
@@ -398,12 +417,12 @@ export default async function mount(ctx) {
     const timer = setInterval(() => { tryFlush(); if (st.tab === 'pending') loadPending(); }, 30000);
 
     /* ---------------------------------- start ---------------------------------- */
-    await Promise.all([loadItems().catch(e => { $('ldItems').innerHTML = `<p class="ld-muted">${esc(e.message)}</p>`; }), loadInfo(), loadCustomers()]);
+    await Promise.all([loadItems().catch(e => { $('ldItems').innerHTML = `<p class="ld-muted">${esc(e.message)}</p>`; }), loadInfo(), loadSlips()]);
+    await loadRooms().catch(() => drawPicked());
     drawCart();
     refreshOffline();
     tryFlush();
-    loadStaff().catch(() => { });
+    loadStaff().then(drawStaffList).catch(() => { });
     request('GET', `/api/laundry/bills?site=${site}&pending=1`).then(r => { $('ldPendingCount').textContent = r.bills.length || ''; }).catch(() => { });
-    $('ldRoom').focus();
     return () => clearInterval(timer);
 }

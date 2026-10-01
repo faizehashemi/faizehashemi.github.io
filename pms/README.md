@@ -223,10 +223,11 @@ icons, one SAVE button. **Workers** are ordinary desk logins with only *Laundry*
 **admin** runs *Laundry admin* from a PC. Everything is in the cloud database (tables `laundry_*`), so the PC
 sees each bill as soon as it is saved (the dashboard refreshes every 20 s); D1 is the backup.
 
-**Laundry** (phone / tablet): 🧺 *New bill* — room number (the last name for that room and the in-house group come
-up to tap), name, tap item pictures (each tap = one more; − / + in the list), Cash / Card / Other with the money
-given and the change, SAVE → receipt (print on any printer or 80 mm roll). 🆓 *Free (staff)* — find the staff
-member (name, ID, room, mobile), check the **photo**, tap items, SAVE: the laundry value is recorded, 0 is collected,
+**Laundry** (touch screen, no keyboard): 🧺 *New bill* — swipe three wheels, building → floor → room (from
+Rooms & Buildings; the in-house group of that room is kept on the bill; no name), tap item pictures (each tap = one
+more; − / + in the list), Cash / Card / Other with the money given and the change, SAVE → receipt. 🖨 Print sends an
+A5 receipt straight to the Canon LBP when Chrome runs with `--kiosk-printing` — start it with `tools/laundry-kiosk.bat` (otherwise the print dialog opens).
+🆓 *Free (staff)* — all free-laundry staff are listed (the search box only filters), check the **photo**, tap items, SAVE: the laundry value is recorded, 0 is collected,
 nothing goes into cash; over a staff limit it warns, or (if the admin set "approval needed") asks for a supervisor's
 admin login + password. 📦 *Pending* — clothes still at the laundry → ✅ Ready → 🤲 Given back (who and when is kept).
 📋 *My day* — my bills and money today. 🔒 *Close day* — count the cash; expected vs counted and the difference go to

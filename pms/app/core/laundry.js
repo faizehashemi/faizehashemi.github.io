@@ -2,7 +2,7 @@
 //   money: halalas (SAR × 100) in, "12" / "12.50" SAR out
 //   offline: a bill that cannot reach the server is kept on this device (per login) with its client_uid and
 //            sent when the connection returns; the server stores a client_uid once, so nothing doubles
-//   receipt: receiptHTML(bill) and printReceipt(bill) (own tab, 80 mm wide)
+//   receipt: receiptHTML(bill) and printReceipt(bill) (A5 on the Canon LBP, straight to the printer — see printReceipt)
 //   shrinkImage(file, size): a picture from the camera/gallery as a small JPEG data: URL
 
 import { request, currentDesk, OfflineError, ApiError } from './cloud.js';
@@ -103,8 +103,9 @@ export function receiptHTML(b, info = '') {
       <div class="r-row"><span>Time</span><span>${esc(jeddahTime(when))}</span></div>
       <hr>
       ${free ? `<div class="r-row"><span>Staff</span><b>${esc(b.staff_name || b.customer?.name)}</b></div>` : `
-      <div class="r-row"><span>Customer</span><b>${esc(b.customer?.name || '—')}</b></div>
-      <div class="r-row"><span>Room</span><b>${esc(b.customer?.room || '—')}</b></div>`}
+      ${b.customer?.building ? `<div class="r-row"><span>Building</span><b>${esc(b.customer.building)}</b></div>` : ''}
+      <div class="r-row"><span>Room</span><b>${esc(b.customer?.room || '—')}</b></div>
+      ${b.customer?.name ? `<div class="r-row"><span>Customer</span><b>${esc(b.customer.name)}</b></div>` : ''}`}
       <hr>
       ${(b.lines || []).map(l => `<div class="r-row"><span>${esc(l.name)} × ${l.qty}</span><span>${sar(l.amount)} SAR</span></div>`).join('')}
       <hr>
@@ -131,18 +132,39 @@ export const RECEIPT_CSS = `
 .ld-receipt .r-info { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; font-size: 11px; text-align: center; }
 .ld-receipt hr { border: 0; border-top: 1px dashed #000; margin: 5px 0; }`;
 
-/** Print one receipt from its own tab (80 mm roll or any printer). Call straight from a click. */
+// A5 sheet on the laundry's Canon LBP laser printer: the receipt fills the page width in bigger type
+const RECEIPT_A5_CSS = `
+@page { size: A5 portrait; margin: 10mm; }
+html, body { margin: 0; background: #fff; }
+.ld-receipt { width: auto; margin: 0; padding: 0; font-size: 14pt; line-height: 1.4; }
+.ld-receipt .r-h1 { font-size: 20pt; }
+.ld-receipt .r-h2 { font-size: 15pt; margin: 2pt 0 8pt; }
+.ld-receipt .r-total { font-size: 18pt; }
+.ld-receipt .r-note, .ld-receipt .r-info { font-size: 11pt; }
+.ld-receipt hr { margin: 6pt 0; }`;
+
+/**
+ * Print one receipt from a hidden frame — no new tab. Chrome on the laundry screen is started with
+ * --kiosk-printing, so it goes straight to the default printer (the Canon LBP) without the print dialog;
+ * any other browser just shows its usual dialog.
+ */
 export function printReceipt(b, info = '') {
-    const w = window.open('', '_blank');
-    if (!w) { alert('Allow pop-ups for this site to print receipts.'); return; }
-    w.document.open();
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(b.receipt_no)}</title><style>
-      ${RECEIPT_CSS}
-      @page { size: 80mm auto; margin: 3mm; }
-      html, body { margin: 0; background: #fff; }
-      @media screen { body { background: #eee; padding: 10px; } .ld-receipt { box-shadow: 0 2px 10px rgba(0,0,0,.2); } }
-    </style></head><body>${receiptHTML(b, info)}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
-    w.document.close();
+    document.getElementById('ldPrintFrame')?.remove();
+    const f = document.createElement('iframe');
+    f.id = 'ldPrintFrame';
+    f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(f);
+    const d = f.contentDocument;
+    d.open();
+    d.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(b.receipt_no)}</title><style>${RECEIPT_CSS}${RECEIPT_A5_CSS}</style></head>
+        <body>${receiptHTML(b, info)}</body></html>`);
+    d.close();
+    setTimeout(() => {
+        f.contentWindow.focus();
+        f.contentWindow.print();
+        setTimeout(() => f.remove(), 60_000);
+    }, 250);
 }
 
 /* ------------------------------- pictures ------------------------------- */

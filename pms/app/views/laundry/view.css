@@ -27,10 +27,26 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ld-big-in span { font-size: 15px; font-weight: 700; white-space: nowrap; }
 .ld-big-in input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 24px; font-weight: 700; padding: 8px 0; background: transparent; }
 .ld-big-in.wide { grid-column: 1 / -1; }
-.ld-sugg { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
-.ld-sugg:empty { display: none; }
-.ld-sugg button { border: 1px solid var(--edge); background: #fff; border-radius: 999px; padding: 8px 12px; font-size: 15px; }
-.ld-sugg button.grp { background: #eef4ff; border-color: #c9d7f2; }
+
+/* room wheels (iOS date-picker style): swipe a column, the row in the band is the choice */
+#ldCustomer { grid-template-columns: 1fr; }
+.ld-wheels { --row: 52px; display: grid; grid-template-columns: 1.4fr .8fr 1fr; gap: 6px; position: relative; background: #fff; border: 2px solid var(--edge); border-radius: 16px; padding: 6px 8px 8px; }
+.ld-wcol { display: grid; gap: 2px; min-width: 0; }
+.ld-wcol > small { text-align: center; font-weight: 700; color: var(--muted); font-size: 13px; }
+.ld-wheel { position: relative; height: calc(var(--row) * 5); overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none;
+    padding: calc(var(--row) * 2) 0; perspective: 600px; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+    -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); border-radius: 12px; }
+.ld-wheel::-webkit-scrollbar { display: none; }
+.ld-wopt { height: var(--row); line-height: var(--row); scroll-snap-align: center; text-align: center; font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; padding: 0 4px; color: var(--ink); transform-origin: center; will-change: transform; cursor: pointer; }
+.ld-wopt.none { color: var(--muted); font-weight: 500; }
+.ld-wopt[aria-selected="true"] { color: #000; }
+.ld-wheels::after { content: ''; position: absolute; left: 8px; right: 8px; top: calc(6px + 19px + var(--row) * 2); height: var(--row); border: 2px solid var(--gold-deep);
+    border-radius: 12px; background: rgba(212, 175, 55, .14); pointer-events: none; }
+.ld-wempty { height: var(--row); line-height: var(--row); text-align: center; color: var(--muted); font-size: 15px; }
+.ld-picked { font-size: 17px; font-weight: 700; padding: 2px 6px; min-height: 1.4em; }
+.ld-picked small { font-weight: 500; color: var(--muted); }
+.ld-picked .grp { display: inline-block; margin-left: 6px; padding: 2px 10px; border-radius: 999px; background: #eef4ff; border: 1px solid #c9d7f2; font-size: 15px; }
 
 /* item tiles */
 .ld-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 10px 0; }
