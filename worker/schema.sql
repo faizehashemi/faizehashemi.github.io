@@ -229,3 +229,17 @@ CREATE TABLE IF NOT EXISTS audit (
     detail   TEXT
 );
 CREATE INDEX IF NOT EXISTS audit_at ON audit(id);
+
+-- Transport: the day's vehicle list from the transport system, one JSON document per site and day
+-- (Transport import page; app/core/transport.js). n / pax only for the list of days.
+CREATE TABLE IF NOT EXISTS transport_days (
+    site        TEXT NOT NULL,
+    day         TEXT NOT NULL,                       -- YYYY-MM-DD (the trips' date)
+    rows        TEXT NOT NULL,                       -- JSON [{ key, ref, at, route, operator, leader, pax, bus, … }]
+    n           INTEGER NOT NULL DEFAULT 0,
+    pax         INTEGER NOT NULL DEFAULT 0,
+    version     INTEGER NOT NULL DEFAULT 1,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER,
+    PRIMARY KEY (site, day)
+);

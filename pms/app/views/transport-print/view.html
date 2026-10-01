@@ -1,0 +1,21 @@
+<div class="tp tq-tools">
+    <header class="tp-head">
+        <div>
+            <h1>Bus sheets</h1>
+            <p class="tp-sub">One page per bus, to stick on the bus. Printed A4 landscape — choose “Landscape” if the printer asks.</p>
+        </div>
+        <div class="tp-actions">
+            <a class="tp-btn" id="tqDay" href="#">🚌 Transport day</a>
+            <button type="button" class="tp-btn gold" id="tqPrint">🖨️ Print</button>
+        </div>
+    </header>
+    <div id="tqNav"></div>
+    <section class="tp-card tq-pick">
+        <span class="tq-lbl">Destinations</span>
+        <span id="tqDests"></span>
+        <label class="tq-only">Only bus no. <input type="text" id="tqOnly" placeholder="e.g. 3, 5-7" inputmode="numeric"></label>
+        <span class="tp-muted" id="tqCount"></span>
+    </section>
+    <div id="tqMsg"></div>
+</div>
+<div class="tq-sheets" id="tqSheets"></div>

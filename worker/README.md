@@ -69,6 +69,10 @@ enforced staff limit), `bills/:id` PUT (admin edit, `version`), `bills/:id/statu
 `bills/:id/void` POST (admin, `reason`), `close` POST (worker's day close, once), `search?q=` and `audit` (admin/viewer),
 `customers` (recent names per room). Setting `laundry_info` (admin) = the notice text.
 
+Transport (one document per site and day): `GET /api/transport?site=&day=YYYY-MM-DD` · `GET /api/transport/days?site=`
+(any login) · `PUT /api/transport` `{ site, day, rows, version, note }` (desk of the site / admin; `version` 0 = new day,
+an older version → 409) · `DELETE /api/transport?site=&day=&version=`.
+
 `GET /api/flights` (any login) — the stored Jeddah board; `POST /api/flights/refresh` (admin) fetches now.
 Needs the secret `AIRLABS_KEY` (`npx wrangler secret put AIRLABS_KEY`) and the cron in `wrangler.toml`
 (`*/15 * * * *`); budget constants `FLIGHT_BUDGET` / `FLIGHT_MIN_GAP` in `worker.js`.

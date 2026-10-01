@@ -129,6 +129,11 @@ async function route(req, env) {
     if (p === '/api/flights' && m === 'GET') return getFlights(env);
     if (p === '/api/flights/refresh' && m === 'POST') { requireAdmin(me); await refreshFlights(env, true); return getFlights(env); }
 
+    if (p === '/api/transport' && m === 'GET') return getTransport(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
+    if (p === '/api/transport/days' && m === 'GET') return transportDays(env, transportSite(url.searchParams.get('site'), me));
+    if (p === '/api/transport' && m === 'PUT') return putTransport(req, env, me);
+    if (p === '/api/transport' && m === 'DELETE') return deleteTransport(url, env, me);
+
     if (p.startsWith('/api/laundry/')) { const r = await laundryRoute(p, m, url, req, env, me); if (r) return r; }
 
     if (p === '/api/buildings' && m === 'GET') return listBuildings(env);
@@ -1368,6 +1373,60 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (p === '/api/laundry/close' && m === 'POST') return closeLaundryDay(req, env, me);
     if (p === '/api/laundry/audit' && m === 'GET') return laundryAudit(url, env, me);
     return null;
+}
+
+/* -------------------------------- transport -------------------------------- */
+// The day's vehicle list pasted on the Transport import page: one JSON document per site and day
+// (app/core/transport.js parses it and numbers the buses). Read: any login · write: desk of that site, admin.
+
+const MAX_TRANSPORT_BYTES = 512 * 1024;
+const transportSite = (v, me) => { const s = String(v || me.site); if (!SITES[s]) throw new HttpError(400, `Unknown site "${s}".`); return s; };
+const transportDay = (v) => { const d = String(v || ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new HttpError(400, 'day must be YYYY-MM-DD.'); return d; };
+
+async function getTransport(env, site, day) {
+    const row = await env.DB.prepare('SELECT t.rows, t.version, t.updated_at, d.name AS updated_by FROM transport_days t LEFT JOIN desks d ON d.id = t.updated_by WHERE t.site = ? AND t.day = ?')
+        .bind(site, day).first();
+    return json({ site, day, rows: row ? JSON.parse(row.rows) : [], version: row ? row.version : 0, updated_at: row ? row.updated_at : null, updated_by: row ? row.updated_by : null });
+}
+
+async function transportDays(env, site) {
+    const { results } = await env.DB.prepare('SELECT day, n, pax, updated_at FROM transport_days WHERE site = ? ORDER BY day').bind(site).all();
+    return json({ site, days: results });
+}
+
+// Whole-day save with the version the page loaded (0 = new day); another desk's newer save → 409
+async function putTransport(req, env, me) {
+    const { site, day, rows, version, note } = await body(req);
+    assertWrite(me, site);
+    const d = transportDay(day);
+    if (!Array.isArray(rows)) throw new HttpError(400, 'rows must be a list.');
+    if (rows.length > 500) throw new HttpError(413, 'At most 500 trips a day.');
+    const list = cleanSlip(rows);
+    const text = JSON.stringify(list);
+    if (text.length > MAX_TRANSPORT_BYTES) throw new HttpError(413, 'Transport list too large.');
+    const pax = list.reduce((s, r) => s + (Number(r && r.pax) || 0), 0);
+    const v = Number(version) || 0;
+    const write = v === 0
+        ? env.DB.prepare('INSERT OR IGNORE INTO transport_days (site, day, rows, n, pax, version, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, 1, ?, ?)').bind(site, d, text, list.length, pax, now(), me.id)
+        : env.DB.prepare('UPDATE transport_days SET rows = ?, n = ?, pax = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE site = ? AND day = ? AND version = ?').bind(text, list.length, pax, now(), me.id, site, d, v);
+    const [res] = await env.DB.batch([write]);
+    if (!res.meta.changes) {
+        const cur = await (await getTransport(env, site, d)).json();
+        throw new HttpError(409, `The ${d} transport list was changed by ${cur.updated_by || 'another desk'} meanwhile. Reload and try again.`, { current: cur });
+    }
+    await auditStmt(env, me, 'transport-save', null, `${site} ${d}: ${list.length} trips${note ? ' · ' + String(note).slice(0, 300) : ''}`).run();
+    return getTransport(env, site, d);
+}
+
+async function deleteTransport(url, env, me) {
+    const site = transportSite(url.searchParams.get('site'), me);
+    assertWrite(me, site);
+    const d = transportDay(url.searchParams.get('day'));
+    const v = Number(url.searchParams.get('version')) || 0;
+    const [res] = await env.DB.batch([env.DB.prepare('DELETE FROM transport_days WHERE site = ? AND day = ? AND version = ?').bind(site, d, v)]);
+    if (!res.meta.changes) throw new HttpError(409, `The ${d} transport list was changed meanwhile. Reload and try again.`);
+    await auditStmt(env, me, 'transport-delete', null, `${site} ${d}`).run();
+    return json({ ok: true });
 }
 
 async function listAudit(url, env) {

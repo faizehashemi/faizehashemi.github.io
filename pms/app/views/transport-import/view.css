@@ -1,0 +1,20 @@
+@import url("../../core/transport.css");
+.ti-text { width: 100%; min-height: 220px; resize: vertical; font: 12px/1.45 ui-monospace, Consolas, monospace; padding: 10px; border: 1px solid var(--edge); border-radius: 10px; background: #fff; white-space: pre; tab-size: 4; }
+.ti-go { margin: 10px 0 0; }
+.ti-day { display: grid; gap: 10px; }
+.ti-day h2 { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin: 0; }
+.ti-day h2 small { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.ti-badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #eef1f5; color: #3b4656; }
+.ti-badge.new { background: #e3f4ea; color: #1f6f43; }
+.ti-badge.upd { background: #fff1d6; color: #8a5a00; }
+.ti-sum { display: flex; flex-wrap: wrap; gap: 6px; }
+.ti-chg td.k { width: 34px; text-align: center; }
+.ti-chg td.k input { width: 18px; height: 18px; accent-color: var(--gold-deep); }
+.ti-chg tr.add td { background: #effaf2; }
+.ti-chg tr.del td { background: #fff1f1; }
+.ti-chg tr.del td:not(.k) { text-decoration: line-through; text-decoration-color: rgba(161, 42, 42, .5); }
+.ti-chg .what { font-weight: 800; white-space: nowrap; }
+.ti-chg tr.add .what { color: #1f6f43; } .ti-chg tr.del .what { color: #a12a2a; } .ti-chg tr.chg .what { color: #8a5a00; }
+.ti-chg ul { margin: 0; padding-left: 16px; }
+.ti-chg del { color: #a12a2a; } .ti-chg ins { color: #1f6f43; text-decoration: none; font-weight: 650; }
+.ti-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

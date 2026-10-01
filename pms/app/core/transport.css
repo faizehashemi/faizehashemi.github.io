@@ -1,0 +1,101 @@
+/* Transport pages (transport, transport-import, transport-print) — cream • gold • brown like Home,
+   with the sheet yellows of the printed transport lists. Each view.css @imports this file. */
+:root {
+    --bg: #f7efe1;
+    --panel: #fffaf1;
+    --ink: #2b1e15;
+    --muted: #6b5e4a;
+    --gold: #d4af37;
+    --gold-deep: #9a7414;
+    --edge: #e3d2b1;
+    --shade: 0 8px 24px rgba(92, 64, 28, .10);
+    --sheet-dark: #f1c232;   /* sheet title band */
+    --sheet-mid: #ffd966;    /* column headings */
+    --sheet-light: #fff2cc;  /* rows */
+    --sheet-ink: #3d3100;
+}
+* { box-sizing: border-box; }
+body {
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg) url("../../assets/pattern_gold_2x.png") repeat;
+    background-size: 150px auto;
+    margin: 0;
+    color: var(--ink);
+}
+.tp { max-width: 1280px; margin: 0 auto; padding: 18px 18px 30px; display: grid; gap: 14px; }
+.tp-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; }
+.tp-head h1 { margin: 0; font-size: 24px; color: var(--gold-deep); }
+.tp-sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.tp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tp-card { background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shade); min-width: 0; }
+.tp-card h2 { margin: 0 0 8px; font-size: 16px; color: var(--gold-deep); }
+.tp-muted { color: var(--muted); font-size: 12.5px; }
+.tp-hidden, [hidden] { display: none !important; }
+
+.tp-btn {
+    display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer;
+    padding: 7px 14px; border: 1px solid var(--edge); border-radius: 10px; background: #fffdf5; color: #7a5b13; text-decoration: none; white-space: nowrap;
+}
+.tp-btn:hover:not(:disabled) { background: #fff3d1; border-color: var(--gold); }
+.tp-btn:disabled { opacity: .5; cursor: default; }
+.tp-btn.gold { background: var(--gold); border-color: var(--gold); color: #fff; }
+.tp-btn.gold:hover:not(:disabled) { background: #c39d22; }
+.tp-btn.danger { color: #a12a2a; border-color: #e6bcbc; background: #fff; }
+.tp-btn.danger:hover:not(:disabled) { background: #fff1f1; border-color: #a12a2a; }
+.tp-link { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--gold-deep); cursor: pointer; text-decoration: underline; padding: 0 4px; }
+
+.tp-dn { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; padding: 10px 12px; box-shadow: var(--shade); }
+.tp-date { font: inherit; padding: 6px 10px; border: 1px solid var(--edge); border-radius: 10px; background: #fff; }
+.tp-dn-long { font-size: 15px; }
+.tp-dn-info { color: var(--muted); font-size: 12.5px; }
+.tp-dn-jump { margin-left: auto; }
+
+.tp-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.tp-tile { position: relative; display: grid; gap: 2px; padding: 14px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--edge); box-shadow: var(--shade); overflow: hidden; }
+.tp-tile::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--sheet-dark); }
+.tp-tile .ico { position: absolute; right: 12px; top: 10px; font-size: 24px; }
+.tp-tile b { font-size: 28px; line-height: 1.1; }
+.tp-tile span { font-weight: 650; font-size: 13px; }
+.tp-tile small { color: var(--muted); font-size: 12px; }
+
+.tp-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+.tp-bar input[type=search] { flex: 1 1 220px; font: inherit; padding: 7px 10px; border: 1px solid var(--edge); border-radius: 10px; background: #fff; }
+.tp-seg { display: inline-flex; border: 1px solid var(--gold); border-radius: 999px; overflow: hidden; }
+.tp-seg button { font: inherit; font-size: 12.5px; font-weight: 700; border: 0; background: transparent; padding: 6px 14px; color: #7a5b13; cursor: pointer; }
+.tp-seg button + button { border-left: 1px solid var(--gold); }
+.tp-seg button[aria-pressed="true"] { background: var(--gold); color: #fff; }
+
+/* trip tables in the sheet yellows */
+.tp-tbl { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; }
+.tp-tbl th { background: var(--sheet-mid); color: var(--sheet-ink); text-align: left; padding: 7px 8px; font-size: 12px; letter-spacing: .03em; text-transform: uppercase; border: 1px solid #c9a227; white-space: nowrap; }
+.tp-tbl td { padding: 7px 8px; border: 1px solid #ead9a6; vertical-align: top; background: var(--sheet-light); }
+.tp-tbl td small { display: block; color: var(--muted); font-size: 11.5px; }
+.tp-tbl .n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tp-tbl .t { white-space: nowrap; font-weight: 650; }
+.tp-tbl .bus { width: 76px; text-align: center; font-weight: 800; font-size: 15px; }
+.tp-tbl .bus input { width: 58px; font: inherit; font-weight: 800; text-align: center; padding: 3px 4px; border: 1px solid #c9a227; border-radius: 8px; background: #fff; }
+.tp-tbl .bus input.manual { border-color: #364fc7; color: #364fc7; }
+.tp-tbl .bus input.dup { border-color: #c92a2a; background: #fff1f1; }
+.tp-tbl tr.rider td { background: #fffbea; }
+.tp-tbl tr.rider .bus { color: var(--muted); font-size: 12px; font-weight: 600; }
+.tp-tbl tr.past td { opacity: .6; }
+.tp-dest { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; padding: 8px 12px; background: var(--sheet-dark); color: #fff; border-radius: 10px 10px 0 0;
+    font-weight: 800; font-size: 17px; letter-spacing: .04em; text-shadow: 0 1px 1px rgba(0, 0, 0, .25); }
+.tp-dest:first-child { margin-top: 0; }
+.tp-dest small { margin-left: auto; font-size: 12.5px; font-weight: 650; letter-spacing: 0; }
+.tp-dest + .tp-scroll { margin-top: -6px; }
+.tp-scroll { overflow-x: auto; }
+.tp-empty { padding: 16px 4px; color: var(--muted); }
+.tp-msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.tp-msg.ok { background: #e3f4ea; color: #1f6f43; }
+.tp-msg.warn { background: #fff4de; color: #8a5a00; }
+.tp-msg.bad { background: #fde7e7; color: #a12a2a; }
+
+@media (max-width: 760px) {
+    .tp { padding: 12px 10px 24px; }
+    .tp-tiles { gap: 8px; }
+    .tp-tile { padding: 10px; }
+    .tp-tile .ico { display: none; }
+    .tp-tile b { font-size: 22px; }
+    .tp-dn-jump { margin-left: 0; }
+}

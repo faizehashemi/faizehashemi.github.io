@@ -1,0 +1,29 @@
+<div class="tp">
+    <header class="tp-head">
+        <div>
+            <h1>Transport</h1>
+            <p class="tp-sub">Trips of the day from the transport list. Atraaf, Madina and Jeddah Airport trips get a bus number, signage and a bus sheet.</p>
+        </div>
+        <div class="tp-actions">
+            <a class="tp-btn" id="tpImport" href="#">📋 Import list</a>
+            <a class="tp-btn" id="tpPrint" href="#">🖨️ Bus sheets</a>
+            <a class="tp-btn gold" id="tpSignage" href="signage/" target="_blank" rel="noopener">📺 Signage ↗</a>
+        </div>
+    </header>
+    <div id="tpNav"></div>
+    <div class="tp-tiles" id="tpTiles"></div>
+    <section class="tp-card">
+        <div class="tp-bar">
+            <div class="tp-seg" id="tpFilter" role="group" aria-label="Which trips">
+                <button type="button" data-f="sign" aria-pressed="true">Signage trips</button>
+                <button type="button" data-f="all" aria-pressed="false">All trips</button>
+            </div>
+            <input type="search" id="tpFind" placeholder="Find SH, group, leader, transporter, vch…" aria-label="Find">
+            <button type="button" class="tp-btn" id="tpRenumber" title="Number each destination again from 1 in time order">Renumber buses</button>
+            <button type="button" class="tp-btn danger" id="tpDelete">Delete day</button>
+        </div>
+        <div id="tpMsg"></div>
+        <div id="tpList"><p class="tp-empty">Loading…</p></div>
+        <p class="tp-muted" id="tpMeta"></p>
+    </section>
+</div>

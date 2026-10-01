@@ -76,6 +76,9 @@ button.hm-stat:focus-visible, a.hm-stat:focus-visible { outline: 3px solid var(-
 .hm-stat.fm { --accent: #e8590c; }
 .hm-stat.fn { --accent: #364fc7; }
 .hm-stat.fs { --accent: #0c8599; }
+.hm-stat.ta { --accent: #f1c232; }
+.hm-stat.tm { --accent: #2b8a3e; }
+.hm-stat.tj { --accent: #1c7ed6; }
 
 /* ---------- mega cards: one panel holding a row of tiles ---------- */
 .hm-mega { display: grid; gap: 12px; padding: 16px; border-radius: 18px; border: 1px solid var(--edge);
@@ -267,3 +270,9 @@ dialog.ih::backdrop { background: rgba(30, 20, 5, .5); }
 }
 
 .hm-more[hidden] { display: none; }
+
+/* ---------- transport list behind a Transport tile (transport.js) ---------- */
+.ih-tbl td.bus { text-align: center; font-weight: 800; font-size: 16px; width: 60px; }
+.ih-tbl tr.rider td { background: #fffbea; }
+.ih-tbl tr.rider td.bus { color: var(--muted); font-size: 12px; font-weight: 600; }
+.ih-tbl tr.past td { opacity: .55; }

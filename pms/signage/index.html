@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f1c232" />
+    <title>Transport Signage</title>
+    <link rel="icon" type="image/png" href="../assets/icons/icon-192.png">
+    <!--
+      Transport signage for a TV: today's buses to Atraaf, Madina and Jeddah Airport from the Transport day list
+      (cloud, refreshed every 30 s). https://pms.raajsoftware.com/signage/?site=makkah[&day=YYYY-MM-DD]
+      Without day= it shows today and moves to the next day at midnight. When the list is longer than the
+      screen it pages through it. Needs a PMS login once on the TV (a viewer login is enough).
+    -->
+    <style>
+        :root {
+            --dark: #f1c232; --mid: #ffd966; --light: #fff2cc; --ink: #3d3100; --line: #1a1400;
+            --page: #fff9e6;
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        html, body { height: 100%; }
+        body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; overflow: hidden; }
+        .h { font-family: "Arial Black", "Archivo Black", Arial, sans-serif; font-weight: 900; }
+
+        .top { height: 9vh; min-height: 56px; display: flex; align-items: center; gap: 2vw; padding: 0 2vw; color: #fff;
+            background: linear-gradient(135deg, #7a5410 0%, #b8871d 45%, #d4af37 100%); box-shadow: 0 4px 16px rgba(122, 84, 16, .3); }
+        .top .title { font-size: clamp(18px, 2.4vw, 46px); letter-spacing: .04em; text-shadow: 0 2px 2px rgba(0, 0, 0, .2); }
+        .top .day { font-size: clamp(14px, 1.6vw, 30px); font-weight: 700; opacity: .95; }
+        .top .clock { margin-left: auto; font-size: clamp(20px, 3vw, 56px); font-variant-numeric: tabular-nums; }
+        .top .page { font-size: clamp(12px, 1.1vw, 20px); font-weight: 700; background: rgba(255, 255, 255, .2); padding: 2px 10px; border-radius: 999px; }
+
+        #board { height: 91vh; overflow: hidden; padding: 0 1.4vw 2vh; transition: opacity .5s; }
+        .sg:first-child { margin-top: 1.2vh; }
+        #board.fade { opacity: 0; }
+        .sg { width: 100%; border-collapse: collapse; margin-bottom: 2.2vh; background: var(--light); }
+        .sg td, .sg th { border: 2px solid var(--line); }
+        .sg thead th { position: sticky; z-index: 1; }
+        .sg .band th { top: 0; background: var(--dark); color: #fff; padding: .6vh 1vw; text-decoration: underline; text-underline-offset: .25em;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, .2); height: 8vh; box-shadow: 0 -8px 0 var(--page); }
+        .sg .band .d { font-size: clamp(18px, 2.6vw, 52px); width: 22%; }
+        .sg .band .dest { font-size: clamp(26px, 4.2vw, 84px); letter-spacing: .02em; }
+        .sg .band .tm { font-size: clamp(18px, 2.6vw, 52px); width: 22%; }
+        .sg .cols th { top: 8vh; background: var(--mid); color: #000; font-size: clamp(12px, 1.5vw, 30px); padding: .4vh .6vw; text-decoration: underline; text-underline-offset: .2em; }
+        .sg tbody td { text-align: center; vertical-align: middle; padding: .9vh .8vw; font-family: "Bookman Old Style", "Times New Roman", Georgia, serif;
+            font-weight: 700; font-size: clamp(14px, 1.75vw, 36px); text-transform: uppercase; height: 8.5vh; }
+        .sg tbody .num { font-size: clamp(18px, 2.5vw, 50px); font-family: Georgia, "Times New Roman", serif; }
+        .sg tbody .bus { font-size: clamp(20px, 2.9vw, 58px); background: #ffe599; }
+        .sg tbody tr.rider .bus { color: #7a6a2a; }
+        .sg tbody tr.past td { opacity: .42; }
+        .sg tbody tr.cut { visibility: hidden; }
+        .sg tbody .tm { text-transform: none; }
+        .sg tbody tr.next td { background: #fff7d6; }
+
+        .empty { display: grid; place-items: center; height: 70vh; text-align: center; }
+        .empty b { display: block; font-size: clamp(24px, 3.4vw, 64px); color: #9a7414; }
+        .empty span { font-size: clamp(14px, 1.6vw, 30px); color: #6b5e4a; }
+        .status { position: fixed; right: 1vw; bottom: .6vh; font-size: 12px; color: #6b5e4a; opacity: .8; }
+        .status.bad { color: #a12a2a; font-weight: 700; opacity: 1; }
+
+        .login { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(30, 20, 5, .55); }
+        .login form { width: min(380px, 92vw); background: #fffaf1; border-radius: 16px; padding: 22px; display: grid; gap: 10px; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+        .login h1 { margin: 0; font-size: 20px; color: #9a7414; }
+        .login p { margin: 0; color: #6b5e4a; font-size: 13px; }
+        .login input { font: inherit; padding: 9px 11px; border: 1px solid #e3d2b1; border-radius: 10px; }
+        .login button { font: inherit; font-weight: 700; padding: 10px; border: 0; border-radius: 10px; background: #d4af37; color: #fff; cursor: pointer; }
+        .login .err { color: #a12a2a; font-weight: 600; min-height: 1.2em; }
+    </style>
+</head>
+<body>
+    <header class="top">
+        <span class="h title">TRANSPORT</span>
+        <span class="day" id="day"></span>
+        <span class="page" id="page" hidden></span>
+        <span class="h clock" id="clock"></span>
+    </header>
+    <main id="board"></main>
+    <div class="status" id="status"></div>
+    <div class="login" id="login" hidden>
+        <form id="loginForm">
+            <h1>Transport signage</h1>
+            <p>Log in once with a PMS desk or viewer login. This screen then stays logged in.</p>
+            <input id="lName" autocomplete="username" placeholder="Desk name" required>
+            <input id="lPass" type="password" autocomplete="current-password" placeholder="Password" required>
+            <div class="err" id="lErr"></div>
+            <button type="submit">Show signage</button>
+        </form>
+    </div>
+    <script type="module">
+        import { getSession, login } from '../app/core/cloud.js';
+        import { loadDay, signage, today, sheetDate, longDate, time12 } from '../app/core/transport.js';
+
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const q = new URLSearchParams(location.search);
+        const site = q.get('site') || 'makkah';
+        const fixedDay = /^\d{4}-\d{2}-\d{2}$/.test(q.get('day') || '') ? q.get('day') : null;
+        const REFRESH_MS = 30e3, PAGE_MS = 12e3, PAST_MIN = 15;
+
+        let lastHtml = '', paging = null;
+
+        const localAt = (ms = Date.now()) => { const d = new Date(ms); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+
+        function tick() {
+            $('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function table(day, s, nowAt) {
+            const rows = s.buses.flatMap(b => b.rows.map((r, i) => ({ r, b, i })));
+            const times = new Set(s.buses.map(b => b.at));
+            const oneTime = times.size === 1; // as on the sheets: a single departure time goes in the heading
+            const nextAt = s.buses.map(b => b.at).filter(a => a >= nowAt).sort()[0];
+            return `<table class="sg">
+              <thead>
+                <tr class="band"><th class="h d">${esc(sheetDate(day))}</th>
+                  <th class="h dest" colspan="${oneTime ? 2 : 3}">${esc(s.dest.label)}</th>
+                  <th class="h tm" colspan="2">${oneTime ? esc(time12([...times][0])) : ''}</th></tr>
+                <tr class="cols"><th class="h">GROUP</th><th class="h">GROUP LEADER</th><th class="h">SH REF</th><th class="h">PAX</th>${oneTime ? '' : '<th class="h">TIME</th>'}<th class="h">BUS NO</th></tr>
+              </thead>
+              <tbody>${rows.map(({ r, b, i }) => {
+                  const left = localAt(new Date(`${b.at}`).getTime() + PAST_MIN * 60e3) < nowAt;
+                  return `<tr class="${i ? 'rider' : ''}${left ? ' past' : ''}${b.at === nextAt ? ' next' : ''}">
+                    <td>${esc(r.operator)}</td><td>${esc(r.leader)}</td><td class="num">${esc(r.ref)}</td><td class="num">${esc(r.pax)}</td>
+                    ${oneTime ? '' : `<td class="num tm">${esc(time12(b.at))}</td>`}<td class="num bus">${esc(b.bus ?? '')}</td></tr>`;
+              }).join('')}</tbody>
+            </table>`;
+        }
+
+        async function refresh() {
+            const day = fixedDay || today();
+            $('day').textContent = longDate(day);
+            try {
+                const doc = await loadDay(site, day);
+                const nowAt = localAt();
+                const groups = signage(doc.rows).filter(s => s.buses.length);
+                const html = groups.length ? groups.map(s => table(day, s, nowAt)).join('')
+                    : `<div class="empty"><div><b>No buses scheduled</b><span>${esc(longDate(day))}</span></div></div>`;
+                if (html !== lastHtml) { lastHtml = html; $('board').innerHTML = html; $('board').scrollTop = 0; startPaging(); }
+                $('status').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                $('status').className = 'status';
+            } catch (e) {
+                $('status').textContent = `Not updated — ${e.message || 'no connection'} (showing the last list)`;
+                $('status').className = 'status bad';
+            }
+        }
+
+        // longer than the screen: show it a page at a time, never cutting a row; the column headings stay on top
+        function startPaging() {
+            clearInterval(paging);
+            const board = $('board');
+            // the column headings stick right under the band
+            board.querySelectorAll('.sg').forEach(t => { const h = t.querySelector('.band').getBoundingClientRect().height; t.querySelectorAll('.cols th').forEach(th => { th.style.top = h + 'px'; }); });
+            const pages = () => {
+                const starts = [0];
+                const top0 = board.getBoundingClientRect().top;
+                const els = [...board.querySelectorAll('.sg thead, .sg tbody tr, .empty')];
+                let pageTop = 0;
+                for (const el of els) {
+                    const r = el.getBoundingClientRect();
+                    const top = r.top - top0 + board.scrollTop, bottom = top + r.height;
+                    if (bottom - pageTop > board.clientHeight) {
+                        // a cut table continues under its own sticky headings
+                        const head = el.closest('.sg')?.tHead;
+                        const offset = el.matches('tr') && head ? head.getBoundingClientRect().height : 0;
+                        pageTop = Math.max(pageTop + 1, top - offset);
+                        starts.push(pageTop);
+                    }
+                }
+                return starts;
+            };
+            // recomputed at every turn: the list or the screen may have changed since
+            const label = () => {
+                // a row the bottom edge would cut shows on the next page instead
+                const limit = board.getBoundingClientRect().bottom;
+                board.querySelectorAll('.sg tbody tr').forEach(tr => { tr.classList.remove('cut'); tr.classList.toggle('cut', tr.getBoundingClientRect().bottom > limit + 1); });
+                const list = pages();
+                const atEnd = board.scrollTop > 0 && board.scrollTop + board.clientHeight >= board.scrollHeight - 2;
+                const i = atEnd ? list.length - 1 : Math.max(0, list.findLastIndex(t => t <= board.scrollTop + 1));
+                $('page').hidden = list.length < 2;
+                $('page').textContent = `Page ${i + 1} of ${list.length}`;
+                return list;
+            };
+            if (label().length < 2) return;
+            paging = setInterval(() => {
+                const list = pages();
+                if (list.length < 2) { board.scrollTop = 0; label(); return; }
+                board.classList.add('fade');
+                setTimeout(() => {
+                    const atEnd = board.scrollTop + board.clientHeight >= board.scrollHeight - 2; // the last page may sit higher
+                    board.scrollTop = atEnd ? 0 : (list.find(t => t > board.scrollTop + 1) ?? 0);
+                    label();
+                    board.classList.remove('fade');
+                }, 500);
+            }, PAGE_MS);
+        }
+        window.addEventListener('resize', () => { lastHtml = ''; refresh(); });
+
+        // a new website build: reload (TVs stay open for weeks)
+        let build = null;
+        async function checkBuild() {
+            try {
+                const v = await (await fetch(`../version.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+                if (build && v.web && v.web !== build) location.reload();
+                build = v.web || build;
+            } catch { }
+        }
+
+        let started = false;
+        function start() {
+            $('login').hidden = true;
+            if (started) { refresh(); return; }
+            started = true;
+            refresh();
+            setInterval(refresh, REFRESH_MS);
+            setInterval(checkBuild, 10 * 60e3);
+            checkBuild();
+        }
+        function askLogin(reason) {
+            $('login').hidden = false;
+            $('lErr').textContent = reason || '';
+            $('lName').focus();
+        }
+        $('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            $('lErr').textContent = '';
+            try { await login($('lName').value.trim(), $('lPass').value); $('lPass').value = ''; start(); }
+            catch (err) { $('lErr').textContent = err.message || 'Could not log in.'; }
+        });
+        window.addEventListener('pms:logged-out', (e) => askLogin(e.detail?.reason));
+
+        tick();
+        setInterval(tick, 1000);
+        if (getSession()) start(); else askLogin();
+    </script>
+</body>
+</html>

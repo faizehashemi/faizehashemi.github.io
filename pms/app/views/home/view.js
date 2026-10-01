@@ -4,6 +4,7 @@
 // Fakkul Ehraam counts (Makkah arrivals; times from Setup → Fakkul Ehraam windows): Morning = check-ins from 20:00
 // yesterday to 07:00 today, Night = 07:00 to 20:00 today (Madina groups included), Night · from Madina = those whose
 // SH starts with S. Tiles open the groups (groups.js).
+// Transport today: buses to Atraaf, Madina and Jeddah Airport from today's Transport list (cloud); tiles open the trips.
 
 import { currentDesk, mirrorAll, canOpen } from '../../core/cloud.js';
 import { mealThalsFor, mealGuestsFor } from '../../core/meals.js';
@@ -14,6 +15,8 @@ import { openGroupList } from './groups.js';
 import { loadSettings, DEFAULTS } from '../../core/settings.js';
 import { renderOccupancy } from './occupancy.js';
 import { renderFlights } from './flights.js';
+import { openTransportList } from './transport.js';
+import { loadDay as loadTransport, signage as transportSignage, today as transportToday, time12 } from '../../core/transport.js';
 
 const PRAISE = [
     'The guests of Allah are in wonderful hands today.',
@@ -56,6 +59,8 @@ export default async function mount(ctx) {
             if (canOpen('checkins', desk)) $(id).href = ctx.href('checkins'); else $(id).removeAttribute('href');
         }
         $('hmMealsLink').hidden = !canOpen('mawaid', desk);
+        $('hmTrLink').hidden = !canOpen('transport', desk);
+        if (canOpen('transport', desk)) $('hmTrLink').href = ctx.href('transport');
         if (canOpen('mawaid', desk)) $('hmMealsLink').href = ctx.href('mawaid');
     }
     applyAccess();
@@ -93,6 +98,29 @@ export default async function mount(ctx) {
             if (!mealsWho) return;
             list(ctx.siteId, `${title} thaals · ${ctx.site.label}`, 'adults counted, as on the Mawaid page', mealsWho[key], 'guests');
         });
+    }
+
+    /* ------------------------------ transport today ------------------------------ */
+    const TR_TILES = [['trAtraaf', 'atraaf'], ['trMadina', 'madina'], ['trAirport', 'airport']];
+    let trGroups = null;
+    for (const [id, dest] of TR_TILES) {
+        $(id).addEventListener('click', () => {
+            const g = trGroups?.find(x => x.dest.id === dest);
+            if (!g) return;
+            openTransportList({ title: `Transport today · ${g.dest.title}`, sub: ctx.site.label, group: g, host: ctx.root,
+                dayHref: canOpen('transport', desk) ? ctx.href('transport') : '' });
+        });
+    }
+    async function transport() {
+        const doc = await ctx.guard(loadTransport(ctx.siteId, transportToday()));
+        trGroups = transportSignage(doc.rows);
+        for (const [id, dest] of TR_TILES) {
+            const g = trGroups.find(x => x.dest.id === dest);
+            const first = g.buses.length ? g.buses.reduce((a, b) => a.at < b.at ? a : b).at : null;
+            setStat(id, g.pax, g.buses.length
+                ? `${g.buses.length} bus${g.buses.length === 1 ? '' : 'es'} · ${g.groups} group${g.groups === 1 ? '' : 's'} · from ${time12(first)}`
+                : (doc.version ? 'no buses today' : 'no transport list for today'));
+        }
     }
 
     /* ------------------------------ today's numbers ------------------------------ */
@@ -150,12 +178,14 @@ export default async function mount(ctx) {
 
     await Promise.all([
         numbers().catch(e => console.warn('home numbers', e)),
+        transport().catch(e => console.warn('home transport', e)),
     ]);
 
     // keep the numbers current while the page stays open
     let n = 0;
     const tick = setInterval(() => {
         if (++n % 2 === 0) numbers().catch(() => { }); // other desks' check-ins, every 2 minutes
+        transport().catch(() => { }); // a new transport import, every minute
     }, 60e3);
     return () => { clearInterval(tick); flightsTimer.then(t => clearInterval(t)); };
 }
