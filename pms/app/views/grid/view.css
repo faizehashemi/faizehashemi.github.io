@@ -311,3 +311,5 @@
             }
         }
     
+/* a room a slip uses that is not active in Rooms & Buildings */
+.cell.off-list { outline: 2px dashed #c0392b; outline-offset: -3px; }

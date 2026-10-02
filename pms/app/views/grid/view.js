@@ -1,5 +1,7 @@
 // Ported from pms/building_legend_grid.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
-// Rooms and bed counts from Rooms & Buildings are merged in, so never-used rooms show as vacant.
+// The rooms come from Rooms & Buildings (active rooms, on the floor set there, with their bed counts); a room a
+// slip uses at the chosen time but that is not active there still shows, marked, so no guest drops off the grid.
+// Only a building the builder has no rooms for falls back to the rooms named on its slips.
 
 import { loadBuildings, buildingsOfSite, findBuilding } from '../../core/rooms.js';
 
@@ -38,33 +40,48 @@ let BUILDINGS = [];
             return { floor: digits.slice(0, -2), col: digits.slice(-2) + suf };
         }
 
-        /* All rooms present across slips for a building, deduped by normalized token */
-        function buildInventoryPerBuilding(records, building) {
+        /* The building's rooms: Rooms & Buildings first, slips only where the builder knows nothing */
+        function buildInventoryPerBuilding(records, building, when) {
             const b = (building || '').trim();
-            const roomSet = new Set();
+            const builder = (findBuilding(BUILDINGS, b)?.rooms || []);
+            const rooms = new Map(); // norm → { floor, offList }
+            for (const r of builder) {
+                const k = normRoom(r.room_no);
+                if (k && r.active !== false) rooms.set(k, { floor: String(r.floor || '').trim() || parseRoomToken(k).floor, offList: false });
+            }
+            const useBuilder = rooms.size > 0;
             records.forEach(r => {
                 if ((r.building || '').trim() !== b) return;
-                roomsFromSlip(r).forEach(rr => roomSet.add(rr));
+                if (useBuilder) { // only rooms someone is in at the chosen time
+                    const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
+                    if (!ci || !co || !overlapsIn(when, ci, co)) return;
+                }
+                roomsFromSlip(r).forEach(k => {
+                    if (rooms.has(k)) return;
+                    const inactive = builder.find(x => normRoom(x.room_no) === k);
+                    rooms.set(k, { floor: String(inactive?.floor || '').trim() || parseRoomToken(k).floor, offList: useBuilder });
+                });
             });
-            (findBuilding(BUILDINGS, b)?.rooms || []).filter(r => r.active !== false).forEach(r => roomSet.add(normRoom(r.room_no)));
-            const rooms = [...roomSet];
 
-            const floors = new Map(), cellToRoom = new Map();
-            rooms.forEach(room => {
-                const { floor, col } = parseRoomToken(room);
+            const floors = new Map(), cellToRoom = new Map(), offList = new Set();
+            for (const [room, info] of rooms) {
+                const { col } = parseRoomToken(room);
+                const floor = info.floor;
                 if (!floors.has(floor)) floors.set(floor, new Set());
                 floors.get(floor).add(col);
                 cellToRoom.set(`${floor}|${col}`, room); // map grid cell to normalized room
-            });
+                if (info.offList) offList.add(room);
+            }
 
-            const flist = [...floors.keys()].sort((a, b) => Number(a) - Number(b));
+            // lettered floors (G, M…) before the numbered ones, then in order
+            const flist = [...floors.keys()].sort((a, b) => (/^\d/.test(a) - /^\d/.test(b)) || a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
             const allCols = new Set(); flist.forEach(f => floors.get(f).forEach(c => allCols.add(c)));
             const clist = [...allCols].sort((a, b) => {
                 const an = parseInt(a, 10), bn = parseInt(b, 10);
                 if (!isNaN(an) && !isNaN(bn) && an !== bn) return an - bn;
                 return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
             });
-            return { flist, clist, cellToRoom };
+            return { flist, clist, cellToRoom, offList };
         }
 
         /* Occupancy logic */
@@ -193,7 +210,7 @@ let BUILDINGS = [];
             const when = new Date(`${dateStr}T${timeStr}`); if (isNaN(when)) { alert('Invalid date/time'); return; }
 
             const mx = $('matrix'); mx.innerHTML = '';
-            const { flist, clist, cellToRoom } = buildInventoryPerBuilding(CACHE, building);
+            const { flist, clist, cellToRoom, offList } = buildInventoryPerBuilding(CACHE, building, when);
             if (!flist.length) { mx.textContent = 'No rooms found for this building.'; return; }
 
             mx.style.gridTemplateColumns = `repeat(${clist.length + 1}, max-content)`;
@@ -241,6 +258,7 @@ let BUILDINGS = [];
 
                             cell.classList.add('occ');
                             if (under) cell.classList.add('under');
+                            if (offList.has(roomNorm)) { cell.classList.add('off-list'); cell.title = `Room ${roomNorm} is not an active room in Rooms & Buildings`; }
 
                             cell.innerHTML = `
                     <div class="cap">${capTxt}${under && vacBeds != null ? ' · Vac ' + vacBeds : ''}</div>
@@ -271,7 +289,7 @@ let BUILDINGS = [];
                 });
             });
 
-            $('status').textContent = `${building} • Floors ${flist.join(', ')} • ${clist.length} columns • ${CACHE.length} slip(s)`;
+            $('status').textContent = `${building} • Floors ${flist.join(', ')} • ${clist.length} columns • ${CACHE.length} slip(s)${offList.size ? ` • ${offList.size} room(s) in use but not active in Rooms & Buildings (dashed)` : ''}`;
         }
 
         /* ================= Size controls ================= */
@@ -318,7 +336,7 @@ let BUILDINGS = [];
             if (!$('asof_date').value) $('asof_date').value = `${y}-${m}-${d}`;
             if (!$('asof_time').value) $('asof_time').value = `${h}:${n}`;
 
-            BUILDINGS = await ctx.guard(loadBuildings());
+            BUILDINGS = await ctx.guard(loadBuildings({ force: true })); // latest Rooms & Buildings edits
             const buildings = uniq([
                 ...buildingsOfSite(BUILDINGS, ctx.siteId).filter(b => b.rooms.length).map(b => b.name),
                 ...CACHE.map(r => (r.building || '').trim()).filter(Boolean),
@@ -332,6 +350,7 @@ let BUILDINGS = [];
             });
             $('btnRefresh').addEventListener('click', async () => {
                 CACHE = await getAllRecords();
+                BUILDINGS = await ctx.guard(loadBuildings({ force: true }));
                 const sel = document.querySelector('.tab[aria-selected="true"]')?.textContent || buildings[0];
                 renderMatrix(sel);
             });
