@@ -288,9 +288,11 @@ async function pull(url, env) {
     const limit = Math.min(PULL_LIMIT, Number(url.searchParams.get('limit')) || PULL_LIMIT);
     // first download: skip deleted slips, the browser has nothing to remove yet
     const onlyLive = seq === 0 && id === 0 ? 'AND deleted = 0' : '';
+    // "after (seq, id)". The leading seq >= ? lets SQLite start in the slips_seq index; written as
+    // (seq > ? OR (seq = ? AND id > ?)) it scanned the whole table on every check.
     const { results } = await env.DB.prepare(
         `SELECT id, site, data, version, seq, deleted FROM slips
-         WHERE (seq > ? OR (seq = ? AND id > ?)) ${onlyLive}
+         WHERE seq >= ? AND (seq > ? OR id > ?) ${onlyLive}
          ORDER BY seq, id LIMIT ?`
     ).bind(seq, seq, id, limit).all();
     const last = results[results.length - 1];
