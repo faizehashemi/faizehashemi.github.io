@@ -5,7 +5,7 @@
 
 import { request, currentDesk, UserError } from '../../core/cloud.js';
 import { loadScript, LIBS } from '../../core/lib.js';
-import { sar, esc, jeddahDay, jeddahTime, jeddahDate, STATUS, DEFAULT_INFO, itemPic, shrinkImage, receiptHTML, printReceipt, RECEIPT_CSS } from '../../core/laundry.js';
+import { sar, esc, jeddahDay, jeddahTime, jeddahDate, DEFAULT_INFO, itemPic, shrinkImage, receiptHTML, printReceipt, RECEIPT_CSS } from '../../core/laundry.js';
 
 const DAY = 864e5;
 const addDays = (ymd, n) => jeddahDay(Date.parse(ymd + 'T12:00:00+03:00') + n * DAY);
@@ -163,8 +163,7 @@ export default async function mount(ctx) {
     const billRows = (bills) => bills.map(b => ({
         Date: b.day, Time: jeddahTime(b.given_at), Receipt: b.receipt_no, Type: b.kind === 'free' ? 'Free (staff)' : 'Paid', Customer: b.kind === 'free' ? b.staff_name : b.customer?.name || '',
         Room: b.customer?.room || '', Group: b.customer?.group || '', Items: b.items, 'Item list': b.lines.map(l => `${l.name} x${l.qty}`).join(', '),
-        'Value SAR': b.value / 100, 'Paid SAR': b.paid / 100, Payment: b.method || '', Worker: b.worker, Status: b.voided ? 'Cancelled' : b.status,
-        'Collected at': b.collected_at ? `${jeddahDate(b.collected_at)} ${jeddahTime(b.collected_at)}` : '', 'Cancel reason': b.void_reason || '',
+        'Value SAR': b.value / 100, 'Paid SAR': b.paid / 100, Payment: b.method || '', Worker: b.worker, Status: b.voided ? 'Cancelled' : '', 'Cancel reason': b.void_reason || '',
     }));
     async function exportXlsx({ r, bills, s }) {
         await loadScript(LIBS.xlsx);
@@ -287,8 +286,6 @@ export default async function mount(ctx) {
               ${b.kind === 'free' ? `<div class="la-staffline">${staffPhoto(b.staff_id, 'la-photo-sm')}<div><b>${esc(b.staff_name)}</b><small>Free staff laundry · value ${sar(b.value)} SAR · paid 0</small></div></div>` : ''}
               <dl class="la-dl">
                 <dt>Given</dt><dd>${esc(jeddahDate(b.given_at))} ${esc(jeddahTime(b.given_at))} · by ${esc(b.worker)}</dd>
-                <dt>Status</dt><dd>${STATUS[b.status]}${b.ready_at ? ` · ready ${esc(jeddahDate(b.ready_at))} ${esc(jeddahTime(b.ready_at))}` : ''}</dd>
-                <dt>Collected</dt><dd>${b.collected_at ? `${esc(jeddahDate(b.collected_at))} ${esc(jeddahTime(b.collected_at))} · marked by ${esc(b.collected_by || '')}` : '—'}</dd>
                 ${b.customer?.group ? `<dt>Group</dt><dd>${esc(b.customer.group)}${b.customer.building ? ' · ' + esc(b.customer.building) : ''}</dd>` : ''}
                 ${b.customer?.contact ? `<dt>Contact</dt><dd>${esc(b.customer.contact)}</dd>` : ''}
                 ${b.approval_by ? `<dt>Approved by</dt><dd>${esc(b.approval_by)}</dd>` : ''}
@@ -378,9 +375,9 @@ export default async function mount(ctx) {
                   ${kpi('👤', s.free.staff, 'staff')}${kpi('🧾', s.free.bills, 'transactions')}${kpi('👕', s.free.items, 'clothes')}${kpi('🏷️', sar(s.free.value), 'laundry value SAR', 'big')}${kpi('💵', 0, 'collected SAR')}</div></div>
                 <div class="la-card"><h3>Staff-wise</h3><table class="la-t"><thead><tr><th>Staff</th><th class="n">Transactions</th><th class="n">Clothes</th><th class="n">Laundry value</th></tr></thead><tbody>
                   ${s.staff.map(x => `<tr class="click" data-staffh="${x.staff_id}"><td>${staffPhoto(x.staff_id, 'la-thumb sm')} ${esc(x.name)}</td><td class="n">${x.bills}</td><td class="n">${x.items}</td><td class="n">${sar(x.value)} SAR</td></tr>`).join('') || '<tr><td colspan="4" class="la-muted">No free laundry in this period.</td></tr>'}</tbody></table></div>
-                <div class="la-card"><h3>📒 Staff free laundry register</h3><div class="la-scroll"><table class="la-t"><thead><tr><th>Photo</th><th>Staff name</th><th>Given</th><th>Collection</th><th class="n">Count</th><th class="n">Value</th><th>Status</th><th>Accepted by</th></tr></thead><tbody>
+                <div class="la-card"><h3>📒 Staff free laundry register</h3><div class="la-scroll"><table class="la-t"><thead><tr><th>Photo</th><th>Staff name</th><th>Given</th><th class="n">Count</th><th class="n">Value</th><th>Accepted by</th></tr></thead><tbody>
                   ${free.map(b => `<tr class="${b.voided ? 'void' : ''} click" data-bill="${b.id}"><td>${staffPhoto(b.staff_id)}</td><td><b>${esc(b.staff_name)}</b></td><td>${esc(jeddahDate(b.given_at))} ${esc(jeddahTime(b.given_at))}</td>
-                    <td>${b.collected_at ? `${esc(jeddahDate(b.collected_at))} ${esc(jeddahTime(b.collected_at))}` : '—'}</td><td class="n">${b.items}</td><td class="n">${sar(b.value)} SAR</td><td>${b.voided ? '❌ Cancelled' : STATUS[b.status]}</td><td>${esc(b.worker)}</td></tr>`).join('') || '<tr><td colspan="8" class="la-muted">No entries.</td></tr>'}</tbody></table></div></div>`;
+                    <td class="n">${b.items}</td><td class="n">${sar(b.value)} SAR</td><td>${esc(b.worker)}${b.voided ? ' · ❌ cancelled' : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="la-muted">No entries.</td></tr>'}</tbody></table></div></div>`;
         } catch (e) { body.innerHTML = errBox(e); }
     }
     $('freeBody').addEventListener('click', (e) => { const tr = e.target.closest('[data-staffh]'); if (tr) staffHistory(Number(tr.dataset.staffh)); });
@@ -402,9 +399,9 @@ export default async function mount(ctx) {
               <p class="la-muted">This month so far: ${data.usage.month_bills} times · ${data.usage.month_items} clothes · ${sar(data.usage.month_value)} SAR${s.limits && Object.keys(s.limits).some(k => k !== 'enforce' && s.limits[k]) ? ` · limits: ${esc(limitText(s.limits))}` : ''}</p></div></div>
           <h3>By month</h3><table class="la-t"><thead><tr><th>Month</th><th class="n">Submissions</th><th class="n">Clothes</th><th class="n">Laundry value</th></tr></thead><tbody>
             ${[...months.values()].sort((a, b) => b.m.localeCompare(a.m)).map(m => `<tr><td>${esc(new Date(m.m + '-15T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }))}</td><td class="n">${m.bills}</td><td class="n">${m.items}</td><td class="n">${sar(m.value)} SAR</td></tr>`).join('') || '<tr><td colspan="4" class="la-muted">No free laundry yet.</td></tr>'}</tbody></table>
-          <h3>Transaction history</h3><div class="la-scroll"><table class="la-t"><thead><tr><th>Date</th><th>Given</th><th>Collection</th><th class="n">Clothes</th><th class="n">Value</th><th>Status</th><th>Accepted by</th><th>Handed back by</th></tr></thead><tbody>
-            ${bills.map(b => `<tr class="${b.voided ? 'void' : ''} click" data-bill="${b.id}"><td>${esc(fmtDay(b.day))}</td><td>${esc(jeddahTime(b.given_at))}</td><td>${b.collected_at ? `${esc(jeddahDate(b.collected_at))} ${esc(jeddahTime(b.collected_at))}` : '—'}</td>
-              <td class="n">${b.items}</td><td class="n">${sar(b.value)} SAR</td><td>${b.voided ? '❌ Cancelled' : STATUS[b.status]}</td><td>${esc(b.worker)}</td><td>${esc(b.collected_by || '')}</td></tr>`).join('')}</tbody></table></div>`;
+          <h3>Transaction history</h3><div class="la-scroll"><table class="la-t"><thead><tr><th>Date</th><th>Given</th><th class="n">Clothes</th><th class="n">Value</th><th>Accepted by</th></tr></thead><tbody>
+            ${bills.map(b => `<tr class="${b.voided ? 'void' : ''} click" data-bill="${b.id}"><td>${esc(fmtDay(b.day))}</td><td>${esc(jeddahTime(b.given_at))}</td>
+              <td class="n">${b.items}</td><td class="n">${sar(b.value)} SAR</td><td>${esc(b.worker)}${b.voided ? ' · ❌ cancelled' : ''}</td></tr>`).join('')}</tbody></table></div>`;
         ctx.root.appendChild(dlg);
         dlg.addEventListener('click', (e) => { if (e.target.closest('[data-x]')) dlg.close(); const tr = e.target.closest('tr[data-bill]'); if (tr) { dlg.close(); openBill(S.billIndex.get(Number(tr.dataset.bill))); } });
         dlg.addEventListener('close', () => dlg.remove());

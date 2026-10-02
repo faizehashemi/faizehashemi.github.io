@@ -3,7 +3,6 @@
         <button type="button" role="tab" data-tab="bill" aria-selected="true"><span aria-hidden="true">🧺</span>New bill</button>
         <button type="button" role="tab" data-tab="free"><span aria-hidden="true">👷</span>Staff only</button>
         <button type="button" role="tab" data-tab="building"><span aria-hidden="true">🏨</span>Building</button>
-        <button type="button" role="tab" data-tab="pending"><span aria-hidden="true">📦</span>Pending <b class="ld-count" id="ldPendingCount"></b></button>
         <button type="button" role="tab" data-tab="cash"><span aria-hidden="true">💵</span>Pending cash</button>
     </nav>
 
@@ -47,10 +46,6 @@
             <button type="button" class="ld-clear" id="ldClear" aria-label="Clear the bill">✖</button>
             <button type="button" class="ld-save" id="ldSave" disabled><span aria-hidden="true">✔</span> SAVE</button>
         </div>
-    </section>
-
-    <section class="ld-pane" id="panePending" hidden>
-        <div class="ld-cards" id="ldPendList"></div>
     </section>
 
     <!-- PENDING CASH: my cash bills from a date (to a date); Unpaid until the admin marks them Paid -->

@@ -15,7 +15,6 @@ export const jeddahTime = (iso) => new Date(iso).toLocaleTimeString('en-GB', { t
 export const jeddahDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh', day: '2-digit', month: 'short', year: 'numeric' });
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`);
 export const METHOD = { cash: '💵 Cash', card: '💳 Card', other: '🔁 Other' };
-export const STATUS = { received: '🧺 Received', ready: '✅ Ready', collected: '🤲 Collected' };
 export const DEFAULT_INFO = 'Laundry collection: 8:00 AM – 10:00 AM\nWashed clothes collection: 6:00 PM – 8:00 PM\nNo staff service is available for picking up clothes from rooms.';
 
 // The laundry's own drawings of each garment and linen item (assets/laundry/*.png), matched by the item's name

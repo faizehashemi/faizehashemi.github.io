@@ -910,12 +910,11 @@ async function refreshFlights(env, force) {
 // later price changes never touch old bills. A bill is 'paid' (customer pays cash), 'free' (staff only:
 // value recorded, 0 collected, never in cash) or 'building' (the building's linen: towels, bedsheets… no money).
 // Items are 'guest' (clothes) or 'building' (linen). Offline bills carry a client_uid and are stored once however
-// often they are sent. Workers (desk logins) create bills and hand clothes back; the worker's cash is "unpaid"
+// often they are sent. Workers (desk logins) create bills; the worker's cash is "unpaid"
 // until an admin marks those bills paid (settled_at / settled_by, one by one or in bulk). Only an admin changes
 // prices, staff profiles, edits or voids bills (audited: before → after).
 
 const LAUNDRY_PREFIX = { makkah: 'MM-LD', medina: 'MD-LD' };
-const LAUNDRY_STATUS = ['received', 'ready', 'collected'];
 const MAX_IMAGE = 200 * 1024;     // item image / staff photo as a data: URL (the page shrinks them first)
 const LAUNDRY_DEFAULT_ITEMS = [   // first use of a site only; the admin edits them on the Prices tab
     ['Kurta', 300, '👔'], ['Saaya', 300, '🧥'], ['Pajama', 300, '👖'], ['Vest', 200, '🎽'], ['Brief', 100, '🩲'],
@@ -1269,12 +1268,8 @@ async function listLaundryBills(url, env, me) {
     const from = url.searchParams.get('from') || jeddahDay(), to = url.searchParams.get('to') || from;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new HttpError(400, 'Dates must be YYYY-MM-DD.');
     const where = ['b.site = ?'], args = [site];
-    if (url.searchParams.get('pending') === '1') {
-        where.push("b.voided = 0 AND b.status != 'collected'");     // clothes still at the laundry (any worker, any day)
-    } else {
-        where.push('b.day >= ? AND b.day <= ?'); args.push(from, to);
-        if (!canSeeAll(me)) { where.push('b.worker_id = ?'); args.push(me.id); } // a worker sees their own bills
-    }
+    where.push('b.day >= ? AND b.day <= ?'); args.push(from, to);
+    if (!canSeeAll(me)) { where.push('b.worker_id = ?'); args.push(me.id); } // a worker sees their own bills
     const staffId = Number(url.searchParams.get('staff'));
     if (staffId) { where.push('b.staff_id = ?'); args.push(staffId); }
     const kind = url.searchParams.get('kind');
@@ -1312,24 +1307,6 @@ async function getBillRow(env, id) {
     const r = await env.DB.prepare(`${BILL_SELECT} WHERE b.id = ?`).bind(id).first();
     if (!r) throw new HttpError(404, 'No such bill.');
     return r;
-}
-
-// Worker or admin: clothes washed (ready) / handed back (collected)
-async function setLaundryStatus(req, env, me, id) {
-    const { status } = await body(req);
-    if (!LAUNDRY_STATUS.includes(status)) throw new HttpError(400, 'Unknown status.');
-    const r = await getBillRow(env, id);
-    requireLaundryWrite(me, r.site);
-    if (r.voided) throw new HttpError(400, 'This bill was cancelled.');
-    const t = now();
-    const sets = status === 'collected' ? 'status = ?, collected_at = ?, collected_by = ?, ready_at = COALESCE(ready_at, ?)'
-        : status === 'ready' ? 'status = ?, ready_at = ?, collected_at = NULL, collected_by = NULL' : 'status = ?, ready_at = NULL, collected_at = NULL, collected_by = NULL';
-    const args = status === 'collected' ? [status, t, me.id, t] : status === 'ready' ? [status, t] : [status];
-    await env.DB.batch([
-        env.DB.prepare(`UPDATE laundry_bills SET ${sets}, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ?`).bind(...args, t, me.id, id),
-        auditStmt(env, me, 'laundry-status', null, `${r.receipt_no}: ${r.status} → ${status}`),
-    ]);
-    return json({ bill: rowToBill(await getBillRow(env, id)) });
 }
 
 // Admin: correct a bill (customer/room, quantities, items, payment); old lines keep their original price
@@ -1448,9 +1425,8 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (p === '/api/laundry/search' && m === 'GET') return searchLaundry(url, env, me);
     if (p === '/api/laundry/settle' && m === 'POST') return settleLaundryBills(req, env, me);
     if (p === '/api/laundry/customers' && m === 'GET') return laundryCustomers(url, env, me);
-    mm = p.match(/^\/api\/laundry\/bills\/(\d+)(?:\/(status|void))?$/);
+    mm = p.match(/^\/api\/laundry\/bills\/(\d+)(?:\/(void))?$/);
     if (mm && !mm[2] && m === 'PUT') return editLaundryBill(req, env, me, Number(mm[1]));
-    if (mm && mm[2] === 'status' && m === 'POST') return setLaundryStatus(req, env, me, Number(mm[1]));
     if (mm && mm[2] === 'void' && m === 'POST') return voidLaundryBill(req, env, me, Number(mm[1]));
     if (p === '/api/laundry/close' && m === 'POST') return closeLaundryDay(req, env, me);
     if (p === '/api/laundry/audit' && m === 'GET') return laundryAudit(url, env, me);

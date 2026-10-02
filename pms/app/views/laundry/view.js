@@ -3,13 +3,12 @@
 //   🧺 New bill: swipe building → floor → room (wheels) → tap clothes (tap = one more) → SAVE → receipt
 //   👷 Staff only: tap the staff category → a window with its people → tap the person, check the PHOTO, tap clothes → SAVE (value recorded, 0 collected)
 //   🏨 Building: the building's linen (no building to choose) — tap an item → number pad for the quantity → SAVE
-//   📦 Pending: clothes still here → 🤲 Given back
 //   💵 Pending cash: my cash bills from a date (to a date) — Unpaid until the admin marks them Paid
 // Prices come from the server; the worker cannot change them. Works offline (bills wait on this device).
 
 import { request, mirrorAll, UserError } from '../../core/cloud.js';
 import {
-    sar, esc, jeddahDay, jeddahTime, jeddahDate, STATUS, DEFAULT_INFO, itemPic, cached, saveBill, flushQueue, queued, dropQueued,
+    sar, esc, jeddahDay, jeddahTime, jeddahDate, DEFAULT_INFO, itemPic, cached, saveBill, flushQueue, queued, dropQueued,
     receiptHTML, printReceipt, RECEIPT_CSS, KEYPAD_CSS, keypad, ApiError,
 } from '../../core/laundry.js';
 import { loadBuildings, buildingsOfSite, floorOf, normRoom, normBuilding } from '../../core/rooms.js';
@@ -70,7 +69,6 @@ export default async function mount(ctx) {
         ctx.root.querySelectorAll('.ld-tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
         const billish = MODES.includes(tab);
         $('paneBill').hidden = !billish;
-        $('panePending').hidden = tab !== 'pending';
         $('paneCash').hidden = tab !== 'cash';
         if (billish) {
             $('ldCustomer').hidden = tab !== 'bill';                       // the room wheels are for guests only
@@ -82,7 +80,6 @@ export default async function mount(ctx) {
             if (tab === 'bill') [wB, wF, wR].forEach(w => w.sync());
             drawItems(); drawCart(); drawPicked();
         }
-        if (tab === 'pending') loadPending();
         if (tab === 'cash') loadCash();
         window.scrollTo(0, 0);
     }
@@ -344,34 +341,6 @@ export default async function mount(ctx) {
         : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + esc(b.customer.building) : ''}`
             : `🚪 ${esc([b.customer?.building, b.customer?.room || '—'].filter(Boolean).join(' · '))}${b.customer?.name ? ' · ' + esc(b.customer.name) : ''}`;
 
-    /* -------------------------------- pending -------------------------------- */
-    let pending = [];
-    async function loadPending() {
-        try { pending = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&pending=1`))).bills; }
-        catch (e) { $('ldPendList').innerHTML = `<p class="ld-muted">${esc(e.message || 'Not available offline.')}</p>`; return; }
-        $('ldPendingCount').textContent = pending.length || '';
-        drawPending();
-    }
-    function drawPending() {
-        const photo = (b) => { const s = b.staff_id && st.staffList.find(x => x.id === b.staff_id); return s?.photo ? `<img class="ld-mini" src="${s.photo}" alt="">` : ''; };
-        $('ldPendList').innerHTML = pending.map(b => `<div class="ld-card ${b.status}">
-            ${photo(b)}
-            <div class="ld-cmain"><b>${custLabel(b)}</b>
-              <small>${esc(b.receipt_no)} · ${esc(jeddahTime(b.given_at))} ${b.day !== jeddahDay() ? esc(b.day.slice(5)) : ''} · ${b.items} pcs</small></div>
-            <div class="ld-cbtn"><button type="button" class="ok" data-st="collected" data-id="${b.id}">🤲 Given back</button></div></div>`).join('')
-            || '<p class="ld-muted">✨ Nothing waiting.</p>';
-    }
-    $('ldPendList').addEventListener('click', async (e) => {
-        const b = e.target.closest('[data-st]');
-        if (!b) return;
-        const bill = pending.find(x => x.id === Number(b.dataset.id));
-        const who = bill.kind === 'free' ? bill.staff_name : bill.kind === 'building' ? 'Building linen' : [bill.customer.building, bill.customer.room, bill.customer.name].filter(Boolean).join(' ');
-        if (!confirm(`Clothes given back?\n${bill.receipt_no} · ${who} · ${bill.items} pcs`)) return;
-        b.disabled = true;
-        try { await ctx.guard(request('POST', `/api/laundry/bills/${bill.id}/status`, { status: 'collected' })); await loadPending(); }
-        catch (err) { alert(err.message || 'Could not change it.'); b.disabled = false; }
-    });
-
     /* ----------------------------- pending cash ----------------------------- */
     // cash bills from a date (to a date, or up to today); Unpaid until the admin marks them Paid
     const cashSt = { from: jeddahDay(), to: '', show: 'all', bills: [] };
@@ -427,7 +396,7 @@ export default async function mount(ctx) {
     }
     const tryFlush = async () => { if (!queued().length) return; const r = await flushQueue(); refreshOffline(); if (r.sent && st.tab === 'cash') loadCash(); };
     window.addEventListener('online', tryFlush);
-    const timer = setInterval(() => { tryFlush(); if (st.tab === 'pending') loadPending(); }, 30000);
+    const timer = setInterval(tryFlush, 30000);
 
     /* ---------------------------------- start ---------------------------------- */
     await Promise.all([loadItems().catch(e => { $('ldItems').innerHTML = `<p class="ld-muted">${esc(e.message)}</p>`; }), loadInfo(), loadSlips()]);
@@ -436,6 +405,5 @@ export default async function mount(ctx) {
     refreshOffline();
     tryFlush();
     loadStaff().then(drawCats).catch(() => { });
-    request('GET', `/api/laundry/bills?site=${site}&pending=1`).then(r => { $('ldPendingCount').textContent = r.bills.length || ''; }).catch(() => { });
     return () => { clearInterval(timer); window.removeEventListener('online', tryFlush); };
 }
