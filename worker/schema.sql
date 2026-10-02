@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS laundry_items (          -- price master; bills keep 
     image       TEXT NOT NULL DEFAULT '',            -- small data: URL picture, or one emoji
     sort        INTEGER NOT NULL DEFAULT 0,
     active      INTEGER NOT NULL DEFAULT 1,
+    category    TEXT NOT NULL DEFAULT 'guest',       -- guest (clothes) | building (linen: towels, bedsheets…)
     updated_at  TEXT NOT NULL,
     updated_by  INTEGER
 );
@@ -165,7 +166,7 @@ CREATE TABLE IF NOT EXISTS laundry_bills (
     site        TEXT NOT NULL,
     receipt_no  TEXT NOT NULL UNIQUE,                -- MM-LD-20260929-001
     client_uid  TEXT NOT NULL UNIQUE,                -- made on the device: an offline bill sent twice is stored once
-    kind        TEXT NOT NULL,                       -- paid | free
+    kind        TEXT NOT NULL,                       -- paid (cash) | free (staff only) | building (linen)
     customer    TEXT NOT NULL,                       -- JSON { name, room, building, contact, group }
     staff_id    INTEGER,
     staff_name  TEXT,
@@ -190,8 +191,12 @@ CREATE TABLE IF NOT EXISTS laundry_bills (
     version     INTEGER NOT NULL DEFAULT 1,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL,
-    updated_by  INTEGER
+    updated_by  INTEGER,
+    settled_at  TEXT,                                -- cash bill marked paid by the admin (worker handed the cash over)
+    settled_by  INTEGER
 );
+-- added 2026-10-02 on existing databases with: ALTER TABLE laundry_items ADD COLUMN category TEXT NOT NULL DEFAULT 'guest';
+--   ALTER TABLE laundry_bills ADD COLUMN settled_at TEXT; ALTER TABLE laundry_bills ADD COLUMN settled_by INTEGER;
 CREATE INDEX IF NOT EXISTS laundry_bills_day ON laundry_bills(site, day);
 CREATE INDEX IF NOT EXISTS laundry_bills_staff ON laundry_bills(staff_id, day);
 CREATE TABLE IF NOT EXISTS laundry_counters (key TEXT PRIMARY KEY, n INTEGER NOT NULL);   -- receipt numbers per site and day

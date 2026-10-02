@@ -223,37 +223,41 @@ icons, one SAVE button. **Workers** are ordinary desk logins with only *Laundry*
 **admin** runs *Laundry admin* from a PC. Everything is in the cloud database (tables `laundry_*`), so the PC
 sees each bill as soon as it is saved (the dashboard refreshes every 20 s); D1 is the backup.
 
-**Laundry** (touch screen, no keyboard): 🧺 *New bill* — swipe three wheels, building → floor → room (from
-Rooms & Buildings; the in-house group of that room is kept on the bill; no name), tap item pictures (each tap = one
-more; − / + in the list), Cash / Card / Other with the money given and the change, SAVE → receipt. 🖨 Print sends an
-A5 receipt straight to the Canon LBP when Chrome runs with `--kiosk-printing` — start it with `tools/laundry-kiosk.bat` (otherwise the print dialog opens).
-🆓 *Free (staff)* — all free-laundry staff are listed (the search box only filters), check the **photo**, tap items, SAVE: the laundry value is recorded, 0 is collected,
-nothing goes into cash; over a staff limit it warns, or (if the admin set "approval needed") asks for a supervisor's
-admin login + password. 📦 *Pending* — clothes still at the laundry → ✅ Ready → 🤲 Given back (who and when is kept).
-📋 *My day* — my bills and money today. 🔒 *Close day* — count the cash; expected vs counted and the difference go to
-the admin (once per worker and day). **Offline**: bills are kept on the phone (numbered OFFLINE-01…) and sent when the
-internet is back; each bill has an id made on the phone, so a bill sent twice is stored once.
+**Laundry** (touch screen, no keyboard; everything is cash): 🧺 *New bill* — swipe three wheels, building → floor →
+room (from Rooms & Buildings; the in-house group of that room is kept on the bill; no name), tap item pictures (each
+tap = one more; − / + in the list, tap the number for the number pad), the cash given and the change, SAVE → receipt.
+🖨 Print sends an A5 receipt straight to the Canon LBP when Chrome runs with `--kiosk-printing` — start it with
+`tools/laundry-kiosk.bat` (otherwise the print dialog opens). Clothes show the laundry's own drawings
+(`pms/assets/laundry/*.png`, matched by item name: Saaya, Kurta, Pajama, Vest, Brief, Socks, Rida, Pardi, Ghagro,
+Petticoat, T-shirt, Ehram) unless the admin gives the item a photo.
+👷 *Staff only* — all staff with free laundry are listed (the search box only filters), check the **photo**, tap
+items, SAVE: the laundry value is recorded, 0 is collected, nothing goes into cash; over a staff limit it warns, or
+(if the admin set "approval needed") asks for a supervisor's admin login + password.
+🏨 *Building* — the building's linen (Big towel, Small towel, Towel and Safra (Mawaid), Bedsheet, Blanket, Parda,
+Pagdandi, Pillow covers): swipe the building, tap an item → number pad for the quantity, SAVE (no money).
+📦 *Pending* — clothes still at the laundry → 🤲 Given back (who and when is kept).
+💵 *Pending cash* — my cash bills from a date (to a date, or up to today), each **Unpaid** until the admin marks it
+**Paid**; totals of both. **Offline**: bills are kept on the device (numbered OFFLINE-01…, listed on Pending cash) and
+sent when the internet is back; each bill has an id made on the device, so a bill sent twice is stored once.
 
 **Receipt numbers**: `MM-LD-YYYYMMDD-NNN` (Jeddah date, counted per day on the server; Medina `MD-LD-…`).
-**Prices** are never in the code: *Laundry admin → Prices* (with a photo or emoji per item, an optional
-second-language name, order, show/hide). A bill keeps each line's price at the time of billing; price changes apply
-to new bills only. The worker cannot set prices (the server prices every line).
+**Prices** are never in the code: *Laundry admin → Prices* (clothes and building linen, with a photo or emoji per
+item, an optional second-language name, order, show/hide). A bill keeps each line's price at the time of billing;
+price changes apply to new bills only. The worker cannot set prices (the server prices every line).
 
-**Laundry admin** (PC): 📊 *Today* (normal: customers, bills, items, sales, cash, card; free: staff, bills, items,
-value, 0 collected; total items processed and actual cash; worker-wise; today's transactions), 📈 *Reports*
-(today / yesterday / this or last week / this or last month / custom: the same figures, daily sales chart,
-worker-wise, item-wise quantity and revenue; **Excel** and **PDF** export), 🧾 *Bills* (search by receipt, name, room,
-staff, mobile over all dates; filter by date, worker, type, payment, item, amount; open a bill: details, status
-history, change log, reprint; admin: **edit** customer / room / quantities / payment, **cancel** with a reason — never
-deleted, every change logged before → after with who and when), 🆓 *Free laundry* (dashboard, staff-wise, the
-**register** like the paper card: photo, given, collection, count, value, status, accepted by; click a staff member
-for the full history by month and transaction), 🔒 *Day closings* (expected, counted, difference; days not closed
-yet), 🏷️ *Prices*, 👤 *Staff* (free-laundry profiles: photo from the camera, staff ID, room, department, mobile, start
-date, remarks, active, limits per submission / day / week / month value / month count, warn or require approval),
-📝 *Notice & log* (the timings text shown to the worker and on receipts; the laundry change log).
+**Laundry admin** (PC): 🧾 *Bills* — cash bills only, from → to: unpaid / paid totals; mark a bill **Paid** (or back
+to Unpaid), tick bills and mark them paid together, or enter the **amount collected** and the oldest unpaid bills that
+fit are ticked (all audited); open a bill: details, change log, reprint; admin: **edit** room / quantities,
+**cancel** with a reason — never deleted. 📈 *Reports* (today / yesterday / this or last week / this or last month /
+custom: figures, daily sales chart, worker-wise, item-wise; **Excel** and **PDF** export), 👷 *Staff only* (dashboard,
+staff-wise, the **register** like the paper card: photo, given, collection, count, value, status, accepted by; click a
+staff member for the full history by month and transaction), 🏷️ *Prices*, 👤 *Staff* (profiles: photo from the camera,
+staff ID, room, department, mobile, start date, remarks, active, limits per submission / day / week / month value /
+month count, warn or require approval), 📝 *Notice & log* (the timings text shown to the worker and on receipts; the
+laundry change log).
 
-Rights (server-side): workers create bills, mark ready/collected and close their own day, and see their own
-bills (and all pending clothes); admins and viewers see everything; only admins change prices, staff, bills.
+Rights (server-side): workers create bills, hand clothes back, and see their own bills (and all pending clothes);
+admins and viewers see everything; only admins change prices, staff, bills and mark cash paid.
 Not built yet (the tables leave room): WhatsApp/SMS receipts, QR status for customers, room/group monthly accounts,
 several laundries, inventory, machines, attendance, expenses.
 

@@ -132,3 +132,20 @@ textarea#nText { width: 100%; padding: 8px 10px; border: 1px solid var(--edge); 
     .la-grid2 { grid-template-columns: 1fr; }
     .la-profile, .la-picedit { flex-direction: column; align-items: flex-start; }
 }
+
+/* bills: cash only, paid / unpaid */
+.la-filters label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.la-filters input[type="date"] { font: inherit; padding: 6px 8px; border: 1px solid var(--edge); border-radius: 8px; }
+.la-paybar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; padding: 10px; background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; }
+.la-paybar label { display: inline-flex; align-items: center; gap: 6px; }
+.la-paybar input { width: 110px; font: inherit; padding: 6px 8px; border: 1px solid var(--edge); border-radius: 8px; }
+.la-paybar button { padding: 7px 12px; border: 1px solid var(--edge); border-radius: 10px; background: #fff; font-weight: 700; cursor: pointer; }
+.la-paybar button:disabled { opacity: .5; cursor: default; }
+.la-tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 800; font-size: 12px; }
+.la-tag.paid { background: #e3f4ea; color: #1f8a4c; }
+.la-tag.unpaid { background: #fde7e7; color: #b3261e; }
+.la-mini { padding: 4px 10px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.la-mini.ok { background: #1f8a4c; border-color: #1f8a4c; color: #fff; }
+.la-t tr.sel td { background: #fff3cc; }
+.la-t tr.paid td { color: #556; }
+.la-kpi.neg b { color: #b3261e; }

@@ -900,13 +900,14 @@ async function refreshFlights(env, force) {
 /* ----------------------------------- Laundry ----------------------------------- */
 // Hotel laundry POS (Laundry page) and its admin (Laundry admin page). Money is kept in halalas (SAR × 100).
 // Prices live in laundry_items (never in code); a bill stores each line's price at the time of billing, so
-// later price changes never touch old bills. A bill is 'paid' (customer pays) or 'free' (staff complimentary:
-// value recorded, 0 collected, never in cash). Offline bills carry a client_uid and are stored once however
-// often they are sent. Workers (desk logins) create bills, mark them ready/collected and close their own day;
-// only an admin changes prices, staff profiles, edits or voids bills (audited: before → after).
+// later price changes never touch old bills. A bill is 'paid' (customer pays cash), 'free' (staff only:
+// value recorded, 0 collected, never in cash) or 'building' (the building's linen: towels, bedsheets… no money).
+// Items are 'guest' (clothes) or 'building' (linen). Offline bills carry a client_uid and are stored once however
+// often they are sent. Workers (desk logins) create bills and hand clothes back; the worker's cash is "unpaid"
+// until an admin marks those bills paid (settled_at / settled_by, one by one or in bulk). Only an admin changes
+// prices, staff profiles, edits or voids bills (audited: before → after).
 
 const LAUNDRY_PREFIX = { makkah: 'MM-LD', medina: 'MD-LD' };
-const LAUNDRY_METHODS = ['cash', 'card', 'other'];
 const LAUNDRY_STATUS = ['received', 'ready', 'collected'];
 const MAX_IMAGE = 200 * 1024;     // item image / staff photo as a data: URL (the page shrinks them first)
 const LAUNDRY_DEFAULT_ITEMS = [   // first use of a site only; the admin edits them on the Prices tab
@@ -914,6 +915,11 @@ const LAUNDRY_DEFAULT_ITEMS = [   // first use of a site only; the admin edits t
     ['Socks', 100, '🧦'], ['Ladies Pardi', 300, '🧕'], ['Ghagro (Gown)', 300, '👗'], ['Peti-Coat', 300, '🩱'],
     ['Ladies T-Shirt', 200, '👚'], ['Gents Ehram Set-2', 500, '🤍'],
 ];
+const LAUNDRY_BUILDING_ITEMS = [  // the building's linen (Building tab); added once per site, price 0, editable
+    ['Big towel', '🛁'], ['Small towel', '🧼'], ['Towel (Mawaid)', '🍽️'], ['Safra (Mawaid)', '🥘'], ['Bedsheet', '🛏️'],
+    ['Blanket', '🧣'], ['Parda', '🪟'], ['Pagdandi', '🧶'], ['Pillow covers', '🛌'],
+];
+const ITEM_CATEGORIES = ['guest', 'building'];
 
 const jeddahDay = (ms = Date.now()) => new Date(ms + 3 * 3600e3).toISOString().slice(0, 10);
 const halalas = (v) => { const n = Math.round(Number(v) * 100); return Number.isFinite(n) ? n : NaN; };
@@ -932,7 +938,7 @@ const canSeeAll = (me) => me.role === 'admin' || me.role === 'viewer';
 
 /* ---------------- items (price master) ---------------- */
 
-const rowToItem = (r) => ({ id: r.id, site: r.site, name: r.name, name_local: r.name_local, price: r.price, image: r.image, sort: r.sort, active: !!r.active, updated_at: r.updated_at });
+const rowToItem = (r) => ({ id: r.id, site: r.site, name: r.name, name_local: r.name_local, price: r.price, image: r.image, sort: r.sort, active: !!r.active, category: r.category || 'guest', updated_at: r.updated_at });
 
 async function listLaundryItems(env, site, me) {
     let { results } = await env.DB.prepare('SELECT * FROM laundry_items WHERE site = ? ORDER BY sort, id').bind(site).all();
@@ -942,6 +948,14 @@ async function listLaundryItems(env, site, me) {
         await env.DB.batch(LAUNDRY_DEFAULT_ITEMS.map(([n, p, img], i) =>
             env.DB.prepare('INSERT INTO laundry_items (site, name, name_local, price, image, sort, active, updated_at, updated_by) VALUES (?, ?, \'\', ?, ?, ?, 1, ?, ?)')
                 .bind(site, n, p, img, i + 1, t, me.id)));
+        ({ results } = await env.DB.prepare('SELECT * FROM laundry_items WHERE site = ? ORDER BY sort, id').bind(site).all());
+    }
+    if (!results.some(r => r.category === 'building')) {
+        // the building's linen list, once per site (the admin edits it on the Prices tab)
+        const t = now();
+        await env.DB.batch(LAUNDRY_BUILDING_ITEMS.map(([n, img], i) =>
+            env.DB.prepare('INSERT INTO laundry_items (site, name, name_local, price, image, sort, active, category, updated_at, updated_by) VALUES (?, ?, \'\', 0, ?, ?, 1, \'building\', ?, ?)')
+                .bind(site, n, img, 100 + i, t, me.id)));
         ({ results } = await env.DB.prepare('SELECT * FROM laundry_items WHERE site = ? ORDER BY sort, id').bind(site).all());
     }
     return results.map(rowToItem);
@@ -954,7 +968,8 @@ function prepareItem(b) {
     if (!(price >= 0 && price <= 100000)) throw new HttpError(400, 'Price must be 0–1000 SAR.');
     const image = b.image == null ? '' : String(b.image);
     if (!imageOk(image)) throw new HttpError(400, 'The picture is not a small JPEG/PNG (or one emoji).');
-    return { name, name_local: text(b.name_local, 40), price, image, sort: Number.isInteger(Number(b.sort)) ? Number(b.sort) : 0, active: b.active === false ? 0 : 1 };
+    return { name, name_local: text(b.name_local, 40), price, image, sort: Number.isInteger(Number(b.sort)) ? Number(b.sort) : 0, active: b.active === false ? 0 : 1,
+        category: ITEM_CATEGORIES.includes(b.category) ? b.category : 'guest' };
 }
 
 async function saveLaundryItem(req, env, me, id) {
@@ -969,17 +984,18 @@ async function saveLaundryItem(req, env, me, id) {
         if (old.price !== x.price) changes.push(`price ${old.price / 100} → ${x.price / 100} SAR`);
         if (!!old.active !== !!x.active) changes.push(x.active ? 'shown again' : 'hidden');
         if (old.image !== x.image) changes.push('picture changed');
+        if ((old.category || 'guest') !== x.category) changes.push(`moved to ${x.category}`);
         await env.DB.batch([
-            env.DB.prepare('UPDATE laundry_items SET name = ?, name_local = ?, price = ?, image = ?, sort = ?, active = ?, updated_at = ?, updated_by = ? WHERE id = ?')
-                .bind(x.name, x.name_local, x.price, x.image, x.sort, x.active, now(), me.id, id),
+            env.DB.prepare('UPDATE laundry_items SET name = ?, name_local = ?, price = ?, image = ?, sort = ?, active = ?, category = ?, updated_at = ?, updated_by = ? WHERE id = ?')
+                .bind(x.name, x.name_local, x.price, x.image, x.sort, x.active, x.category, now(), me.id, id),
             auditStmt(env, me, 'laundry-item', null, `${old.site} ${old.name}: ${changes.join(', ') || 'saved'}`),
         ]);
         return json({ items: await listLaundryItems(env, old.site, me) });
     }
     const site = laundrySite(me, b.site);
     await env.DB.batch([
-        env.DB.prepare('INSERT INTO laundry_items (site, name, name_local, price, image, sort, active, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            .bind(site, x.name, x.name_local, x.price, x.image, x.sort, x.active, now(), me.id),
+        env.DB.prepare('INSERT INTO laundry_items (site, name, name_local, price, image, sort, active, category, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .bind(site, x.name, x.name_local, x.price, x.image, x.sort, x.active, x.category, now(), me.id),
         auditStmt(env, me, 'laundry-item', null, `${site} ${x.name}: added at ${x.price / 100} SAR`),
     ]);
     return json({ items: await listLaundryItems(env, site, me) }, 201);
@@ -1120,6 +1136,7 @@ function rowToBill(r) {
         given_at: r.given_at, ready_at: r.ready_at, collected_at: r.collected_at, collected_by: r.collected_by_name,
         worker_id: r.worker_id, worker: r.worker_name, day: r.day, approval_by: r.approval_by, warnings: JSON.parse(r.warnings || '[]'),
         version: r.version, created_at: r.created_at, updated_at: r.updated_at, updated_by: r.updated_by_name,
+        settled_at: r.settled_at || null, settled_by: r.settled_by_name || null,
     };
 }
 
@@ -1134,7 +1151,7 @@ async function priceLines(env, site, raw, keep = []) {
     const merged = new Map();
     for (const l of raw) {
         const qty = Math.round(Number(l && l.qty));
-        if (!(qty >= 1 && qty <= 500)) throw new HttpError(400, 'Each quantity must be 1–500.');
+        if (!(qty >= 1 && qty <= 2000)) throw new HttpError(400, 'Each quantity must be 1–2000.');
         const id = Number(l.item_id);
         const old = kept.get(id);
         const item = byId.get(id);
@@ -1170,7 +1187,7 @@ async function createLaundryBill(req, env, me) {
     const dup = await env.DB.prepare('SELECT * FROM laundry_bills WHERE client_uid = ?').bind(uid).first();
     if (dup) return json({ bill: rowToBill(dup), duplicate: true });
 
-    const kind = b.kind === 'free' ? 'free' : 'paid';
+    const kind = b.kind === 'free' || b.kind === 'building' ? b.kind : 'paid';
     const { lines, items, value } = await priceLines(env, site, b.lines);
     // when the worker pressed Save (offline bills keep their own time), never in the future
     const at = b.created_local && Date.parse(b.created_local) < Date.now() + 5 * 60e3 && Date.parse(b.created_local) > Date.now() - 14 * 864e5
@@ -1178,7 +1195,10 @@ async function createLaundryBill(req, env, me) {
     const day = jeddahDay(Date.parse(at));
     let customer = prepareCustomer(b.customer), staff = null, warnings = [], approvalBy = null;
     let paid = 0, method = '', received = 0;
-    if (kind === 'free') {
+    if (kind === 'building') {
+        customer = { name: '', room: '', building: text(b.customer && b.customer.building, 40), contact: '', group: '' };
+        if (!customer.building) throw new HttpError(400, 'Choose the building.');
+    } else if (kind === 'free') {
         staff = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ? AND site = ? AND deleted = 0').bind(Number(b.staff_id), site).first();
         if (!staff) throw new HttpError(400, 'Choose the staff member for free laundry.');
         if (!staff.active || !staff.free) throw new HttpError(400, `${staff.name} does not have free laundry (profile inactive).`);
@@ -1192,7 +1212,7 @@ async function createLaundryBill(req, env, me) {
             approvalBy = await verifyApprover(env, b.approval);
         }
     } else {
-        method = LAUNDRY_METHODS.includes(b.method) ? b.method : 'cash';
+        method = 'cash';                                          // laundry takes cash only
         paid = value;
         received = b.received === '' || b.received == null ? value : halalas(b.received);
         if (!(received >= 0 && received <= 10000000)) throw new HttpError(400, 'Amount received is not a valid number.');
@@ -1209,8 +1229,8 @@ async function createLaundryBill(req, env, me) {
     return json({ bill: rowToBill(row), warnings }, 201);
 }
 
-const BILL_SELECT = `SELECT b.*, c.name AS collected_by_name, u.name AS updated_by_name FROM laundry_bills b
-    LEFT JOIN desks c ON c.id = b.collected_by LEFT JOIN desks u ON u.id = b.updated_by`;
+const BILL_SELECT = `SELECT b.*, c.name AS collected_by_name, u.name AS updated_by_name, st.name AS settled_by_name FROM laundry_bills b
+    LEFT JOIN desks c ON c.id = b.collected_by LEFT JOIN desks u ON u.id = b.updated_by LEFT JOIN desks st ON st.id = b.settled_by`;
 
 async function listLaundryBills(url, env, me) {
     const site = laundrySite(me, url.searchParams.get('site'));
@@ -1225,6 +1245,8 @@ async function listLaundryBills(url, env, me) {
     }
     const staffId = Number(url.searchParams.get('staff'));
     if (staffId) { where.push('b.staff_id = ?'); args.push(staffId); }
+    const kind = url.searchParams.get('kind');
+    if (['paid', 'free', 'building'].includes(kind)) { where.push('b.kind = ?'); args.push(kind); }
     const { results } = await env.DB.prepare(`${BILL_SELECT} WHERE ${where.join(' AND ')} ORDER BY b.created_at DESC LIMIT 5000`).bind(...args).all();
     const closings = (await env.DB.prepare(`SELECT * FROM laundry_closings WHERE site = ? AND day >= ? AND day <= ?${canSeeAll(me) ? '' : ' AND worker_id = ' + Number(me.id)} ORDER BY day DESC, worker_name`)
         .bind(site, from, to).all()).results;
@@ -1287,15 +1309,16 @@ async function editLaundryBill(req, env, me, id) {
     if (r.voided) throw new HttpError(400, 'A cancelled bill cannot be edited.');
     const before = rowToBill(r);
     const { lines, items, value } = await priceLines(env, r.site, b.lines, before.lines);
-    const customer = r.kind === 'free' ? before.customer : prepareCustomer(b.customer);
+    const customer = r.kind === 'paid' ? prepareCustomer(b.customer) : before.customer;
     let method = r.method, received = r.received, paid = r.paid;
     if (r.kind === 'paid') {
-        method = LAUNDRY_METHODS.includes(b.method) ? b.method : r.method;
+        method = 'cash';
         paid = value;
         received = b.received === '' || b.received == null ? value : halalas(b.received);
     }
     const diff = [];
     const fmtL = (ls) => ls.map(l => `${l.qty} ${l.name}`).join(', ');
+    if (r.settled_at && before.value !== value) throw new HttpError(400, 'This bill is already marked paid. Mark it unpaid first, then change the amount.');
     if (fmtL(before.lines) !== fmtL(lines)) diff.push(`items: ${fmtL(before.lines)} → ${fmtL(lines)}`);
     if (before.value !== value) diff.push(`total ${before.value / 100} → ${value / 100} SAR`);
     for (const k of ['name', 'room', 'building', 'contact', 'group']) if ((before.customer[k] || '') !== (customer[k] || '')) diff.push(`${k} "${before.customer[k] || ''}" → "${customer[k] || ''}"`);
@@ -1323,6 +1346,29 @@ async function voidLaundryBill(req, env, me, id) {
         auditStmt(env, me, 'laundry-void', null, `${r.receipt_no} (${r.value / 100} SAR, ${r.worker_name}) cancelled: ${why}`),
     ]);
     return json({ bill: rowToBill(await getBillRow(env, id)) });
+}
+
+// Admin: the worker handed the cash over → mark cash bills paid (or back to unpaid), one or many at once
+async function settleLaundryBills(req, env, me) {
+    requireAdmin(me);
+    const b = await body(req);
+    const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+    if (!ids.length) throw new HttpError(400, 'Choose at least one bill.');
+    if (ids.length > 2000) throw new HttpError(400, 'Too many bills at once.');
+    const paid = b.paid !== false;
+    const marks = ids.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(`SELECT id, receipt_no, paid, settled_at FROM laundry_bills WHERE id IN (${marks}) AND kind = 'paid' AND voided = 0`).bind(...ids).all();
+    const todo = results.filter(r => paid ? !r.settled_at : !!r.settled_at);
+    if (todo.length) {
+        const t = now(), list = todo.map(r => r.id), m2 = list.map(() => '?').join(',');
+        await env.DB.batch([
+            env.DB.prepare(`UPDATE laundry_bills SET settled_at = ?, settled_by = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id IN (${m2})`)
+                .bind(paid ? t : null, paid ? me.id : null, t, me.id, ...list),
+            auditStmt(env, me, 'laundry-settle', null, `${paid ? 'Marked paid' : 'Marked unpaid'}: ${todo.length} bill${todo.length === 1 ? '' : 's'}, ${todo.reduce((n, r) => n + r.paid, 0) / 100} SAR — ${todo.map(r => r.receipt_no).join(', ')}`.slice(0, 1000)),
+        ]);
+    }
+    const { results: rows } = await env.DB.prepare(`${BILL_SELECT} WHERE b.id IN (${marks})`).bind(...ids).all();
+    return json({ bills: rows.map(rowToBill), changed: todo.length });
 }
 
 // Day close: the worker counts the cash; expected = their cash bills that day. Once per worker and day.
@@ -1367,6 +1413,7 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (p === '/api/laundry/bills' && m === 'GET') return listLaundryBills(url, env, me);
     if (p === '/api/laundry/bills' && m === 'POST') return createLaundryBill(req, env, me);
     if (p === '/api/laundry/search' && m === 'GET') return searchLaundry(url, env, me);
+    if (p === '/api/laundry/settle' && m === 'POST') return settleLaundryBills(req, env, me);
     if (p === '/api/laundry/customers' && m === 'GET') return laundryCustomers(url, env, me);
     mm = p.match(/^\/api\/laundry\/bills\/(\d+)(?:\/(status|void))?$/);
     if (mm && !mm[2] && m === 'PUT') return editLaundryBill(req, env, me, Number(mm[1]));

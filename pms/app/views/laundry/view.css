@@ -73,15 +73,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .c-name { font-weight: 700; } .c-name small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
 .c-qty { white-space: nowrap; text-align: center; }
 .c-qty button { width: 44px; height: 44px; border-radius: 12px; border: 2px solid var(--edge); background: #fff; font-size: 24px; font-weight: 800; }
-.c-qty b { display: inline-block; min-width: 36px; font-size: 22px; }
+.c-qty b, .c-qty .c-num { display: inline-block; min-width: 52px; font-size: 22px; font-weight: 800; }
+.c-qty .c-num { width: auto; padding: 0 8px; margin: 0 4px; background: #fff8e6; }
 .c-amt { text-align: right; font-weight: 800; font-size: 18px; white-space: nowrap; }
 
 /* payment */
 .ld-pay { margin: 10px 0; display: grid; gap: 8px; }
-.ld-methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.ld-methods button { display: grid; justify-items: center; padding: 8px; border: 3px solid var(--edge); border-radius: 14px; background: #fff; font-weight: 800; }
-.ld-methods button span { font-size: 30px; line-height: 1.1; }
-.ld-methods button[aria-pressed="true"] { border-color: var(--ok); background: var(--ok-bg); }
 .ld-recv { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: #fff; border: 2px solid var(--edge); border-radius: 14px; padding: 8px; }
 .ld-recv > span { font-weight: 700; }
 .ld-quick { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -141,13 +138,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bad { color: var(--bad); }
 
 /* close day */
-.ld-close { background: #fff; border: 2px solid var(--edge); border-radius: 18px; padding: 14px; display: grid; gap: 10px; }
-.ld-close h2 { margin: 0; font-size: 20px; }
-.ld-close-n { display: flex; justify-content: space-between; font-size: 20px; padding: 6px 4px; border-bottom: 1px dashed #eadcc0; }
-.ld-close-t { width: 100%; border-collapse: collapse; font-size: 20px; }
-.ld-close-t td { padding: 8px 6px; border-bottom: 1px solid #efe3cb; }
-.ld-close-t td:last-child { text-align: right; font-weight: 800; }
-.ld-close-t tr.ok td { color: var(--ok); } .ld-close-t tr.bad td { color: var(--bad); }
 
 /* dialogs */
 dialog.ld-dlg { border: 0; border-radius: 18px; padding: 14px; width: min(420px, 94vw); max-height: 92vh; box-shadow: 0 24px 60px rgba(0,0,0,.35); }
@@ -175,4 +165,26 @@ dialog.ld-dlg::backdrop { background: rgba(20, 12, 4, .55); }
     .ld-save { min-width: 120px; font-size: 20px; }
     .ld-total b { font-size: 30px; }
 }
+/* building tab: only the building wheel; linen items */
+.ld-wheels.bonly { grid-template-columns: 1fr; }
+.ld-wheels.bonly .rm { display: none; }
+.ld.bld .ld-tabs [data-tab="building"] { border-color: #1f5fa8; background: #e6f0fb; }
+.ld-bar.bld { background: #163f6e; }
+.ld-pic.icon { object-fit: contain; background: transparent; }
+.ld-recv input { cursor: pointer; background: #fffdf5; }
+
+/* pending cash */
+.ld-dates { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin: 8px 0; }
+.ld-dates label { display: grid; gap: 2px; font-weight: 700; }
+.ld-dates label small { font-weight: 500; color: var(--muted); }
+.ld-dates input { font: inherit; font-size: 22px; font-weight: 700; padding: 10px 12px; border: 2px solid var(--edge); border-radius: 14px; background: #fff; min-height: 56px; }
+.ld-dates button { min-height: 56px; padding: 0 16px; border: 2px solid var(--edge); border-radius: 14px; background: #fff; font-weight: 800; }
+button.ld-kpi { cursor: pointer; }
+.ld-kpi.on { border-color: var(--gold-deep); box-shadow: 0 0 0 2px var(--gold-deep) inset; }
+.ld-kpi.unpaid b { color: var(--bad); } .ld-kpi.paid b { color: var(--ok); }
+.ld-card.unpaid { border-left-color: var(--bad); } .ld-card.paid { border-left-color: var(--ok); }
+.ld-paytag { padding: 4px 12px; border-radius: 999px; font-weight: 800; font-size: 15px; white-space: nowrap; }
+.ld-card.unpaid .ld-paytag { background: #fde7e7; color: var(--bad); }
+.ld-card.paid .ld-paytag { background: var(--ok-bg); color: var(--ok); }
+
 @media print { .ld-bar, .ld-tabs { display: none; } }

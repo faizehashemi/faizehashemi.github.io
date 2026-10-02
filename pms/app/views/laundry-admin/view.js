@@ -1,10 +1,11 @@
-// Laundry admin (PC): today live, reports, all bills (search, edit, cancel — audited), free staff laundry
-// (dashboard, register, staff history), day closings, prices (with pictures), staff profiles (photo, limits)
+// Laundry admin (PC): cash bills (from → to; mark Paid one by one, by selection or by the amount the worker
+// handed over — audited; open a bill to edit / cancel / reprint), reports, staff-only laundry (dashboard,
+// register, staff history), prices (clothes and building linen, with pictures), staff profiles (photo, limits)
 // and the laundry notice. Admin logins change things; viewer logins only look. Exports: Excel and PDF.
 
 import { request, currentDesk, UserError } from '../../core/cloud.js';
 import { loadScript, LIBS } from '../../core/lib.js';
-import { sar, esc, jeddahDay, jeddahTime, jeddahDate, METHOD, STATUS, DEFAULT_INFO, itemPic, shrinkImage, receiptHTML, printReceipt, RECEIPT_CSS } from '../../core/laundry.js';
+import { sar, esc, jeddahDay, jeddahTime, jeddahDate, STATUS, DEFAULT_INFO, itemPic, shrinkImage, receiptHTML, printReceipt, RECEIPT_CSS } from '../../core/laundry.js';
 
 const DAY = 864e5;
 const addDays = (ymd, n) => jeddahDay(Date.parse(ymd + 'T12:00:00+03:00') + n * DAY);
@@ -25,7 +26,7 @@ export default async function mount(ctx) {
     const site = ctx.siteId;
     const me = currentDesk();
     const isAdmin = me?.role === 'admin';
-    const S = { tab: 'dash', items: [], staff: [], info: DEFAULT_INFO, ranges: {} };
+    const S = { tab: 'bills', items: [], staff: [], info: DEFAULT_INFO, ranges: {} };
     const rcss = document.createElement('style'); rcss.textContent = RECEIPT_CSS; document.head.appendChild(rcss);
     if (!isAdmin) ctx.root.querySelectorAll('[data-admin]').forEach(b => { b.hidden = true; });
     $('laSub').textContent = `${ctx.site.label} · ${isAdmin ? 'admin' : 'view only'}`;
@@ -35,7 +36,7 @@ export default async function mount(ctx) {
     // deleted profiles come too: their photos still show in the register and histories, never in the Staff list
     const loadStaff = async () => { S.staff = (await api('GET', `/api/laundry/staff?site=${site}&deleted=1`)).staff; };
     const billsIn = async (from, to) => (await api('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}`));
-    const who = (b) => b.kind === 'free' ? `🆓 ${esc(b.staff_name)}` : esc(b.customer?.name || '—');
+    const who = (b) => b.kind === 'free' ? `👷 ${esc(b.staff_name)}` : b.kind === 'building' ? `🏨 ${esc(b.customer?.building || '')}` : esc([b.customer?.building, b.customer?.room].filter(Boolean).join(' · ') || b.customer?.name || '—');
     const staffPhoto = (id, cls = 'la-thumb') => { const s = S.staff.find(x => x.id === id); return s?.photo ? `<img class="${cls}" src="${s.photo}" alt="">` : `<span class="${cls} none">👤</span>`; };
     const errBox = (e) => `<p class="la-err">${esc(e?.message || String(e))}</p>`;
 
@@ -44,7 +45,7 @@ export default async function mount(ctx) {
         S.tab = tab;
         ctx.root.querySelectorAll('.la-tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
         ctx.root.querySelectorAll('.la-pane').forEach(p => { p.hidden = p.id !== 'tab-' + tab; });
-        ({ dash: drawDash, reports: drawReports, bills: drawBills, free: drawFree, closings: drawClosings, prices: drawPrices, staff: drawStaff, notice: drawNotice })[tab]();
+        ({ reports: drawReports, bills: drawBills, free: drawFree, prices: drawPrices, staff: drawStaff, notice: drawNotice })[tab]();
     }
     ctx.root.querySelector('.la-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
 
@@ -63,7 +64,7 @@ export default async function mount(ctx) {
 
     /* ------------------------------ stats ------------------------------ */
     function stats(bills) {
-        const live = bills.filter(b => !b.voided), paid = live.filter(b => b.kind === 'paid'), free = live.filter(b => b.kind === 'free');
+        const live = bills.filter(b => !b.voided && b.kind !== 'building'), paid = live.filter(b => b.kind === 'paid'), free = live.filter(b => b.kind === 'free');
         const sum = (a, f) => a.reduce((n, b) => n + f(b), 0);
         const custKey = (b) => `${String(b.customer?.room || '').toUpperCase()}|${String(b.customer?.name || '').toLowerCase()}`;
         const byWorker = new Map();
@@ -95,7 +96,7 @@ export default async function mount(ctx) {
             paid: { customers: new Set(paid.map(custKey)).size, bills: paid.length, items: sum(paid, b => b.items), sales: sum(paid, b => b.paid),
                 cash: sum(paid.filter(b => b.method === 'cash'), b => b.paid), card: sum(paid.filter(b => b.method === 'card'), b => b.paid), other: sum(paid.filter(b => b.method === 'other'), b => b.paid) },
             free: { staff: new Set(free.map(b => b.staff_id)).size, bills: free.length, items: sum(free, b => b.items), value: sum(free, b => b.value) },
-            voided: bills.length - live.length,
+            voided: bills.filter(b => b.voided).length,
             workers: [...byWorker.values()].sort((a, b) => b.total - a.total),
             items: [...byItem.values()].sort((a, b) => (b.qty + b.free_qty) - (a.qty + a.free_qty)),
             staff: [...byStaff.values()].sort((a, b) => b.value - a.value),
@@ -108,7 +109,7 @@ export default async function mount(ctx) {
           <div class="la-card"><h3>🧺 Normal laundry (paid)</h3><div class="la-kpis">
             ${kpi('🙂', s.paid.customers, 'customers')}${kpi('🧾', s.paid.bills, 'bills')}${kpi('👕', s.paid.items, 'items')}
             ${kpi('💰', sar(s.paid.sales), 'sales SAR', 'big')}${kpi('💵', sar(s.paid.cash), 'cash SAR')}${kpi('💳', sar(s.paid.card), 'card SAR')}${s.paid.other ? kpi('🔁', sar(s.paid.other), 'other SAR') : ''}</div></div>
-          <div class="la-card free"><h3>🆓 Free staff laundry</h3><div class="la-kpis">
+          <div class="la-card free"><h3>👷 Staff only laundry</h3><div class="la-kpis">
             ${kpi('👤', s.free.staff, 'staff')}${kpi('🧾', s.free.bills, 'bills')}${kpi('👕', s.free.items, 'items')}
             ${kpi('🏷️', sar(s.free.value), 'laundry value SAR', 'big')}${kpi('💵', 0, 'collected SAR')}</div></div>
         </div>
@@ -120,35 +121,12 @@ export default async function mount(ctx) {
             ${ws.map(w => `<tr><td><b>${esc(w.worker)}</b></td><td class="n">${w.bills}</td><td class="n">${w.items}</td><td class="n">${sar(w.cash || 0)}</td><td class="n">${sar(w.card || 0)}</td><td class="n">${sar(w.other || 0)}</td>
               <td class="n"><b>${sar(w.total)}</b></td><td class="n">${w.free_bills} · ${w.free_items} · ${sar(w.free_value)}</td></tr>`).join('') || '<tr><td colspan="8" class="la-muted">No bills.</td></tr>'}</tbody></table>`;
     }
-    function billTable(bills, opts = {}) {
-        if (!bills.length) return '<p class="la-muted">No bills.</p>';
-        return `<div class="la-scroll"><table class="la-t la-bills"><thead><tr>${opts.date ? '<th>Date</th>' : ''}<th>Time</th><th>Receipt</th><th>Customer / staff</th><th>Room</th><th class="n">Items</th><th class="n">Amount</th><th>Payment</th><th>Worker</th><th>Status</th></tr></thead><tbody>
-            ${bills.map(b => `<tr class="${b.voided ? 'void' : ''} ${b.kind}" data-bill="${b.id}" tabindex="0">${opts.date ? `<td>${esc(fmtDay(b.day))}</td>` : ''}<td>${esc(jeddahTime(b.given_at))}</td><td class="mono">${esc(b.receipt_no)}</td>
-              <td>${b.kind === 'free' ? staffPhoto(b.staff_id, 'la-thumb sm') : ''}${who(b)}</td><td>${esc(b.customer?.room || '')}</td><td class="n">${b.items}</td>
-              <td class="n"><b>${b.kind === 'free' ? `<span class="la-free">FREE</span> <small>${sar(b.value)}</small>` : sar(b.paid)}</b></td><td>${b.kind === 'free' ? '—' : esc(METHOD[b.method] || b.method)}</td>
-              <td>${esc(b.worker)}</td><td>${b.voided ? '❌ Cancelled' : STATUS[b.status]}</td></tr>`).join('')}</tbody></table></div>`;
-    }
     ctx.root.addEventListener('click', (e) => {
         const tr = e.target.closest('tr[data-bill]');
         if (tr && S.billIndex) openBill(S.billIndex.get(Number(tr.dataset.bill)));
     });
     ctx.root.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const tr = e.target.closest('tr[data-bill]'); if (tr && S.billIndex) openBill(S.billIndex.get(Number(tr.dataset.bill))); } });
     const indexBills = (bills) => { S.billIndex = S.billIndex || new Map(); for (const b of bills) S.billIndex.set(b.id, b); };
-
-    /* ------------------------------ today ------------------------------ */
-    async function drawDash() {
-        const box = $('tab-dash');
-        try {
-            const t = jeddahDay();
-            const [{ bills }] = await Promise.all([billsIn(t, t), S.staff.length ? null : loadStaff()]);
-            indexBills(bills);
-            const s = stats(bills);
-            box.innerHTML = `<div class="la-live"><h2>LAUNDRY – TODAY · ${esc(jeddahDate(new Date().toISOString()))}</h2><span class="la-muted">updates by itself every 20 seconds · ${esc(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }))}</span></div>
-                ${kpiBlocks(s)}
-                <div class="la-card"><h3>👷 Worker-wise today</h3>${workerTable(s.workers)}</div>
-                <div class="la-card"><h3>🧾 Today's transactions</h3>${billTable(bills)}</div>`;
-        } catch (e) { box.innerHTML = errBox(e); }
-    }
 
     /* ----------------------------- reports ----------------------------- */
     let lastReport = null;
@@ -223,37 +201,77 @@ export default async function mount(ctx) {
     }
 
     /* ------------------------------ bills ------------------------------ */
-    let billsData = [];
+    // Cash bills only. Unpaid = the worker still holds the cash; the admin marks bills Paid when it is handed over:
+    // one bill (✔ button), ticked bills, or "amount collected" (ticks the oldest unpaid bills that fit that amount).
+    const B = { from: addDays(jeddahDay(), -6), to: jeddahDay(), bills: [], sel: new Set() };
+    $('bFrom').value = B.from; $('bTo').value = B.to;
     async function drawBills() {
-        const r = rangeUI('bills', loadBillsList, 'today');
-        if (!S.items.length) await loadItems().catch(() => { });
-        $('bItem').innerHTML = '<option value="">Any item</option>' + S.items.map(i => `<option>${esc(i.name)}</option>`).join('');
-        if (!billsData.length) await loadBillsList(r);
-        else filterBills();
-    }
-    async function loadBillsList() {
-        const r = S.ranges.bills, q = $('bQ').value.trim();
         $('bBody').innerHTML = '<p class="la-muted">Loading…</p>';
         try {
-            billsData = q ? (await api('GET', `/api/laundry/search?site=${site}&q=${encodeURIComponent(q)}`)).bills : (await billsIn(r.from, r.to)).bills;
-            indexBills(billsData);
-            const ws = [...new Set(billsData.map(b => b.worker))].sort();
-            const cur = $('bWorker').value;
-            $('bWorker').innerHTML = '<option value="">All workers</option>' + ws.map(w => `<option ${w === cur ? 'selected' : ''}>${esc(w)}</option>`).join('');
-            filterBills();
+            B.bills = (await api('GET', `/api/laundry/bills?site=${site}&from=${B.from}&to=${B.to}&kind=paid`)).bills.filter(b => !b.voided)
+                .sort((a, b) => a.given_at.localeCompare(b.given_at));
+            indexBills(B.bills);
+            for (const id of [...B.sel]) if (!B.bills.some(b => b.id === id && !b.settled_at)) B.sel.delete(id);
+            renderBills();
         } catch (e) { $('bBody').innerHTML = errBox(e); }
     }
-    function filterBills() {
-        const w = $('bWorker').value, k = $('bKind').value, m = $('bMethod').value, it = $('bItem').value, showVoid = $('bVoid').checked;
-        const min = $('bMin').value === '' ? null : Number($('bMin').value) * 100, max = $('bMax').value === '' ? null : Number($('bMax').value) * 100;
-        const list = billsData.filter(b => (showVoid || !b.voided) && (!w || b.worker === w) && (!k || b.kind === k) && (!m || b.method === m)
-            && (!it || b.lines.some(l => l.name === it)) && (min == null || (b.kind === 'free' ? b.value : b.paid) >= min) && (max == null || (b.kind === 'free' ? b.value : b.paid) <= max));
-        const tot = list.filter(b => !b.voided && b.kind === 'paid').reduce((n, b) => n + b.paid, 0);
-        $('bBody').innerHTML = `<p class="la-muted">${list.length} bill${list.length === 1 ? '' : 's'} · paid total ${sar(tot)} SAR${$('bQ').value.trim() ? ' · search over all dates' : ''}</p>${billTable(list, { date: true })}`;
+    const nBills = (n) => `${n} bill${n === 1 ? '' : 's'}`;
+    function renderBills() {
+        const unpaid = B.bills.filter(b => !b.settled_at), paid = B.bills.filter(b => b.settled_at);
+        const sum = (a) => a.reduce((n, b) => n + b.paid, 0);
+        const sel = unpaid.filter(b => B.sel.has(b.id));
+        $('bBody').innerHTML = `<div class="la-kpis">${kpi('⏳', sar(sum(unpaid)), `unpaid SAR · ${nBills(unpaid.length)}`, 'big neg')}${kpi('✅', sar(sum(paid)), `paid SAR · ${nBills(paid.length)}`, 'big')}${kpi('🧾', sar(sum(B.bills)), `cash SAR · ${nBills(B.bills.length)}`)}</div>
+            ${isAdmin ? `<div class="la-paybar">
+              <button type="button" data-selall>${unpaid.length && sel.length === unpaid.length ? '☐ Clear selection' : '☑ Select all unpaid'}</button>
+              <label>Amount collected <input type="number" id="bCollect" min="0" step="0.5" placeholder="SAR"></label><button type="button" data-collect>Select bills for this amount</button>
+              <span class="la-grow"></span>
+              <b>${sel.length} selected · ${sar(sum(sel))} SAR</b>
+              <button type="button" class="la-primary" data-markpaid ${sel.length ? '' : 'disabled'}>✔ Mark selected paid</button></div>` : ''}
+            ${B.bills.length ? `<div class="la-scroll"><table class="la-t la-bills"><thead><tr>${isAdmin ? '<th></th>' : ''}<th>Date</th><th>Time</th><th>Receipt</th><th>Building · room</th><th class="n">Items</th><th class="n">Amount SAR</th><th>Worker</th><th>Status</th>${isAdmin ? '<th></th>' : ''}</tr></thead><tbody>
+              ${B.bills.map(b => `<tr data-bill="${b.id}" class="${b.settled_at ? 'paid' : 'unpaid'}${B.sel.has(b.id) ? ' sel' : ''}">
+                ${isAdmin ? `<td>${b.settled_at ? '' : `<input type="checkbox" data-sel="${b.id}" ${B.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(b.receipt_no)}">`}</td>` : ''}
+                <td>${esc(fmtDay(b.day))}</td><td>${esc(jeddahTime(b.given_at))}</td><td class="mono">${esc(b.receipt_no)}</td><td>${who(b)}</td><td class="n">${b.items}</td><td class="n"><b>${sar(b.paid)}</b></td><td>${esc(b.worker)}</td>
+                <td>${b.settled_at ? `<span class="la-tag paid">Paid</span> <small class="la-muted">${esc(jeddahDate(b.settled_at))}${b.settled_by ? ' · ' + esc(b.settled_by) : ''}</small>` : '<span class="la-tag unpaid">Unpaid</span>'}</td>
+                ${isAdmin ? `<td>${b.settled_at ? `<button type="button" class="la-mini" data-unpay="${b.id}">↩ Unpaid</button>` : `<button type="button" class="la-mini ok" data-pay="${b.id}">✔ Paid</button>`}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
+            : '<p class="la-muted">No cash bills in these dates.</p>'}`;
     }
-    let qTimer;
-    $('bQ').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(loadBillsList, 400); });
-    ['bWorker', 'bKind', 'bMethod', 'bItem', 'bVoid', 'bMin', 'bMax'].forEach(id => $(id).addEventListener('input', filterBills));
+    async function settle(ids, paid = true) {
+        const list = B.bills.filter(b => ids.includes(b.id));
+        if (!list.length) return;
+        const amt = sar(list.reduce((n, b) => n + b.paid, 0));
+        if (!confirm(paid ? `Mark ${list.length} bill${list.length === 1 ? '' : 's'} PAID (${amt} SAR received from the worker)?` : `Mark ${list.map(b => b.receipt_no).join(', ')} UNPAID again?`)) return;
+        try {
+            const r = await api('POST', '/api/laundry/settle', { ids, paid });
+            for (const b of r.bills) { const i = B.bills.findIndex(x => x.id === b.id); if (i >= 0) B.bills[i] = b; S.billIndex?.set(b.id, b); }
+            ids.forEach(id => B.sel.delete(id));
+            renderBills();
+        } catch (err) { alert(err.message); }
+    }
+    $('bFrom').addEventListener('change', () => { B.from = $('bFrom').value || jeddahDay(); if (B.to < B.from) { B.to = B.from; $('bTo').value = B.to; } drawBills(); });
+    $('bTo').addEventListener('change', () => { B.to = $('bTo').value || B.from; if (B.to < B.from) { B.from = B.to; $('bFrom').value = B.from; } drawBills(); });
+    $('bBody').addEventListener('click', (e) => {
+        const t = e.target;
+        if (t.closest('[data-sel]')) { const id = Number(t.closest('[data-sel]').dataset.sel); t.checked ? B.sel.add(id) : B.sel.delete(id); renderBills(); e.stopPropagation(); return; }
+        if (t.closest('[data-pay]')) { e.stopPropagation(); settle([Number(t.closest('[data-pay]').dataset.pay)]); return; }
+        if (t.closest('[data-unpay]')) { e.stopPropagation(); settle([Number(t.closest('[data-unpay]').dataset.unpay)], false); return; }
+        if (t.closest('[data-markpaid]')) { settle([...B.sel]); return; }
+        if (t.closest('[data-selall]')) {
+            const unpaid = B.bills.filter(b => !b.settled_at);
+            if (unpaid.every(b => B.sel.has(b.id))) B.sel.clear(); else unpaid.forEach(b => B.sel.add(b.id));
+            renderBills(); return;
+        }
+        if (t.closest('[data-collect]')) {
+            // oldest unpaid bills first, as long as they fit in the amount handed over
+            const amt = Math.round(Number($('bCollect').value) * 100);
+            if (!(amt > 0)) { alert('Enter the amount collected (SAR).'); return; }
+            B.sel.clear();
+            let left = amt;
+            for (const b of B.bills.filter(x => !x.settled_at)) if (b.paid <= left) { B.sel.add(b.id); left -= b.paid; }
+            renderBills();
+            $('bCollect').value = amt / 100;
+            if (left) alert(`${sar(amt - left)} SAR selected; ${sar(left)} SAR of the amount does not match a whole bill.`);
+        }
+    }, true);
 
     // one bill: details, audit, and (admin) edit / cancel / reprint
     async function openBill(b) {
@@ -311,14 +329,13 @@ export default async function mount(ctx) {
             const rows = [...qty].map(([id, q]) => { const l = known.get(id) || S.items.find(i => i.id === id); return `<tr><td>${esc(l.name)} <small>${sar(l.price)} SAR${known.has(id) ? '' : ' (today\'s price)'}</small></td>
                 <td class="n"><button type="button" data-d="${id}">−</button> <b>${q}</b> <button type="button" data-i="${id}">+</button></td></tr>`; }).join('');
             dlg.querySelector('#eRows').innerHTML = rows;
-            dlg.querySelector('#eAdd').innerHTML = '<option value="">➕ Add an item…</option>' + S.items.filter(i => i.active && !qty.has(i.id)).map(i => `<option value="${i.id}">${esc(i.name)} · ${sar(i.price)} SAR</option>`).join('');
+            dlg.querySelector('#eAdd').innerHTML = '<option value="">➕ Add an item…</option>' + S.items.filter(i => i.active && !qty.has(i.id) && (i.category || 'guest') === (b.kind === 'building' ? 'building' : 'guest')).map(i => `<option value="${i.id}">${esc(i.name)} · ${sar(i.price)} SAR</option>`).join('');
         };
         dlg.innerHTML = `<form class="la-form" method="dialog"><div class="la-dlg-h"><h2>✏️ Edit ${esc(b.receipt_no)}</h2><button type="button" data-x aria-label="Close">✕</button></div>
             ${b.kind === 'paid' ? `<div class="la-grid2">
               <label>Name<input name="name" value="${esc(b.customer.name || '')}"></label><label>Room<input name="room" value="${esc(b.customer.room || '')}"></label>
               <label>Building<input name="building" value="${esc(b.customer.building || '')}"></label><label>Group<input name="group" value="${esc(b.customer.group || '')}"></label>
-              <label>Contact<input name="contact" value="${esc(b.customer.contact || '')}"></label>
-              <label>Payment<select name="method">${Object.entries(METHOD).map(([k, v]) => `<option value="${k}" ${b.method === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>` : `<p>🆓 ${esc(b.staff_name)} (free laundry)</p>`}
+              <label>Contact<input name="contact" value="${esc(b.customer.contact || '')}"></label></div>` : b.kind === 'building' ? `<p>🏨 ${esc(b.customer?.building || '')} (building linen)</p>` : `<p>👷 ${esc(b.staff_name)} (staff only)</p>`}
             <table class="la-t"><tbody id="eRows"></tbody></table>
             <select id="eAdd"></select>
             <p class="la-muted">Lines already on the bill keep the price they were billed at. Every change is written to the history.</p>
@@ -336,7 +353,7 @@ export default async function mount(ctx) {
             if (!qty.size) { alert('A bill needs at least one item. To remove it completely, cancel the bill instead.'); return; }
             const f = e.target;
             const payload = { version: b.version, lines: [...qty].map(([item_id, q]) => ({ item_id, qty: q })) };
-            if (b.kind === 'paid') { payload.customer = { name: f.name.value, room: f.room.value, building: f.building.value, group: f.group.value, contact: f.contact.value }; payload.method = f.method.value; payload.received = ''; }
+            if (b.kind === 'paid') { payload.customer = { name: f.name.value, room: f.room.value, building: f.building.value, group: f.group.value, contact: f.contact.value }; payload.method = 'cash'; payload.received = ''; }
             try { const r = await api('PUT', `/api/laundry/bills/${b.id}`, payload); S.billIndex.set(b.id, r.bill); dlg.close(); refreshCurrent(); openBill(r.bill); }
             catch (err) { alert(err.message); }
         });
@@ -344,7 +361,7 @@ export default async function mount(ctx) {
         draw();
         dlg.showModal();
     }
-    function refreshCurrent() { if (S.tab === 'bills') loadBillsList(); else showTab(S.tab); }
+    function refreshCurrent() { showTab(S.tab); }
 
     /* ---------------------------- free laundry ---------------------------- */
     async function drawFree() {
@@ -357,7 +374,7 @@ export default async function mount(ctx) {
             const free = bills.filter(b => b.kind === 'free');
             indexBills(free);
             const s = stats(free);
-            body.innerHTML = `<div class="la-card free"><h3>🆓 FREE LAUNDRY · ${esc(fmtDay(r.from))}${r.to !== r.from ? ' → ' + esc(fmtDay(r.to)) : ''}</h3><div class="la-kpis">
+            body.innerHTML = `<div class="la-card free"><h3>👷 STAFF ONLY LAUNDRY · ${esc(fmtDay(r.from))}${r.to !== r.from ? ' → ' + esc(fmtDay(r.to)) : ''}</h3><div class="la-kpis">
                   ${kpi('👤', s.free.staff, 'staff')}${kpi('🧾', s.free.bills, 'transactions')}${kpi('👕', s.free.items, 'clothes')}${kpi('🏷️', sar(s.free.value), 'laundry value SAR', 'big')}${kpi('💵', 0, 'collected SAR')}</div></div>
                 <div class="la-card"><h3>Staff-wise</h3><table class="la-t"><thead><tr><th>Staff</th><th class="n">Transactions</th><th class="n">Clothes</th><th class="n">Laundry value</th></tr></thead><tbody>
                   ${s.staff.map(x => `<tr class="click" data-staffh="${x.staff_id}"><td>${staffPhoto(x.staff_id, 'la-thumb sm')} ${esc(x.name)}</td><td class="n">${x.bills}</td><td class="n">${x.items}</td><td class="n">${sar(x.value)} SAR</td></tr>`).join('') || '<tr><td colspan="4" class="la-muted">No free laundry in this period.</td></tr>'}</tbody></table></div>
@@ -396,32 +413,16 @@ export default async function mount(ctx) {
     const limitText = (L) => [L.per_bill_items && `${L.per_bill_items}/submission`, L.per_day_items && `${L.per_day_items}/day`, L.per_week_items && `${L.per_week_items}/week`,
         L.per_month_value && `${sar(L.per_month_value)} SAR/month`, L.per_month_bills && `${L.per_month_bills} times/month`].filter(Boolean).join(', ') + (L.enforce ? ' (approval needed above)' : ' (warning only)');
 
-    /* ----------------------------- closings ----------------------------- */
-    async function drawClosings() {
-        const r = rangeUI('closings', drawClosings, 'week');
-        const body = $('closeBody');
-        try {
-            const { closings, bills } = await billsIn(r.from, r.to);
-            // days with bills but no closing, per worker
-            const open = new Map();
-            for (const b of bills) if (!b.voided && b.kind === 'paid') open.set(`${b.day}|${b.worker_id}`, { day: b.day, worker: b.worker, worker_id: b.worker_id });
-            for (const c of closings) open.delete(`${c.day}|${c.worker_id}`);
-            body.innerHTML = `<table class="la-t"><thead><tr><th>Day</th><th>Worker</th><th class="n">Bills</th><th class="n">Sales</th><th class="n">Cash expected</th><th class="n">Cash counted</th><th class="n">Difference</th><th>Closed at</th><th>Note</th></tr></thead><tbody>
-                ${closings.map(c => `<tr class="${c.diff === 0 ? '' : 'diff'}"><td>${esc(fmtDay(c.day))}</td><td>${esc(c.worker_name)}</td><td class="n">${c.bills}</td><td class="n">${sar(c.sales)}</td><td class="n">${sar(c.cash_expected)}</td>
-                  <td class="n">${sar(c.cash_actual)}</td><td class="n"><b class="${c.diff < 0 ? 'neg' : c.diff > 0 ? 'pos' : 'zero'}">${c.diff > 0 ? '+' : ''}${sar(c.diff)}</b></td><td>${esc(jeddahTime(c.created_at))}</td><td>${esc(c.note || '')}</td></tr>`).join('')
-                  || '<tr><td colspan="9" class="la-muted">No closings in this period.</td></tr>'}</tbody></table>
-                ${open.size ? `<p class="la-warn">Not closed yet: ${[...open.values()].sort((a, b) => a.day.localeCompare(b.day)).map(o => `${esc(fmtDay(o.day))} · ${esc(o.worker)}`).join(' · ')}</p>` : ''}`;
-        } catch (e) { body.innerHTML = errBox(e); }
-    }
-
     /* ------------------------------ prices ------------------------------ */
     async function drawPrices() {
         const body = $('priceBody');
         try {
             await loadItems();
-            body.innerHTML = `<div class="la-items">${S.items.map(i => `<div class="la-item ${i.active ? '' : 'off'}">
+            const card = (i) => `<div class="la-item ${i.active ? '' : 'off'}">
                 ${itemPic(i, 'la-ipic big')}<div><b>${esc(i.name)}</b>${i.name_local ? `<small>${esc(i.name_local)}</small>` : ''}<span class="la-price">${sar(i.price)} SAR</span>${i.active ? '' : '<small>hidden from the worker</small>'}</div>
-                ${isAdmin ? `<button type="button" data-item="${i.id}">✏️ Edit</button>` : ''}</div>`).join('')}</div>`;
+                ${isAdmin ? `<button type="button" data-item="${i.id}">✏️ Edit</button>` : ''}</div>`;
+            body.innerHTML = `<h3>🧺 Clothes (New bill · Staff only)</h3><div class="la-items">${S.items.filter(i => (i.category || 'guest') === 'guest').map(card).join('')}</div>
+                <h3>🏨 Building linen (Building tab)</h3><div class="la-items">${S.items.filter(i => i.category === 'building').map(card).join('') || '<p class="la-muted">None yet.</p>'}</div>`;
         } catch (e) { body.innerHTML = errBox(e); }
     }
     $('priceBody').addEventListener('click', (e) => { const b = e.target.closest('[data-item]'); if (b) itemForm(S.items.find(i => i.id === Number(b.dataset.item))); });
@@ -440,12 +441,13 @@ export default async function mount(ctx) {
             <div class="la-grid2"><label>Name<input name="name" required maxlength="40" value="${esc(item?.name || '')}"></label>
               <label>Name in another language<input name="name_local" maxlength="40" value="${esc(item?.name_local || '')}" placeholder="optional"></label>
               <label>Price (SAR)<input name="price" type="number" min="0" max="1000" step="0.25" required value="${item ? item.price / 100 : ''}"></label>
-              <label>Order on the screen<input name="sort" type="number" step="1" value="${item?.sort ?? (S.items.length + 1)}"></label></div>
+              <label>Order on the screen<input name="sort" type="number" step="1" value="${item?.sort ?? (S.items.length + 1)}"></label>
+              <label>Tab<select name="category"><option value="guest" ${item?.category === 'building' ? '' : 'selected'}>🧺 Clothes (New bill · Staff only)</option><option value="building" ${item?.category === 'building' ? 'selected' : ''}>🏨 Building linen</option></select></label></div>
             <label class="la-chk"><input type="checkbox" name="active" ${!item || item.active ? 'checked' : ''}> Show to the worker</label>
             ${item ? `<p class="la-muted">Changing the price affects new bills only.</p>` : ''}
             <div class="la-actions"><button type="button" data-x>Cancel</button><button type="submit" class="la-primary">Save</button></div></form>`;
         ctx.root.appendChild(dlg);
-        const prev = () => { dlg.querySelector('#pPrev').innerHTML = itemPic({ image }, 'la-ipic huge'); };
+        const prev = () => { dlg.querySelector('#pPrev').innerHTML = itemPic({ image, name: dlg.querySelector('[name=name]').value }, 'la-ipic huge'); };
         dlg.querySelector('#pFile').addEventListener('change', async (e) => { try { image = await shrinkImage(e.target.files[0], 320); dlg.querySelector('#pEmoji').value = ''; prev(); } catch (err) { alert(err.message); } });
         dlg.querySelector('#pEmoji').addEventListener('input', (e) => { image = e.target.value.trim(); prev(); });
         dlg.querySelector('#pClear').addEventListener('click', () => { image = ''; dlg.querySelector('#pEmoji').value = ''; prev(); });
@@ -453,7 +455,7 @@ export default async function mount(ctx) {
         dlg.querySelector('form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const f = e.target;
-            const payload = { site, name: f.name.value, name_local: f.name_local.value, price: Number(f.price.value), sort: Number(f.sort.value), active: f.active.checked, image };
+            const payload = { site, name: f.name.value, name_local: f.name_local.value, price: Number(f.price.value), sort: Number(f.sort.value), active: f.active.checked, category: f.category.value, image };
             try { const r = await api(item ? 'PUT' : 'POST', item ? `/api/laundry/items/${item.id}` : '/api/laundry/items', payload); S.items = r.items; dlg.close(); drawPrices(); }
             catch (err) { alert(err.message); }
         });
@@ -556,7 +558,5 @@ The record and all past free-laundry entries stay saved (register, reports, hist
     /* ------------------------------ start ------------------------------ */
     await Promise.all([loadItems().catch(() => { }), loadStaff().catch(() => { })]);
     try { const r = await api('GET', '/api/settings'); S.info = r.settings.laundry_info || DEFAULT_INFO; } catch { }
-    showTab('dash');
-    const timer = setInterval(() => { if (S.tab === 'dash' && !ctx.root.querySelector('dialog[open]')) drawDash(); }, 20000);
-    return () => clearInterval(timer);
+    showTab('bills');
 }

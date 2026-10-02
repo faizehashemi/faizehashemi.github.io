@@ -4,6 +4,7 @@
 //            sent when the connection returns; the server stores a client_uid once, so nothing doubles
 //   receipt: receiptHTML(bill) and printReceipt(bill) (A5 on the Canon LBP, straight to the printer — see printReceipt)
 //   shrinkImage(file, size): a picture from the camera/gallery as a small JPEG data: URL
+//   keypad(): a touch number pad for quantities; itemPic(): photo, garment drawing (assets/laundry) or emoji
 
 import { request, currentDesk, OfflineError, ApiError } from './cloud.js';
 
@@ -17,10 +18,20 @@ export const METHOD = { cash: '💵 Cash', card: '💳 Card', other: '🔁 Other
 export const STATUS = { received: '🧺 Received', ready: '✅ Ready', collected: '🤲 Collected' };
 export const DEFAULT_INFO = 'Laundry collection: 8:00 AM – 10:00 AM\nWashed clothes collection: 6:00 PM – 8:00 PM\nNo staff service is available for picking up clothes from rooms.';
 
-/** An item picture: a photo (data: URL) or an emoji. */
+// The laundry's own drawings of each garment (assets/laundry/*.png), matched by the item's name
+const ICONS = [
+    [/rida/i, 'rida'], [/saaya|saya/i, 'saaya'], [/kurta/i, 'kurta'], [/paj?ama|paijama/i, 'pajama'], [/vest|baniyan/i, 'vest'],
+    [/brief|underwear/i, 'briefs'], [/sock/i, 'socks'], [/pardi/i, 'pardi'], [/ghagr/i, 'ghagro'], [/peti|petticoat/i, 'petticoat'],
+    [/t-?shirt/i, 'ladies-tshirt'], [/ehram|ihram/i, 'ehram'],
+];
+export const itemIcon = (name) => { const m = ICONS.find(([re]) => re.test(String(name || ''))); return m ? `assets/laundry/${m[1]}.png` : ''; };
+
+/** An item picture: a photo (data: URL), else the garment drawing for its name, else its emoji. */
 export function itemPic(item, cls = 'ld-pic') {
     const img = item?.image || '';
-    return img.startsWith('data:') ? `<img class="${cls}" src="${img}" alt="">` : `<span class="${cls} emoji" aria-hidden="true">${esc(img || '🧺')}</span>`;
+    if (img.startsWith('data:')) return `<img class="${cls}" src="${img}" alt="">`;
+    const icon = itemIcon(item?.name);
+    return icon ? `<img class="${cls} icon" src="${icon}" alt="">` : `<span class="${cls} emoji" aria-hidden="true">${esc(img || '🧺')}</span>`;
 }
 
 /* ---------------------------- small local caches ---------------------------- */
@@ -92,28 +103,29 @@ export function dropQueued(clientUid) { setQueue(queued().filter(x => x.client_u
 
 /* ---------------------------------- receipt ---------------------------------- */
 export function receiptHTML(b, info = '') {
-    const free = b.kind === 'free';
+    const free = b.kind === 'free', bld = b.kind === 'building';
     const when = b.given_at || b.created_at || new Date().toISOString();
     const change = !free && b.method === 'cash' && b.received > b.paid ? b.received - b.paid : 0;
     return `<div class="ld-receipt">
       <div class="r-h1">MOHAMMEDI MAKAN</div>
-      <div class="r-h2">${free ? 'FREE STAFF LAUNDRY' : 'LAUNDRY RECEIPT'}</div>
+      <div class="r-h2">${free ? 'STAFF LAUNDRY' : bld ? 'BUILDING LAUNDRY' : 'LAUNDRY RECEIPT'}</div>
       <div class="r-row"><span>Receipt No</span><b>${esc(b.receipt_no)}</b></div>
       <div class="r-row"><span>Date</span><span>${esc(jeddahDate(when))}</span></div>
       <div class="r-row"><span>Time</span><span>${esc(jeddahTime(when))}</span></div>
       <hr>
-      ${free ? `<div class="r-row"><span>Staff</span><b>${esc(b.staff_name || b.customer?.name)}</b></div>` : `
+      ${free ? `<div class="r-row"><span>Staff</span><b>${esc(b.staff_name || b.customer?.name)}</b></div>`
+        : bld ? `<div class="r-row"><span>Building</span><b>${esc(b.customer?.building || '—')}</b></div>` : `
       ${b.customer?.building ? `<div class="r-row"><span>Building</span><b>${esc(b.customer.building)}</b></div>` : ''}
       <div class="r-row"><span>Room</span><b>${esc(b.customer?.room || '—')}</b></div>
       ${b.customer?.name ? `<div class="r-row"><span>Customer</span><b>${esc(b.customer.name)}</b></div>` : ''}`}
       <hr>
-      ${(b.lines || []).map(l => `<div class="r-row"><span>${esc(l.name)} × ${l.qty}</span><span>${sar(l.amount)} SAR</span></div>`).join('')}
+      ${(b.lines || []).map(l => `<div class="r-row"><span>${esc(l.name)} × ${l.qty}</span><span>${bld ? '' : sar(l.amount) + ' SAR'}</span></div>`).join('')}
       <hr>
       <div class="r-row r-sum"><span>Items</span><b>${b.items}</b></div>
-      ${free ? `<div class="r-row r-sum"><span>Laundry value</span><b>${sar(b.value)} SAR</b></div>
-      <div class="r-free">FREE LAUNDRY – NO PAYMENT (0 SAR)</div>`
+      ${bld ? '<div class="r-free">BUILDING LINEN – NO PAYMENT</div>' : free ? `<div class="r-row r-sum"><span>Laundry value</span><b>${sar(b.value)} SAR</b></div>
+      <div class="r-free">STAFF LAUNDRY – NO PAYMENT (0 SAR)</div>`
         : `<div class="r-row r-total"><span>TOTAL</span><b>${sar(b.paid)} SAR</b></div>
-      <div class="r-row"><span>Payment</span><b>${esc((b.method || 'cash').toUpperCase())}</b></div>
+      <div class="r-row"><span>Payment</span><b>CASH</b></div>
       ${change ? `<div class="r-row"><span>Received / change</span><span>${sar(b.received)} / ${sar(change)} SAR</span></div>` : ''}`}
       <div class="r-row"><span>Worker</span><span>${esc(b.worker || currentDesk()?.name || '')}</span></div>
       ${b.offline ? '<div class="r-note">⏳ Saved on this phone — the receipt number is given when it is sent.</div>' : ''}
@@ -166,6 +178,51 @@ export function printReceipt(b, info = '') {
         setTimeout(() => f.remove(), 60_000);
     }, 250);
 }
+
+/* ------------------------------- keypad ------------------------------- */
+/**
+ * A big number pad in a dialog — the laundry screen has no keyboard. Resolves the number typed,
+ * or null when cancelled. `title` is HTML (e.g. the item picture and name).
+ */
+export function keypad({ title = '', value = 0, max = 2000, root = document.body } = {}) {
+    return new Promise((resolve) => {
+        let v = value ? String(value) : '', fresh = true;   // the first digit replaces the old number
+        const dlg = document.createElement('dialog');
+        dlg.className = 'ld-dlg ld-keypad';
+        dlg.innerHTML = `<div class="kp-title">${title}</div>
+            <div class="kp-show" aria-live="polite"></div>
+            <div class="kp-keys">${['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(k => `<button type="button" data-k="${k}"${k === 'C' || k === '⌫' ? ' class="fn"' : ''}>${k}</button>`).join('')}</div>
+            <div class="ld-dlg-b"><button type="button" data-x>✖ Cancel</button><button type="button" class="ok" data-ok>✔ OK</button></div>`;
+        root.appendChild(dlg);
+        const show = () => { dlg.querySelector('.kp-show').textContent = v || '0'; };
+        let done = false;
+        const finish = (r) => { if (done) return; done = true; dlg.close(); dlg.remove(); resolve(r); };
+        dlg.addEventListener('click', (e) => {
+            const k = e.target.closest('[data-k]')?.dataset.k;
+            if (k && fresh && /\d/.test(k)) v = '';
+            if (k) fresh = false;
+            if (k === 'C') v = '';
+            else if (k === '⌫') v = v.slice(0, -1);
+            else if (k && (v + k).replace(/^0+/, '').length <= String(max).length && Number(v + k) <= max) v = (v + k).replace(/^0+/, '');
+            if (k) show();
+            if (e.target.closest('[data-x]')) finish(null);
+            if (e.target.closest('[data-ok]')) finish(Number(v || 0));
+        });
+        dlg.addEventListener('close', () => { dlg.remove(); if (!done) { done = true; resolve(null); } });
+        show();
+        dlg.showModal();
+    });
+}
+
+export const KEYPAD_CSS = `
+.ld-keypad { width: min(380px, 94vw); }
+.ld-keypad .kp-title { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; }
+.ld-keypad .kp-title img, .ld-keypad .kp-title .emoji { width: 56px; height: 56px; object-fit: contain; font-size: 44px; display: grid; place-items: center; }
+.ld-keypad .kp-show { margin: 10px 0; padding: 8px 14px; border-radius: 14px; background: #fff8e6; border: 2px solid #e3d2b1; text-align: right; font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ld-keypad .kp-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ld-keypad .kp-keys button { height: 68px; border-radius: 16px; border: 2px solid #e3d2b1; background: #fff; font-size: 30px; font-weight: 800; touch-action: manipulation; }
+.ld-keypad .kp-keys button:active { background: #f6e7bf; }
+.ld-keypad .kp-keys button.fn { background: #f5efe3; font-size: 24px; }`;
 
 /* ------------------------------- pictures ------------------------------- */
 /** A picture file → square-ish JPEG data: URL no larger than `size` px (keeps the database small). */

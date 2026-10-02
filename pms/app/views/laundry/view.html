@@ -1,23 +1,24 @@
 <div class="ld">
     <nav class="ld-tabs" role="tablist" aria-label="Laundry">
         <button type="button" role="tab" data-tab="bill" aria-selected="true"><span aria-hidden="true">🧺</span>New bill</button>
-        <button type="button" role="tab" data-tab="free"><span aria-hidden="true">🆓</span>Free (staff)</button>
+        <button type="button" role="tab" data-tab="free"><span aria-hidden="true">👷</span>Staff only</button>
+        <button type="button" role="tab" data-tab="building"><span aria-hidden="true">🏨</span>Building</button>
         <button type="button" role="tab" data-tab="pending"><span aria-hidden="true">📦</span>Pending <b class="ld-count" id="ldPendingCount"></b></button>
-        <button type="button" role="tab" data-tab="today"><span aria-hidden="true">📋</span>My day</button>
-        <button type="button" role="tab" data-tab="close"><span aria-hidden="true">🔒</span>Close day</button>
+        <button type="button" role="tab" data-tab="cash"><span aria-hidden="true">💵</span>Pending cash</button>
     </nav>
 
     <div class="ld-info" id="ldInfo"></div>
     <div class="ld-offline" id="ldOffline" hidden></div>
 
-    <!-- NEW BILL / FREE: the same screen; free swaps the customer box for the staff card -->
+    <!-- NEW BILL / STAFF ONLY / BUILDING: the same screen; staff swaps the room wheels for the staff card,
+         building keeps only the building wheel and its own (linen) items -->
     <section class="ld-pane" id="paneBill">
         <!-- room: three scroll wheels (building → floor → room), no typing on the touch screen -->
         <div class="ld-who" id="ldCustomer">
             <div class="ld-wheels" id="ldWheels">
                 <div class="ld-wcol"><small>🏨 Building</small><div class="ld-wheel" id="ldWBuilding" role="listbox" aria-label="Building"></div></div>
-                <div class="ld-wcol narrow"><small>⬆️ Floor</small><div class="ld-wheel" id="ldWFloor" role="listbox" aria-label="Floor"></div></div>
-                <div class="ld-wcol"><small>🚪 Room</small><div class="ld-wheel" id="ldWRoom" role="listbox" aria-label="Room"></div></div>
+                <div class="ld-wcol narrow rm"><small>⬆️ Floor</small><div class="ld-wheel" id="ldWFloor" role="listbox" aria-label="Floor"></div></div>
+                <div class="ld-wcol rm"><small>🚪 Room</small><div class="ld-wheel" id="ldWRoom" role="listbox" aria-label="Room"></div></div>
             </div>
             <div class="ld-picked" id="ldPicked"></div>
         </div>
@@ -31,39 +32,36 @@
 
         <div class="ld-cart" id="ldCart"></div>
 
+        <!-- cash only: what the customer handed over → the change -->
         <div class="ld-pay" id="ldPay">
-            <div class="ld-methods" id="ldMethods" role="group" aria-label="Payment">
-                <button type="button" data-method="cash" aria-pressed="true"><span>💵</span>Cash</button>
-                <button type="button" data-method="card" aria-pressed="false"><span>💳</span>Card</button>
-                <button type="button" data-method="other" aria-pressed="false"><span>🔁</span>Other</button>
-            </div>
             <div class="ld-recv" id="ldRecvBox">
-                <span>Given</span>
+                <span>💵 Given</span>
                 <div class="ld-quick" id="ldQuick"></div>
-                <input id="ldReceived" inputmode="decimal" placeholder="exact" aria-label="Cash given">
+                <input id="ldReceived" readonly inputmode="none" placeholder="other" aria-label="Cash given (opens the number pad)">
                 <b class="ld-change" id="ldChange"></b>
             </div>
         </div>
 
         <div class="ld-bar">
-            <div class="ld-total"><small id="ldTotalLbl">TOTAL</small><b id="ldTotal">0</b><small>SAR · <span id="ldPieces">0</span> pcs</small></div>
+            <div class="ld-total"><small id="ldTotalLbl">TOTAL</small><b id="ldTotal">0</b><small><span id="ldTotalUnit">SAR</span><span id="ldPcsWrap"> · <span id="ldPieces">0</span> pcs</span></small></div>
             <button type="button" class="ld-clear" id="ldClear" aria-label="Clear the bill">✖</button>
             <button type="button" class="ld-save" id="ldSave" disabled><span aria-hidden="true">✔</span> SAVE</button>
         </div>
     </section>
 
     <section class="ld-pane" id="panePending" hidden>
-        <label class="ld-big-in wide"><span>🔎</span><input id="ldPendFind" autocomplete="off" placeholder="Room, name, receipt"></label>
         <div class="ld-cards" id="ldPendList"></div>
     </section>
 
-    <section class="ld-pane" id="paneToday" hidden>
-        <div class="ld-kpis" id="ldMyKpis"></div>
+    <!-- PENDING CASH: my cash bills from a date (to a date); Unpaid until the admin marks them Paid -->
+    <section class="ld-pane" id="paneCash" hidden>
         <div class="ld-queue" id="ldQueue"></div>
-        <div class="ld-cards" id="ldMyList"></div>
-    </section>
-
-    <section class="ld-pane" id="paneClose" hidden>
-        <div class="ld-close" id="ldClose"></div>
+        <div class="ld-dates">
+            <label><span>📅 From</span><input type="date" id="ldCashFrom"></label>
+            <label><span>📅 To <small>(optional)</small></span><input type="date" id="ldCashTo"></label>
+            <button type="button" id="ldCashToClear" aria-label="Clear the To date">✖ To</button>
+        </div>
+        <div class="ld-kpis" id="ldCashKpis"></div>
+        <div class="ld-cards" id="ldCashList"></div>
     </section>
 </div>

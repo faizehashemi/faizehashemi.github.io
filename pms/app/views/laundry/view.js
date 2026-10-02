@@ -1,30 +1,33 @@
-// Laundry POS — the worker's phone/tablet screen. Built for speed and for people who read little:
-// big pictures of each item (tap = one more), big numbers, a few icons, one SAVE button.
-//   🧺 New bill: swipe building → floor → room (wheels, no keyboard) → tap items → Cash → SAVE → receipt
-//   🆓 Free (staff): tap the staff member (all listed, filter optional), check the PHOTO, tap items → SAVE (value recorded, 0 collected)
-//   📦 Pending: clothes still here → ✅ Ready → 🤲 Collected
-//   📋 My day: my bills and money today (and bills waiting on this phone when offline)
-//   🔒 Close day: count the cash, see the difference
-// Prices come from the server; the worker cannot change them. Works offline (bills wait on the phone).
+// Laundry POS — the laundry's touch screen (no keyboard). Built for speed and for people who read little:
+// big pictures of each item, big numbers, a few icons, one SAVE button. Everything is cash.
+//   🧺 New bill: swipe building → floor → room (wheels) → tap clothes (tap = one more) → SAVE → receipt
+//   👷 Staff only: tap the staff member (all listed, filter optional), check the PHOTO, tap clothes → SAVE (value recorded, 0 collected)
+//   🏨 Building: the building's linen — swipe the building, tap an item → number pad for the quantity → SAVE
+//   📦 Pending: clothes still here → 🤲 Given back
+//   💵 Pending cash: my cash bills from a date (to a date) — Unpaid until the admin marks them Paid
+// Prices come from the server; the worker cannot change them. Works offline (bills wait on this device).
 
-import { request, mirrorAll, currentDesk, UserError } from '../../core/cloud.js';
+import { request, mirrorAll, UserError } from '../../core/cloud.js';
 import {
-    sar, esc, jeddahDay, jeddahTime, METHOD, STATUS, DEFAULT_INFO, itemPic, cached, saveBill, flushQueue, queued, dropQueued,
-    receiptHTML, printReceipt, RECEIPT_CSS, ApiError,
+    sar, esc, jeddahDay, jeddahTime, jeddahDate, STATUS, DEFAULT_INFO, itemPic, cached, saveBill, flushQueue, queued, dropQueued,
+    receiptHTML, printReceipt, RECEIPT_CSS, KEYPAD_CSS, keypad, ApiError,
 } from '../../core/laundry.js';
 import { loadBuildings, buildingsOfSite, floorOf, normRoom, normBuilding } from '../../core/rooms.js';
 import { wheel } from './wheel.js';
 
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+const MODES = ['bill', 'free', 'building'];   // the tabs that make a bill
 
 export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
     const site = ctx.siteId;
-    const me = currentDesk();
-    const st = { tab: 'bill', cart: new Map(), method: 'cash', staff: null, usage: null, items: [], staffList: [], buildings: [], slips: [], info: DEFAULT_INFO };
+    // one cart per bill tab, so switching tabs never mixes clothes and linen
+    const st = { tab: 'bill', carts: { bill: new Map(), free: new Map(), building: new Map() }, staff: null, usage: null, items: [], staffList: [], buildings: [], slips: [], info: DEFAULT_INFO };
+    const cart = () => st.carts[st.tab] || st.carts.bill;
+    const isBuilding = () => st.tab === 'building';
 
-    // receipt styles for the on-screen receipt
-    const rcss = document.createElement('style'); rcss.textContent = RECEIPT_CSS; document.head.appendChild(rcss);
+    // receipt + keypad styles
+    const rcss = document.createElement('style'); rcss.textContent = RECEIPT_CSS + KEYPAD_CSS; document.head.appendChild(rcss);
 
     /* ------------------------------ data ------------------------------ */
     async function loadItems() {
@@ -61,62 +64,80 @@ export default async function mount(ctx) {
     function showTab(tab) {
         st.tab = tab;
         ctx.root.querySelectorAll('.ld-tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-        const billish = tab === 'bill' || tab === 'free';
+        const billish = MODES.includes(tab);
         $('paneBill').hidden = !billish;
         $('panePending').hidden = tab !== 'pending';
-        $('paneToday').hidden = tab !== 'today';
-        $('paneClose').hidden = tab !== 'close';
+        $('paneCash').hidden = tab !== 'cash';
         if (billish) {
-            $('ldCustomer').hidden = tab !== 'bill';
+            $('ldCustomer').hidden = tab === 'free';
+            $('ldWheels').classList.toggle('bonly', tab === 'building');   // building linen: the building wheel only
             $('ldStaff').hidden = tab !== 'free';
-            $('ldPay').hidden = tab === 'free';
+            $('ldPay').hidden = tab !== 'bill';
             ctx.root.querySelector('.ld').classList.toggle('free', tab === 'free');
+            ctx.root.querySelector('.ld').classList.toggle('bld', tab === 'building');
             if (tab === 'free') { drawStaffList(); if (!st.staffList.length) loadStaff().then(drawStaffList).catch(() => { }); }
-            if (tab === 'bill') [wB, wF, wR].forEach(w => w.sync());
-            drawCart();
+            if (tab !== 'free') [wB, wF, wR].forEach(w => w.sync());
+            drawItems(); drawCart(); drawPicked();
         }
         if (tab === 'pending') loadPending();
-        if (tab === 'today') loadToday();
-        if (tab === 'close') loadClose();
+        if (tab === 'cash') loadCash();
         window.scrollTo(0, 0);
     }
     ctx.root.querySelector('.ld-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
 
     /* --------------------------- items & cart --------------------------- */
+    const shown = () => st.items.filter(i => (i.category || 'guest') === (isBuilding() ? 'building' : 'guest'));
     function drawItems() {
-        $('ldItems').innerHTML = st.items.map(i => {
-            const q = st.cart.get(i.id) || 0;
-            return `<button type="button" class="ld-item${q ? ' on' : ''}" data-item="${i.id}" aria-label="${esc(i.name)}, ${sar(i.price)} SAR${q ? `, ${q} added` : ''}">
+        const bld = isBuilding();
+        $('ldItems').innerHTML = shown().map(i => {
+            const q = cart().get(i.id) || 0;
+            return `<button type="button" class="ld-item${q ? ' on' : ''}" data-item="${i.id}" aria-label="${esc(i.name)}${bld ? '' : `, ${sar(i.price)} SAR`}${q ? `, ${q} added` : ''}">
                 ${itemPic(i)}
                 <span class="ld-iname">${esc(i.name)}${i.name_local ? `<small>${esc(i.name_local)}</small>` : ''}</span>
-                <span class="ld-iprice">${sar(i.price)} <small>SAR</small></span>
+                ${bld ? '<span class="ld-iprice"><small>🔢 tap for quantity</small></span>' : `<span class="ld-iprice">${sar(i.price)} <small>SAR</small></span>`}
                 ${q ? `<b class="ld-badge">${q}</b>` : ''}
             </button>`;
-        }).join('') || '<p class="ld-muted">No items yet — the admin adds them on Laundry admin → Prices.</p>';
+        }).join('') || `<p class="ld-muted">No ${bld ? 'building' : ''} items yet — the admin adds them on Laundry admin → Prices.</p>`;
     }
-    function add(id, n) {
-        const q = Math.max(0, (st.cart.get(id) || 0) + n);
-        if (q) st.cart.set(id, q); else st.cart.delete(id);
+    function setQty(id, q) {
+        if (q > 0) cart().set(id, q); else cart().delete(id);
         drawItems(); drawCart();
     }
-    $('ldItems').addEventListener('click', (e) => { const b = e.target.closest('[data-item]'); if (b) { add(Number(b.dataset.item), 1); b.classList.add('pop'); setTimeout(() => b.classList.remove('pop'), 180); } });
+    const add = (id, n) => setQty(id, Math.max(0, (cart().get(id) || 0) + n));
+    // the number pad for one item's quantity
+    async function askQty(id) {
+        const i = st.items.find(x => x.id === id);
+        if (!i) return;
+        const q = await keypad({ title: `${itemPic(i, 'kp-pic')}<span>${esc(i.name)}<br><small>How many?</small></span>`, value: cart().get(id) || 0, root: ctx.root });
+        if (q != null) setQty(id, q);
+    }
+    $('ldItems').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-item]');
+        if (!b) return;
+        const id = Number(b.dataset.item);
+        if (isBuilding()) { askQty(id); return; }        // linen comes in dozens: type the number
+        add(id, 1); b.classList.add('pop'); setTimeout(() => b.classList.remove('pop'), 180);
+    });
 
-    const lines = () => [...st.cart].map(([id, qty]) => { const i = st.items.find(x => x.id === id); return i && { item_id: id, name: i.name, price: i.price, qty, amount: i.price * qty, image: i.image }; }).filter(Boolean);
-    const total = () => lines().reduce((n, l) => n + l.amount, 0);
+    const lines = () => [...cart()].map(([id, qty]) => { const i = st.items.find(x => x.id === id); return i && { item_id: id, name: i.name, price: i.price, qty, amount: i.price * qty, image: i.image }; }).filter(Boolean);
+    const total = () => isBuilding() ? 0 : lines().reduce((n, l) => n + l.amount, 0);
 
     function drawCart() {
-        const ls = lines(), t = total(), pcs = ls.reduce((n, l) => n + l.qty, 0);
+        const ls = lines(), t = total(), pcs = ls.reduce((n, l) => n + l.qty, 0), free = st.tab === 'free', bld = isBuilding();
         $('ldCart').innerHTML = ls.length ? `<table class="ld-cart-t">${ls.map(l => `<tr>
-              <td class="c-pic">${itemPic(l, 'ld-pic sm')}</td><td class="c-name">${esc(l.name)}<small>${sar(l.price)} SAR</small></td>
-              <td class="c-qty"><button type="button" data-dec="${l.item_id}" aria-label="One less ${esc(l.name)}">−</button><b>${l.qty}</b><button type="button" data-inc="${l.item_id}" aria-label="One more ${esc(l.name)}">+</button></td>
-              <td class="c-amt">${sar(l.amount)}</td></tr>`).join('')}</table>` : '<p class="ld-hint">👆 Tap the pictures to add clothes</p>';
-        const free = st.tab === 'free';
-        $('ldTotalLbl').textContent = free ? 'VALUE · FREE' : 'TOTAL';
-        $('ldTotal').textContent = sar(t);
+              <td class="c-pic">${itemPic(l, 'ld-pic sm')}</td><td class="c-name">${esc(l.name)}${bld ? '' : `<small>${sar(l.price)} SAR</small>`}</td>
+              <td class="c-qty"><button type="button" data-dec="${l.item_id}" aria-label="One less ${esc(l.name)}">−</button><button type="button" class="c-num" data-qty="${l.item_id}" aria-label="Type the quantity of ${esc(l.name)}">${l.qty}</button><button type="button" data-inc="${l.item_id}" aria-label="One more ${esc(l.name)}">+</button></td>
+              <td class="c-amt">${bld ? '' : sar(l.amount)}</td></tr>`).join('')}</table>`
+            : `<p class="ld-hint">👆 ${bld ? 'Tap an item and type how many' : 'Tap the pictures to add clothes'}</p>`;
+        $('ldTotalLbl').textContent = free ? 'VALUE · STAFF' : bld ? 'BUILDING · NO PAYMENT' : 'TOTAL · CASH';
+        $('ldTotal').textContent = bld ? pcs : sar(t);
+        $('ldTotalUnit').textContent = bld ? 'pieces' : 'SAR';
         $('ldPieces').textContent = pcs;
+        $('ldPcsWrap').hidden = bld;
         ctx.root.querySelector('.ld-bar').classList.toggle('free', free);
-        $('ldSave').disabled = !ls.length || (free && !st.staff);
-        $('ldSave').innerHTML = free ? '<span aria-hidden="true">✔</span> SAVE · FREE' : '<span aria-hidden="true">✔</span> SAVE';
+        ctx.root.querySelector('.ld-bar').classList.toggle('bld', bld);
+        $('ldSave').disabled = !ls.length || (free && !st.staff) || (bld && !wB.value);
+        $('ldSave').innerHTML = `<span aria-hidden="true">✔</span> SAVE${free ? ' · STAFF' : bld ? ' · BUILDING' : ''}`;
         // cash given → change
         const quick = [...new Set([t, ...[5, 10, 20, 50, 100, 200, 500].map(v => v * 100).filter(v => v > t)].slice(0, 5))];
         $('ldQuick').innerHTML = t ? quick.map(v => `<button type="button" data-recv="${v}">${sar(v)}</button>`).join('') : '';
@@ -124,34 +145,30 @@ export default async function mount(ctx) {
         if (free) drawStaffCard();
     }
     $('ldCart').addEventListener('click', (e) => {
-        const d = e.target.closest('[data-dec]'), i = e.target.closest('[data-inc]');
-        if (d) add(Number(d.dataset.dec), -1); else if (i) add(Number(i.dataset.inc), 1);
+        const d = e.target.closest('[data-dec]'), i = e.target.closest('[data-inc]'), n = e.target.closest('[data-qty]');
+        if (d) add(Number(d.dataset.dec), -1); else if (i) add(Number(i.dataset.inc), 1); else if (n) askQty(Number(n.dataset.qty));
     });
 
     function drawChange() {
         const t = total(), v = $('ldReceived').value.trim();
         const got = v === '' ? null : Math.round(Number(v) * 100);
-        $('ldRecvBox').hidden = st.method !== 'cash' || !t;
+        $('ldRecvBox').hidden = !t;
         $('ldChange').textContent = got == null || !Number.isFinite(got) ? '' : got < t ? `short ${sar(t - got)}` : `change ${sar(got - t)}`;
         $('ldChange').className = 'ld-change' + (got != null && got < t ? ' bad' : '');
     }
     $('ldQuick').addEventListener('click', (e) => { const b = e.target.closest('[data-recv]'); if (b) { $('ldReceived').value = sar(Number(b.dataset.recv)); drawChange(); } });
-    $('ldReceived').addEventListener('input', drawChange);
-    $('ldMethods').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-method]');
-        if (!b) return;
-        st.method = b.dataset.method;
-        $('ldMethods').querySelectorAll('[data-method]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-        drawChange();
+    // other amount given: the number pad (no keyboard on the laundry screen)
+    $('ldReceived').addEventListener('click', async () => {
+        const v = await keypad({ title: '<span>💵 Cash given<br><small>SAR</small></span>', value: Number($('ldReceived').value) || 0, max: 100000, root: ctx.root });
+        if (v != null) { $('ldReceived').value = v ? String(v) : ''; drawChange(); }
     });
-    $('ldClear').addEventListener('click', () => { if (!st.cart.size || confirm('Clear this bill?')) resetBill(); });
+    $('ldClear').addEventListener('click', () => { if (!cart().size || confirm('Clear this bill?')) resetBill(); });
 
     function resetBill() {
-        st.cart.clear();
+        cart().clear();
         $('ldReceived').value = '';
-        pickFloor(wF.value); // keep building and floor (the next customer is often a neighbour), room back to —
-        st.staff = null; st.usage = null; $('ldStaffFind').value = ''; $('ldStaffCard').hidden = true; drawStaffList();
-        st.method = 'cash'; $('ldMethods').querySelectorAll('[data-method]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.method === 'cash')));
+        if (st.tab === 'bill') pickFloor(wF.value); // keep building and floor (the next customer is often a neighbour), room back to —
+        if (st.tab === 'free') { st.staff = null; st.usage = null; $('ldStaffFind').value = ''; $('ldStaffCard').hidden = true; drawStaffList(); }
         drawItems(); drawCart();
     }
 
@@ -166,6 +183,7 @@ export default async function mount(ctx) {
         const floors = [...new Set((bld()?.rooms || []).map(floorOfRoom))].sort(natural);
         wF.set(floors.map(f => ({ value: f, label: f === '0' ? 'G' : f })), floors[0]);
         pickFloor(wF.value);
+        if (isBuilding()) drawCart();
     }
     function pickFloor(floor) {
         const rooms = (bld()?.rooms || []).filter(r => floorOfRoom(r) === floor).map(r => normRoom(r.room_no)).sort(natural);
@@ -189,18 +207,19 @@ export default async function mount(ctx) {
     function drawPicked() {
         const c = customer();
         $('ldPicked').innerHTML = !st.buildings.length ? '<small>No rooms yet — the admin adds them on Rooms &amp; Buildings.</small>'
-            : c.room ? `🚪 ${esc(c.building)} · ${esc(c.room)}${c.group ? `<span class="grp">🏨 ${esc(c.group)}</span>` : ''}`
-                : '<small>👆 Swipe the wheels to the room</small>';
+            : isBuilding() ? `🏨 ${esc(c.building)} <small>· building linen</small>`
+                : c.room ? `🚪 ${esc(c.building)} · ${esc(c.room)}${c.group ? `<span class="grp">🏨 ${esc(c.group)}</span>` : ''}`
+                    : '<small>👆 Swipe the wheels to the room</small>';
     }
 
-    /* ------------------------------ free: staff ------------------------------ */
+    /* ------------------------------ staff only ------------------------------ */
     function drawStaffList() {
         const q = $('ldStaffFind').value.trim().toLowerCase();
         const list = st.staffList.filter(s => !q || [s.name, s.staff_code, s.room, s.contact].some(v => String(v || '').toLowerCase().includes(q)));
         $('ldStaffList').hidden = !!st.staff;
         $('ldStaffList').innerHTML = list.map(s => `<button type="button" class="ld-staff" data-staff="${s.id}">
             ${s.photo ? `<img src="${s.photo}" alt="">` : '<span class="nophoto">👤</span>'}<span><b>${esc(s.name)}</b><small>${esc([s.staff_code, s.department, s.room && '🚪 ' + s.room].filter(Boolean).join(' · '))}</small></span></button>`).join('')
-            || `<p class="ld-muted">${st.staffList.length ? 'Nobody matches.' : 'No free-laundry staff yet — the admin adds them on Laundry admin → Staff.'}</p>`;
+            || `<p class="ld-muted">${st.staffList.length ? 'Nobody matches.' : 'No staff yet — the admin adds them on Laundry admin → Staff.'}</p>`;
     }
     $('ldStaffFind').addEventListener('input', () => { st.staff = null; $('ldStaffCard').hidden = true; drawStaffList(); drawCart(); });
     $('ldStaffList').addEventListener('click', async (e) => {
@@ -235,15 +254,17 @@ export default async function mount(ctx) {
 
     /* ---------------------------------- save ---------------------------------- */
     async function save(approval) {
-        const free = st.tab === 'free', ls = lines();
+        const tab = st.tab, free = tab === 'free', building = tab === 'building', ls = lines();
         if (!ls.length) return;
         const cust = customer();
-        if (!free && !cust.room) { alert('Choose the room first (swipe the wheels).'); return; }
+        if (tab === 'bill' && !cust.room) { alert('Choose the room first (swipe the wheels).'); return; }
+        if (building && !cust.building) { alert('Choose the building first.'); return; }
         const recv = $('ldReceived').value.trim();
         const payload = {
-            site, kind: free ? 'free' : 'paid', customer: free ? undefined : cust, staff_id: free ? st.staff?.id : undefined,
-            lines: ls.map(l => ({ item_id: l.item_id, qty: l.qty })), method: free ? undefined : st.method,
-            received: free || st.method !== 'cash' || recv === '' ? undefined : Number(recv),
+            site, kind: free ? 'free' : building ? 'building' : 'paid',
+            customer: free ? undefined : building ? { building: cust.building } : cust, staff_id: free ? st.staff?.id : undefined,
+            lines: ls.map(l => ({ item_id: l.item_id, qty: l.qty })), method: tab === 'bill' ? 'cash' : undefined,
+            received: tab !== 'bill' || recv === '' ? undefined : Number(recv),
             preview_lines: ls.map(({ image, ...l }) => l), preview_value: total(), staff_name: free ? st.staff?.name : undefined,
             client_uid: st.pendingUid, approval,
         };
@@ -259,7 +280,7 @@ export default async function mount(ctx) {
             loadSlips();
         } catch (e) {
             if (e instanceof ApiError && e.status === 409 && e.extra?.needs_approval) askApproval(e.extra.warnings || []);
-            else alert(e instanceof UserError ? e.message : 'Could not save. Try again.');
+            else alert(e instanceof UserError ? e.message : (e.message || 'Could not save. Try again.'));
         } finally { drawCart(); }
     }
     $('ldSave').addEventListener('click', () => save());
@@ -284,7 +305,7 @@ export default async function mount(ctx) {
     function showReceipt(b, warnings = [], offline = false) {
         const dlg = document.createElement('dialog');
         dlg.className = 'ld-dlg ld-rdlg';
-        dlg.innerHTML = `<div class="ld-done">${offline ? '⏳ Saved on this phone — will send when online' : b.kind === 'free' ? '✅ Saved · FREE' : `✅ Saved · ${sar(b.paid)} SAR ${esc(METHOD[b.method] || '')}`}</div>
+        dlg.innerHTML = `<div class="ld-done">${offline ? '⏳ Saved on this device — will send when online' : b.kind === 'free' ? '✅ Saved · STAFF' : b.kind === 'building' ? `✅ Saved · ${esc(b.customer?.building || 'building')}` : `✅ Saved · ${sar(b.paid)} SAR cash`}</div>
             ${warnings?.length ? `<div class="ld-warn">⚠️ ${warnings.map(esc).join('<br>⚠️ ')}</div>` : ''}
             ${receiptHTML(b, st.info)}
             <div class="ld-dlg-b"><button type="button" data-print>🖨 Print</button><button type="button" class="ok" data-x>➕ Next bill</button></div>`;
@@ -295,7 +316,9 @@ export default async function mount(ctx) {
         dlg.showModal();
     }
 
-    const custLabel = (c) => `🚪 ${esc([c.building, c.room || '—'].filter(Boolean).join(' · '))}${c.name ? ' · ' + esc(c.name) : ''}`;
+    const custLabel = (b) => b.kind === 'free' ? '👷 ' + esc(b.staff_name)
+        : b.kind === 'building' ? `🏨 ${esc(b.customer?.building || '—')} <small>(building)</small>`
+            : `🚪 ${esc([b.customer?.building, b.customer?.room || '—'].filter(Boolean).join(' · '))}${b.customer?.name ? ' · ' + esc(b.customer.name) : ''}`;
 
     /* -------------------------------- pending -------------------------------- */
     let pending = [];
@@ -306,113 +329,79 @@ export default async function mount(ctx) {
         drawPending();
     }
     function drawPending() {
-        const q = $('ldPendFind').value.trim().toLowerCase();
-        const list = pending.filter(b => !q || [b.receipt_no, b.customer?.name, b.customer?.room, b.staff_name].some(v => String(v || '').toLowerCase().includes(q)));
         const photo = (b) => { const s = b.staff_id && st.staffList.find(x => x.id === b.staff_id); return s?.photo ? `<img class="ld-mini" src="${s.photo}" alt="">` : ''; };
-        $('ldPendList').innerHTML = list.map(b => `<div class="ld-card ${b.status}">
+        $('ldPendList').innerHTML = pending.map(b => `<div class="ld-card ${b.status}">
             ${photo(b)}
-            <div class="ld-cmain"><b>${b.kind === 'free' ? '🆓 ' + esc(b.staff_name) : custLabel(b.customer)}</b>
-              <small>${esc(b.receipt_no)} · ${esc(jeddahTime(b.given_at))} ${b.day !== jeddahDay() ? esc(b.day.slice(5)) : ''} · ${b.items} pcs</small>
-              <span class="ld-st">${STATUS[b.status]}</span></div>
-            <div class="ld-cbtn">${b.status === 'received' ? `<button type="button" data-st="ready" data-id="${b.id}">✅ Ready</button>` : ''}
-              <button type="button" class="ok" data-st="collected" data-id="${b.id}">🤲 Given back</button></div></div>`).join('')
+            <div class="ld-cmain"><b>${custLabel(b)}</b>
+              <small>${esc(b.receipt_no)} · ${esc(jeddahTime(b.given_at))} ${b.day !== jeddahDay() ? esc(b.day.slice(5)) : ''} · ${b.items} pcs</small></div>
+            <div class="ld-cbtn"><button type="button" class="ok" data-st="collected" data-id="${b.id}">🤲 Given back</button></div></div>`).join('')
             || '<p class="ld-muted">✨ Nothing waiting.</p>';
     }
-    $('ldPendFind').addEventListener('input', drawPending);
     $('ldPendList').addEventListener('click', async (e) => {
         const b = e.target.closest('[data-st]');
         if (!b) return;
         const bill = pending.find(x => x.id === Number(b.dataset.id));
-        if (b.dataset.st === 'collected' && !confirm(`Clothes given back?\n${bill.receipt_no} · ${bill.kind === 'free' ? bill.staff_name : [bill.customer.building, bill.customer.room, bill.customer.name].filter(Boolean).join(' ')} · ${bill.items} pcs`)) return;
+        const who = bill.kind === 'free' ? bill.staff_name : [bill.customer.building, bill.customer.room, bill.customer.name].filter(Boolean).join(' ');
+        if (!confirm(`Clothes given back?\n${bill.receipt_no} · ${who} · ${bill.items} pcs`)) return;
         b.disabled = true;
-        try { await ctx.guard(request('POST', `/api/laundry/bills/${bill.id}/status`, { status: b.dataset.st })); await loadPending(); }
+        try { await ctx.guard(request('POST', `/api/laundry/bills/${bill.id}/status`, { status: 'collected' })); await loadPending(); }
         catch (err) { alert(err.message || 'Could not change it.'); b.disabled = false; }
     });
 
-    /* -------------------------------- my day -------------------------------- */
-    let mine = { bills: [], closings: [] };
-    async function loadMine() {
-        const d = jeddahDay();
-        mine = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&from=${d}&to=${d}`)));
-        if (me?.role === 'admin' || me?.role === 'viewer') mine.bills = mine.bills.filter(b => b.worker_id === me.id); // my own
-        return mine;
-    }
-    async function loadToday() {
+    /* ----------------------------- pending cash ----------------------------- */
+    // cash bills from a date (to a date, or up to today); Unpaid until the admin marks them Paid
+    const cashSt = { from: jeddahDay(), to: '', show: 'all', bills: [] };
+    $('ldCashFrom').value = cashSt.from;
+    async function loadCash() {
         drawQueue();
-        try { await loadMine(); } catch (e) { $('ldMyList').innerHTML = `<p class="ld-muted">${esc(e.message)}</p>`; return; }
-        const bs = mine.bills.filter(b => !b.voided), paid = bs.filter(b => b.kind === 'paid'), free = bs.filter(b => b.kind === 'free');
-        const by = (m) => paid.filter(b => b.method === m).reduce((n, b) => n + b.paid, 0);
-        $('ldMyKpis').innerHTML = [
-            ['🧾', paid.length, 'bills'], ['👕', paid.reduce((n, b) => n + b.items, 0), 'pieces'], ['💵', sar(by('cash')), 'cash SAR'],
-            ['💳', sar(by('card')), 'card SAR'], ['🔁', sar(by('other')), 'other SAR'], ['🆓', `${free.length} · ${sar(free.reduce((n, b) => n + b.value, 0))}`, 'free · value SAR'],
-        ].map(([i, v, l]) => `<div class="ld-kpi"><span>${i}</span><b>${v}</b><small>${l}</small></div>`).join('');
-        $('ldMyList').innerHTML = mine.bills.map(b => `<button type="button" class="ld-card row ${b.voided ? 'void' : ''}" data-bill="${b.id}">
-            <div class="ld-cmain"><b>${b.kind === 'free' ? '🆓 ' + esc(b.staff_name) : custLabel(b.customer)}</b>
-              <small>${esc(jeddahTime(b.given_at))} · ${esc(b.receipt_no)} · ${b.items} pcs${b.voided ? ' · ❌ cancelled' : ''}</small></div>
-            <b class="ld-amt">${b.kind === 'free' ? 'FREE' : sar(b.paid)}</b></button>`).join('') || '<p class="ld-muted">No bills yet today.</p>';
+        const from = cashSt.from || jeddahDay(), to = cashSt.to || jeddahDay();
+        if (to < from) { $('ldCashList').innerHTML = '<p class="ld-muted">"To" is before "From".</p>'; $('ldCashKpis').innerHTML = ''; return; }
+        $('ldCashList').innerHTML = '<p class="ld-muted">Loading…</p>';
+        try { cashSt.bills = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}&kind=paid`))).bills.filter(b => !b.voided); }
+        catch (e) { $('ldCashList').innerHTML = `<p class="ld-muted">${esc(e.message)}</p>`; $('ldCashKpis').innerHTML = ''; return; }
+        drawCash();
     }
-    $('ldMyList').addEventListener('click', (e) => { const b = e.target.closest('[data-bill]'); if (b) showReceipt(mine.bills.find(x => x.id === Number(b.dataset.bill))); });
+    function drawCash() {
+        const bs = cashSt.bills, unpaid = bs.filter(b => !b.settled_at), paid = bs.filter(b => b.settled_at);
+        const sum = (a) => a.reduce((n, b) => n + b.paid, 0);
+        $('ldCashKpis').innerHTML = `
+            <button type="button" class="ld-kpi unpaid${cashSt.show === 'unpaid' ? ' on' : ''}" data-show="unpaid"><span>⏳</span><b>${sar(sum(unpaid))}</b><small>Unpaid SAR · ${unpaid.length} bill${unpaid.length === 1 ? '' : 's'}</small></button>
+            <button type="button" class="ld-kpi paid${cashSt.show === 'paid' ? ' on' : ''}" data-show="paid"><span>✅</span><b>${sar(sum(paid))}</b><small>Paid SAR · ${paid.length} bill${paid.length === 1 ? '' : 's'}</small></button>
+            <button type="button" class="ld-kpi${cashSt.show === 'all' ? ' on' : ''}" data-show="all"><span>🧾</span><b>${sar(sum(bs))}</b><small>All cash SAR · ${bs.length}</small></button>`;
+        const list = cashSt.show === 'paid' ? paid : cashSt.show === 'unpaid' ? unpaid : bs;
+        $('ldCashList').innerHTML = list.map(b => `<button type="button" class="ld-card row ${b.settled_at ? 'paid' : 'unpaid'}" data-bill="${b.id}">
+            <div class="ld-cmain"><b>${custLabel(b)}</b>
+              <small>${esc(jeddahDate(b.given_at))} ${esc(jeddahTime(b.given_at))} · ${esc(b.receipt_no)} · ${b.items} pcs${b.settled_at ? ` · paid ${esc(jeddahDate(b.settled_at))}${b.settled_by ? ' to ' + esc(b.settled_by) : ''}` : ''}</small></div>
+            <span class="ld-paytag">${b.settled_at ? 'Paid' : 'Unpaid'}</span>
+            <b class="ld-amt">${sar(b.paid)}</b></button>`).join('') || '<p class="ld-muted">No cash bills in these dates.</p>';
+    }
+    $('ldCashKpis').addEventListener('click', (e) => { const b = e.target.closest('[data-show]'); if (b) { cashSt.show = cashSt.show === b.dataset.show ? 'all' : b.dataset.show; drawCash(); } });
+    $('ldCashFrom').addEventListener('change', () => { cashSt.from = $('ldCashFrom').value || jeddahDay(); loadCash(); });
+    $('ldCashTo').addEventListener('change', () => { cashSt.to = $('ldCashTo').value; loadCash(); });
+    $('ldCashToClear').addEventListener('click', () => { $('ldCashTo').value = ''; cashSt.to = ''; loadCash(); });
+    $('ldCashList').addEventListener('click', (e) => { const b = e.target.closest('[data-bill]'); if (b) showReceipt(cashSt.bills.find(x => x.id === Number(b.dataset.bill))); });
 
+    // bills still waiting on this device (offline) — shown on the Pending cash tab
     function drawQueue() {
         const q = queued();
-        $('ldQueue').innerHTML = q.length ? `<div class="ld-qbox"><b>⏳ ${q.length} bill${q.length === 1 ? '' : 's'} waiting on this phone</b>
-            ${q.map(x => `<div class="ld-qrow"><span>${esc(x.local_no)} · ${x.kind === 'free' ? '🆓 ' + esc(x.staff_name || '') : esc([x.customer?.building, x.customer?.room, x.customer?.name].filter(Boolean).join(' '))} · ${sar(x.preview_value || 0)} SAR</span>
+        $('ldQueue').innerHTML = q.length ? `<div class="ld-qbox"><b>⏳ ${q.length} bill${q.length === 1 ? '' : 's'} waiting on this device</b>
+            ${q.map(x => `<div class="ld-qrow"><span>${esc(x.local_no)} · ${x.kind === 'free' ? '👷 ' + esc(x.staff_name || '') : esc([x.customer?.building, x.customer?.room, x.customer?.name].filter(Boolean).join(' '))} · ${sar(x.preview_value || 0)} SAR</span>
               ${x.error ? `<small class="bad">${esc(x.error)}</small><button type="button" data-drop="${esc(x.client_uid)}">Remove</button>` : ''}</div>`).join('')}
             <button type="button" class="ok" data-flush>📤 Send now</button></div>` : '';
     }
     $('ldQueue').addEventListener('click', async (e) => {
-        if (e.target.closest('[data-flush]')) { const r = await flushQueue(); refreshOffline(); drawQueue(); if (r.sent) loadToday(); if (r.left && !r.failed) alert('Still no connection. The bills stay on this phone.'); }
+        if (e.target.closest('[data-flush]')) { const r = await flushQueue(); refreshOffline(); drawQueue(); if (r.sent) loadCash(); if (r.left && !r.failed) alert('Still no connection. The bills stay on this device.'); }
         const d = e.target.closest('[data-drop]');
-        if (d && confirm('Remove this bill from the phone? It will NOT be saved.')) { dropQueued(d.dataset.drop); refreshOffline(); drawQueue(); }
+        if (d && confirm('Remove this bill from the device? It will NOT be saved.')) { dropQueued(d.dataset.drop); refreshOffline(); drawQueue(); }
     });
-
-    /* ------------------------------- close day ------------------------------- */
-    async function loadClose() {
-        const box = $('ldClose');
-        box.innerHTML = '<p class="ld-muted">Loading…</p>';
-        try { await loadMine(); } catch (e) { box.innerHTML = `<p class="ld-muted">${esc(e.message)} — closing needs a connection.</p>`; return; }
-        const done = mine.closings.find(c => c.worker_id === me?.id);
-        const cash = mine.bills.filter(b => !b.voided && b.kind === 'paid' && b.method === 'cash').reduce((n, b) => n + b.paid, 0);
-        const bills = mine.bills.filter(b => !b.voided && b.kind === 'paid').length;
-        const q = queued().length;
-        if (done) {
-            box.innerHTML = `<h2>🔒 Day closed · ${esc(done.day)}</h2>${closeTable(done.cash_expected, done.cash_actual, done.bills)}
-                <p class="ld-muted">Closed at ${esc(jeddahTime(done.created_at))}. Only the admin can change it.</p>`;
-            return;
-        }
-        box.innerHTML = `<h2>🔒 Close today · ${esc(jeddahDay())}</h2>
-            ${q ? `<p class="ld-warn">⏳ ${q} bill${q === 1 ? ' is' : 's are'} still on this phone. Send ${q === 1 ? 'it' : 'them'} first (📋 My day → Send now).</p>` : ''}
-            <div class="ld-close-n"><span>🧾 Bills</span><b>${bills}</b></div>
-            <div class="ld-close-n"><span>💵 Cash expected</span><b>${sar(cash)} SAR</b></div>
-            <label class="ld-big-in wide"><span>💵 Cash in hand</span><input id="ldCash" inputmode="decimal" placeholder="count the money"></label>
-            <div id="ldDiff"></div>
-            <button type="button" class="ld-save wide" id="ldCloseBtn" disabled>🔒 CLOSE DAY</button>`;
-        const upd = () => {
-            const v = $('ldCash').value.trim(), a = Math.round(Number(v) * 100);
-            const ok = v !== '' && Number.isFinite(a) && a >= 0;
-            $('ldCloseBtn').disabled = !ok || q > 0;
-            $('ldDiff').innerHTML = ok ? closeTable(cash, a, bills) : '';
-        };
-        $('ldCash').addEventListener('input', upd);
-        $('ldCloseBtn').addEventListener('click', async () => {
-            if (!confirm(`Close ${jeddahDay()} with ${$('ldCash').value} SAR in hand? You cannot change it afterwards.`)) return;
-            try { await ctx.guard(request('POST', '/api/laundry/close', { site, day: jeddahDay(), cash_actual: Number($('ldCash').value) })); loadClose(); }
-            catch (e) { alert(e.message || 'Could not close.'); }
-        });
-    }
-    function closeTable(expected, actual, bills) {
-        const d = actual - expected;
-        return `<table class="ld-close-t"><tr><td>Expected</td><td>${sar(expected)} SAR</td></tr><tr><td>In hand</td><td>${sar(actual)} SAR</td></tr>
-            <tr class="${d === 0 ? 'ok' : 'bad'}"><td>Difference</td><td>${d > 0 ? '+' : ''}${sar(d)} SAR ${d === 0 ? '✅' : '⚠️'}</td></tr></table>`;
-    }
 
     /* ------------------------------ offline state ------------------------------ */
     function refreshOffline() {
         const q = queued().length;
         $('ldOffline').hidden = !q;
-        $('ldOffline').textContent = q ? `⏳ ${q} bill${q === 1 ? '' : 's'} waiting on this phone — sent automatically when the internet is back.` : '';
+        $('ldOffline').textContent = q ? `⏳ ${q} bill${q === 1 ? '' : 's'} waiting on this device — sent automatically when the internet is back.` : '';
     }
-    const tryFlush = async () => { if (!queued().length) return; const r = await flushQueue(); refreshOffline(); if (r.sent && st.tab === 'today') loadToday(); };
+    const tryFlush = async () => { if (!queued().length) return; const r = await flushQueue(); refreshOffline(); if (r.sent && st.tab === 'cash') loadCash(); };
     window.addEventListener('online', tryFlush);
     const timer = setInterval(() => { tryFlush(); if (st.tab === 'pending') loadPending(); }, 30000);
 
@@ -424,5 +413,5 @@ export default async function mount(ctx) {
     tryFlush();
     loadStaff().then(drawStaffList).catch(() => { });
     request('GET', `/api/laundry/bills?site=${site}&pending=1`).then(r => { $('ldPendingCount').textContent = r.bills.length || ''; }).catch(() => { });
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); window.removeEventListener('online', tryFlush); };
 }
