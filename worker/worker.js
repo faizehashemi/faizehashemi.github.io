@@ -408,6 +408,13 @@ const SETTINGS = {
     transfer_checkout_time: { check: HHMM, msg: 'Check-out time between cities must be HH:MM.' },
     // Laundry page: timings and notice shown to the worker and on receipts
     laundry_info: { check: (v) => typeof v === 'string' && v.length <= 600 && !/[<>]/.test(v), msg: 'Laundry notice: up to 600 characters, no < or >.' },
+    // staff categories for the Laundry "Staff only" tab, per site: { makkah: ['Kitchen', …], medina: […] }
+    // (saved through PUT /api/laundry/staff-categories, which also renames / clears them on the profiles)
+    laundry_staff_categories: {
+        check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.entries(v).every(([k, a]) => SITES[k] && Array.isArray(a) && a.length <= 60
+            && a.every(n => typeof n === 'string' && n.length >= 1 && n.length <= 40 && !/[<>]/.test(n))),
+        msg: 'Staff categories: up to 60 names per site, 40 characters each.',
+    },
     // KG page: the duty events and their times, e.g. [{ name: 'Aaje Raate Haram', time: '20:30' }]
     kg_sessions: {
         check: (v) => Array.isArray(v) && v.length >= 1 && v.length <= 10 && v.every(x => x && typeof x.name === 'string' && x.name.trim().length >= 1
@@ -447,7 +454,7 @@ async function putSettings(req, env, me) {
         if (!def.check(value)) throw new HttpError(400, def.msg);
         stmts.push(env.DB.prepare('INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by')
             .bind(k, JSON.stringify(value), now(), me.id));
-        notes.push(`${k}=${value}`);
+        notes.push(`${k}=${typeof value === 'object' ? JSON.stringify(value) : value}`);
     }
     if (!stmts.length) throw new HttpError(400, 'Nothing to change.');
     await env.DB.batch([...stmts, auditStmt(env, me, 'settings', null, notes.join(', '))]);
@@ -1006,7 +1013,7 @@ async function saveLaundryItem(req, env, me, id) {
 const LIMIT_KEYS = ['per_bill_items', 'per_day_items', 'per_week_items', 'per_month_value', 'per_month_bills'];
 function rowToStaff(r, withPhoto = true) {
     return {
-        id: r.id, site: r.site, name: r.name, staff_code: r.staff_code, room: r.room, department: r.department, contact: r.contact,
+        id: r.id, site: r.site, name: r.name, staff_code: r.staff_code, room: r.room, department: r.department, contact: r.contact, category: r.category || '',
         photo: withPhoto ? r.photo : undefined, has_photo: !!r.photo, deleted: !!r.deleted, free: !!r.free, active: !!r.active, started_on: r.started_on,
         remarks: r.remarks, limits: JSON.parse(r.limits || '{}'), updated_at: r.updated_at,
     };
@@ -1033,7 +1040,7 @@ function prepareStaff(b) {
     }
     limits.enforce = !!(b.limits && b.limits.enforce);
     return {
-        name, staff_code: text(b.staff_code, 30), room: text(b.room, 20), department: text(b.department, 60), contact: text(b.contact, 30),
+        name, staff_code: text(b.staff_code, 30), room: text(b.room, 20), department: text(b.department, 60), contact: text(b.contact, 30), category: text(b.category, 40),
         photo, free: b.free === false ? 0 : 1, active: b.active === false ? 0 : 1, started_on: /^\d{4}-\d{2}-\d{2}$/.test(b.started_on || '') ? b.started_on : null,
         remarks: text(b.remarks, 300), limits: JSON.stringify(limits),
     };
@@ -1046,21 +1053,47 @@ async function saveLaundryStaff(req, env, me, id) {
         const old = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ?').bind(id).first();
         if (!old) throw new HttpError(404, 'No such staff profile.');
         await env.DB.batch([
-            env.DB.prepare(`UPDATE laundry_staff SET name = ?, staff_code = ?, room = ?, department = ?, contact = ?, photo = ?, free = ?, active = ?,
+            env.DB.prepare(`UPDATE laundry_staff SET name = ?, staff_code = ?, room = ?, department = ?, contact = ?, category = ?, photo = ?, free = ?, active = ?,
                 started_on = ?, remarks = ?, limits = ?, updated_at = ?, updated_by = ? WHERE id = ?`)
-                .bind(x.name, x.staff_code, x.room, x.department, x.contact, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, now(), me.id, id),
-            auditStmt(env, me, 'laundry-staff', null, `${old.site} ${x.name}${old.name !== x.name ? ` (was ${old.name})` : ''}: profile saved${x.active ? '' : ' (inactive)'}, limits ${x.limits}`),
+                .bind(x.name, x.staff_code, x.room, x.department, x.contact, x.category, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, now(), me.id, id),
+            auditStmt(env, me, 'laundry-staff', null, `${old.site} ${x.name}${old.name !== x.name ? ` (was ${old.name})` : ''}: profile saved${x.active ? '' : ' (inactive)'}${(old.category || '') !== x.category ? `, category "${old.category || ''}" → "${x.category}"` : ''}, limits ${x.limits}`),
         ]);
         return json({ staff: await listLaundryStaff(env, old.site) });
     }
     const site = laundrySite(me, b.site);
     await env.DB.batch([
-        env.DB.prepare(`INSERT INTO laundry_staff (site, name, staff_code, room, department, contact, photo, free, active, started_on, remarks, limits, created_at, updated_at, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-            .bind(site, x.name, x.staff_code, x.room, x.department, x.contact, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, now(), now(), me.id),
+        env.DB.prepare(`INSERT INTO laundry_staff (site, name, staff_code, room, department, contact, category, photo, free, active, started_on, remarks, limits, created_at, updated_at, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            .bind(site, x.name, x.staff_code, x.room, x.department, x.contact, x.category, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, now(), now(), me.id),
         auditStmt(env, me, 'laundry-staff', null, `${site} ${x.name}: free-laundry profile added`),
     ]);
     return json({ staff: await listLaundryStaff(env, site) }, 201);
+}
+
+// Admin: the staff categories of a site (create, rename, delete). Renamed categories move their staff along;
+// staff in a deleted category become uncategorised.
+async function saveStaffCategories(req, env, me) {
+    requireAdmin(me);
+    const b = await body(req);
+    const site = laundrySite(me, b.site);
+    const list = [...new Set((Array.isArray(b.categories) ? b.categories : []).map(n => text(n, 40)).filter(Boolean))];
+    if (list.length > 60) throw new HttpError(400, 'At most 60 categories.');
+    const renames = Object.entries(b.renames && typeof b.renames === 'object' ? b.renames : {})
+        .map(([from, to]) => [text(from, 40), text(to, 40)]).filter(([from, to]) => from && to && from !== to && list.includes(to));
+    const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'laundry_staff_categories'").first();
+    const all = row ? JSON.parse(row.value) : {};
+    const before = all[site] || [];
+    all[site] = list;
+    const t = now();
+    const stmts = [env.DB.prepare(`INSERT INTO settings (key, value, updated_at, updated_by) VALUES ('laundry_staff_categories', ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`).bind(JSON.stringify(all), t, me.id)];
+    for (const [from, to] of renames) stmts.push(env.DB.prepare('UPDATE laundry_staff SET category = ?, updated_at = ?, updated_by = ? WHERE site = ? AND category = ?').bind(to, t, me.id, site, from));
+    const keep = [...list, ...renames.map(([from]) => from)];
+    stmts.push(env.DB.prepare(`UPDATE laundry_staff SET category = '', updated_at = ?, updated_by = ? WHERE site = ? AND category != ''${keep.length ? ` AND category NOT IN (${keep.map(() => '?').join(',')})` : ''}`)
+        .bind(t, me.id, site, ...keep));
+    stmts.push(auditStmt(env, me, 'laundry-staff', null, `${site} staff categories: ${before.join(', ') || '—'} → ${list.join(', ') || '—'}${renames.length ? ` (renamed ${renames.map(([f, to]) => `${f} → ${to}`).join(', ')})` : ''}`.slice(0, 500)));
+    await env.DB.batch(stmts);
+    return json({ categories: list, staff: await listLaundryStaff(env, site, true) });
 }
 
 // Admin: "delete" a profile = hide it (kept in the database with its whole free-laundry history)
@@ -1405,6 +1438,7 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (mm && m === 'PUT') return saveLaundryItem(req, env, me, Number(mm[1]));
     if (p === '/api/laundry/staff' && m === 'GET') return json({ staff: await listLaundryStaff(env, laundrySite(me, url.searchParams.get('site')), url.searchParams.get('deleted') === '1' && canSeeAll(me)) });
     if (p === '/api/laundry/staff' && m === 'POST') return saveLaundryStaff(req, env, me, 0);
+    if (p === '/api/laundry/staff-categories' && m === 'PUT') return saveStaffCategories(req, env, me);
     mm = p.match(/^\/api\/laundry\/staff\/(\d+)$/);
     if (mm && m === 'PUT') return saveLaundryStaff(req, env, me, Number(mm[1]));
     if (mm && m === 'GET') return staffInfo(env, me, Number(mm[1]), url);

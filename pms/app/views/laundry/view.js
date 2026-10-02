@@ -1,7 +1,7 @@
 // Laundry POS — the laundry's touch screen (no keyboard). Built for speed and for people who read little:
 // big pictures of each item, big numbers, a few icons, one SAVE button. Everything is cash.
 //   🧺 New bill: swipe building → floor → room (wheels) → tap clothes (tap = one more) → SAVE → receipt
-//   👷 Staff only: tap the staff member (all listed, filter optional), check the PHOTO, tap clothes → SAVE (value recorded, 0 collected)
+//   👷 Staff only: tap the staff category → a window with its people → tap the person, check the PHOTO, tap clothes → SAVE (value recorded, 0 collected)
 //   🏨 Building: the building's linen (no building to choose) — tap an item → number pad for the quantity → SAVE
 //   📦 Pending: clothes still here → 🤲 Given back
 //   💵 Pending cash: my cash bills from a date (to a date) — Unpaid until the admin marks them Paid
@@ -22,7 +22,7 @@ export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
     const site = ctx.siteId;
     // one cart per bill tab, so switching tabs never mixes clothes and linen
-    const st = { tab: 'bill', carts: { bill: new Map(), free: new Map(), building: new Map() }, staff: null, usage: null, items: [], staffList: [], buildings: [], slips: [], info: DEFAULT_INFO };
+    const st = { tab: 'bill', carts: { bill: new Map(), free: new Map(), building: new Map() }, staff: null, usage: null, items: [], staffList: [], cats: [], buildings: [], slips: [], info: DEFAULT_INFO };
     const cart = () => st.carts[st.tab] || st.carts.bill;
     const isBuilding = () => st.tab === 'building';
 
@@ -40,7 +40,11 @@ export default async function mount(ctx) {
         st.staffList = r.data.staff.filter(s => s.active && s.free);
     }
     async function loadInfo() {
-        try { const r = await ctx.guard(cached('pms_laundry_info', () => request('GET', '/api/settings'))); st.info = r.data.settings?.laundry_info || DEFAULT_INFO; } catch { }
+        try {
+            const r = await ctx.guard(cached('pms_laundry_info', () => request('GET', '/api/settings')));
+            st.info = r.data.settings?.laundry_info || DEFAULT_INFO;
+            st.cats = r.data.settings?.laundry_staff_categories?.[site] || [];
+        } catch { }
         $('ldInfo').innerHTML = `<span aria-hidden="true">🕗</span><div>${esc(st.info).replace(/\n/g, '<br>')}</div>`;
     }
     // in-house slips: tell which group is in the chosen room
@@ -74,7 +78,7 @@ export default async function mount(ctx) {
             $('ldPay').hidden = tab !== 'bill';
             ctx.root.querySelector('.ld').classList.toggle('free', tab === 'free');
             ctx.root.querySelector('.ld').classList.toggle('bld', tab === 'building');
-            if (tab === 'free') { drawStaffList(); if (!st.staffList.length) loadStaff().then(drawStaffList).catch(() => { }); }
+            if (tab === 'free') { drawCats(); if (!st.staffList.length) loadStaff().then(drawCats).catch(() => { }); }
             if (tab === 'bill') [wB, wF, wR].forEach(w => w.sync());
             drawItems(); drawCart(); drawPicked();
         }
@@ -167,7 +171,7 @@ export default async function mount(ctx) {
         cart().clear();
         $('ldReceived').value = '';
         if (st.tab === 'bill') pickFloor(wF.value); // keep building and floor (the next customer is often a neighbour), room back to —
-        if (st.tab === 'free') { st.staff = null; st.usage = null; $('ldStaffFind').value = ''; $('ldStaffCard').hidden = true; drawStaffList(); }
+        if (st.tab === 'free') { st.staff = null; st.usage = null; $('ldStaffCard').hidden = true; drawCats(); }
         drawItems(); drawCart();
     }
 
@@ -210,23 +214,47 @@ export default async function mount(ctx) {
     }
 
     /* ------------------------------ staff only ------------------------------ */
-    function drawStaffList() {
-        const q = $('ldStaffFind').value.trim().toLowerCase();
-        const list = st.staffList.filter(s => !q || [s.name, s.staff_code, s.room, s.contact].some(v => String(v || '').toLowerCase().includes(q)));
-        $('ldStaffList').hidden = !!st.staff;
-        $('ldStaffList').innerHTML = list.map(s => `<button type="button" class="ld-staff" data-staff="${s.id}">
-            ${s.photo ? `<img src="${s.photo}" alt="">` : '<span class="nophoto">👤</span>'}<span><b>${esc(s.name)}</b><small>${esc([s.staff_code, s.department, s.room && '🚪 ' + s.room].filter(Boolean).join(' · '))}</small></span></button>`).join('')
-            || `<p class="ld-muted">${st.staffList.length ? 'Nobody matches.' : 'No staff yet — the admin adds them on Laundry admin → Staff.'}</p>`;
+    // the categories the admin made (Laundry admin → Staff), each with its people; staff without one → "Uncategorized"
+    function groups() {
+        const known = new Set(st.cats);
+        const out = st.cats.map(c => ({ key: c, label: c, people: st.staffList.filter(s => s.category === c) }));
+        const rest = st.staffList.filter(s => !known.has(s.category || ''));
+        if (rest.length) out.push({ key: '', label: 'Uncategorized', people: rest });
+        return out;
     }
-    $('ldStaffFind').addEventListener('input', () => { st.staff = null; $('ldStaffCard').hidden = true; drawStaffList(); drawCart(); });
-    $('ldStaffList').addEventListener('click', async (e) => {
-        const b = e.target.closest('[data-staff]');
-        if (!b) return;
-        st.staff = st.staffList.find(s => s.id === Number(b.dataset.staff));
-        st.usage = null;
-        drawStaffList(); drawCart();
-        try { st.usage = (await ctx.guard(request('GET', `/api/laundry/staff/${st.staff.id}`))).usage; drawStaffCard(); } catch { }
-    });
+    function drawCats() {
+        $('ldCats').hidden = !!st.staff;
+        const gs = groups();
+        $('ldCats').innerHTML = gs.map((g, i) => `<button type="button" class="ld-cat" data-cat="${i}" ${g.people.length ? '' : 'disabled'}>
+            <span class="ld-cat-faces">${g.people.slice(0, 3).map(s => s.photo ? `<img src="${s.photo}" alt="">` : '<span>👤</span>').join('') || '<span>👷</span>'}</span>
+            <b>${esc(g.label)}</b><small>${g.people.length} ${g.people.length === 1 ? 'person' : 'people'}</small></button>`).join('')
+            || `<p class="ld-muted">No staff yet — the admin adds them on Laundry admin → Staff.</p>`;
+    }
+    $('ldCats').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (b) pickPerson(groups()[Number(b.dataset.cat)]); });
+
+    // the window with the people of one category: big photo tiles, tap one
+    function pickPerson(g) {
+        if (!g) return;
+        const dlg = document.createElement('dialog');
+        dlg.className = 'ld-dlg ld-people';
+        dlg.innerHTML = `<div class="ld-people-h"><h3>👷 ${esc(g.label)}</h3><button type="button" data-x aria-label="Close">✖</button></div>
+            <div class="ld-people-grid">${g.people.map(s => `<button type="button" class="ld-person" data-staff="${s.id}">
+                ${s.photo ? `<img src="${s.photo}" alt="">` : '<span class="nophoto">👤</span>'}
+                <b>${esc(s.name)}</b><small>${esc([s.staff_code, s.department, s.room && '🚪 ' + s.room].filter(Boolean).join(' · '))}</small></button>`).join('')}</div>`;
+        ctx.root.appendChild(dlg);
+        dlg.addEventListener('click', async (e) => {
+            if (e.target.closest('[data-x]')) { dlg.close(); return; }
+            const b = e.target.closest('[data-staff]');
+            if (!b) return;
+            dlg.close();
+            st.staff = st.staffList.find(s => s.id === Number(b.dataset.staff));
+            st.usage = null;
+            drawCats(); drawCart();
+            try { st.usage = (await ctx.guard(request('GET', `/api/laundry/staff/${st.staff.id}`))).usage; drawStaffCard(); } catch { }
+        });
+        dlg.addEventListener('close', () => dlg.remove());
+        dlg.showModal();
+    }
     function drawStaffCard() {
         const s = st.staff;
         $('ldStaffCard').hidden = !s;
@@ -247,7 +275,7 @@ export default async function mount(ctx) {
               ${warn.length ? `<span class="ld-warn">⚠️ ${warn.map(esc).join('<br>⚠️ ')}${L.enforce ? '<br>Supervisor approval needed.' : ''}</span>` : ''}
               <button type="button" class="ld-change-staff" data-unstaff>Change person</button></div>`;
     }
-    $('ldStaffCard').addEventListener('click', (e) => { if (e.target.closest('[data-unstaff]')) { st.staff = null; $('ldStaffFind').value = ''; $('ldStaffCard').hidden = true; drawStaffList(); drawCart(); } });
+    $('ldStaffCard').addEventListener('click', (e) => { if (e.target.closest('[data-unstaff]')) { st.staff = null; $('ldStaffCard').hidden = true; drawCats(); drawCart(); } });
 
     /* ---------------------------------- save ---------------------------------- */
     async function save(approval) {
@@ -407,7 +435,7 @@ export default async function mount(ctx) {
     drawCart();
     refreshOffline();
     tryFlush();
-    loadStaff().then(drawStaffList).catch(() => { });
+    loadStaff().then(drawCats).catch(() => { });
     request('GET', `/api/laundry/bills?site=${site}&pending=1`).then(r => { $('ldPendingCount').textContent = r.bills.length || ''; }).catch(() => { });
     return () => { clearInterval(timer); window.removeEventListener('online', tryFlush); };
 }

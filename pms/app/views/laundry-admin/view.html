@@ -37,7 +37,12 @@
     </section>
 
     <section class="la-pane" id="tab-staff" hidden>
-        <div class="la-bar"><input type="search" id="sQ" placeholder="🔎 Name, staff ID, room, mobile"><button type="button" class="la-primary" id="addStaff" data-admin>➕ Add staff</button></div>
+        <div class="la-card la-cats">
+            <h3>🗂️ Staff categories <small class="la-muted">— the laundry screen shows these first; staff without one are under "Uncategorized"</small></h3>
+            <div class="la-catlist" id="catList"></div>
+            <div class="la-bar" data-admin><input id="catNew" maxlength="40" placeholder="New category, e.g. Kitchen"><button type="button" class="la-primary" id="catAdd">➕ Add category</button></div>
+        </div>
+        <div class="la-bar"><input type="search" id="sQ" placeholder="🔎 Name, staff ID, room, mobile"><select id="sCat" aria-label="Category"><option value="*">All categories</option></select><button type="button" class="la-primary" id="addStaff" data-admin>➕ Add staff</button></div>
         <div id="staffBody"></div>
     </section>
 

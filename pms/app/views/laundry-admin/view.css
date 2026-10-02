@@ -149,3 +149,14 @@ textarea#nText { width: 100%; padding: 8px 10px; border: 1px solid var(--edge); 
 .la-t tr.sel td { background: #fff3cc; }
 .la-t tr.paid td { color: #556; }
 .la-kpi.neg b { color: #b3261e; }
+
+/* staff categories */
+.la-cats h3 { margin: 0 0 8px; } .la-cats h3 small { font-weight: 400; }
+.la-catlist { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.la-catchip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 12px; border: 1px solid var(--edge); border-radius: 999px; background: #fff; }
+.la-catchip small { color: var(--muted); }
+.la-catchip.none { background: #f6f1e6; padding-right: 12px; }
+.la-catchip button { border: 0; background: transparent; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.la-catchip button:hover { background: #f6ecd2; }
+.la-cats input { flex: 0 1 280px; padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; font: inherit; }
+#sCat { padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; font: inherit; background: #fff; }

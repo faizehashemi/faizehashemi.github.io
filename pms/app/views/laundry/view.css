@@ -100,10 +100,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* free (staff) */
 .ld.free .ld-tabs [data-tab="free"] { border-color: var(--free); background: var(--free-bg); }
-.ld-staff-list { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
-.ld-staff { display: flex; align-items: center; gap: 10px; padding: 8px; border: 2px solid var(--edge); border-radius: 14px; background: #fff; text-align: left; }
-.ld-staff img, .ld-staff .nophoto { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; display: grid; place-items: center; font-size: 34px; background: #f1ece2; flex: none; }
-.ld-staff small { display: block; color: var(--muted); font-size: 13px; }
+/* staff only: category tiles → people window */
+.ld-cats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.ld-cat { display: grid; justify-items: center; gap: 4px; padding: 14px 10px; border: 3px solid var(--edge); border-radius: 18px; background: #fff; min-height: 150px; touch-action: manipulation; }
+.ld-cat:not(:disabled):active { background: var(--free-bg); border-color: var(--free); }
+.ld-cat:disabled { opacity: .45; }
+.ld-cat b { font-size: 22px; } .ld-cat small { color: var(--muted); font-size: 14px; }
+.ld-cat-faces { display: flex; justify-content: center; }
+.ld-cat-faces img, .ld-cat-faces span { width: 58px; height: 58px; border-radius: 50%; object-fit: cover; border: 3px solid #fff; margin-left: -14px; display: grid; place-items: center; font-size: 34px; background: #f1ece2; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+.ld-cat-faces > :first-child { margin-left: 0; }
+.ld-people { width: min(980px, 96vw); max-height: 90vh; }
+.ld-people-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ld-people-h h3 { margin: 0; font-size: 24px; }
+.ld-people-h button { width: 56px; height: 56px; border-radius: 14px; border: 2px solid var(--edge); background: #fff; font-size: 24px; }
+.ld-people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 10px; overflow-y: auto; max-height: calc(90vh - 110px); }
+.ld-person { display: grid; justify-items: center; gap: 4px; padding: 10px; border: 3px solid var(--edge); border-radius: 16px; background: #fff; text-align: center; touch-action: manipulation; }
+.ld-person:active { border-color: var(--free); background: var(--free-bg); }
+.ld-person img, .ld-person .nophoto { width: 120px; height: 140px; border-radius: 12px; object-fit: cover; display: grid; place-items: center; font-size: 70px; background: #f1ece2; }
+.ld-person b { font-size: 17px; line-height: 1.2; } .ld-person small { color: var(--muted); font-size: 13px; }
 .ld-staff-card { grid-column: 1 / -1; display: flex; gap: 14px; align-items: flex-start; padding: 12px; border: 3px solid var(--free); border-radius: 18px; background: var(--free-bg); }
 .ld-photo img, .ld-photo span { width: 170px; height: 200px; object-fit: cover; border-radius: 14px; display: grid; place-items: center; font-size: 80px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
 .ld-photo span small { font-size: 13px; color: var(--muted); }

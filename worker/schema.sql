@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS laundry_staff (          -- free (complimentary) laun
     room        TEXT NOT NULL DEFAULT '',
     department  TEXT NOT NULL DEFAULT '',
     contact     TEXT NOT NULL DEFAULT '',
+    category    TEXT NOT NULL DEFAULT '',            -- staff category (settings laundry_staff_categories); '' = none
     photo       TEXT NOT NULL DEFAULT '',            -- data: URL
     free        INTEGER NOT NULL DEFAULT 1,
     active      INTEGER NOT NULL DEFAULT 1,
@@ -197,6 +198,7 @@ CREATE TABLE IF NOT EXISTS laundry_bills (
 );
 -- added 2026-10-02 on existing databases with: ALTER TABLE laundry_items ADD COLUMN category TEXT NOT NULL DEFAULT 'guest';
 --   ALTER TABLE laundry_bills ADD COLUMN settled_at TEXT; ALTER TABLE laundry_bills ADD COLUMN settled_by INTEGER;
+-- added 2026-10-03: ALTER TABLE laundry_staff ADD COLUMN category TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS laundry_bills_day ON laundry_bills(site, day);
 CREATE INDEX IF NOT EXISTS laundry_bills_staff ON laundry_bills(staff_id, day);
 CREATE TABLE IF NOT EXISTS laundry_counters (key TEXT PRIMARY KEY, n INTEGER NOT NULL);   -- receipt numbers per site and day

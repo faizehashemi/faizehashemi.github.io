@@ -26,7 +26,7 @@ export default async function mount(ctx) {
     const site = ctx.siteId;
     const me = currentDesk();
     const isAdmin = me?.role === 'admin';
-    const S = { tab: 'bills', items: [], staff: [], info: DEFAULT_INFO, ranges: {} };
+    const S = { tab: 'bills', items: [], staff: [], cats: [], info: DEFAULT_INFO, ranges: {} };
     const rcss = document.createElement('style'); rcss.textContent = RECEIPT_CSS; document.head.appendChild(rcss);
     if (!isAdmin) ctx.root.querySelectorAll('[data-admin]').forEach(b => { b.hidden = true; });
     $('laSub').textContent = `${ctx.site.label} · ${isAdmin ? 'admin' : 'view only'}`;
@@ -469,17 +469,57 @@ export default async function mount(ctx) {
         const body = $('staffBody');
         try {
             await loadStaff();
-            const q = $('sQ').value.trim().toLowerCase();
-            const list = S.staff.filter(s => !s.deleted).filter(s => !q || [s.name, s.staff_code, s.room, s.contact, s.department].some(v => String(v || '').toLowerCase().includes(q)));
+            drawCats();
+            const q = $('sQ').value.trim().toLowerCase(), cat = $('sCat').value;
+            const catOf = (s) => S.cats.includes(s.category) ? s.category : '';
+            const list = S.staff.filter(s => !s.deleted).filter(s => cat === '*' || catOf(s) === cat)
+                .filter(s => !q || [s.name, s.staff_code, s.room, s.contact, s.department].some(v => String(v || '').toLowerCase().includes(q)));
             body.innerHTML = `<div class="la-staffgrid">${list.map(s => `<div class="la-staffcard ${s.active && s.free ? '' : 'off'}">
                 ${s.photo ? `<img src="${s.photo}" alt="">` : '<span class="la-photo-none">👤</span>'}
-                <div><b>${esc(s.name)}</b><small>${esc([s.staff_code && 'ID ' + s.staff_code, s.department, s.room && 'Room ' + s.room].filter(Boolean).join(' · '))}</small>
+                <div><b>${esc(s.name)}</b><small>🗂️ ${esc(catOf(s) || 'Uncategorized')}</small><small>${esc([s.staff_code && 'ID ' + s.staff_code, s.department, s.room && 'Room ' + s.room].filter(Boolean).join(' · '))}</small>
                   <small>${s.active && s.free ? '🆓 Free laundry' : '⛔ Not active'}${Object.keys(s.limits || {}).some(k => k !== 'enforce' && s.limits[k]) ? ' · ' + esc(limitText(s.limits)) : ''}</small>
                   <span class="la-actions"><button type="button" data-hist="${s.id}">📒 History</button>${isAdmin ? `<button type="button" data-staff="${s.id}">✏️ Edit</button><button type="button" class="danger" data-del="${s.id}">🗑 Delete</button>` : ''}</span></div></div>`).join('')
                 || `<p class="la-muted">${S.staff.some(s => !s.deleted) ? 'Nobody matches.' : 'No free-laundry staff yet.'}</p>`}</div>`;
         } catch (e) { body.innerHTML = errBox(e); }
     }
     $('sQ').addEventListener('input', drawStaff);
+    $('sCat').addEventListener('change', drawStaff);
+
+    // staff categories: add, rename (its staff move along), delete (its staff become uncategorised)
+    function drawCats() {
+        const n = (c) => S.staff.filter(s => !s.deleted && (c === '' ? !S.cats.includes(s.category) : s.category === c)).length;
+        $('catList').innerHTML = S.cats.map((c, i) => `<span class="la-catchip"><b>${esc(c)}</b> <small>${n(c)}</small>
+            ${isAdmin ? `<button type="button" data-catren="${i}" aria-label="Rename ${esc(c)}">✏️</button><button type="button" data-catdel="${i}" aria-label="Delete ${esc(c)}">🗑</button>` : ''}</span>`).join('')
+            + `<span class="la-catchip none"><b>Uncategorized</b> <small>${n('')}</small></span>`;
+        const cur = $('sCat').value;
+        $('sCat').innerHTML = '<option value="*">All categories</option>' + S.cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') + '<option value="">Uncategorized</option>';
+        $('sCat').value = [...$('sCat').options].some(o => o.value === cur) ? cur : '*';
+    }
+    async function saveCats(categories, renames = {}) {
+        try { const r = await api('PUT', '/api/laundry/staff-categories', { site, categories, renames }); S.cats = r.categories; S.staff = r.staff; drawStaff(); }
+        catch (err) { alert(err.message); }
+    }
+    $('catAdd').addEventListener('click', () => {
+        const name = $('catNew').value.trim();
+        if (!name) return;
+        if (S.cats.some(c => c.toLowerCase() === name.toLowerCase())) { alert(`"${name}" is already a category.`); return; }
+        $('catNew').value = '';
+        saveCats([...S.cats, name]);
+    });
+    $('catNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('catAdd').click(); });
+    $('catList').addEventListener('click', (e) => {
+        const r = e.target.closest('[data-catren]'), d = e.target.closest('[data-catdel]');
+        if (r) {
+            const old = S.cats[Number(r.dataset.catren)], name = (prompt(`Rename "${old}" to:`, old) || '').trim();
+            if (!name || name === old) return;
+            if (S.cats.some(c => c !== old && c.toLowerCase() === name.toLowerCase())) { alert(`"${name}" is already a category.`); return; }
+            saveCats(S.cats.map(c => c === old ? name : c), { [old]: name });
+        }
+        if (d) {
+            const c = S.cats[Number(d.dataset.catdel)];
+            if (confirm(`Delete the category "${c}"?\n\nIts staff stay, under "Uncategorized".`)) saveCats(S.cats.filter(x => x !== c));
+        }
+    });
     $('staffBody').addEventListener('click', (e) => {
         const ed = e.target.closest('[data-staff]'), h = e.target.closest('[data-hist]'), del = e.target.closest('[data-del]');
         if (ed) staffForm(S.staff.find(s => s.id === Number(ed.dataset.staff)));
@@ -510,7 +550,8 @@ The record and all past free-laundry entries stay saved (register, reports, hist
             <div class="la-grid2">
               <label>Staff name<input name="name" required maxlength="80" value="${esc(s?.name || '')}"></label><label>Staff ID<input name="staff_code" maxlength="30" value="${esc(s?.staff_code || '')}"></label>
               <label>Room / accommodation<input name="room" maxlength="20" value="${esc(s?.room || '')}"></label><label>Department<input name="department" maxlength="60" value="${esc(s?.department || '')}"></label>
-              <label>Mobile<input name="contact" maxlength="30" value="${esc(s?.contact || '')}"></label><label>Free laundry from<input name="started_on" type="date" value="${esc(s?.started_on || '')}"></label></div>
+              <label>Mobile<input name="contact" maxlength="30" value="${esc(s?.contact || '')}"></label><label>Free laundry from<input name="started_on" type="date" value="${esc(s?.started_on || '')}"></label>
+              <label>Category<select name="category"><option value="">Uncategorized</option>${S.cats.map(c => `<option value="${esc(c)}" ${s?.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label></div>
             <label>Remarks<input name="remarks" maxlength="300" value="${esc(s?.remarks || '')}"></label>
             <div class="la-grid2"><label class="la-chk"><input type="checkbox" name="free" ${!s || s.free ? 'checked' : ''}> Free laundry: YES</label><label class="la-chk"><input type="checkbox" name="active" ${!s || s.active ? 'checked' : ''}> Active</label></div>
             <fieldset><legend>Limits (optional — leave empty for none)</legend><div class="la-grid2">
@@ -529,7 +570,7 @@ The record and all past free-laundry entries stay saved (register, reports, hist
         dlg.querySelector('form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const f = e.target;
-            const payload = { site, name: f.name.value, staff_code: f.staff_code.value, room: f.room.value, department: f.department.value, contact: f.contact.value,
+            const payload = { site, name: f.name.value, staff_code: f.staff_code.value, room: f.room.value, department: f.department.value, contact: f.contact.value, category: f.category.value,
                 started_on: f.started_on.value, remarks: f.remarks.value, free: f.free.checked, active: f.active.checked, photo,
                 limits: { per_bill_items: f.per_bill_items.value, per_day_items: f.per_day_items.value, per_week_items: f.per_week_items.value, per_month_value: f.per_month_value.value, per_month_bills: f.per_month_bills.value, enforce: f.enforce.checked } };
             try { const r = await api(s ? 'PUT' : 'POST', s ? `/api/laundry/staff/${s.id}` : '/api/laundry/staff', payload); S.staff = r.staff; dlg.close(); drawStaff(); }
@@ -557,6 +598,6 @@ The record and all past free-laundry entries stay saved (register, reports, hist
 
     /* ------------------------------ start ------------------------------ */
     await Promise.all([loadItems().catch(() => { }), loadStaff().catch(() => { })]);
-    try { const r = await api('GET', '/api/settings'); S.info = r.settings.laundry_info || DEFAULT_INFO; } catch { }
+    try { const r = await api('GET', '/api/settings'); S.info = r.settings.laundry_info || DEFAULT_INFO; S.cats = r.settings.laundry_staff_categories?.[site] || []; } catch { }
     showTab('bills');
 }
