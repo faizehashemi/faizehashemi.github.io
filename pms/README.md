@@ -230,12 +230,11 @@ tap = one more; − / + in the list, tap the number for the number pad), the cas
 `tools/laundry-kiosk.bat` (otherwise the print dialog opens). Clothes show the laundry's own drawings
 (`pms/assets/laundry/*.png`, matched by item name: Saaya, Kurta, Pajama, Vest, Brief, Socks, Rida, Pardi, Ghagro,
 Petticoat, T-shirt, Ehram) unless the admin gives the item a photo.
-👷 *Staff only* — all staff with free laundry are listed (the search box only filters), check the **photo**, tap
+👷 *Staff only* — tap the staff category (admin-made; "Uncategorized" for the rest) → a window with its people → tap the person, check the **photo**, tap
 items, SAVE: the laundry value is recorded, 0 is collected, nothing goes into cash; over a staff limit it warns, or
 (if the admin set "approval needed") asks for a supervisor's admin login + password.
 🏨 *Building* — the building's linen (Big towel, Small towel, Towel and Safra (Mawaid), Bedsheet, Blanket, Parda,
 Pagdandi, Pillow covers): swipe the building, tap an item → number pad for the quantity, SAVE (no money).
-📦 *Pending* — clothes still at the laundry → 🤲 Given back (who and when is kept).
 💵 *Pending cash* — my cash bills from a date (to a date, or up to today), each **Unpaid** until the admin marks it
 **Paid**; totals of both. **Offline**: bills are kept on the device (numbered OFFLINE-01…, listed on Pending cash) and
 sent when the internet is back; each bill has an id made on the device, so a bill sent twice is stored once.
@@ -256,7 +255,7 @@ staff ID, room, department, mobile, start date, remarks, active, limits per subm
 month count, warn or require approval), 📝 *Notice & log* (the timings text shown to the worker and on receipts; the
 laundry change log).
 
-Rights (server-side): workers create bills, hand clothes back, and see their own bills (and all pending clothes);
+Rights (server-side): workers create bills and see their own bills;
 admins and viewers see everything; only admins change prices, staff, bills and mark cash paid.
 Not built yet (the tables leave room): WhatsApp/SMS receipts, QR status for customers, room/group monthly accounts,
 several laundries, inventory, machines, attendance, expenses.
