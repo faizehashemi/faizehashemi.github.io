@@ -165,9 +165,7 @@ dialog.ld-dlg::backdrop { background: rgba(20, 12, 4, .55); }
     .ld-save { min-width: 120px; font-size: 20px; }
     .ld-total b { font-size: 30px; }
 }
-/* building tab: only the building wheel; linen items */
-.ld-wheels.bonly { grid-template-columns: 1fr; }
-.ld-wheels.bonly .rm { display: none; }
+/* building tab: linen items, no room or building to choose */
 .ld.bld .ld-tabs [data-tab="building"] { border-color: #1f5fa8; background: #e6f0fb; }
 .ld-bar.bld { background: #163f6e; }
 .ld-pic.icon { object-fit: contain; background: transparent; }

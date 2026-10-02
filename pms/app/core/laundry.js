@@ -18,8 +18,11 @@ export const METHOD = { cash: '💵 Cash', card: '💳 Card', other: '🔁 Other
 export const STATUS = { received: '🧺 Received', ready: '✅ Ready', collected: '🤲 Collected' };
 export const DEFAULT_INFO = 'Laundry collection: 8:00 AM – 10:00 AM\nWashed clothes collection: 6:00 PM – 8:00 PM\nNo staff service is available for picking up clothes from rooms.';
 
-// The laundry's own drawings of each garment (assets/laundry/*.png), matched by the item's name
+// The laundry's own drawings of each garment and linen item (assets/laundry/*.png), matched by the item's name
 const ICONS = [
+    [/mawaid.*towel|towel.*mawaid/i, 'mawaid-towel'], [/safra/i, 'safra'], [/small.*towel|hand towel/i, 'small-towel'],
+    [/towel/i, 'big-towel'], [/bed ?sheet/i, 'bedsheet'], [/blanket/i, 'blanket'], [/parda|curtain/i, 'parda'],
+    [/pagdandi|door ?mat/i, 'pagdandi'], [/pillow/i, 'pillow-covers'],
     [/rida/i, 'rida'], [/saaya|saya/i, 'saaya'], [/kurta/i, 'kurta'], [/paj?ama|paijama/i, 'pajama'], [/vest|baniyan/i, 'vest'],
     [/brief|underwear/i, 'briefs'], [/sock/i, 'socks'], [/pardi/i, 'pardi'], [/ghagr/i, 'ghagro'], [/peti|petticoat/i, 'petticoat'],
     [/t-?shirt/i, 'ladies-tshirt'], [/ehram|ihram/i, 'ehram'],
@@ -114,7 +117,7 @@ export function receiptHTML(b, info = '') {
       <div class="r-row"><span>Time</span><span>${esc(jeddahTime(when))}</span></div>
       <hr>
       ${free ? `<div class="r-row"><span>Staff</span><b>${esc(b.staff_name || b.customer?.name)}</b></div>`
-        : bld ? `<div class="r-row"><span>Building</span><b>${esc(b.customer?.building || '—')}</b></div>` : `
+        : bld ? (b.customer?.building ? `<div class="r-row"><span>Building</span><b>${esc(b.customer.building)}</b></div>` : '') : `
       ${b.customer?.building ? `<div class="r-row"><span>Building</span><b>${esc(b.customer.building)}</b></div>` : ''}
       <div class="r-row"><span>Room</span><b>${esc(b.customer?.room || '—')}</b></div>
       ${b.customer?.name ? `<div class="r-row"><span>Customer</span><b>${esc(b.customer.name)}</b></div>` : ''}`}

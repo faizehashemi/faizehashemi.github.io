@@ -2,7 +2,7 @@
 // big pictures of each item, big numbers, a few icons, one SAVE button. Everything is cash.
 //   🧺 New bill: swipe building → floor → room (wheels) → tap clothes (tap = one more) → SAVE → receipt
 //   👷 Staff only: tap the staff member (all listed, filter optional), check the PHOTO, tap clothes → SAVE (value recorded, 0 collected)
-//   🏨 Building: the building's linen — swipe the building, tap an item → number pad for the quantity → SAVE
+//   🏨 Building: the building's linen (no building to choose) — tap an item → number pad for the quantity → SAVE
 //   📦 Pending: clothes still here → 🤲 Given back
 //   💵 Pending cash: my cash bills from a date (to a date) — Unpaid until the admin marks them Paid
 // Prices come from the server; the worker cannot change them. Works offline (bills wait on this device).
@@ -69,14 +69,13 @@ export default async function mount(ctx) {
         $('panePending').hidden = tab !== 'pending';
         $('paneCash').hidden = tab !== 'cash';
         if (billish) {
-            $('ldCustomer').hidden = tab === 'free';
-            $('ldWheels').classList.toggle('bonly', tab === 'building');   // building linen: the building wheel only
+            $('ldCustomer').hidden = tab !== 'bill';                       // the room wheels are for guests only
             $('ldStaff').hidden = tab !== 'free';
             $('ldPay').hidden = tab !== 'bill';
             ctx.root.querySelector('.ld').classList.toggle('free', tab === 'free');
             ctx.root.querySelector('.ld').classList.toggle('bld', tab === 'building');
             if (tab === 'free') { drawStaffList(); if (!st.staffList.length) loadStaff().then(drawStaffList).catch(() => { }); }
-            if (tab !== 'free') [wB, wF, wR].forEach(w => w.sync());
+            if (tab === 'bill') [wB, wF, wR].forEach(w => w.sync());
             drawItems(); drawCart(); drawPicked();
         }
         if (tab === 'pending') loadPending();
@@ -136,7 +135,7 @@ export default async function mount(ctx) {
         $('ldPcsWrap').hidden = bld;
         ctx.root.querySelector('.ld-bar').classList.toggle('free', free);
         ctx.root.querySelector('.ld-bar').classList.toggle('bld', bld);
-        $('ldSave').disabled = !ls.length || (free && !st.staff) || (bld && !wB.value);
+        $('ldSave').disabled = !ls.length || (free && !st.staff);
         $('ldSave').innerHTML = `<span aria-hidden="true">✔</span> SAVE${free ? ' · STAFF' : bld ? ' · BUILDING' : ''}`;
         // cash given → change
         const quick = [...new Set([t, ...[5, 10, 20, 50, 100, 200, 500].map(v => v * 100).filter(v => v > t)].slice(0, 5))];
@@ -183,7 +182,6 @@ export default async function mount(ctx) {
         const floors = [...new Set((bld()?.rooms || []).map(floorOfRoom))].sort(natural);
         wF.set(floors.map(f => ({ value: f, label: f === '0' ? 'G' : f })), floors[0]);
         pickFloor(wF.value);
-        if (isBuilding()) drawCart();
     }
     function pickFloor(floor) {
         const rooms = (bld()?.rooms || []).filter(r => floorOfRoom(r) === floor).map(r => normRoom(r.room_no)).sort(natural);
@@ -207,8 +205,7 @@ export default async function mount(ctx) {
     function drawPicked() {
         const c = customer();
         $('ldPicked').innerHTML = !st.buildings.length ? '<small>No rooms yet — the admin adds them on Rooms &amp; Buildings.</small>'
-            : isBuilding() ? `🏨 ${esc(c.building)} <small>· building linen</small>`
-                : c.room ? `🚪 ${esc(c.building)} · ${esc(c.room)}${c.group ? `<span class="grp">🏨 ${esc(c.group)}</span>` : ''}`
+            : c.room ? `🚪 ${esc(c.building)} · ${esc(c.room)}${c.group ? `<span class="grp">🏨 ${esc(c.group)}</span>` : ''}`
                     : '<small>👆 Swipe the wheels to the room</small>';
     }
 
@@ -258,11 +255,10 @@ export default async function mount(ctx) {
         if (!ls.length) return;
         const cust = customer();
         if (tab === 'bill' && !cust.room) { alert('Choose the room first (swipe the wheels).'); return; }
-        if (building && !cust.building) { alert('Choose the building first.'); return; }
         const recv = $('ldReceived').value.trim();
         const payload = {
             site, kind: free ? 'free' : building ? 'building' : 'paid',
-            customer: free ? undefined : building ? { building: cust.building } : cust, staff_id: free ? st.staff?.id : undefined,
+            customer: free || building ? undefined : cust, staff_id: free ? st.staff?.id : undefined,
             lines: ls.map(l => ({ item_id: l.item_id, qty: l.qty })), method: tab === 'bill' ? 'cash' : undefined,
             received: tab !== 'bill' || recv === '' ? undefined : Number(recv),
             preview_lines: ls.map(({ image, ...l }) => l), preview_value: total(), staff_name: free ? st.staff?.name : undefined,
@@ -305,7 +301,7 @@ export default async function mount(ctx) {
     function showReceipt(b, warnings = [], offline = false) {
         const dlg = document.createElement('dialog');
         dlg.className = 'ld-dlg ld-rdlg';
-        dlg.innerHTML = `<div class="ld-done">${offline ? '⏳ Saved on this device — will send when online' : b.kind === 'free' ? '✅ Saved · STAFF' : b.kind === 'building' ? `✅ Saved · ${esc(b.customer?.building || 'building')}` : `✅ Saved · ${sar(b.paid)} SAR cash`}</div>
+        dlg.innerHTML = `<div class="ld-done">${offline ? '⏳ Saved on this device — will send when online' : b.kind === 'free' ? '✅ Saved · STAFF' : b.kind === 'building' ? '✅ Saved · building linen' : `✅ Saved · ${sar(b.paid)} SAR cash`}</div>
             ${warnings?.length ? `<div class="ld-warn">⚠️ ${warnings.map(esc).join('<br>⚠️ ')}</div>` : ''}
             ${receiptHTML(b, st.info)}
             <div class="ld-dlg-b"><button type="button" data-print>🖨 Print</button><button type="button" class="ok" data-x>➕ Next bill</button></div>`;
@@ -317,7 +313,7 @@ export default async function mount(ctx) {
     }
 
     const custLabel = (b) => b.kind === 'free' ? '👷 ' + esc(b.staff_name)
-        : b.kind === 'building' ? `🏨 ${esc(b.customer?.building || '—')} <small>(building)</small>`
+        : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + esc(b.customer.building) : ''}`
             : `🚪 ${esc([b.customer?.building, b.customer?.room || '—'].filter(Boolean).join(' · '))}${b.customer?.name ? ' · ' + esc(b.customer.name) : ''}`;
 
     /* -------------------------------- pending -------------------------------- */
@@ -341,7 +337,7 @@ export default async function mount(ctx) {
         const b = e.target.closest('[data-st]');
         if (!b) return;
         const bill = pending.find(x => x.id === Number(b.dataset.id));
-        const who = bill.kind === 'free' ? bill.staff_name : [bill.customer.building, bill.customer.room, bill.customer.name].filter(Boolean).join(' ');
+        const who = bill.kind === 'free' ? bill.staff_name : bill.kind === 'building' ? 'Building linen' : [bill.customer.building, bill.customer.room, bill.customer.name].filter(Boolean).join(' ');
         if (!confirm(`Clothes given back?\n${bill.receipt_no} · ${who} · ${bill.items} pcs`)) return;
         b.disabled = true;
         try { await ctx.guard(request('POST', `/api/laundry/bills/${bill.id}/status`, { status: 'collected' })); await loadPending(); }

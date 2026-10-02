@@ -36,7 +36,7 @@ export default async function mount(ctx) {
     // deleted profiles come too: their photos still show in the register and histories, never in the Staff list
     const loadStaff = async () => { S.staff = (await api('GET', `/api/laundry/staff?site=${site}&deleted=1`)).staff; };
     const billsIn = async (from, to) => (await api('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}`));
-    const who = (b) => b.kind === 'free' ? `👷 ${esc(b.staff_name)}` : b.kind === 'building' ? `🏨 ${esc(b.customer?.building || '')}` : esc([b.customer?.building, b.customer?.room].filter(Boolean).join(' · ') || b.customer?.name || '—');
+    const who = (b) => b.kind === 'free' ? `👷 ${esc(b.staff_name)}` : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + esc(b.customer.building) : ''}` : esc([b.customer?.building, b.customer?.room].filter(Boolean).join(' · ') || b.customer?.name || '—');
     const staffPhoto = (id, cls = 'la-thumb') => { const s = S.staff.find(x => x.id === id); return s?.photo ? `<img class="${cls}" src="${s.photo}" alt="">` : `<span class="${cls} none">👤</span>`; };
     const errBox = (e) => `<p class="la-err">${esc(e?.message || String(e))}</p>`;
 
@@ -335,7 +335,7 @@ export default async function mount(ctx) {
             ${b.kind === 'paid' ? `<div class="la-grid2">
               <label>Name<input name="name" value="${esc(b.customer.name || '')}"></label><label>Room<input name="room" value="${esc(b.customer.room || '')}"></label>
               <label>Building<input name="building" value="${esc(b.customer.building || '')}"></label><label>Group<input name="group" value="${esc(b.customer.group || '')}"></label>
-              <label>Contact<input name="contact" value="${esc(b.customer.contact || '')}"></label></div>` : b.kind === 'building' ? `<p>🏨 ${esc(b.customer?.building || '')} (building linen)</p>` : `<p>👷 ${esc(b.staff_name)} (staff only)</p>`}
+              <label>Contact<input name="contact" value="${esc(b.customer.contact || '')}"></label></div>` : b.kind === 'building' ? '<p>🏨 Building linen</p>' : `<p>👷 ${esc(b.staff_name)} (staff only)</p>`}
             <table class="la-t"><tbody id="eRows"></tbody></table>
             <select id="eAdd"></select>
             <p class="la-muted">Lines already on the bill keep the price they were billed at. Every change is written to the history.</p>

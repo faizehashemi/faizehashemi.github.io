@@ -1196,8 +1196,7 @@ async function createLaundryBill(req, env, me) {
     let customer = prepareCustomer(b.customer), staff = null, warnings = [], approvalBy = null;
     let paid = 0, method = '', received = 0;
     if (kind === 'building') {
-        customer = { name: '', room: '', building: text(b.customer && b.customer.building, 40), contact: '', group: '' };
-        if (!customer.building) throw new HttpError(400, 'Choose the building.');
+        customer = { name: '', room: '', building: text(b.customer && b.customer.building, 40), contact: '', group: '' };   // building optional
     } else if (kind === 'free') {
         staff = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ? AND site = ? AND deleted = 0').bind(Number(b.staff_id), site).first();
         if (!staff) throw new HttpError(400, 'Choose the staff member for free laundry.');
