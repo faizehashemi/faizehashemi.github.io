@@ -14,7 +14,6 @@ import { openInHouse } from './inhouse.js';
 import { openGroupList } from './groups.js';
 import { loadSettings, DEFAULTS } from '../../core/settings.js';
 import { renderOccupancy } from './occupancy.js';
-import { renderFlights } from './flights.js';
 import { openTransportList } from './transport.js';
 import { loadDay as loadTransport, signage as transportSignage, today as transportToday, time12 } from '../../core/transport.js';
 
@@ -173,8 +172,6 @@ export default async function mount(ctx) {
     // the in-house calendar, from the Hijri date
     const cal = (date) => openCalendar({ host: ctx.root, date }).catch(e => console.warn('calendar', e));
     $('hmHijri').addEventListener('click', () => cal(new Date()));
-    // Jeddah airport board (does not hold up the rest of the page)
-    const flightsTimer = renderFlights(ctx, $('hmFlights')).catch(e => console.warn('flights', e));
 
     await Promise.all([
         numbers().catch(e => console.warn('home numbers', e)),
@@ -187,5 +184,5 @@ export default async function mount(ctx) {
         if (++n % 2 === 0) numbers().catch(() => { }); // other desks' check-ins, every 2 minutes
         transport().catch(() => { }); // a new transport import, every minute
     }, 60e3);
-    return () => { clearInterval(tick); flightsTimer.then(t => clearInterval(t)); };
+    return () => clearInterval(tick);
 }
