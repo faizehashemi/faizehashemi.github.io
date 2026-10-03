@@ -117,7 +117,7 @@ export default async function mount(ctx) {
             const g = trGroups.find(x => x.dest.id === dest);
             const first = g.buses.length ? g.buses.reduce((a, b) => a.at < b.at ? a : b).at : null;
             setStat(id, g.pax, g.buses.length
-                ? `${g.buses.length} bus${g.buses.length === 1 ? '' : 'es'} · ${g.groups} group${g.groups === 1 ? '' : 's'} · from ${time12(first)}`
+                ? `${[['bus', 'bus', 'buses'], ['car', 'car', 'cars']].map(([v, one, many]) => { const n = g.buses.filter(b => b.vehicle === v).length; return n ? `${n} ${n === 1 ? one : many}` : ''; }).filter(Boolean).join(' · ')} · ${g.groups} group${g.groups === 1 ? '' : 's'} · from ${time12(first)}`
                 : (doc.version ? 'no buses today' : 'no transport list for today'));
         }
     }

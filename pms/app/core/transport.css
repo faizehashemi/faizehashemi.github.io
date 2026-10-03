@@ -99,3 +99,8 @@ body {
     .tp-tile b { font-size: 22px; }
     .tp-dn-jump { margin-left: 0; }
 }
+.tp-veh { display: inline-flex; align-items: center; gap: 4px; }
+.tp-vt { font: inherit; font-size: 16px; line-height: 1; width: 32px; height: 30px; border: 1px solid #c9a227; border-radius: 8px; background: #fff; cursor: pointer; padding: 0; }
+.tp-vt.car { background: #e7f0ff; border-color: #364fc7; }
+.tp-vt:hover { box-shadow: 0 0 0 2px rgba(201, 162, 39, .35); }
+.tp-tbl .bus { width: 110px; }

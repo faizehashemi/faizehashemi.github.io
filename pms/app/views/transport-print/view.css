@@ -24,6 +24,23 @@
 .sheet .foot .total { font-size: 16pt; color: #000; border: 2px solid #000; padding: 0 5mm; }
 .tq-none { padding: 30px; color: var(--muted); text-align: center; }
 
+/* ---------- Print summary (only while printing it) ---------- */
+.tq-summary { display: none; }
+.sum { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 8mm; color: #000; break-inside: auto; }
+.sum th, .sum td { border: 1.5px solid #000; padding: 1.6mm 2mm; text-align: center; vertical-align: middle; }
+.sum thead { display: table-header-group; }
+.sum .band th { background: #f1c232; color: #fff; font: 900 20pt "Arial Black", Arial, sans-serif; text-decoration: underline; text-underline-offset: 3px; text-shadow: 0 1px 1px rgba(0, 0, 0, .25); }
+.sum .band .d { font-size: 15pt; }
+.sum .cols th { background: #ffd966; font: 900 10.5pt "Arial Black", Arial, sans-serif; text-decoration: underline; }
+.sum tbody td { background: #fff2cc; font: 700 11pt "Times New Roman", Georgia, serif; text-transform: uppercase; color: #3d3100; }
+.sum tbody tr { break-inside: avoid; page-break-inside: avoid; }
+.sum tbody tr.rider td { background: #fffaf0; }
+.sum tbody .n { font-family: Georgia, serif; white-space: nowrap; }
+.sum tfoot td { font: 700 11pt Arial, sans-serif; background: #fff; text-align: left; }
+.sum tfoot td.n { text-align: center; }
+html.tq-print-summary .tq-sheets { display: none !important; }
+html.tq-print-summary .tq-summary { display: block; }
+
 @media print {
     @page { size: A4 landscape; margin: 8mm; }
     body { background: #fff !important; }

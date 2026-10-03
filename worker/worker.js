@@ -1506,7 +1506,7 @@ async function publicSignage(url, env) {
         for (const t of JSON.parse(r.rows)) {
             if (!t || (t.route && !types.has(t.route))) continue;
             rows.push({ day: r.day, key: t.key, ref: t.ref, at: t.at, route: t.route || '', operator: t.operator || '', leader: t.leader || '',
-                pax: t.pax, m: t.m || 0, f: t.f || 0, c: t.c || 0, bus: t.bus ?? null, vch: t.vch || '', dora: t.dora || '', adj: t.adj || '',
+                pax: t.pax, m: t.m || 0, f: t.f || 0, c: t.c || 0, bus: t.bus ?? null, vehicle: t.vehicle === 'car' ? 'car' : '', vch: t.vch || '', dora: t.dora || '', adj: t.adj || '',
                 ...(withTransporter ? { transporter: t.transporter || '' } : {}) });
         }
     }

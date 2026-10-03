@@ -4,11 +4,12 @@
 // One document per site and day in the cloud (GET/PUT/DELETE /api/transport, worker.js):
 //   { site, day: 'YYYY-MM-DD', rows: [trip…], version }
 // A trip: { key, ref, dora, vch, transporter, at: 'YYYY-MM-DDTHH:MM', operator, leader, route,
-//           m, f, c, pax, rooms: [], remarks, adj, loc, bus, bus_manual }
+//           m, f, c, pax, rooms: [], remarks, adj, loc, bus, bus_manual, vehicle }
 //   adj  — "[ADJ WITH TRANSVCHID:48963]": this group rides in vehicle 48963 (another trip's vch);
 //          it has no route of its own and shares that trip's bus. A trip without route or remark joins the
 //          trip with the same Dora No.
-//   bus  — bus number within its destination (each destination counts from 1); kept across re-imports.
+//   bus  — vehicle number within its destination (each destination counts from 1); kept across re-imports.
+//   vehicle — 'car' when switched on the Transport day page (cars count from 1 on their own); else a bus.
 
 import { request } from './cloud.js';
 
@@ -107,6 +108,11 @@ export function byDay(rows) {
 /* ------------------------------ buses and signage ------------------------------ */
 
 const byTime = (a, b) => a.at.localeCompare(b.at);
+/** 'bus' (default) or 'car' */
+export const vehicleOf = (r) => r && r.vehicle === 'car' ? 'car' : 'bus';
+export const VEHICLES = { bus: { label: 'BUS', title: 'Bus', icon: '🚌' }, car: { label: 'CAR', title: 'Car', icon: '🚗' } };
+/** "3" for a bus, "Car 1" for a car (tables, signage) */
+export const vehicleNo = (n, vehicle) => n == null || n === '' ? '' : vehicle === 'car' ? `Car ${n}` : String(n);
 
 /**
  * Who rides where. Grouped trips (adj) take their vehicle's route and bus.
@@ -122,28 +128,28 @@ export function resolve(rows) {
         const parent = r.route ? null : (r.adj && byVch.get(r.adj)) || (r.dora && byDora.get(r.dora)) || null;
         const route = parent ? parent.route : r.route;
         const dest = DEST_OF_ROUTE[normRoute(route)] || null;
-        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null });
+        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r) });
     }
     return out;
 }
 
 /**
- * Give every signage trip a bus number, each destination counting from 1 in time order.
- * With `prev` (the saved day): trips already there keep their number (stickers may be on the buses);
- * new trips get the next free numbers after the highest one in use.
+ * Give every signage trip a vehicle number, each destination counting from 1 in time order — buses and cars
+ * each on their own. With `prev` (the saved day): trips already there keep their number (stickers may be on the
+ * buses) as long as the vehicle type is the same; new trips get the next free numbers after the highest in use.
  */
 export function assignBuses(rows, prev = []) {
     const before = new Map(prev.map(r => [r.key, r]));
     const prevInfo = resolve(prev);
     const info = resolve(rows);
     for (const r of rows) { if (!(info.get(r.key).dest && !info.get(r.key).parent)) { r.bus = null; r.bus_manual = false; } }
-    for (const d of DESTS) {
-        const list = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent; }).sort(byTime);
+    for (const d of DESTS) for (const v of Object.keys(VEHICLES)) {
+        const list = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent && vehicleOf(r) === v; }).sort(byTime);
         const used = new Set();
         const fresh = [];
         for (const r of list) {
             const old = before.get(r.key);
-            const n = old && prevInfo.get(old.key)?.dest === d.id ? Number(old.bus) : NaN;
+            const n = old && prevInfo.get(old.key)?.dest === d.id && vehicleOf(old) === v ? Number(old.bus) : NaN;
             if (Number.isInteger(n) && n > 0 && !used.has(n)) { r.bus = n; r.bus_manual = !!old.bus_manual; used.add(n); }
             else fresh.push(r);
         }
@@ -153,7 +159,7 @@ export function assignBuses(rows, prev = []) {
     return rows;
 }
 
-/** Number every destination again from 1 in time order (forgets typed-in numbers) */
+/** Number every destination again from 1 in time order, buses and cars apart (forgets typed-in numbers) */
 export const renumber = (rows) => assignBuses(rows.map(r => ({ ...r, bus: null, bus_manual: false })), []);
 
 /**
@@ -165,10 +171,10 @@ export function signage(rows) {
     const info = resolve(rows);
     return DESTS.map(d => {
         const mains = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent; })
-            .sort((a, b) => (a.bus ?? 1e9) - (b.bus ?? 1e9) || byTime(a, b));
+            .sort((a, b) => (vehicleOf(a) === vehicleOf(b) ? 0 : vehicleOf(a) === 'bus' ? -1 : 1) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || byTime(a, b));
         const buses = mains.map(r => {
             const riders = [r, ...rows.filter(x => info.get(x.key).parent === r)];
-            return { bus: r.bus, at: r.at, rows: riders, pax: riders.reduce((s, x) => s + (Number(x.pax) || 0), 0), transporter: r.transporter, vch: r.vch };
+            return { bus: r.bus, vehicle: vehicleOf(r), at: r.at, rows: riders, pax: riders.reduce((s, x) => s + (Number(x.pax) || 0), 0), transporter: r.transporter, vch: r.vch };
         });
         return { dest: d, buses, pax: buses.reduce((s, b) => s + b.pax, 0), groups: buses.reduce((s, b) => s + b.rows.length, 0) };
     });
@@ -222,7 +228,7 @@ export function diffDay(saved, incoming) {
 export function applyChanges(saved, diff, pick) {
     const map = new Map(saved.map(r => [r.key, { ...r }]));
     for (const r of diff.added) if (pick.has('add:' + r.key)) map.set(r.key, { ...r });
-    for (const c of diff.changed) if (pick.has('chg:' + c.now.key)) map.set(c.now.key, { ...c.now, bus: c.old.bus, bus_manual: c.old.bus_manual });
+    for (const c of diff.changed) if (pick.has('chg:' + c.now.key)) map.set(c.now.key, { ...c.now, bus: c.old.bus, bus_manual: c.old.bus_manual, ...(c.old.vehicle ? { vehicle: c.old.vehicle } : {}) });
     for (const r of diff.removed) if (pick.has('del:' + r.key)) map.delete(r.key);
     const rows = [...map.values()].sort(byTime);
     return assignBuses(rows, saved);

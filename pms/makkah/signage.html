@@ -45,6 +45,7 @@
     <script type="module">
         import { API_URL } from '../app/config.js';
         import { tripsOf, buildSlides, renderTemplate, tickClocks, STAGE_W, STAGE_H } from '../app/core/signage.js';
+        import { vehicleNo } from '../app/core/transport.js';
 
         const q = new URLSearchParams(location.search);
         const site = location.pathname.split('/').filter(Boolean).find(s => s === 'makkah' || s === 'medina') || 'makkah';
@@ -71,7 +72,7 @@
                 if (i === 0 || list[i - 1].to !== t.to) { span = 1; while (list[i + span] && list[i + span].to === t.to) span++; }
                 const op = t.r.operator && t.r.operator.toUpperCase() !== 'SELF' ? `${esc(t.r.operator)}<br>` : '';
                 return `<tr class="${ROW}">
-                    <td class="text-center align-middle">${esc(t.r.ref)}</td>${span ? `<td class="align-middle bg-body-tertiary fw-bold text-primary table-warning " rowspan="${span}">${esc(t.to)}</td>` : ''}<td>${esc(when(t.r.at))}</td><td class="text-center align-middle">${op}${esc(t.r.leader)}</td><td class="text-center align-middle">${esc(t.r.pax)}</td><td class="text-center align-middle">${esc(t.bus ?? '')}</td>
+                    <td class="text-center align-middle">${esc(t.r.ref)}</td>${span ? `<td class="align-middle bg-body-tertiary fw-bold text-primary table-warning " rowspan="${span}">${esc(t.to)}</td>` : ''}<td>${esc(when(t.r.at))}</td><td class="text-center align-middle">${op}${esc(t.r.leader)}</td><td class="text-center align-middle">${esc(t.r.pax)}</td><td class="text-center align-middle">${esc(vehicleNo(t.bus, t.vehicle))}</td>
                 </tr>`;
             }).join('');
             $('gvTransportList').tBodies[0].innerHTML = HEAD + (body || `<tr class="${ROW}"><td class="text-center align-middle" colspan="6">No transport scheduled</td></tr>`);

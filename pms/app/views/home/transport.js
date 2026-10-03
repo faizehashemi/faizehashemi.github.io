@@ -1,6 +1,6 @@
 // The trips behind a Home "Transport today" tile: bus, time, SH, group and leader, pax — in the same window
 // style as the other Home lists. Grouped trips (adjusted into a bus) sit under their bus.
-import { time12 } from '../../core/transport.js';
+import { time12, vehicleNo } from '../../core/transport.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -32,9 +32,9 @@ export function openTransportList(o) {
             .filter(({ r }) => !q || [r.ref, r.operator, r.leader, r.transporter, r.vch].some(v => String(v ?? '').toLowerCase().includes(q)));
         $('trList').innerHTML = rows.length ? `
           <table class="ih-tbl" data-no-cards>
-            <thead><tr><th>Bus</th><th>Time</th><th>SH</th><th>Group / leader</th><th class="n">Pax</th><th>Transporter</th></tr></thead>
+            <thead><tr><th>Vehicle</th><th>Time</th><th>SH</th><th>Group / leader</th><th class="n">Pax</th><th>Transporter</th></tr></thead>
             <tbody>${rows.map(({ r, b, i }) => `<tr class="${i ? 'rider' : ''}${b.at < nowAt ? ' past' : ''}">
-              <td class="bus">${i ? `↳ ${esc(b.bus ?? '')}` : esc(b.bus ?? '—')}</td>
+              <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle))}` : esc(vehicleNo(b.bus, b.vehicle) || '—')}</td>
               <td class="stay">${esc(time12(b.at))}</td>
               <td class="sh">${esc(r.ref)}</td>
               <td><b>${esc(r.operator || '—')}</b><small>${esc(r.leader || 'no leader')}</small></td>

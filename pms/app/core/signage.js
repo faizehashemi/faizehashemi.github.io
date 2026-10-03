@@ -11,7 +11,7 @@
 //     combine — all trip types using this template share its pages (as the Classic board); off = one run per type
 // Slides config (cloud, per site): { window, slides: [{ type: route, template: 'classic' | 'none' | id, seconds }] }
 
-import { resolve } from './transport.js';
+import { resolve, vehicleNo, VEHICLES } from './transport.js';
 
 export const STAGE_W = 1920, STAGE_H = 1080;
 
@@ -37,7 +37,8 @@ export const FIELDS = {
     leader: ['Group Leader', (t) => t.r.leader],
     pax: ['Total Pax', (t) => t.r.pax],
     mfc: ['M / F / C', (t) => [t.r.m && `M ${t.r.m}`, t.r.f && `F ${t.r.f}`, t.r.c && `C ${t.r.c}`].filter(Boolean).join('  ')],
-    bus: ['Bus No', (t) => t.bus ?? ''],
+    bus: ['Bus No', (t) => vehicleNo(t.bus, t.vehicle)],
+    vehicle: ['Vehicle', (t) => VEHICLES[t.vehicle === 'car' ? 'car' : 'bus'].label],
     transporter: ['Transporter', (t) => t.r.transporter || ''],
     vch: ['Vch No', (t) => t.r.vch],
     dora: ['Dora No', (t) => t.r.dora],
@@ -85,14 +86,14 @@ export function tripsOf(data) {
             const i = info.get(r.key);
             const type = i.route || r.route;
             if (!type || r.at < from || r.at > to) continue;
-            out.push({ r, type, to: travelTo(type), bus: i.bus });
+            out.push({ r, type, to: travelTo(type), bus: i.bus, vehicle: i.vehicle });
         }
     }
     return out;
 }
 
 const tableOf = (tpl) => tpl?.elements?.find(e => e.type === 'table') || null;
-const byBoard = (a, b) => a.to.localeCompare(b.to) || a.r.at.localeCompare(b.r.at) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || String(a.r.ref).localeCompare(String(b.r.ref));
+const byBoard = (a, b) => a.to.localeCompare(b.to) || a.r.at.localeCompare(b.r.at) || (a.vehicle === b.vehicle ? 0 : a.vehicle === 'car' ? 1 : -1) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || String(a.r.ref).localeCompare(String(b.r.ref));
 
 /**
  * The board's slides in order: per configured trip type (with a template) its trips in pages.

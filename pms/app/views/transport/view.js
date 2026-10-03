@@ -2,7 +2,7 @@
 // (type one in to change it — kept by later imports), and links to the import page, bus sheets and signage.
 // Day in the address: #/<site>/transport?day=YYYY-MM-DD (default today).
 import { canWrite, canOpen, currentDesk, UserError } from '../../core/cloud.js';
-import { DESTS, resolve, signage, renumber, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
+import { DESTS, resolve, signage, renumber, assignBuses, vehicleOf, vehicleNo, VEHICLES, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { loadSignage, saveSignageConfig } from '../../core/signage-api.js';
 
@@ -20,6 +20,12 @@ export default async function mount(ctx) {
     $('tpPrint').hidden = !canOpen('transport-print', desk);
     $('tpRenumber').hidden = $('tpDelete').hidden = !writable;
 
+    // "3 buses · 1 car"
+    const fleet = (list) => {
+        const n = (v) => list.filter(b => b.vehicle === v).length;
+        const bus = n('bus'), car = n('car');
+        return [`${bus} bus${bus === 1 ? '' : 'es'}`, car ? `${car} car${car === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+    };
     const msg = (text, kind = 'ok') => { $('tpMsg').innerHTML = text ? `<div class="tp-msg ${kind}">${esc(text)}</div>` : ''; };
     const go = (d) => ctx.navigate('transport', { day: d });
 
@@ -29,7 +35,7 @@ export default async function mount(ctx) {
         $('tpTiles').innerHTML = signage(doc.rows).map(s => `
           <div class="tp-tile"><span class="ico" aria-hidden="true">${s.dest.icon}</span>
             <b>${s.pax}</b><span>${esc(s.dest.title)}</span>
-            <small>${s.buses.length} bus${s.buses.length === 1 ? '' : 'es'} · ${s.groups} group${s.groups === 1 ? '' : 's'}${s.buses.length ? ` · ${time12(s.buses.reduce((a, b) => a.at < b.at ? a : b).at)} first` : ''}</small>
+            <small>${fleet(s.buses)} · ${s.groups} group${s.groups === 1 ? '' : 's'}${s.buses.length ? ` · ${time12(s.buses.reduce((a, b) => a.at < b.at ? a : b).at)} first` : ''}</small>
           </div>`).join('');
     }
 
@@ -50,12 +56,12 @@ export default async function mount(ctx) {
             const html = signage(doc.rows).map(s => {
                 // duplicate numbers in one destination are flagged (typed in by hand)
                 const count = new Map();
-                for (const b of s.buses) if (b.bus != null) count.set(b.bus, (count.get(b.bus) || 0) + 1);
+                for (const b of s.buses) if (b.bus != null) count.set(`${b.vehicle}${b.bus}`, (count.get(`${b.vehicle}${b.bus}`) || 0) + 1);
                 const body = s.buses.flatMap(b => b.rows.map((r, i) => ({ r, b, i }))).filter(x => matches(x.r, q)).map(({ r, b, i }) => `
                   <tr class="${i ? 'rider' : ''}${r.at < past ? ' past' : ''}">
-                    <td class="bus">${i ? `↳ ${esc(b.bus ?? '')}` : writable
-                        ? `<input type="number" min="1" max="999" inputmode="numeric" value="${esc(b.bus ?? '')}" data-key="${esc(r.key)}" class="${r.bus_manual ? 'manual' : ''}${count.get(b.bus) > 1 ? ' dup' : ''}" aria-label="Bus number" title="${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(b.bus) > 1 ? ' · used twice' : ''}">`
-                        : esc(b.bus ?? '—')}</td>
+                    <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle))}` : writable
+                        ? `<span class="tp-veh"><button type="button" class="tp-vt ${b.vehicle}" data-veh="${esc(r.key)}" title="${b.vehicle === 'car' ? 'Car — tap to make it a bus' : 'Bus — tap to make it a car'}" aria-label="${VEHICLES[b.vehicle].title}: switch">${VEHICLES[b.vehicle].icon}</button><input type="number" min="1" max="999" inputmode="numeric" value="${esc(b.bus ?? '')}" data-key="${esc(r.key)}" class="${r.bus_manual ? 'manual' : ''}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' dup' : ''}" aria-label="${VEHICLES[b.vehicle].title} number" title="${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' · used twice' : ''}"></span>`
+                        : `${VEHICLES[b.vehicle].icon} ${esc(b.bus ?? '—')}`}</td>
                     <td class="t">${esc(time12(r.at))}</td>
                     <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
                     <td>${esc(r.operator || '—')}</td>
@@ -65,20 +71,20 @@ export default async function mount(ctx) {
                     <td>${esc(r.remarks)}</td>
                   </tr>`).join('');
                 return `<div class="tp-dest"><span aria-hidden="true">${s.dest.icon}</span>${esc(s.dest.label)}
-                    <small>${s.buses.length} bus${s.buses.length === 1 ? '' : 'es'} · ${s.groups} groups · ${s.pax} pax</small></div>
-                  ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Bus</th><th>Time</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th></tr></thead>
+                    <small>${fleet(s.buses)} · ${s.groups} groups · ${s.pax} pax</small></div>
+                  ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Vehicle</th><th>Time</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th></tr></thead>
                     <tbody>${body}</tbody></table></div>` : `<p class="tp-empty">${s.buses.length ? 'Nothing matches.' : 'No trips.'}</p>`}`;
             }).join('');
             $('tpList').innerHTML = html;
         } else {
             const rows = [...doc.rows].sort((a, b) => a.at.localeCompare(b.at)).filter(r => matches(r, q));
             $('tpList').innerHTML = rows.length ? `<div class="tp-scroll"><table class="tp-tbl">
-              <thead><tr><th>Time</th><th>Route</th><th>Bus</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Rooms</th><th>Remarks</th></tr></thead>
+              <thead><tr><th>Time</th><th>Route</th><th>Vehicle</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Rooms</th><th>Remarks</th></tr></thead>
               <tbody>${rows.map(r => { const i = info.get(r.key); return `
                 <tr class="${i.parent ? 'rider' : ''}${r.at < past ? ' past' : ''}">
                   <td class="t">${esc(time12(r.at))}</td>
                   <td>${esc(i.route || '—')}${i.parent ? '<small>grouped</small>' : ''}</td>
-                  <td class="bus">${i.dest ? esc(i.bus ?? '—') : ''}</td>
+                  <td class="bus">${i.dest ? `${VEHICLES[i.vehicle].icon} ${esc(i.bus ?? '—')}` : ''}</td>
                   <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
                   <td>${esc(r.operator || '—')}</td>
                   <td>${esc(r.leader || '—')}</td>
@@ -177,8 +183,24 @@ export default async function mount(ctx) {
         } finally { $('sgSave').disabled = false; }
     });
 
+    // 🚌 ⇄ 🚗: a car counts from 1 on its own (per destination); buses keep their numbers
+    $('tpList').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-veh]');
+        if (!b || saving) return;
+        const key = b.dataset.veh, row = doc.rows.find(r => r.key === key);
+        if (!row) return;
+        const to = vehicleOf(row) === 'car' ? 'bus' : 'car';
+        const rows = assignBuses(doc.rows.map(r => r.key === key ? { ...r, vehicle: to === 'car' ? 'car' : undefined, bus_manual: false } : { ...r }), doc.rows);
+        // the cars of this destination always run 1, 2, 3… in time order
+        const info = resolve(rows), dest = info.get(key)?.dest;
+        rows.filter(r => vehicleOf(r) === 'car' && !info.get(r.key).parent && info.get(r.key).dest === dest)
+            .sort((a, b) => a.at.localeCompare(b.at)).forEach((r, i) => { r.bus = i + 1; r.bus_manual = false; });
+        const n = rows.find(r => r.key === key)?.bus;
+        save(rows, `SH ${key} → ${to} ${n ?? ''}`);
+    });
+
     $('tpRenumber').addEventListener('click', () => {
-        if (!confirm('Number every destination again from 1, in time order?\nBus numbers typed in by hand are replaced, and sheets already stuck on buses may no longer match.')) return;
+        if (!confirm('Number every destination again from 1, in time order?\nBuses and cars count apart. Numbers typed in by hand are replaced, and sheets already stuck on buses may no longer match.')) return;
         save(renumber(doc.rows), 'renumbered');
     });
     $('tpDelete').addEventListener('click', async () => {
