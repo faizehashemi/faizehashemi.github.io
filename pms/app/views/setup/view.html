@@ -56,25 +56,6 @@
         </div>
     </section>
 
-    <section class="card" id="sgCard">
-        <h3>Signage window <span class="muted small">— the public transport board, Riyadh time</span></h3>
-        <p class="muted small">Which trips <a href="makkah/signage" target="_blank" rel="noopener">/makkah/signage</a> shows.
-            Default: from <b>now</b> (a trip drops off once it has left) to the end of <b>tomorrow</b>.</p>
-        <div class="fe-rows">
-            <label>Beginning
-                <select id="sgFromMode"><option value="now">Now — hide trips that have left</option><option value="time">Today from a fixed time</option></select></label>
-            <label id="sgFromTimeRow">Today from<input type="time" id="sgFromTime"></label>
-            <label>End day
-                <select id="sgToDay"><option value="0">Today</option><option value="1">Tomorrow</option><option value="2">Day after tomorrow</option></select></label>
-            <label>End time<input type="time" id="sgToTime"></label>
-        </div>
-        <div class="actions">
-            <button type="button" id="sgReset">Back to default</button>
-            <button type="button" class="primary" id="sgSave">Save window</button>
-            <span class="muted small" id="sgMsg"></span>
-        </div>
-    </section>
-
     <section class="card" id="migrateCard" hidden>
         <h3>Move this browser's old data to the cloud</h3>
         <p class="muted">Slips saved on this computer before the cloud switch are still in this browser. Upload them once;

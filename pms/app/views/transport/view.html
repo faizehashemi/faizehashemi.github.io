@@ -26,4 +26,22 @@
         <div id="tpList"><p class="tp-empty">Loading…</p></div>
         <p class="tp-muted" id="tpMeta"></p>
     </section>
+    <section class="tp-card" id="sgCard">
+        <h2>Signage window <span class="tp-muted">— which trips the public board shows (Riyadh time)</span></h2>
+        <p class="tp-muted">Default: from <b>now</b> (a trip drops off once it has left) to the end of <b>tomorrow</b>. Templates and slide times are in the Signage Builder.</p>
+        <div class="tp-bar sg-win">
+            <label>Beginning
+                <select id="sgFromMode"><option value="now">Now — hide trips that have left</option><option value="time">Today from a fixed time</option></select></label>
+            <label id="sgFromTimeRow">Today from<input type="time" id="sgFromTime"></label>
+            <label>End day
+                <select id="sgToDay"><option value="0">Today</option><option value="1">Tomorrow</option><option value="2">Day after tomorrow</option></select></label>
+            <label>End time<input type="time" id="sgToTime"></label>
+        </div>
+        <div class="tp-bar">
+            <button type="button" class="tp-btn" id="sgReset">Back to default</button>
+            <button type="button" class="tp-btn gold" id="sgSave">Save window</button>
+            <a class="tp-btn" id="sgBuilder" href="#">🎨 Signage Builder</a>
+            <span class="tp-muted" id="sgMsg"></span>
+        </div>
+    </section>
 </div>

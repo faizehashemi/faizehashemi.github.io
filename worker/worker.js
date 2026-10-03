@@ -94,6 +94,7 @@ async function route(req, env) {
     if (p === '/api/health') return json({ ok: true, time: now() });
     if (p === '/api/login' && m === 'POST') return login(req, env);
     if (p === '/api/public/signage' && m === 'GET') return publicSignage(url, env); // no login: the TV board
+    if (p === '/api/public/signage/setup' && m === 'GET') return publicSignageSetup(url, env);
 
     const me = await authenticate(req, env);
     if (p === '/api/logout' && m === 'POST') {
@@ -125,6 +126,13 @@ async function route(req, env) {
 
 
     if (p === '/api/transport' && m === 'GET') return getTransport(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
+    if (p === '/api/transport/types' && m === 'GET') return transportTypes(env, transportSite(url.searchParams.get('site'), me));
+    if (p === '/api/signage' && m === 'GET') return getSignage(env, transportSite(url.searchParams.get('site'), me));
+    if (p === '/api/signage/config' && m === 'PUT') return putSignageConfig(req, env, me);
+    if (p === '/api/signage/templates' && m === 'POST') return saveTemplate(req, env, me, 0);
+    { const st = p.match(/^\/api\/signage\/templates\/(\d+)$/);
+      if (st && m === 'PUT') return saveTemplate(req, env, me, Number(st[1]));
+      if (st && m === 'DELETE') return deleteTemplate(env, me, Number(st[1])); }
     if (p === '/api/transport/days' && m === 'GET') return transportDays(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/transport' && m === 'PUT') return putTransport(req, env, me);
     if (p === '/api/transport' && m === 'DELETE') return deleteTransport(url, env, me);
@@ -1334,35 +1342,188 @@ async function putTransport(req, env, me) {
     return getTransport(env, site, d);
 }
 
-// Public (no login) — the /<site>/signage board: the trips in the Setup → Signage window (Riyadh time) to the signage
-// destinations, only the fields the board shows. Grouped trips (no route) come along; the page joins them to their bus.
-const SIGNAGE_ROUTES = ['MAKKAH-JEDDAH AIRPORT', 'MAKKAH-MADINA', 'MAKKAH-MAKKAH ATRAAF'];
+/* -------------------------------- signage -------------------------------- */
+// The public board /<site>/signage and its Signage Builder (Transport menu).
+//   signage_config (one per site): { window, slides } — window = which trips (Riyadh time); slides = per trip type
+//     (a route such as "MAKKAH-MADINA") the template it is shown with ('classic', 'none' or a template id) and the
+//     seconds a slide stays. Order of `slides` = order on the board.
+//   signage_templates: the designs made in the builder (elements, columns, colours, images as data: URLs).
+// Read: any login · write: desk of the site, admin. The board itself reads through /api/public/… without a login.
+
 const SIGNAGE_WINDOW = { from: 'now', to_day: 1, to_time: '23:59' };   // default: upcoming today + all of tomorrow
-async function publicSignage(url, env) {
-    const site = String(url.searchParams.get('site') || 'makkah');
-    if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+const SIGNAGE_DEFAULT_SLIDES = ['MAKKAH-JEDDAH AIRPORT', 'MAKKAH-MADINA', 'MAKKAH-MAKKAH ATRAAF'].map(type => ({ type, template: 'classic', seconds: 15 }));
+const MAX_TEMPLATE_BYTES = 1800 * 1024;
+const DATA_IMAGE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+
+function checkWindow(v) {
+    return !!v && typeof v === 'object' && !Array.isArray(v) && (v.from === 'now' || HHMM(v.from)) && [0, 1, 2].includes(v.to_day) && HHMM(v.to_time)
+        && !(v.to_day === 0 && v.from !== 'now' && v.to_time <= v.from);
+}
+
+async function signageConfig(env, site) {
+    const row = await env.DB.prepare('SELECT c.data, c.version, c.updated_at, d.name AS updated_by FROM signage_config c LEFT JOIN desks d ON d.id = c.updated_by WHERE c.site = ?').bind(site).first();
+    if (row) return { ...JSON.parse(row.data), version: row.version, updated_at: row.updated_at, updated_by: row.updated_by };
+    // never saved: the window from the old Setup setting, the three Makkah destinations on the Classic board
     const set = await env.DB.prepare("SELECT value FROM settings WHERE key = 'signage_window'").first();
-    const w = { ...SIGNAGE_WINDOW, ...(set ? JSON.parse(set.value) : {}) };
+    return { window: { ...SIGNAGE_WINDOW, ...(set ? JSON.parse(set.value) : {}) }, slides: SIGNAGE_DEFAULT_SLIDES, version: 0, updated_at: null, updated_by: null };
+}
+
+// Template content: markup characters out of every string, images only as data:image URLs, bounded depth and size
+function cleanTemplate(v, depth = 0) {
+    if (depth > 8) return null;
+    if (typeof v === 'string') return v.startsWith('data:') ? (DATA_IMAGE.test(v) ? v : '') : v.replace(/[<>]/g, '').slice(0, 1000);
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    if (typeof v === 'boolean' || v === null) return v;
+    if (Array.isArray(v)) return v.slice(0, 200).map(x => cleanTemplate(x, depth + 1));
+    if (v && typeof v === 'object') {
+        const o = {};
+        for (const [k, x] of Object.entries(v).slice(0, 100)) o[String(k).slice(0, 40)] = cleanTemplate(x, depth + 1);
+        return o;
+    }
+    return null;
+}
+function prepareTemplate(b) {
+    const name = text(b && b.name, 60);
+    if (!name) throw new HttpError(400, 'Give the template a name.');
+    if (!b.data || typeof b.data !== 'object' || Array.isArray(b.data)) throw new HttpError(400, 'Template data missing.');
+    const data = JSON.stringify(cleanTemplate(b.data));
+    if (data.length > MAX_TEMPLATE_BYTES) throw new HttpError(413, 'Template too large — use smaller images (about 1.5 MB in all).');
+    return { name, data };
+}
+const TEMPLATE_SELECT = 'SELECT t.*, d.name AS updated_by_name FROM signage_templates t LEFT JOIN desks d ON d.id = t.updated_by';
+const rowToTemplate = (r) => ({ id: r.id, site: r.site, name: r.name, data: JSON.parse(r.data), version: r.version, updated_at: r.updated_at, updated_by: r.updated_by_name || null });
+
+async function listTemplates(env, site) {
+    const { results } = await env.DB.prepare(`${TEMPLATE_SELECT} WHERE t.site = ? ORDER BY t.name, t.id`).bind(site).all();
+    return results.map(rowToTemplate);
+}
+async function getSignage(env, site) {
+    return json({ site, config: await signageConfig(env, site), templates: await listTemplates(env, site) });
+}
+
+async function putSignageConfig(req, env, me) {
+    const { site, config, version } = await body(req);
+    assertWrite(me, site);
+    if (!config || typeof config !== 'object') throw new HttpError(400, 'config missing.');
+    const cur = await signageConfig(env, site);
+    const window = config.window === undefined ? cur.window : config.window;
+    if (!checkWindow(window)) throw new HttpError(400, 'Signage window: beginning "now" or HH:MM, end today / tomorrow / day after at HH:MM, and the end after the beginning.');
+    const slides = config.slides === undefined ? cur.slides : config.slides;
+    if (!Array.isArray(slides) || slides.length > 60) throw new HttpError(400, 'At most 60 trip types.');
+    const clean = slides.map(s => ({
+        type: text(s && s.type, 80),
+        template: s && (s.template === 'classic' || s.template === 'none') ? s.template : (Number(s && s.template) || 'none'),
+        seconds: Math.min(600, Math.max(3, Math.round(Number(s && s.seconds) || 15))),
+    })).filter(s => s.type);
+    const data = JSON.stringify({ window: { from: window.from, to_day: window.to_day, to_time: window.to_time }, slides: clean });
+    const v = Number(version) || 0;
+    const write = v === 0
+        ? env.DB.prepare('INSERT OR IGNORE INTO signage_config (site, data, version, updated_at, updated_by) VALUES (?, ?, 1, ?, ?)').bind(site, data, now(), me.id)
+        : env.DB.prepare('UPDATE signage_config SET data = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE site = ? AND version = ?').bind(data, now(), me.id, site, v);
+    const [res] = await env.DB.batch([write]);
+    if (!res.meta.changes) throw new HttpError(409, 'The signage settings were changed by another desk meanwhile. Reload and try again.');
+    await auditStmt(env, me, 'signage-config', null, `${site}: ${clean.filter(s => s.template !== 'none').length} trip type(s) shown`).run();
+    return getSignage(env, site);
+}
+
+async function saveTemplate(req, env, me, id) {
+    const b = await body(req);
+    const t = prepareTemplate(b);
+    if (!id) {
+        assertWrite(me, b.site);
+        const res = await env.DB.prepare('INSERT INTO signage_templates (site, name, data, version, updated_at, updated_by) VALUES (?, ?, ?, 1, ?, ?)').bind(b.site, t.name, t.data, now(), me.id).run();
+        await auditStmt(env, me, 'signage-template', null, `${b.site}: new "${t.name}"`).run();
+        return json({ template: rowToTemplate(await env.DB.prepare(`${TEMPLATE_SELECT} WHERE t.id = ?`).bind(res.meta.last_row_id).first()) });
+    }
+    const cur = await env.DB.prepare('SELECT site FROM signage_templates WHERE id = ?').bind(id).first();
+    if (!cur) throw new HttpError(404, 'That template was deleted.');
+    assertWrite(me, cur.site);
+    const res = await env.DB.prepare('UPDATE signage_templates SET name = ?, data = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?')
+        .bind(t.name, t.data, now(), me.id, id, Number(b.version) || 0).run();
+    if (!res.meta.changes) throw new HttpError(409, 'This template was changed by another desk meanwhile. Reload it and try again.');
+    await auditStmt(env, me, 'signage-template', null, `${cur.site}: saved "${t.name}"`).run();
+    return json({ template: rowToTemplate(await env.DB.prepare(`${TEMPLATE_SELECT} WHERE t.id = ?`).bind(id).first()) });
+}
+
+async function deleteTemplate(env, me, id) {
+    const cur = await env.DB.prepare('SELECT site, name FROM signage_templates WHERE id = ?').bind(id).first();
+    if (!cur) return json({ ok: true });
+    assertWrite(me, cur.site);
+    await env.DB.batch([
+        env.DB.prepare('DELETE FROM signage_templates WHERE id = ?').bind(id),
+        auditStmt(env, me, 'signage-template', null, `${cur.site}: deleted "${cur.name}"`),
+    ]);
+    return json({ ok: true });
+}
+
+// Every trip type (route) in the saved transport lists: how many trips and the last day it appears
+async function transportTypes(env, site) {
+    const { results } = await env.DB.prepare('SELECT day, rows FROM transport_days WHERE site = ? ORDER BY day').bind(site).all();
+    const types = new Map();
+    for (const r of results) for (const t of JSON.parse(r.rows)) {
+        if (!t || !t.route) continue;
+        const x = types.get(t.route) || { type: t.route, trips: 0, last: '' };
+        x.trips++; x.last = r.day;
+        types.set(t.route, x);
+    }
+    return json({ site, types: [...types.values()].sort((a, b) => a.type.localeCompare(b.type)) });
+}
+
+// What changes the board's look: its config and templates (the board reloads them only when this changes)
+async function signageStamp(env, site, cfg) {
+    const t = await env.DB.prepare('SELECT COUNT(*) AS n, MAX(updated_at) AS at FROM signage_templates WHERE site = ?').bind(site).first();
+    return `${cfg.version}|${cfg.updated_at || ''}|${t.n}|${t.at || ''}`;
+}
+const publicSite = (url) => { const s = String(url.searchParams.get('site') || 'makkah'); if (!SITES[s]) throw new HttpError(400, `Unknown site "${s}".`); return s; };
+const publicJson = (data) => new Response(JSON.stringify(data), {
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=10', 'Access-Control-Allow-Origin': '*' },
+});
+
+// Public (no login): the trips the board shows — trip types given a template, inside the window (Riyadh time),
+// only the fields the board can show. Grouped trips (no route) come along; the page joins them to their bus.
+async function publicSignage(url, env) {
+    const site = publicSite(url);
+    const cfg = await signageConfig(env, site);
+    const w = cfg.window;
     const riyadh = new Date(Date.now() + 3 * 3600e3).toISOString();  // Saudi Arabia: UTC+3, no daylight saving
     const today = riyadh.slice(0, 10);
     const dayPlus = (n) => new Date(Date.parse(today) + n * 864e5).toISOString().slice(0, 10);
-    const tomorrow = dayPlus(1);
     const days = [0, 1, 2].slice(0, w.to_day + 1).map(dayPlus);
-    // the page shows trips with from <= at <= to
     const from = w.from === 'now' ? riyadh.slice(0, 16) : `${today}T${w.from}`;
     const to = `${dayPlus(w.to_day)}T${w.to_time}`;
+    const shown = cfg.slides.filter(s => s.template !== 'none');
+    const types = new Set(shown.map(s => s.type));
+    // the transporter (it carries phone numbers) only when a template shows that column
+    let withTransporter = false;
+    const ids = shown.map(s => s.template).filter(x => typeof x === 'number');
+    if (ids.length) {
+        const { results } = await env.DB.prepare(`SELECT data FROM signage_templates WHERE site = ? AND id IN (${ids.map(() => '?').join(', ')})`).bind(site, ...ids).all();
+        withTransporter = results.some(r => r.data.includes('"field":"transporter"'));
+    }
     const { results } = await env.DB.prepare(`SELECT day, rows FROM transport_days WHERE site = ? AND day IN (${days.map(() => '?').join(', ')})`).bind(site, ...days).all();
     const rows = [];
     for (const r of results) {
         for (const t of JSON.parse(r.rows)) {
-            if (!t || (t.route && !SIGNAGE_ROUTES.includes(t.route))) continue;
+            if (!t || (t.route && !types.has(t.route))) continue;
             rows.push({ day: r.day, key: t.key, ref: t.ref, at: t.at, route: t.route || '', operator: t.operator || '', leader: t.leader || '',
-                pax: t.pax, bus: t.bus ?? null, vch: t.vch || '', dora: t.dora || '', adj: t.adj || '' });
+                pax: t.pax, m: t.m || 0, f: t.f || 0, c: t.c || 0, bus: t.bus ?? null, vch: t.vch || '', dora: t.dora || '', adj: t.adj || '',
+                ...(withTransporter ? { transporter: t.transporter || '' } : {}) });
         }
     }
-    return new Response(JSON.stringify({ site, now: riyadh.slice(0, 16), today, tomorrow, days, from, to, rows }), {
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=10', 'Access-Control-Allow-Origin': '*' },
-    });
+    return publicJson({ site, now: riyadh.slice(0, 16), today, tomorrow: dayPlus(1), days, from, to, rows, stamp: await signageStamp(env, site, cfg) });
+}
+
+// Public (no login): the slides and the templates they use
+async function publicSignageSetup(url, env) {
+    const site = publicSite(url);
+    const cfg = await signageConfig(env, site);
+    const ids = [...new Set(cfg.slides.map(s => s.template).filter(x => typeof x === 'number'))];
+    let templates = [];
+    if (ids.length) {
+        const { results } = await env.DB.prepare(`SELECT id, name, data FROM signage_templates WHERE site = ? AND id IN (${ids.map(() => '?').join(', ')})`).bind(site, ...ids).all();
+        templates = results.map(r => ({ id: r.id, name: r.name, data: JSON.parse(r.data) }));
+    }
+    return publicJson({ site, slides: cfg.slides, templates, stamp: await signageStamp(env, site, cfg) });
 }
 
 async function deleteTransport(url, env, me) {

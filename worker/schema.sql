@@ -250,3 +250,22 @@ CREATE TABLE IF NOT EXISTS transport_days (
     updated_by  INTEGER,
     PRIMARY KEY (site, day)
 );
+
+-- Signage (Transport → Signage Builder; the public board /<site>/signage)
+CREATE TABLE IF NOT EXISTS signage_config (
+    site        TEXT PRIMARY KEY,
+    data        TEXT NOT NULL,                       -- JSON { window: { from, to_day, to_time }, slides: [{ type, template, seconds }] }
+    version     INTEGER NOT NULL DEFAULT 1,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER
+);
+CREATE TABLE IF NOT EXISTS signage_templates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    site        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    data        TEXT NOT NULL,                       -- JSON { bg, elements: [text | image | table …] }
+    version     INTEGER NOT NULL DEFAULT 1,
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER
+);
+CREATE INDEX IF NOT EXISTS signage_templates_site ON signage_templates(site);

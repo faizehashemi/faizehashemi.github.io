@@ -1,0 +1,81 @@
+<div class="tp sb">
+    <header class="tp-head">
+        <div>
+            <h1>Signage Builder</h1>
+            <p class="tp-sub">Design the transport board: drag elements onto the screen, pick the table's columns, save it as a template — then choose below which template each trip type is shown with.</p>
+        </div>
+        <div class="tp-actions">
+            <a class="tp-btn" id="sbDay" href="#">🚌 Transport day</a>
+            <a class="tp-btn gold" id="sbBoard" href="#" target="_blank" rel="noopener">📺 Open the board ↗</a>
+        </div>
+    </header>
+
+    <section class="tp-card sb-bar">
+        <label class="sb-f">Template
+            <select id="sbTpl" aria-label="Template"></select></label>
+        <label class="sb-f grow">Name<input id="sbName" maxlength="60" placeholder="e.g. Madina big screen"></label>
+        <div class="sb-btns">
+            <button type="button" class="tp-btn" id="sbNewBlank">＋ Blank</button>
+            <button type="button" class="tp-btn" id="sbNewClassic">＋ From Classic look</button>
+            <button type="button" class="tp-btn" id="sbUndo" title="Undo (Ctrl+Z)">↶</button>
+            <button type="button" class="tp-btn" id="sbRedo" title="Redo (Ctrl+Y)">↷</button>
+            <button type="button" class="tp-btn gold" id="sbSave">💾 Save</button>
+            <button type="button" class="tp-btn" id="sbSaveAs">Save as copy</button>
+            <button type="button" class="tp-btn danger" id="sbDelete">Delete</button>
+        </div>
+        <span class="tp-muted sb-status" id="sbStatus"></span>
+    </section>
+
+    <div class="sb-work">
+        <aside class="tp-card sb-pal">
+            <h3>Elements <small>drag onto the screen, or tap</small></h3>
+            <div class="sb-chips" id="sbElements">
+                <button type="button" class="sb-chip" draggable="true" data-add="title">🅃 Title</button>
+                <button type="button" class="sb-chip" draggable="true" data-add="heading">🏷️ Trip type heading</button>
+                <button type="button" class="sb-chip" draggable="true" data-add="text">✏️ Text</button>
+                <button type="button" class="sb-chip" draggable="true" data-add="date">📅 Date</button>
+                <button type="button" class="sb-chip" draggable="true" data-add="clock">🕒 Clock</button>
+                <button type="button" class="sb-chip" draggable="true" data-add="image">🖼️ Image</button>
+                <button type="button" class="sb-chip" draggable="true" data-add="table">▦ Data table</button>
+            </div>
+            <h3>Columns <small>drag onto the table</small></h3>
+            <div class="sb-chips" id="sbFields"></div>
+            <h3>Background</h3>
+            <div class="sb-props">
+                <label>Colour<input type="color" id="sbBgColor"></label>
+                <label>Image<input type="file" id="sbBgFile" accept="image/*"></label>
+                <label>Fit<select id="sbBgFit"><option value="cover">Cover the screen</option><option value="contain">Whole image</option><option value="fill">Stretch</option></select></label>
+                <button type="button" class="tp-btn" id="sbBgClear">Remove image</button>
+            </div>
+            <h3>Preview with real trips</h3>
+            <div class="sb-props">
+                <label>Day<input type="date" id="sbPrevDay"></label>
+                <label>Trip type<select id="sbPrevType"></select></label>
+                <label>Page<select id="sbPrevPage"><option value="1">1</option></select></label>
+            </div>
+        </aside>
+
+        <main class="sb-main">
+            <div class="sb-canvas" id="sbCanvas" tabindex="0" aria-label="Signage screen (1920 × 1080)">
+                <div class="sb-stage" id="sbStage"></div>
+                <div class="sb-sel" id="sbSel" hidden><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div>
+            </div>
+            <p class="tp-muted">1920 × 1080 screen. Drag to move, corners to resize (snaps to 10 px — hold Shift for free). Arrow keys nudge, Delete removes.
+                Texts can hold <code>{type}</code> <code>{date}</code> <code>{time}</code> <code>{page}</code>/<code>{pages}</code> <code>{trips}</code> <code>{pax}</code>.</p>
+        </main>
+
+        <aside class="tp-card sb-insp" id="sbInsp"></aside>
+    </div>
+
+    <section class="tp-card">
+        <h2>Slides — which template for which trip type</h2>
+        <p class="tp-muted">Every trip type found in the imported transport lists. The board shows them in this order, each slide for its seconds;
+            a type with no trips in the window is skipped. Types on <b>Classic</b> (or on a template whose table has “share pages” ticked) share their pages.
+            The window (which days and hours) is set on the Transport day page.</p>
+        <div id="sbSlides"><p class="tp-empty">Loading…</p></div>
+        <div class="tp-bar sb-slide-go">
+            <button type="button" class="tp-btn gold" id="sbSlidesSave">Save slides</button>
+            <span class="tp-muted" id="sbSlidesMsg"></span>
+        </div>
+    </section>
+</div>

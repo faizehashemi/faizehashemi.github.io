@@ -4,6 +4,7 @@
 import { canWrite, canOpen, currentDesk, UserError } from '../../core/cloud.js';
 import { DESTS, resolve, signage, renumber, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
+import { loadSignage, saveSignageConfig } from '../../core/signage-api.js';
 
 export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
@@ -135,6 +136,47 @@ export default async function mount(ctx) {
         const rows = doc.rows.map(r => r.key === inp.dataset.key ? { ...r, bus: n, bus_manual: true } : r);
         save(rows, `bus ${n} for SH ${inp.dataset.key}`);
     });
+    /* ---------------- signage window (the public board /<site>/signage) ---------------- */
+    const SG_DEFAULT = { from: 'now', to_day: 1, to_time: '23:59' };
+    let sgVersion = 0;
+    $('sgBuilder').href = ctx.href('signage-builder');
+    $('sgBuilder').hidden = !canOpen('signage-builder', desk);
+    const sgToggle = () => { $('sgFromTimeRow').hidden = $('sgFromMode').value !== 'time'; };
+    function drawWindow(w) {
+        $('sgFromMode').value = w.from === 'now' ? 'now' : 'time';
+        $('sgFromTime').value = w.from === 'now' ? '00:00' : w.from;
+        $('sgToDay').value = String(w.to_day);
+        $('sgToTime').value = w.to_time;
+        sgToggle();
+    }
+    async function signageWindow() {
+        try {
+            const { config } = await ctx.guard(loadSignage(ctx.siteId));
+            sgVersion = config.version;
+            drawWindow({ ...SG_DEFAULT, ...(config.window || {}) });
+        } catch { drawWindow(SG_DEFAULT); }
+        for (const id of ['sgFromMode', 'sgFromTime', 'sgToDay', 'sgToTime']) $(id).disabled = !writable;
+        $('sgSave').hidden = $('sgReset').hidden = !writable;
+        if (!writable) $('sgMsg').textContent = 'This login cannot change it.';
+    }
+    $('sgFromMode').addEventListener('change', sgToggle);
+    $('sgReset').addEventListener('click', () => { drawWindow(SG_DEFAULT); $('sgMsg').textContent = 'Default filled in — press Save window.'; });
+    $('sgSave').addEventListener('click', async () => {
+        const w = { from: $('sgFromMode').value === 'now' ? 'now' : $('sgFromTime').value, to_day: Number($('sgToDay').value), to_time: $('sgToTime').value };
+        if (!/^\d{2}:\d{2}$/.test(w.to_time || '') || (w.from !== 'now' && !/^\d{2}:\d{2}$/.test(w.from || ''))) { $('sgMsg').textContent = 'Fill in the times.'; return; }
+        if (w.to_day === 0 && w.from !== 'now' && w.to_time <= w.from) { $('sgMsg').textContent = 'The end must be after the beginning.'; return; }
+        $('sgSave').disabled = true;
+        try {
+            const r = await ctx.guard(saveSignageConfig(ctx.siteId, { window: w }, sgVersion));
+            sgVersion = r.config.version;
+            drawWindow(r.config.window);
+            $('sgMsg').textContent = 'Saved — every signage screen uses it from its next slide.';
+        } catch (err) {
+            $('sgMsg').textContent = err instanceof UserError ? err.message : 'Could not save.';
+            if (err.status === 409) await signageWindow();
+        } finally { $('sgSave').disabled = false; }
+    });
+
     $('tpRenumber').addEventListener('click', () => {
         if (!confirm('Number every destination again from 1, in time order?\nBus numbers typed in by hand are replaced, and sheets already stuck on buses may no longer match.')) return;
         save(renumber(doc.rows), 'renumbered');
@@ -146,6 +188,7 @@ export default async function mount(ctx) {
     });
 
     await load();
+    await signageWindow();
     // other desks' imports: check every 30 s (not while a bus number is being typed)
     const t = setInterval(() => {
         if (saving || document.visibilityState !== 'visible' || ctx.root.contains(document.activeElement) && document.activeElement.matches('input[data-key]')) return;

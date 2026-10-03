@@ -7,25 +7,30 @@
     <link rel="icon" type="image/png" href="../assets/icons/icon-192.png">
     <!--
       Public transport board for a TV (no login): https://pms.raajsoftware.com/makkah/signage
-      The trips in the Setup → Signage window (default: upcoming today and all of tomorrow, Riyadh time) to Jeddah Airport, Madina and Makkah Atraaf,
-      from the Transport day lists (GET /api/public/signage). Laid out like sigatulhaj.org/signage/testsignage.aspx:
-      5 rows a page, a new page every 15 s (fade out, reload, fade in), "Travel To" merged per page.
-      Options: ?rows=5 (rows per page) · ?seconds=15
+      Plays the slides set in Transport → Signage Builder: per trip type a template and the seconds a slide stays;
+      trips from the Transport day lists inside the window set on the Transport day page (Riyadh time).
+      "Classic" = laid out like sigatulhaj.org/signage/testsignage.aspx (5 rows a page, Travel To merged per page).
+      Custom templates are drawn on a 1920×1080 stage scaled to the screen. Every change of slide: fade out, reload, fade in.
+      Options: ?rows=5 (rows per Classic page)
     -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        #gridWrapper { transition: opacity 1s; }
-        #gridWrapper.fast { transition: opacity .5s; }
+        .fade-box { transition: opacity 1s; }
+        .fade-box.fast { transition: opacity .5s; }
+        body.custom { margin: 0; padding: 0; border: 0; border-radius: 0; overflow: hidden; }
+        #custom { position: fixed; inset: 0; overflow: hidden; }
+        #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+        [hidden] { display: none !important; }
     </style>
 </head>
 <body class="alert alert-warning">
-    <div class="container-fluid mt-1" style="font-family: 'Roboto'">
+    <div id="classic" class="container-fluid mt-1" style="font-family: 'Roboto'">
         <div class="row">
             <div class="col-12">
                 <div class="card p-4 text-center alert alert-warning border-0">
                     <h2 class="fw-bold">Umrah Transport Schedule</h2>
-                    <div id="gridWrapper" class="mt-2 overflow-auto">
+                    <div id="gridWrapper" class="mt-2 overflow-auto fade-box">
                         <div>
                             <table cellspacing="0" rules="all" class="table table-warning table-responsive-xl border-0" border="1" id="gvTransportList" style="border-collapse:collapse;">
                                 <tbody></tbody>
@@ -36,19 +41,18 @@
             </div>
         </div>
     </div>
+    <div id="custom" class="fade-box" hidden><div id="stage"></div></div>
     <script type="module">
         import { API_URL } from '../app/config.js';
-        import { resolve, DESTS } from '../app/core/transport.js';
+        import { tripsOf, buildSlides, renderTemplate, tickClocks, STAGE_W, STAGE_H } from '../app/core/signage.js';
 
         const q = new URLSearchParams(location.search);
         const site = location.pathname.split('/').filter(Boolean).find(s => s === 'makkah' || s === 'medina') || 'makkah';
-        const PAGE_ROWS = Math.max(1, Number(q.get('rows')) || 5);
-        const CYCLE_MS = Math.max(5, Number(q.get('seconds')) || 15) * 1000;
+        const CLASSIC_ROWS = Math.max(1, Number(q.get('rows')) || 5);
         const api = (() => { try { return localStorage.getItem('pms_api_url') || API_URL; } catch { return API_URL; } })().replace(/\/+$/, '');
+        const $ = (id) => document.getElementById(id);
 
         const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        // "MAKKAH-MAKKAH ATRAAF" → "MAKKAH ATRAAF"
-        const travelTo = (id) => DESTS.find(d => d.id === id).route.split('-').slice(1).join('-');
         // "2026-10-04T03:00" → "04-10-2026 03:00"
         const when = (at) => `${at.slice(8, 10)}-${at.slice(5, 7)}-${at.slice(0, 4)} ${at.slice(11, 16)}`;
         const HEAD = `<tr>
@@ -56,28 +60,11 @@
         </tr>`;
         const ROW = 'border border-warning border-bottom border-top-0 border-start-0 border-end-0';
 
-        let trips = [], page = 0;
+        let setup = { slides: [], templates: [], stamp: null };
+        let slides = [], index = -1, current = null;
 
-        // the board's rows: trips in the Setup → Signage window (Riyadh time), by Travel To, then date, then bus
-        function build(data) {
-            const out = [];
-            const from = data.from || data.now, to = data.to || `${data.tomorrow}T23:59`;
-            for (const day of data.days || [data.today, data.tomorrow]) {
-                const rows = data.rows.filter(r => r.day === day);
-                const info = resolve(rows);
-                for (const r of rows) {
-                    const i = info.get(r.key);
-                    if (!i.dest || r.at < from || r.at > to) continue;
-                    out.push({ r, to: travelTo(i.dest), bus: i.bus });
-                }
-            }
-            return out.sort((a, b) => a.to.localeCompare(b.to) || a.r.at.localeCompare(b.r.at) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || String(a.r.ref).localeCompare(String(b.r.ref)));
-        }
-
-        function render() {
-            const pages = Math.max(1, Math.ceil(trips.length / PAGE_ROWS));
-            if (page >= pages) page = 0;
-            const list = trips.slice(page * PAGE_ROWS, page * PAGE_ROWS + PAGE_ROWS);
+        /* ---------------- Classic (the sigatulhaj layout) ---------------- */
+        function renderClassic(list) {
             const body = list.map((t, i) => {
                 // "Travel To" once for the rows that share it on this page
                 let span = 0;
@@ -87,32 +74,63 @@
                     <td class="text-center align-middle">${esc(t.r.ref)}</td>${span ? `<td class="align-middle bg-body-tertiary fw-bold text-primary table-warning " rowspan="${span}">${esc(t.to)}</td>` : ''}<td>${esc(when(t.r.at))}</td><td class="text-center align-middle">${op}${esc(t.r.leader)}</td><td class="text-center align-middle">${esc(t.r.pax)}</td><td class="text-center align-middle">${esc(t.bus ?? '')}</td>
                 </tr>`;
             }).join('');
-            document.querySelector('#gvTransportList tbody').innerHTML = HEAD + (body || `<tr class="${ROW}"><td class="text-center align-middle" colspan="6">No transport scheduled</td></tr>`);
+            $('gvTransportList').tBodies[0].innerHTML = HEAD + (body || `<tr class="${ROW}"><td class="text-center align-middle" colspan="6">No transport scheduled</td></tr>`);
         }
 
-        async function load() {
-            const res = await fetch(`${api}/api/public/signage?site=${site}`, { cache: 'no-store' });
+        /* ---------------- custom templates (Signage Builder) ---------------- */
+        function fitStage() {
+            const s = Math.min(innerWidth / STAGE_W, innerHeight / STAGE_H);
+            const st = $('stage');
+            st.style.transform = `scale(${s})`;
+            st.style.left = `${(innerWidth - STAGE_W * s) / 2}px`;
+            st.style.top = `${(innerHeight - STAGE_H * s) / 2}px`;
+        }
+        addEventListener('resize', fitStage);
+
+        function show(slide) {
+            current = slide;
+            const classic = !slide || slide.template === 'classic';
+            $('classic').hidden = !classic;
+            $('custom').hidden = classic;
+            document.body.className = classic ? 'alert alert-warning' : 'custom';
+            document.body.style.background = '';
+            if (classic) { renderClassic(slide ? slide.trips : []); return; }
+            renderTemplate($('stage'), slide.tpl.data, slide);
+            document.body.style.background = $('stage').style.backgroundColor;
+            fitStage();
+        }
+
+        /* ---------------- data ---------------- */
+        async function getJson(path) {
+            const res = await fetch(`${api}${path}`, { cache: 'no-store' });
             if (!res.ok) throw new Error(String(res.status));
-            trips = build(await res.json());
+            return res.json();
+        }
+        async function load() {
+            const data = await getJson(`/api/public/signage?site=${site}`);
+            if (data.stamp !== setup.stamp) setup = await getJson(`/api/public/signage/setup?site=${site}`); // the look changed
+            slides = buildSlides(tripsOf(data), setup.slides, setup.templates, { classicRows: CLASSIC_ROWS });
+            slides.forEach(s => { s.today = data.today; });
         }
 
-        // every 15 s: fade out, fetch the latest list, show the next page, fade in (as the original board)
-        const wrap = document.getElementById('gridWrapper');
+        // each slide stays its seconds; then fade out, fetch the latest, show the next slide, fade in
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-        async function cycle() {
-            wrap.classList.remove('fast');
-            wrap.style.opacity = 0;
+        const boxes = () => [$('gridWrapper'), $('custom')];
+        async function next() {
+            boxes().forEach(b => { b.classList.remove('fast'); b.style.opacity = 0; });
             await sleep(1000);
-            page++;
             try { await load(); } catch { /* keep showing the last list */ }
-            render();
-            wrap.classList.add('fast');
-            wrap.style.opacity = 1;
+            index = slides.length ? (index + 1) % slides.length : -1;
+            show(slides[index] || null);
+            boxes().forEach(b => { b.classList.add('fast'); b.style.opacity = 1; });
+            setTimeout(next, Math.max(3, Number(slides[index]?.seconds) || 15) * 1000);
         }
 
         try { await load(); } catch { }
-        render();
-        setInterval(cycle, CYCLE_MS);
+        index = slides.length ? 0 : -1;
+        show(slides[index] || null);
+        setTimeout(next, Math.max(3, Number(slides[index]?.seconds) || 15) * 1000);
+        setInterval(() => { if (current && current.template !== 'classic') tickClocks($('stage'), current); }, 1000);
 
         // a new website build: reload (TVs stay open for weeks)
         let buildId = null;
