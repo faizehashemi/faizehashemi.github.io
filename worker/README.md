@@ -73,9 +73,7 @@ Transport (one document per site and day): `GET /api/transport?site=&day=YYYY-MM
 (any login) · `PUT /api/transport` `{ site, day, rows, version, note }` (desk of the site / admin; `version` 0 = new day,
 an older version → 409) · `DELETE /api/transport?site=&day=&version=`.
 
-`GET /api/flights` (any login) — the stored Jeddah board; `POST /api/flights/refresh` (admin) fetches now.
-Needs the secret `AIRLABS_KEY` (`npx wrangler secret put AIRLABS_KEY`) and the cron in `wrangler.toml`
-(`*/15 * * * *`); budget constants `FLIGHT_BUDGET` / `FLIGHT_MIN_GAP` in `worker.js`.
+Flights (Airlabs) removed 2026-10-03: no `/api/flights` routes, no cron (`crons = []` in `wrangler.toml`), secret deleted.
 
 `GET /api/me/prefs` · `PUT /api/me/prefs` `{ prefs }` (any login, own row only) — the login's Settings as
 one JSON object (max 16 KB).

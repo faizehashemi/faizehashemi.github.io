@@ -10,8 +10,9 @@ workers_dev = true
 preview_urls = false
 
 # Jeddah flight board: the cron checks every 15 minutes, the Worker fetches only when due (see worker.js)
+# no scheduled jobs (the Airlabs flight board was removed 2026-10-03); [] clears the old cron
 [triggers]
-crons = ["*/15 * * * *"]
+crons = []
 
 [vars]
 # Sites allowed to call the API (localhost is always allowed, for testing)

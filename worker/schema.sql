@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS deleted_desks (
     deleted_by  INTEGER
 );
 
--- Jeddah airport flight board (Home page), refreshed by the Worker's cron from Airlabs; one row.
+-- Jeddah airport flight board — no longer used (Airlabs disconnected 2026-10-03); kept so old data is not lost.
 CREATE TABLE IF NOT EXISTS flight_board (
     id             TEXT PRIMARY KEY,           -- 'JED'
     data           TEXT NOT NULL,              -- JSON { arrivals: [...], departures: [...] }

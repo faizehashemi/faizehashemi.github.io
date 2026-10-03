@@ -68,7 +68,8 @@ export const NAV = [
 
 // Product analytics (PostHog). Empty key = analytics off. The project API key (phc_…) is meant
 // to be public. Host: https://us.i.posthog.com or https://eu.i.posthog.com, matching your project.
-export const POSTHOG = { key: 'phc_YlTZ1kLBOp7jALAJnei5q50CDCQf2omLGdC7HczuZq5', host: 'https://us.i.posthog.com' };
+// PostHog disconnected 2026-10-03: no key = analytics never loads or sends anything.
+export const POSTHOG = { key: '', host: 'https://us.i.posthog.com' };
 
 // Old standalone pages → view ids (used for redirects and for links inside view markup)
 export const LEGACY_PAGES = {
