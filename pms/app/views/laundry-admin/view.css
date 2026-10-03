@@ -160,3 +160,13 @@ textarea#nText { width: 100%; padding: 8px 10px; border: 1px solid var(--edge); 
 .la-catchip button:hover { background: #f6ecd2; }
 .la-cats input { flex: 0 1 280px; padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; font: inherit; }
 #sCat { padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; font: inherit; background: #fff; }
+
+/* building linen */
+.la-card.bld { border-color: #b9cfe8; background: #f4f8fd; }
+.la-card.bld .la-kpi.big b { color: #1f5fa8; }
+.la-bldgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+.la-blditem { display: grid; justify-items: center; gap: 2px; padding: 8px; background: #fff; border: 1px solid #dbe6f3; border-radius: 12px; text-align: center; }
+.la-blditem b { font-size: 24px; font-variant-numeric: tabular-nums; color: #163f6e; }
+.la-blditem small { color: var(--muted); font-size: 12px; }
+.la-blditem.zero { opacity: .45; }
+.la-blditem .la-ipic.icon { object-fit: contain; }

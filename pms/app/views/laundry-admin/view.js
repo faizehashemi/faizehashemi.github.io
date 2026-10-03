@@ -1,6 +1,7 @@
 // Laundry admin (PC): cash bills (from → to; mark Paid one by one, by selection or by the amount the worker
 // handed over — audited; open a bill to edit / cancel / reprint), reports, staff-only laundry (dashboard,
-// register, staff history), prices (clothes and building linen, with pictures), staff profiles (photo, limits)
+// register, staff history), building linen (what the laundry screen's Building tab sent: item-wise, day-wise, every
+// entry), prices (clothes and building linen, with pictures), staff profiles (photo, limits, categories)
 // and the laundry notice. Admin logins change things; viewer logins only look. Exports: Excel and PDF.
 
 import { request, currentDesk, UserError } from '../../core/cloud.js';
@@ -45,7 +46,7 @@ export default async function mount(ctx) {
         S.tab = tab;
         ctx.root.querySelectorAll('.la-tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
         ctx.root.querySelectorAll('.la-pane').forEach(p => { p.hidden = p.id !== 'tab-' + tab; });
-        ({ reports: drawReports, bills: drawBills, free: drawFree, prices: drawPrices, staff: drawStaff, notice: drawNotice })[tab]();
+        ({ reports: drawReports, bills: drawBills, free: drawFree, building: drawBuilding, prices: drawPrices, staff: drawStaff, notice: drawNotice })[tab]();
     }
     ctx.root.querySelector('.la-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
 
@@ -409,6 +410,55 @@ export default async function mount(ctx) {
     }
     const limitText = (L) => [L.per_bill_items && `${L.per_bill_items}/submission`, L.per_day_items && `${L.per_day_items}/day`, L.per_week_items && `${L.per_week_items}/week`,
         L.per_month_value && `${sar(L.per_month_value)} SAR/month`, L.per_month_bills && `${L.per_month_bills} times/month`].filter(Boolean).join(', ') + (L.enforce ? ' (approval needed above)' : ' (warning only)');
+
+    /* ---------------------------- building linen ---------------------------- */
+    // Bills of kind 'building' from the laundry screen: towels, bedsheets… sent for washing (no money involved)
+    let lastBld = null;
+    async function drawBuilding() {
+        const r = rangeUI('building', drawBuilding, 'week');
+        const body = $('bldBody');
+        body.innerHTML = '<p class="la-muted">Loading…</p>';
+        try {
+            if (!S.items.length) await loadItems().catch(() => { });
+            const bills = (await api('GET', `/api/laundry/bills?site=${site}&from=${r.from}&to=${r.to}&kind=building`)).bills;
+            indexBills(bills);
+            const live = bills.filter(b => !b.voided);
+            const byItem = new Map(), byDay = new Map();
+            for (const b of live) {
+                for (const l of b.lines) byItem.set(l.name, (byItem.get(l.name) || 0) + l.qty);
+                const d = byDay.get(b.day) || { day: b.day, entries: 0, pieces: 0, items: new Map() };
+                d.entries++; d.pieces += b.items;
+                for (const l of b.lines) d.items.set(l.name, (d.items.get(l.name) || 0) + l.qty);
+                byDay.set(b.day, d);
+            }
+            // every linen item on the price list, in screen order, then any old names still on bills
+            const names = [...S.items.filter(i => i.category === 'building').map(i => i.name), ...[...byItem.keys()].filter(n => !S.items.some(i => i.category === 'building' && i.name === n))];
+            const pieces = live.reduce((n, b) => n + b.items, 0);
+            const days = [...byDay.values()].sort((a, b) => b.day.localeCompare(a.day));
+            lastBld = { r, live, names, byItem, days };
+            body.innerHTML = `<div class="la-bar"><b>${esc(fmtDay(r.from))}${r.to !== r.from ? ' → ' + esc(fmtDay(r.to)) : ''}</b><span class="la-grow"></span><button type="button" data-bldx>⬇️ Excel</button></div>
+                <div class="la-card bld"><h3>🏨 BUILDING LINEN</h3><div class="la-kpis">
+                  ${kpi('🧾', live.length, live.length === 1 ? 'entry' : 'entries')}${kpi('🧺', pieces, 'pieces sent', 'big')}${kpi('📅', days.length, days.length === 1 ? 'day' : 'days')}</div>
+                  <div class="la-bldgrid">${names.map(n => `<div class="la-blditem ${byItem.get(n) ? '' : 'zero'}">${itemPic(S.items.find(i => i.name === n) || { name: n }, 'la-ipic big')}<b>${byItem.get(n) || 0}</b><small>${esc(n)}</small></div>`).join('')}</div></div>
+                <div class="la-card"><h3>📅 Day-wise</h3><div class="la-scroll"><table class="la-t"><thead><tr><th>Day</th>${names.map(n => `<th class="n">${esc(n)}</th>`).join('')}<th class="n">Pieces</th><th class="n">Entries</th></tr></thead><tbody>
+                  ${days.map(d => `<tr><td>${esc(fmtDay(d.day))}</td>${names.map(n => `<td class="n">${d.items.get(n) || ''}</td>`).join('')}<td class="n"><b>${d.pieces}</b></td><td class="n">${d.entries}</td></tr>`).join('')
+                    || `<tr><td colspan="${names.length + 3}" class="la-muted">Nothing sent in this period.</td></tr>`}</tbody></table></div></div>
+                <div class="la-card"><h3>🧾 Every entry</h3>${bills.length ? `<div class="la-scroll"><table class="la-t"><thead><tr><th>Date</th><th>Time</th><th>Receipt</th><th>Items</th><th class="n">Pieces</th><th>Worker</th></tr></thead><tbody>
+                  ${bills.map(b => `<tr class="${b.voided ? 'void' : ''}" data-bill="${b.id}"><td>${esc(fmtDay(b.day))}</td><td>${esc(jeddahTime(b.given_at))}</td><td class="mono">${esc(b.receipt_no)}</td>
+                    <td>${b.lines.map(l => `${esc(l.name)} × <b>${l.qty}</b>`).join(', ')}</td><td class="n"><b>${b.items}</b></td><td>${esc(b.worker)}${b.voided ? ' · ❌ cancelled' : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="la-muted">No entries.</p>'}</div>`;
+        } catch (e) { body.innerHTML = errBox(e); }
+    }
+    $('bldBody').addEventListener('click', async (e) => {
+        if (!e.target.closest('[data-bldx]') || !lastBld) return;
+        try {
+            await loadScript(LIBS.xlsx);
+            const X = window.XLSX, wb = X.utils.book_new(), { r, live, names, byItem, days } = lastBld;
+            X.utils.book_append_sheet(wb, X.utils.json_to_sheet(names.map(n => ({ Item: n, Pieces: byItem.get(n) || 0 }))), 'Items');
+            X.utils.book_append_sheet(wb, X.utils.json_to_sheet(days.map(d => ({ Day: d.day, ...Object.fromEntries(names.map(n => [n, d.items.get(n) || 0])), Pieces: d.pieces, Entries: d.entries }))), 'Days');
+            X.utils.book_append_sheet(wb, X.utils.json_to_sheet(live.map(b => ({ Date: b.day, Time: jeddahTime(b.given_at), Receipt: b.receipt_no, ...Object.fromEntries(names.map(n => [n, b.lines.filter(l => l.name === n).reduce((q, l) => q + l.qty, 0)])), Pieces: b.items, Worker: b.worker }))), 'Entries');
+            X.writeFile(wb, `Building Linen – ${fileTag(r)}.xlsx`);
+        } catch (err) { alert(err.message); }
+    });
 
     /* ------------------------------ prices ------------------------------ */
     async function drawPrices() {

@@ -7,6 +7,7 @@
         <button type="button" data-tab="bills" aria-selected="true">🧾 Bills</button>
         <button type="button" data-tab="reports">📈 Reports</button>
         <button type="button" data-tab="free">👷 Staff only</button>
+        <button type="button" data-tab="building">🏨 Building</button>
         <button type="button" data-tab="prices">🏷️ Prices</button>
         <button type="button" data-tab="staff">👤 Staff</button>
         <button type="button" data-tab="notice">📝 Notice &amp; log</button>
@@ -24,6 +25,12 @@
     <section class="la-pane" id="tab-reports" hidden>
         <div class="la-range" data-range="reports"></div>
         <div id="repBody"></div>
+    </section>
+
+    <!-- BUILDING: the building's linen sent from the laundry screen (Building tab) — no money -->
+    <section class="la-pane" id="tab-building" hidden>
+        <div class="la-range" data-range="building"></div>
+        <div id="bldBody"></div>
     </section>
 
     <section class="la-pane" id="tab-free" hidden>
