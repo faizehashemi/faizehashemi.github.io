@@ -783,7 +783,8 @@ async function deleteDesk(env, me, id) {
 // value recorded, 0 collected, never in cash) or 'building' (the building's linen: towels, bedsheets… no money).
 // Items are 'guest' (clothes) or 'building' (linen). Offline bills carry a client_uid and are stored once however
 // often they are sent. Workers (desk logins) create bills; the worker's cash is "unpaid"
-// until an admin marks those bills paid (settled_at / settled_by, one by one or in bulk). Only an admin changes
+// until an admin (or a desk login, for its own site) marks those bills paid (settled_at / settled_by, one by one or
+// in bulk). Only an admin changes
 // prices, staff profiles, edits or voids bills (audited: before → after).
 
 const LAUNDRY_PREFIX = { makkah: 'MM-LD', medina: 'MD-LD' };
@@ -1141,7 +1142,10 @@ async function listLaundryBills(url, env, me) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new HttpError(400, 'Dates must be YYYY-MM-DD.');
     const where = ['b.site = ?'], args = [site];
     where.push('b.day >= ? AND b.day <= ?'); args.push(from, to);
-    if (!canSeeAll(me)) { where.push('b.worker_id = ?'); args.push(me.id); } // a worker sees their own bills
+    // a worker sees their own bills; a desk login on Laundry admin (all=1) sees every bill of its own site
+    const deskAll = url.searchParams.get('all') === '1' && me.role === 'desk';
+    if (deskAll && site !== me.site) throw new HttpError(403, `${me.name} works at ${SITES[me.site]}.`);
+    if (!canSeeAll(me) && !deskAll) { where.push('b.worker_id = ?'); args.push(me.id); }
     const staffId = Number(url.searchParams.get('staff'));
     if (staffId) { where.push('b.staff_id = ?'); args.push(staffId); }
     const kind = url.searchParams.get('kind');
@@ -1229,16 +1233,19 @@ async function voidLaundryBill(req, env, me, id) {
     return json({ bill: rowToBill(await getBillRow(env, id)) });
 }
 
-// Admin: the worker handed the cash over → mark cash bills paid (or back to unpaid), one or many at once
+// Admin or desk login: the worker handed the cash over → mark cash bills paid (or back to unpaid), one or many
+// at once. A desk login only touches bills of its own site.
 async function settleLaundryBills(req, env, me) {
-    requireAdmin(me);
+    if (me.role !== 'admin' && me.role !== 'desk') throw new HttpError(403, `${me.name} is a read-only login.`);
     const b = await body(req);
     const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) throw new HttpError(400, 'Choose at least one bill.');
     if (ids.length > 2000) throw new HttpError(400, 'Too many bills at once.');
     const paid = b.paid !== false;
     const marks = ids.map(() => '?').join(',');
-    const { results } = await env.DB.prepare(`SELECT id, receipt_no, paid, settled_at FROM laundry_bills WHERE id IN (${marks}) AND kind = 'paid' AND voided = 0`).bind(...ids).all();
+    const own = me.role === 'admin' ? '' : ' AND site = ?';
+    const { results } = await env.DB.prepare(`SELECT id, receipt_no, paid, settled_at FROM laundry_bills WHERE id IN (${marks}) AND kind = 'paid' AND voided = 0${own}`)
+        .bind(...ids, ...(own ? [me.site] : [])).all();
     const todo = results.filter(r => paid ? !r.settled_at : !!r.settled_at);
     if (todo.length) {
         const t = now(), list = todo.map(r => r.id), m2 = list.map(() => '?').join(',');

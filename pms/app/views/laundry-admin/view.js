@@ -27,16 +27,18 @@ export default async function mount(ctx) {
     const site = ctx.siteId;
     const me = currentDesk();
     const isAdmin = me?.role === 'admin';
+    const canPay = isAdmin || me?.role === 'desk';   // a desk login may mark its site's cash bills paid; the rest stays admin-only
     const S = { tab: 'bills', items: [], staff: [], cats: [], info: DEFAULT_INFO, ranges: {} };
     const rcss = document.createElement('style'); rcss.textContent = RECEIPT_CSS; document.head.appendChild(rcss);
     if (!isAdmin) ctx.root.querySelectorAll('[data-admin]').forEach(b => { b.hidden = true; });
-    $('laSub').textContent = `${ctx.site.label} · ${isAdmin ? 'admin' : 'view only'}`;
+    $('laSub').textContent = `${ctx.site.label} · ${isAdmin ? 'admin' : canPay ? 'desk · can mark cash paid' : 'view only'}`;
 
     const api = (m, p, b) => ctx.guard(request(m, p, b));
     const loadItems = async () => { S.items = (await api('GET', `/api/laundry/items?site=${site}`)).items; };
     // deleted profiles come too: their photos still show in the register and histories, never in the Staff list
     const loadStaff = async () => { S.staff = (await api('GET', `/api/laundry/staff?site=${site}&deleted=1`)).staff; };
-    const billsIn = async (from, to) => (await api('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}`));
+    // all=1: a desk login sees every bill of its site here (on the laundry screen it sees only its own)
+    const billsIn = async (from, to) => (await api('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}&all=1`));
     const who = (b) => b.kind === 'free' ? `👷 ${esc(b.staff_name)}` : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + esc(b.customer.building) : ''}` : esc([b.customer?.building, b.customer?.room].filter(Boolean).join(' · ') || b.customer?.name || '—');
     const staffPhoto = (id, cls = 'la-thumb') => { const s = S.staff.find(x => x.id === id); return s?.photo ? `<img class="${cls}" src="${s.photo}" alt="">` : `<span class="${cls} none">👤</span>`; };
     const errBox = (e) => `<p class="la-err">${esc(e?.message || String(e))}</p>`;
@@ -208,7 +210,7 @@ export default async function mount(ctx) {
     async function drawBills() {
         $('bBody').innerHTML = '<p class="la-muted">Loading…</p>';
         try {
-            B.bills = (await api('GET', `/api/laundry/bills?site=${site}&from=${B.from}&to=${B.to}&kind=paid`)).bills.filter(b => !b.voided)
+            B.bills = (await api('GET', `/api/laundry/bills?site=${site}&from=${B.from}&to=${B.to}&kind=paid&all=1`)).bills.filter(b => !b.voided)
                 .sort((a, b) => a.given_at.localeCompare(b.given_at));
             indexBills(B.bills);
             for (const id of [...B.sel]) if (!B.bills.some(b => b.id === id && !b.settled_at)) B.sel.delete(id);
@@ -221,18 +223,18 @@ export default async function mount(ctx) {
         const sum = (a) => a.reduce((n, b) => n + b.paid, 0);
         const sel = unpaid.filter(b => B.sel.has(b.id));
         $('bBody').innerHTML = `<div class="la-kpis">${kpi('⏳', sar(sum(unpaid)), `unpaid SAR · ${nBills(unpaid.length)}`, 'big neg')}${kpi('✅', sar(sum(paid)), `paid SAR · ${nBills(paid.length)}`, 'big')}${kpi('🧾', sar(sum(B.bills)), `cash SAR · ${nBills(B.bills.length)}`)}</div>
-            ${isAdmin ? `<div class="la-paybar">
+            ${canPay ? `<div class="la-paybar">
               <button type="button" data-selall>${unpaid.length && sel.length === unpaid.length ? '☐ Clear selection' : '☑ Select all unpaid'}</button>
               <label>Amount collected <input type="number" id="bCollect" min="0" step="0.5" placeholder="SAR"></label><button type="button" data-collect>Select bills for this amount</button>
               <span class="la-grow"></span>
               <b>${sel.length} selected · ${sar(sum(sel))} SAR</b>
               <button type="button" class="la-primary" data-markpaid ${sel.length ? '' : 'disabled'}>✔ Mark selected paid</button></div>` : ''}
-            ${B.bills.length ? `<div class="la-scroll"><table class="la-t la-bills"><thead><tr>${isAdmin ? '<th></th>' : ''}<th>Date</th><th>Time</th><th>Receipt</th><th>Building · room</th><th class="n">Items</th><th class="n">Amount SAR</th><th>Worker</th><th>Status</th>${isAdmin ? '<th></th>' : ''}</tr></thead><tbody>
+            ${B.bills.length ? `<div class="la-scroll"><table class="la-t la-bills"><thead><tr>${canPay ? '<th></th>' : ''}<th>Date</th><th>Time</th><th>Receipt</th><th>Building · room</th><th class="n">Items</th><th class="n">Amount SAR</th><th>Worker</th><th>Status</th>${canPay ? '<th></th>' : ''}</tr></thead><tbody>
               ${B.bills.map(b => `<tr data-bill="${b.id}" class="${b.settled_at ? 'paid' : 'unpaid'}${B.sel.has(b.id) ? ' sel' : ''}">
-                ${isAdmin ? `<td>${b.settled_at ? '' : `<input type="checkbox" data-sel="${b.id}" ${B.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(b.receipt_no)}">`}</td>` : ''}
+                ${canPay ? `<td>${b.settled_at ? '' : `<input type="checkbox" data-sel="${b.id}" ${B.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(b.receipt_no)}">`}</td>` : ''}
                 <td>${esc(fmtDay(b.day))}</td><td>${esc(jeddahTime(b.given_at))}</td><td class="mono">${esc(b.receipt_no)}</td><td>${who(b)}</td><td class="n">${b.items}</td><td class="n"><b>${sar(b.paid)}</b></td><td>${esc(b.worker)}</td>
                 <td>${b.settled_at ? `<span class="la-tag paid">Paid</span> <small class="la-muted">${esc(jeddahDate(b.settled_at))}${b.settled_by ? ' · ' + esc(b.settled_by) : ''}</small>` : '<span class="la-tag unpaid">Unpaid</span>'}</td>
-                ${isAdmin ? `<td>${b.settled_at ? `<button type="button" class="la-mini" data-unpay="${b.id}">↩ Unpaid</button>` : `<button type="button" class="la-mini ok" data-pay="${b.id}">✔ Paid</button>`}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
+                ${canPay ? `<td>${b.settled_at ? `<button type="button" class="la-mini" data-unpay="${b.id}">↩ Unpaid</button>` : `<button type="button" class="la-mini ok" data-pay="${b.id}">✔ Paid</button>`}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
             : '<p class="la-muted">No cash bills in these dates.</p>'}`;
     }
     async function settle(ids, paid = true) {
@@ -420,7 +422,7 @@ export default async function mount(ctx) {
         body.innerHTML = '<p class="la-muted">Loading…</p>';
         try {
             if (!S.items.length) await loadItems().catch(() => { });
-            const bills = (await api('GET', `/api/laundry/bills?site=${site}&from=${r.from}&to=${r.to}&kind=building`)).bills;
+            const bills = (await api('GET', `/api/laundry/bills?site=${site}&from=${r.from}&to=${r.to}&kind=building&all=1`)).bills;
             indexBills(bills);
             const live = bills.filter(b => !b.voided);
             const byItem = new Map(), byDay = new Map();
