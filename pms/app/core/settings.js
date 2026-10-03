@@ -22,6 +22,8 @@ export const DEFAULTS = {
     // Home → Fakkul Ehraam counts (Setup → Fakkul Ehraam windows): Morning = check-ins from morning_from the day
     // before to split today; Night = split to night_to today
     fe_windows: { morning_from: '20:00', split: '07:00', night_to: '20:00' },
+    // /<site>/signage (Setup → Signage window): from 'now' or 'HH:MM' today, until to_day (0 today, 1 tomorrow, 2) at to_time
+    signage_window: { from: 'now', to_day: 1, to_time: '23:59' },
 };
 
 /** '20:30' → '08:30 PM' (the KG message format) */

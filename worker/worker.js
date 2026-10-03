@@ -416,6 +416,13 @@ const SETTINGS = {
             && x.name.length <= 60 && !/[<>]/.test(x.name) && HHMM(x.time)),
         msg: 'KG events: 1–10 events, each a name (up to 60 characters) and a time HH:MM.',
     },
+    // /<site>/signage: from = 'now' (trips drop off once they leave) or 'HH:MM' today; until to_day (0 today, 1 tomorrow,
+    // 2 the day after) at to_time
+    signage_window: {
+        check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 3
+            && (v.from === 'now' || HHMM(v.from)) && [0, 1, 2].includes(v.to_day) && HHMM(v.to_time),
+        msg: 'Signage window: beginning "now" or HH:MM, end day 0–2 and time HH:MM.',
+    },
     // Home → Fakkul Ehraam counts: Morning = morning_from (the day before) to split, Night = split to night_to
     fe_windows: {
         check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 3
@@ -1327,15 +1334,24 @@ async function putTransport(req, env, me) {
     return getTransport(env, site, d);
 }
 
-// Public (no login) — the /<site>/signage board: today's and tomorrow's trips (Riyadh time) to the signage
+// Public (no login) — the /<site>/signage board: the trips in the Setup → Signage window (Riyadh time) to the signage
 // destinations, only the fields the board shows. Grouped trips (no route) come along; the page joins them to their bus.
 const SIGNAGE_ROUTES = ['MAKKAH-JEDDAH AIRPORT', 'MAKKAH-MADINA', 'MAKKAH-MAKKAH ATRAAF'];
+const SIGNAGE_WINDOW = { from: 'now', to_day: 1, to_time: '23:59' };   // default: upcoming today + all of tomorrow
 async function publicSignage(url, env) {
     const site = String(url.searchParams.get('site') || 'makkah');
     if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+    const set = await env.DB.prepare("SELECT value FROM settings WHERE key = 'signage_window'").first();
+    const w = { ...SIGNAGE_WINDOW, ...(set ? JSON.parse(set.value) : {}) };
     const riyadh = new Date(Date.now() + 3 * 3600e3).toISOString();  // Saudi Arabia: UTC+3, no daylight saving
-    const today = riyadh.slice(0, 10), tomorrow = new Date(Date.parse(today) + 864e5).toISOString().slice(0, 10);
-    const { results } = await env.DB.prepare('SELECT day, rows FROM transport_days WHERE site = ? AND day IN (?, ?)').bind(site, today, tomorrow).all();
+    const today = riyadh.slice(0, 10);
+    const dayPlus = (n) => new Date(Date.parse(today) + n * 864e5).toISOString().slice(0, 10);
+    const tomorrow = dayPlus(1);
+    const days = [0, 1, 2].slice(0, w.to_day + 1).map(dayPlus);
+    // the page shows trips with from <= at <= to
+    const from = w.from === 'now' ? riyadh.slice(0, 16) : `${today}T${w.from}`;
+    const to = `${dayPlus(w.to_day)}T${w.to_time}`;
+    const { results } = await env.DB.prepare(`SELECT day, rows FROM transport_days WHERE site = ? AND day IN (${days.map(() => '?').join(', ')})`).bind(site, ...days).all();
     const rows = [];
     for (const r of results) {
         for (const t of JSON.parse(r.rows)) {
@@ -1344,7 +1360,7 @@ async function publicSignage(url, env) {
                 pax: t.pax, bus: t.bus ?? null, vch: t.vch || '', dora: t.dora || '', adj: t.adj || '' });
         }
     }
-    return new Response(JSON.stringify({ site, now: riyadh.slice(0, 16), today, tomorrow, rows }), {
+    return new Response(JSON.stringify({ site, now: riyadh.slice(0, 16), today, tomorrow, days, from, to, rows }), {
         headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=10', 'Access-Control-Allow-Origin': '*' },
     });
 }

@@ -108,6 +108,7 @@ h4 { margin: 16px 0 8px; color: #7a5b13 }
 .kg-row button { padding: 6px 10px; }
 .fe-rows { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 4px; }
 .fe-rows label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+.fe-rows select { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; background: #fff; }
 .fe-rows input { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; background: #fff; width: 150px; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px }
 .kv dt { color: var(--muted) }

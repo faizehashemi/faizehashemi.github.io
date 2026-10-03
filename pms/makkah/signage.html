@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="../assets/icons/icon-192.png">
     <!--
       Public transport board for a TV (no login): https://pms.raajsoftware.com/makkah/signage
-      The upcoming trips of today and all of tomorrow (Riyadh time) to Jeddah Airport, Madina and Makkah Atraaf,
+      The trips in the Setup → Signage window (default: upcoming today and all of tomorrow, Riyadh time) to Jeddah Airport, Madina and Makkah Atraaf,
       from the Transport day lists (GET /api/public/signage). Laid out like sigatulhaj.org/signage/testsignage.aspx:
       5 rows a page, a new page every 15 s (fade out, reload, fade in), "Travel To" merged per page.
       Options: ?rows=5 (rows per page) · ?seconds=15
@@ -58,15 +58,16 @@
 
         let trips = [], page = 0;
 
-        // the board's rows: upcoming trips (Riyadh time), by Travel To, then date, then bus
+        // the board's rows: trips in the Setup → Signage window (Riyadh time), by Travel To, then date, then bus
         function build(data) {
             const out = [];
-            for (const day of [data.today, data.tomorrow]) {
+            const from = data.from || data.now, to = data.to || `${data.tomorrow}T23:59`;
+            for (const day of data.days || [data.today, data.tomorrow]) {
                 const rows = data.rows.filter(r => r.day === day);
                 const info = resolve(rows);
                 for (const r of rows) {
                     const i = info.get(r.key);
-                    if (!i.dest || r.at < data.now) continue;
+                    if (!i.dest || r.at < from || r.at > to) continue;
                     out.push({ r, to: travelTo(i.dest), bus: i.bus });
                 }
             }

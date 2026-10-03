@@ -129,6 +129,36 @@ export default async function mount(ctx) {
     });
     await renderFe();
 
+    /* ------------------------------ signage window ------------------------------ */
+    const sgIds = ['sgFromMode', 'sgFromTime', 'sgToDay', 'sgToTime'];
+    const sgFromToggle = () => { $('sgFromTimeRow').hidden = $('sgFromMode').value !== 'time'; };
+    function drawSg(w) {
+        $('sgFromMode').value = w.from === 'now' ? 'now' : 'time';
+        $('sgFromTime').value = w.from === 'now' ? '00:00' : w.from;
+        $('sgToDay').value = String(w.to_day);
+        $('sgToTime').value = w.to_time;
+        sgFromToggle();
+    }
+    async function renderSg() {
+        const s = await ctx.guard(loadSettings());
+        drawSg({ ...DEFAULTS.signage_window, ...(s.settings.signage_window || {}) });
+        for (const id of sgIds) $(id).disabled = !isAdmin;
+        $('sgSave').hidden = $('sgReset').hidden = !isAdmin;
+        if (!isAdmin) $('sgMsg').textContent = 'Only an admin can change this.';
+    }
+    $('sgFromMode').addEventListener('change', sgFromToggle);
+    $('sgReset').addEventListener('click', () => { drawSg(DEFAULTS.signage_window); $('sgMsg').textContent = 'Default filled in — press Save window.'; });
+    $('sgSave').addEventListener('click', async () => {
+        const w = { from: $('sgFromMode').value === 'now' ? 'now' : $('sgFromTime').value, to_day: Number($('sgToDay').value), to_time: $('sgToTime').value };
+        if (!/^\d{2}:\d{2}$/.test(w.to_time || '') || (w.from !== 'now' && !/^\d{2}:\d{2}$/.test(w.from || ''))) { $('sgMsg').textContent = 'Fill in the times.'; return; }
+        if (w.to_day === 0 && w.from !== 'now' && w.to_time <= w.from) { $('sgMsg').textContent = 'The end must be after the beginning.'; return; }
+        $('sgSave').disabled = true;
+        try { await ctx.guard(saveSettings({ signage_window: w })); await renderSg(); $('sgMsg').textContent = 'Saved — every signage screen uses it from its next page.'; }
+        catch (err) { $('sgMsg').textContent = err.status === 400 ? err.message : (err.message || String(err)); }
+        finally { $('sgSave').disabled = false; }
+    });
+    await renderSg();
+
     /* ------------------------- upload old browser data ------------------------- */
 
     const deviceId = (() => {
