@@ -211,28 +211,7 @@
             margin-top: 6px
         }
 
-        /* ==================== THEMES (GL Copy) ==================== */
-        /* When .gl-mode is present on #printArea, any .slip with a theme-* class uses that color */
-        #printArea.gl-mode .theme-mohammedi {
-            --ink: #d35400;
-            --border: #d35400
-        }
-        /* Orange */
-        #printArea.gl-mode .theme-mufaddal {
-            --ink: #e91e63;
-            --border: #e91e63
-        }
-        /* Pink */
-        #printArea.gl-mode .theme-snood {
-            --ink: #000000;
-            --border: #000000
-        }
-        /* Black */
-        #printArea.gl-mode .theme-baha {
-            --ink: #2ecc71;
-            --border: #2ecc71
-        }
-        /* Light Green */
+        /* GL Copy: each .slip gets --ink / --border inline from Setup → GL copy colours (view.js) */
 
         .gl-note {
             display: none;

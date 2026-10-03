@@ -5,6 +5,7 @@ import { SITES, VIEWS, NAV } from '../../config.js';
 import { currentDesk, request, sync, state, apiBase, UserError, ALWAYS_OPEN } from '../../core/cloud.js';
 import { legacyAllSlips, legacySiteOf } from '../../core/db.js';
 import { loadSettings, saveSettings, shiftTime, DEFAULTS, to12h } from '../../core/settings.js';
+import { loadBuildings } from '../../core/rooms.js';
 
 export default async function mount(ctx) {
     const $ = (id) => document.getElementById(id);
@@ -128,6 +129,58 @@ export default async function mount(ctx) {
         finally { $('feSave').disabled = false; }
     });
     await renderFe();
+
+    /* ----------------------------- GL copy colours ----------------------------- */
+    // one row per building in Rooms & Buildings (both cities), plus any colour saved for a name not there
+    let glc = {};
+    const HEX = /^#[0-9a-f]{6}$/i;
+    function drawGlc() {
+        const names = Object.keys(glc).sort((a, b) => a.localeCompare(b));
+        $('glcRows').innerHTML = names.length ? names.map(n => `<div class="glc-row">
+            <span class="glc-name">${esc(n)}${glcSite[n] ? ` <span class="muted small">${esc(label(glcSite[n]))}</span>` : ''}</span>
+            <input type="color" data-glc="${esc(n)}" value="${esc(glc[n])}" aria-label="Colour for ${esc(n)}" ${isAdmin ? '' : 'disabled'}>
+            <input type="text" data-glchex="${esc(n)}" value="${esc(glc[n])}" maxlength="7" spellcheck="false" aria-label="Hex colour for ${esc(n)}" ${isAdmin ? '' : 'disabled'}>
+            <span class="glc-sample" style="--c:${esc(glc[n])}">SH 12345 · ${esc(n)}</span></div>`).join('')
+            : '<p class="muted small">No buildings yet — add them in Rooms &amp; Buildings.</p>';
+        $('glcSave').hidden = $('glcReset').hidden = !isAdmin;
+    }
+    let glcSite = {};
+    async function renderGlc() {
+        const [s, blds] = await Promise.all([ctx.guard(loadSettings()), ctx.guard(loadBuildings({ force: true })).catch(() => [])]);
+        const saved = { ...DEFAULTS.gl_colors, ...(s.settings.gl_colors || {}) };
+        glcSite = {};
+        for (const b of blds) glcSite[b.name] = b.site;
+        glc = {};
+        for (const b of blds) glc[b.name] = saved[b.name] || '#000000';
+        for (const [n, c] of Object.entries(s.settings.gl_colors || {})) if (!(n in glc)) glc[n] = c;
+        drawGlc();
+        if (!isAdmin) $('glcMsg').textContent = 'Only an admin can change these.';
+    }
+    $('glcRows').addEventListener('input', (e) => {
+        const n = e.target.dataset.glc ?? e.target.dataset.glchex;
+        if (n == null) return;
+        const v = e.target.value.trim();
+        if (!HEX.test(v)) return; // typing a hex: wait until it is complete
+        glc[n] = v.toLowerCase();
+        const row = e.target.closest('.glc-row');
+        if (e.target.dataset.glc != null) row.querySelector('[data-glchex]').value = glc[n];
+        else row.querySelector('[data-glc]').value = glc[n];
+        row.querySelector('.glc-sample').style.setProperty('--c', glc[n]);
+    });
+    $('glcReset').addEventListener('click', () => {
+        for (const n of Object.keys(glc)) glc[n] = DEFAULTS.gl_colors[n] || '#000000';
+        drawGlc();
+        $('glcMsg').textContent = 'Defaults shown — press Save colours to keep them.';
+    });
+    $('glcSave').addEventListener('click', async () => {
+        const bad = Object.entries(glc).find(([, c]) => !HEX.test(c));
+        if (bad) { $('glcMsg').textContent = `${bad[0]}: enter a colour like #e8590c.`; return; }
+        $('glcSave').disabled = true;
+        try { await ctx.guard(saveSettings({ gl_colors: glc })); await renderGlc(); $('glcMsg').textContent = 'Saved — GL copies print in these colours on every desk.'; }
+        catch (err) { $('glcMsg').textContent = err.status === 400 ? err.message : (err.message || String(err)); }
+        finally { $('glcSave').disabled = false; }
+    });
+    await renderGlc();
 
     /* ------------------------- upload old browser data ------------------------- */
 

@@ -22,6 +22,8 @@ export const DEFAULTS = {
     // Home → Fakkul Ehraam counts (Setup → Fakkul Ehraam windows): Morning = check-ins from morning_from the day
     // before to split today; Night = split to night_to today
     fe_windows: { morning_from: '20:00', split: '07:00', night_to: '20:00' },
+    // GL copy ink per building (Setup → GL copy colours); a building not listed prints black
+    gl_colors: { MOHAMMEDI: '#e8590c', MUFADDAL: '#7b2cbf', SNOOD: '#66bb6a', BAHA: '#808080', HUSN: '#8b5a2b' },
     // /<site>/signage (Setup → Signage window): from 'now' or 'HH:MM' today, until to_day (0 today, 1 tomorrow, 2) at to_time
     signage_window: { from: 'now', to_day: 1, to_time: '23:59' },
 };

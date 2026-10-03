@@ -107,6 +107,13 @@ h4 { margin: 16px 0 8px; color: #7a5b13 }
 .kg-row input { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; background: #fff; }
 .kg-row button { padding: 6px 10px; }
 .fe-rows { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 4px; }
+.glc-rows { display: grid; gap: 6px; margin-bottom: 4px; }
+.glc-row { display: grid; grid-template-columns: minmax(120px, 200px) 52px 96px minmax(0, 1fr); gap: 8px; align-items: center; }
+.glc-name { font-weight: 700; }
+.glc-row input[type=color] { width: 52px; height: 34px; padding: 2px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; cursor: pointer; }
+.glc-row input[type=text] { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; font-family: ui-monospace, Consolas, monospace; background: #fff; }
+.glc-sample { color: var(--c); border: 2px solid var(--c); border-radius: 8px; padding: 5px 10px; font-weight: 800; background: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 560px) { .glc-row { grid-template-columns: 1fr 52px 96px; } .glc-sample { grid-column: 1 / -1; } }
 .fe-rows label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
 .fe-rows select { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; background: #fff; }
 .fe-rows input { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; background: #fff; width: 150px; }

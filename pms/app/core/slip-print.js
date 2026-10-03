@@ -6,20 +6,26 @@
 // The Print page keeps its own stylesheet; other pages get SLIP_CSS (scoped to .pms-slips).
 
 import { loadScript } from './lib.js';
+import { loadSettings, DEFAULTS } from './settings.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function ymdToDMY(ymd) { if (!ymd) return ''; const [y, m, d] = ymd.split('-'); return `${d}/${m}/${y}`; }
 function hhmmToHMS(hhmm) { if (!hhmm) return ''; const [h, m] = hhmm.split(':'); return `${h}:${m}:00`; }
 
-// GL copy colour per building
-export function themeForBuilding(rec) {
-    const src = String(rec.building || '').toUpperCase();
-    if (src.includes('MOHAMMEDI')) return 'theme-mohammedi';
-    if (src.includes('MUFADDAL')) return 'theme-mufaddal';
-    if (src.includes('SNOOD')) return 'theme-snood';
-    if (src.includes('BAHA')) return 'theme-baha';
-    return 'theme-snood'; // default: black
+// GL copy ink per building (Setup → GL copy colours, setting gl_colors). The building's own entry, else one whose
+// name is part of it (old slips say "BAHA 2"), else black.
+export async function glColors() {
+    try { return { ...DEFAULTS.gl_colors, ...((await loadSettings()).settings.gl_colors || {}) }; }
+    catch { return { ...DEFAULTS.gl_colors }; }
 }
+export function glColor(rec, colors) {
+    const b = String(rec.building || '').trim().toUpperCase();
+    if (!b) return '#000000';
+    const keys = Object.keys(colors || {});
+    const k = keys.find(x => x.toUpperCase() === b) || keys.find(x => x && b.includes(x.toUpperCase()));
+    return k ? colors[k] : '#000000';
+}
+const inkStyle = (c) => `--ink:${c};--border:${c}`;
 
 // SNOOD rooms that share an entrance (x02+x03, x08+x09, x12+x13, x18+x19)
 export function findCombinedRooms(rec, rows) {
@@ -108,10 +114,6 @@ export const SLIP_CSS = `
 .pms-slips .mini caption { caption-side: top; text-align: left; font-weight: 700; font-size: 11px; margin-bottom: 1mm; color: var(--ink); }
 .pms-slips .gl-note { display: none; font-size: 10px; margin-top: 4px; color: var(--ink); }
 .pms-slips.gl .gl-note { display: block; }
-.pms-slips.gl .theme-mohammedi { --ink:#d35400; --border:#d35400; }
-.pms-slips.gl .theme-mufaddal { --ink:#e91e63; --border:#e91e63; }
-.pms-slips.gl .theme-snood { --ink:#000; --border:#000; }
-.pms-slips.gl .theme-baha { --ink:#2ecc71; --border:#2ecc71; }
 `;
 
 // A <style> in <head>; the router removes it when the page is left, so check each time
@@ -224,8 +226,9 @@ const canvasBlob = (canvas, type, q) => new Promise((res, rej) => canvas.toBlob(
  * @param {object[]} recs  slips
  * @param {{title?: string, host?: Element}} opts
  */
-export function openGlCopies(recs, opts = {}) {
+export async function openGlCopies(recs, opts = {}) {
     if (!recs.length) { alert('No slips in this table.'); return; }
+    const colors = await glColors();
     ensureCss();
     const dlg = document.createElement('dialog');
     dlg.className = 'gl-dlg';
@@ -243,7 +246,7 @@ export function openGlCopies(recs, opts = {}) {
               <div class="gl-bar"><b>SH ${esc(rec.sh_no)}</b> · ${esc(rec.group_leader || rec.tour_name || '')}
                 ${canCopy ? `<button type="button" data-copy="${i}">Copy picture</button>` : ''}
                 <button type="button" data-jpeg="${i}">Save JPEG</button></div>
-              <div class="gl-card" data-card="${i}">${slipHTML(rec, rowsFor(rec)).replace('class="slip"', `class="slip ${themeForBuilding(rec)}"`)}</div>
+              <div class="gl-card" data-card="${i}">${slipHTML(rec, rowsFor(rec)).replace('class="slip"', `class="slip" style="${inkStyle(glColor(rec, colors))}"`)}</div>
               <div class="gl-msg" data-msg="${i}"></div>
             </div>`).join('')}
         </div>

@@ -1,5 +1,5 @@
 // Ported from pms/print_slip_a5.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
-import { slipHTML, themeForBuilding } from '../../core/slip-print.js';
+import { slipHTML, glColors, glColor } from '../../core/slip-print.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -14,7 +14,7 @@ const { db } = ctx;
         function hhmmToHMS(hhmm) { if (!hhmm) return ''; const [h, m] = hhmm.split(':'); return `${h}:${m}:00` }
         function parseShList(text) { if (!text) return []; return Array.from(new Set(text.split(/[,.\-\s\*]+/).map(s => s.trim()).filter(Boolean))) }
 
-        // themeForBuilding, slipHTML, findCombinedRooms: app/core/slip-print.js (shared with Check-ins)
+        // glColors / glColor (Setup → GL copy colours), slipHTML, findCombinedRooms: app/core/slip-print.js (shared with Check-ins)
 
         function renderSlips() {
             const area = $('sheet'); area.innerHTML = '';
@@ -45,15 +45,14 @@ const { db } = ctx;
 
         /* ===== GL Copy theming (per Building) ===== */
         let GL_MODE_ACTIVE = false;
+        let GL_COLORS = {};
+        glColors().then(c => { GL_COLORS = c; }); // Setup → GL copy colours
 
         function clearThemes() {
             $('printArea').classList.remove('gl-mode');
             document.querySelectorAll('.slip').forEach(el => {
-                if (el.dataset.classBackup) { el.className = el.dataset.classBackup; delete el.dataset.classBackup; }
-                else {
-                    // remove any theme-* class without clobbering other classes
-                    el.className = el.className.replace(/\btheme-(mohammedi|mufaddal|snood|baha)\b/g, '').replace(/\s{2,}/g, ' ').trim();
-                }
+                el.style.removeProperty('--ink');
+                el.style.removeProperty('--border');
             });
         }
 
@@ -62,13 +61,11 @@ const { db } = ctx;
             area.classList.add('gl-mode');
             const all = document.querySelectorAll('.slip');
             for (const el of all) {
-                if (!el.dataset.classBackup) el.dataset.classBackup = el.className;
                 const id = Number(el.getAttribute('data-rec-id') || '');
                 const rec = CACHE.find(x => x.id === id) || CURRENT.find(x => x.id === id) || {};
-                const theme = themeForBuilding(rec);
-                // strip existing theme-*, then add
-                el.className = el.className.replace(/\btheme-(mohammedi|mufaddal|snood|baha)\b/g, '').trim();
-                el.classList.add(theme);
+                const c = glColor(rec, GL_COLORS);
+                el.style.setProperty('--ink', c);
+                el.style.setProperty('--border', c);
             }
         }
 

@@ -437,6 +437,12 @@ const SETTINGS = {
             && ['morning_from', 'split', 'night_to'].every(k => HHMM(v[k])) && v.split < v.night_to,
         msg: 'Fakkul Ehraam windows: three times HH:MM, and Night must end after it starts.',
     },
+    // GL copy ink per building (Print slips page and Check-ins → GL copy): { "MOHAMMEDI": "#e8590c", … }
+    gl_colors: {
+        check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= 100
+            && Object.entries(v).every(([k, c]) => k.trim().length >= 1 && k.length <= 60 && !/[<>]/.test(k) && typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c)),
+        msg: 'GL copy colours: up to 100 buildings, each a colour like #e8590c.',
+    },
 };
 
 async function getSettings(env) {
