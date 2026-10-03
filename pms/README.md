@@ -114,7 +114,9 @@ gives the room as many free beds as the slip still needs for the chosen side (Ge
 counts), so the last room may get only part of its beds; when gents are done it carries on with ladies, and
 when both are done it refuses more rooms. Click a chosen room again to take it back; the side panel shows
 who else is in the last room clicked and fine-tunes its beds. *Fill automatically* does the same by itself;
-*Apply to slip* fills the room tables (room, capacity, assigned). Code: `app/views/slip/room-picker.js`.
+*Apply to slip* fills the room tables (room, capacity, assigned). Rooms come from Rooms & Buildings (active rooms only, like the Grid); a room the slip still holds that is
+deleted or switched off there shows dashed as *removed* — it can be taken off but not given beds. Only a building
+with no rooms in the builder falls back to the room numbers on its slips. Code: `app/views/slip/room-picker.js`.
 
 Beds needed: **Gents** = gents; **Ladies** = ladies + children (children sleep on the ladies' side; infants get no
 bed). **Room for the group leader** (on by default, Gents unless switched to Ladies): the next room clicked — or the

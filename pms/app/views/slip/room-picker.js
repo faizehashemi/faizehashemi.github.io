@@ -50,6 +50,10 @@ export function openRoomPicker(o) {
         if (r.active === false) continue;
         rooms.set(normRoom(r.room_no), { room_no: r.room_no, cap: r.capacity, type: r.type || '', floor: r.floor || floorOf(r.room_no), known: 'builder' });
     }
+    // With rooms in Rooms & Buildings, only its active rooms are offered (like the Grid page); a room this slip
+    // still holds that is deleted or switched off there shows as "removed" so it can be taken off. Rooms named
+    // only on slips are offered just for a building the builder has no rooms for.
+    const useBuilder = rooms.size > 0;
     const usage = new Map(); // norm → [events]
     for (const s of o.slips) {
         if (s.id === o.excludeId || String(s.building || '').trim().toUpperCase() !== bld) continue;
@@ -59,7 +63,7 @@ export function openRoomPicker(o) {
             for (const x of s.rooms?.[side] || []) {
                 const k = normRoom(x.room_no);
                 if (!k) continue;
-                if (!rooms.has(k)) { // a room only known from slips
+                if (!rooms.has(k) && !useBuilder) { // a room only known from slips
                     const cap = o.historyCap(x.room_no);
                     rooms.set(k, { room_no: String(x.room_no).trim(), cap: cap ?? (Number(x.capacity) || 0), type: '', floor: floorOf(x.room_no), known: 'slips' });
                 }
@@ -72,12 +76,12 @@ export function openRoomPicker(o) {
     }
     for (const side of ['gents', 'ladies']) for (const x of o.current[side] || []) {
         const k = normRoom(x.room_no);
-        if (k && !rooms.has(k)) rooms.set(k, { room_no: String(x.room_no).trim(), cap: Number(x.capacity) || o.historyCap(x.room_no) || 0, type: '', floor: floorOf(x.room_no), known: 'slip' });
+        if (k && !rooms.has(k)) rooms.set(k, { room_no: String(x.room_no).trim(), cap: Number(x.capacity) || o.historyCap(x.room_no) || 0, type: '', floor: floorOf(x.room_no), known: useBuilder ? 'removed' : 'slip' });
     }
     for (const [k, r] of rooms) {
         r.events = usage.get(k) || [];
         Object.assign(r, profile(r.events, ci, co));
-        r.free = Math.max(0, (r.cap || 0) - r.peak);
+        r.free = r.known === 'removed' ? 0 : Math.max(0, (r.cap || 0) - r.peak); // never hand out a removed room's beds
     }
 
     /* ------------------------------- allocation ------------------------------- */
@@ -193,12 +197,12 @@ export function openRoomPicker(o) {
         $('rpFloors').innerHTML = [...byFloor.keys()].sort(natural).map(f => `
             <div class="rp-floor"><h4>Floor ${esc(f)}</h4><div class="rp-tiles">${byFloor.get(f).map(([k, r]) => {
                 const a = alloc.get(k);
-                const state = a ? 'mine' : r.free <= 0 ? 'full' : r.peak > 0 ? 'part' : 'free';
+                const state = (a ? 'mine' : r.free <= 0 ? 'full' : r.peak > 0 ? 'part' : 'free') + (r.known === 'removed' ? ' gone' : '');
                 const left = r.free - (a ? a.beds : 0);
                 return `<button type="button" class="rp-tile ${state} ${selected === k ? 'sel' : ''}" data-room="${esc(k)}"
-                    title="${esc(r.room_no)}: ${r.free} of ${r.cap} beds free for the whole stay${r.events.length ? ` · shared with ${r.events.map(e => 'SH ' + e.sh).join(', ')}` : ''}">
+                    title="${esc(r.room_no)}: ${r.known === 'removed' ? 'not an active room in Rooms & Buildings — take it off this slip' : `${r.free} of ${r.cap} beds free for the whole stay`}${r.events.length ? ` · shared with ${r.events.map(e => 'SH ' + e.sh).join(', ')}` : ''}">
                     <span class="rp-no">${esc(r.room_no)}${r.type ? `<em>${esc(r.type[0].toUpperCase())}</em>` : ''}</span>
-                    <span class="rp-free">${a ? `${a.gl ? 'GL · ' : ''}${SIDES[a.side][0]} ${a.beds} · ${left} left` : `${r.free}/${r.cap} free`}</span>
+                    <span class="rp-free">${r.known === 'removed' ? `${a ? `${SIDES[a.side][0]} ${a.beds} · ` : ''}removed` : a ? `${a.gl ? 'GL · ' : ''}${SIDES[a.side][0]} ${a.beds} · ${left} left` : `${r.free}/${r.cap} free`}</span>
                     ${bar(r)}
                 </button>`;
             }).join('')}</div></div>`).join('') || `<p class="rp-muted">${rooms.size ? 'No room matches. Untick “Only rooms with space” to see full rooms.' : `No rooms known for ${esc(bld)}. Add them in Rooms & Buildings.`}</p>`;
@@ -212,6 +216,7 @@ export function openRoomPicker(o) {
         const clash = r.type && r.type !== 'family' && r.type !== side;
         $('rpDetail').innerHTML = `
             <div class="rp-dhead"><b>Room ${esc(r.room_no)}</b><span>${r.cap} bed${r.cap === 1 ? '' : 's'}${r.type ? ' · ' + esc(r.type) : ''}${r.known === 'slips' ? ' · capacity from old slips' : ''}</span></div>
+            ${r.known === 'removed' ? '<p class="rp-warn">This room is deleted or switched off in Rooms &amp; Buildings. Take it off this slip and pick another.</p>' : ''}
             <p class="rp-big">${r.free} free for the whole stay${r.peakSeg && r.peak ? ` <span class="rp-muted">(busiest ${esc(fmt(new Date(r.peakSeg.from)))} → ${esc(fmt(new Date(r.peakSeg.to)))}: ${r.peak} taken)</span>` : ''}</p>
             ${bar(r, true)}
             <div class="rp-axis"><span>${esc(fmt(ci))}</span><span>${esc(fmt(co))}</span></div>
@@ -236,7 +241,7 @@ export function openRoomPicker(o) {
     function setAlloc(k, side, beds) {
         const r = rooms.get(k);
         const mine = alloc.get(k)?.side === side ? alloc.get(k).beds : 0;
-        beds = Math.max(0, Math.min(r.free, beds, mine + remaining(side)));
+        beds = Math.max(0, Math.min(r.known === 'removed' ? mine : r.free, beds, mine + remaining(side)));
         const gl = alloc.get(k)?.gl;
         if (!beds) { alloc.delete(k); if (k === glRoom) glRoom = null; }
         else { alloc.set(k, { side, beds, gl }); if (gl) glSide = side; }
@@ -281,6 +286,7 @@ export function openRoomPicker(o) {
         selected = k;
         const r = rooms.get(k);
         if (alloc.has(k)) { alloc.delete(k); if (k === glRoom) glRoom = null; say(`Room ${r.room_no} removed.`); renderAll(); return; }
+        if (r.known === 'removed') { say(`Room ${r.room_no} is deleted or switched off in Rooms & Buildings.`, true); renderAll(); return; }
         if (r.free <= 0) { say(`Room ${r.room_no} has no bed free for the whole stay.`, true); renderAll(); return; }
         // the group leader's room comes first while the toggle is on
         if (glOn && !glRoom) {

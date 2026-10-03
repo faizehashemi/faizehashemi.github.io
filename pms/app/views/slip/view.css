@@ -247,6 +247,7 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .rp .rp-gl-state.wait { color: #9a5b00; font-weight: 600; }
 .rp .rp-gl-state.ok { color: #1f7a3a; }
 .rp .rp-gltag { font-style: normal; font-weight: 800; color: #9a5b00; }
+.rp .rp-tile.gone { outline: 2px dashed #c0392b; outline-offset: -3px; opacity: .85; }
 .rp .rp-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; }
 .rp .rp-main { display: flex; flex-direction: column; min-height: 0; }
 .rp .rp-filters { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 18px; font-size: 13px; }
