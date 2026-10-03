@@ -93,6 +93,7 @@ async function route(req, env) {
 
     if (p === '/api/health') return json({ ok: true, time: now() });
     if (p === '/api/login' && m === 'POST') return login(req, env);
+    if (p === '/api/public/signage' && m === 'GET') return publicSignage(url, env); // no login: the TV board
 
     const me = await authenticate(req, env);
     if (p === '/api/logout' && m === 'POST') {
@@ -1324,6 +1325,28 @@ async function putTransport(req, env, me) {
     }
     await auditStmt(env, me, 'transport-save', null, `${site} ${d}: ${list.length} trips${note ? ' · ' + String(note).slice(0, 300) : ''}`).run();
     return getTransport(env, site, d);
+}
+
+// Public (no login) — the /<site>/signage board: today's and tomorrow's trips (Riyadh time) to the signage
+// destinations, only the fields the board shows. Grouped trips (no route) come along; the page joins them to their bus.
+const SIGNAGE_ROUTES = ['MAKKAH-JEDDAH AIRPORT', 'MAKKAH-MADINA', 'MAKKAH-MAKKAH ATRAAF'];
+async function publicSignage(url, env) {
+    const site = String(url.searchParams.get('site') || 'makkah');
+    if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+    const riyadh = new Date(Date.now() + 3 * 3600e3).toISOString();  // Saudi Arabia: UTC+3, no daylight saving
+    const today = riyadh.slice(0, 10), tomorrow = new Date(Date.parse(today) + 864e5).toISOString().slice(0, 10);
+    const { results } = await env.DB.prepare('SELECT day, rows FROM transport_days WHERE site = ? AND day IN (?, ?)').bind(site, today, tomorrow).all();
+    const rows = [];
+    for (const r of results) {
+        for (const t of JSON.parse(r.rows)) {
+            if (!t || (t.route && !SIGNAGE_ROUTES.includes(t.route))) continue;
+            rows.push({ day: r.day, key: t.key, ref: t.ref, at: t.at, route: t.route || '', operator: t.operator || '', leader: t.leader || '',
+                pax: t.pax, bus: t.bus ?? null, vch: t.vch || '', dora: t.dora || '', adj: t.adj || '' });
+        }
+    }
+    return new Response(JSON.stringify({ site, now: riyadh.slice(0, 16), today, tomorrow, rows }), {
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=10', 'Access-Control-Allow-Origin': '*' },
+    });
 }
 
 async function deleteTransport(url, env, me) {

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Transport Signage</title>
+    <link rel="icon" type="image/png" href="../assets/icons/icon-192.png">
+    <!--
+      Public transport board for a TV (no login): https://pms.raajsoftware.com/makkah/signage
+      The upcoming trips of today and all of tomorrow (Riyadh time) to Jeddah Airport, Madina and Makkah Atraaf,
+      from the Transport day lists (GET /api/public/signage). Laid out like sigatulhaj.org/signage/testsignage.aspx:
+      5 rows a page, a new page every 15 s (fade out, reload, fade in), "Travel To" merged per page.
+      Options: ?rows=5 (rows per page) · ?seconds=15
+    -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        #gridWrapper { transition: opacity 1s; }
+        #gridWrapper.fast { transition: opacity .5s; }
+    </style>
+</head>
+<body class="alert alert-warning">
+    <div class="container-fluid mt-1" style="font-family: 'Roboto'">
+        <div class="row">
+            <div class="col-12">
+                <div class="card p-4 text-center alert alert-warning border-0">
+                    <h2 class="fw-bold">Umrah Transport Schedule</h2>
+                    <div id="gridWrapper" class="mt-2 overflow-auto">
+                        <div>
+                            <table cellspacing="0" rules="all" class="table table-warning table-responsive-xl border-0" border="1" id="gvTransportList" style="border-collapse:collapse;">
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        import { API_URL } from '../app/config.js';
+        import { resolve, DESTS } from '../app/core/transport.js';
+
+        const q = new URLSearchParams(location.search);
+        const site = location.pathname.split('/').filter(Boolean).find(s => s === 'makkah' || s === 'medina') || 'makkah';
+        const PAGE_ROWS = Math.max(1, Number(q.get('rows')) || 5);
+        const CYCLE_MS = Math.max(5, Number(q.get('seconds')) || 15) * 1000;
+        const api = (() => { try { return localStorage.getItem('pms_api_url') || API_URL; } catch { return API_URL; } })().replace(/\/+$/, '');
+
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        // "MAKKAH-MAKKAH ATRAAF" → "MAKKAH ATRAAF"
+        const travelTo = (id) => DESTS.find(d => d.id === id).route.split('-').slice(1).join('-');
+        // "2026-10-04T03:00" → "04-10-2026 03:00"
+        const when = (at) => `${at.slice(8, 10)}-${at.slice(5, 7)}-${at.slice(0, 4)} ${at.slice(11, 16)}`;
+        const HEAD = `<tr>
+            <th class="rounded-start-2 border-0" scope="col" style="color:#663300;background-color:#F9BB00;">SH Ref</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Travel To</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Date</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Tour Group</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Total Pax</th><th class="rounded-end-2 border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Bus No</th>
+        </tr>`;
+        const ROW = 'border border-warning border-bottom border-top-0 border-start-0 border-end-0';
+
+        let trips = [], page = 0;
+
+        // the board's rows: upcoming trips (Riyadh time), by Travel To, then date, then bus
+        function build(data) {
+            const out = [];
+            for (const day of [data.today, data.tomorrow]) {
+                const rows = data.rows.filter(r => r.day === day);
+                const info = resolve(rows);
+                for (const r of rows) {
+                    const i = info.get(r.key);
+                    if (!i.dest || r.at < data.now) continue;
+                    out.push({ r, to: travelTo(i.dest), bus: i.bus });
+                }
+            }
+            return out.sort((a, b) => a.to.localeCompare(b.to) || a.r.at.localeCompare(b.r.at) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || String(a.r.ref).localeCompare(String(b.r.ref)));
+        }
+
+        function render() {
+            const pages = Math.max(1, Math.ceil(trips.length / PAGE_ROWS));
+            if (page >= pages) page = 0;
+            const list = trips.slice(page * PAGE_ROWS, page * PAGE_ROWS + PAGE_ROWS);
+            const body = list.map((t, i) => {
+                // "Travel To" once for the rows that share it on this page
+                let span = 0;
+                if (i === 0 || list[i - 1].to !== t.to) { span = 1; while (list[i + span] && list[i + span].to === t.to) span++; }
+                const op = t.r.operator && t.r.operator.toUpperCase() !== 'SELF' ? `${esc(t.r.operator)}<br>` : '';
+                return `<tr class="${ROW}">
+                    <td class="text-center align-middle">${esc(t.r.ref)}</td>${span ? `<td class="align-middle bg-body-tertiary fw-bold text-primary table-warning " rowspan="${span}">${esc(t.to)}</td>` : ''}<td>${esc(when(t.r.at))}</td><td class="text-center align-middle">${op}${esc(t.r.leader)}</td><td class="text-center align-middle">${esc(t.r.pax)}</td><td class="text-center align-middle">${esc(t.bus ?? '')}</td>
+                </tr>`;
+            }).join('');
+            document.querySelector('#gvTransportList tbody').innerHTML = HEAD + (body || `<tr class="${ROW}"><td class="text-center align-middle" colspan="6">No transport scheduled</td></tr>`);
+        }
+
+        async function load() {
+            const res = await fetch(`${api}/api/public/signage?site=${site}`, { cache: 'no-store' });
+            if (!res.ok) throw new Error(String(res.status));
+            trips = build(await res.json());
+        }
+
+        // every 15 s: fade out, fetch the latest list, show the next page, fade in (as the original board)
+        const wrap = document.getElementById('gridWrapper');
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        async function cycle() {
+            wrap.classList.remove('fast');
+            wrap.style.opacity = 0;
+            await sleep(1000);
+            page++;
+            try { await load(); } catch { /* keep showing the last list */ }
+            render();
+            wrap.classList.add('fast');
+            wrap.style.opacity = 1;
+        }
+
+        try { await load(); } catch { }
+        render();
+        setInterval(cycle, CYCLE_MS);
+
+        // a new website build: reload (TVs stay open for weeks)
+        let buildId = null;
+        setInterval(async () => {
+            try {
+                const v = await (await fetch(`../version.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+                if (buildId && v.web && v.web !== buildId) location.reload();
+                buildId = v.web || buildId;
+            } catch { }
+        }, 10 * 60e3);
+    </script>
+</body>
+</html>

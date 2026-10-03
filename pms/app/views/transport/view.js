@@ -14,7 +14,7 @@ export default async function mount(ctx) {
 
     $('tpImport').href = ctx.href('transport-import');
     $('tpPrint').href = ctx.href('transport-print', { day });
-    $('tpSignage').href = `signage/?site=${encodeURIComponent(ctx.siteId)}&day=${day}`;
+    $('tpSignage').href = `${ctx.siteId}/signage`; // public board: today and tomorrow, no login
     $('tpImport').hidden = !canOpen('transport-import', desk) || !writable;
     $('tpPrint').hidden = !canOpen('transport-print', desk);
     $('tpRenumber').hidden = $('tpDelete').hidden = !writable;
