@@ -100,15 +100,9 @@ async function forwardToTelegramGroup(room) {
         + `🏨 *Room Number*: ${room}\n\n`
         + `📩 *Please assist as soon as possible!*`;
 
-    const telegramBotToken = "7907237986:AAHnmVO8CKOSIjKpwZwP3C6F5Ih8viGJoC4";
-    const telegramChatId = "-4754144977"; // Replace with your Telegram group ID
-
-    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-    const requestBody = {
-        chat_id: telegramChatId,
-        text: message,
-        parse_mode: "Markdown"
-    };
+    // The bot token lives in the Cloudflare Worker as a secret, never in this public file.
+    const telegramApiUrl = "https://pms-api.tkamlapur.workers.dev/api/public/chat-notify";
+    const requestBody = { text: message };
 
     try {
         const response = await fetch(telegramApiUrl, {
