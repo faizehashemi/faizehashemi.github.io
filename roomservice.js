@@ -176,8 +176,8 @@ async function forwardToTelegramRoomService(room) {
         + `🏨 *Room Number*: ${room}\n\n`
         + `📩 *Please assist as soon as possible!*`;
 
-    // The bot token lives in the Cloudflare Worker as a secret, never in this public file.
-    const telegramApiUrl = "https://pms-api.tkamlapur.workers.dev/api/public/chat-notify";
+    // The bot token lives in the separate Cloudflare Worker "chat-notify" as a secret, never in this public file.
+    const telegramApiUrl = "https://chat-notify.tkamlapur.workers.dev/";
     const requestBody = { text: message };
 
     try {
