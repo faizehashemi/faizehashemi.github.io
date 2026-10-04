@@ -171,6 +171,11 @@ stored on the server as `gl_colors` (`{ "MOHAMMEDI": "#e8590c", … }`). Default
 Snood light green, Baha grey, Husn brown; a building without a colour prints black. Code: `glColors` / `glColor`
 in `app/core/slip-print.js`.
 
+**Print table** (Check-ins, each table) opens the rows shown in a tab of their own laid out for **A4 landscape,
+1 cm margins**, and opens the print dialog: SH No · Group (group leader beneath) · Building · Rooms (wraps) · Total Pax ·
+Check-in · Check-out, all centred (no As./G/L/C/I). The page on screen is unchanged. A missing group leader shows
+as **-** on the table, slips and GL copies.
+
 ## Mawaid
 
 Redesigned after the old `pms_web` Mawaid page: building table (BAHA+HUSN merged), **Cooking Count**

@@ -135,7 +135,7 @@ export default async function mount(ctx) {
             const t = key === 'checkin' ? fmtDT(ci) : fmtDT(co);
             const sh = String(r.sh_no || '').trim();
             const href = sh ? ctx.href('slip', { sh_no: sh }) : ctx.href('slip');
-            const gl = (r.group_leader && String(r.group_leader).trim()) ? r.group_leader : 'unassigned';
+            const gl = String(r.group_leader ?? '').trim() || '-';
             const openCell = !may.slip ? ''
                 : sh ? `<a class="btn-open" href="${href}" target="_blank" rel="noopener">Open</a>`
                 : `<a class="btn-open" aria-disabled="true" title="No SH number">Open</a>`;
@@ -171,7 +171,7 @@ export default async function mount(ctx) {
         for (const r of rows) {
             const ci = parseDT(r.checkin_date, r.checkin_time);
             const co = parseDT(r.checkout_date, r.checkout_time);
-            const gl = (r.group_leader && String(r.group_leader).trim()) ? r.group_leader : 'unassigned';
+            const gl = String(r.group_leader ?? '').trim() || '-';
             const mid = [r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
                 roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
                 num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant)];
@@ -196,16 +196,65 @@ export default async function mount(ctx) {
         downloadCSV(toCSV(rows, kind), `${kind === 'in' ? 'checkins' : 'checkouts'}_${df}_${dt}.csv`);
     }
 
-    function printTableOnly(tableId) {
-        const el = document.getElementById(tableId);
-        if (!el) return alert('Table not found.');
-        el.classList.add('print-scope');
-        const cleanup = () => {
-            el.classList.remove('print-scope');
-            window.removeEventListener('afterprint', cleanup);
-        };
-        window.addEventListener('afterprint', cleanup);
-        setTimeout(() => window.print(), 0);
+    // Print table: the rows shown, in a tab of their own laid out for A4 landscape with 1 cm margins —
+    // SH · Group (group leader beneath) · Building · Rooms (wraps) · Total Pax · Check-in · Check-out, all centred.
+    // The page on screen keeps its own columns. Call straight from the click so the browser allows the tab.
+    function printTable(kind) {
+        const rows = kind === 'in' ? SHOWN.in : SHOWN.out;
+        if (!rows.length) { alert('No rows to print in this table.'); return; }
+        const w = window.open('', '_blank');
+        if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print table again.'); return; }
+        const title = `${kind === 'in' ? 'Check-ins' : 'Check-outs'} · ${ctx.site.label}`;
+        const total = rows.reduce((s, r) => s + guests(r), 0);
+        const body = rows.map(r => {
+            const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
+            return `<tr>
+              <td>${escapeHTML(r.sh_no ?? '')}</td>
+              <td><b>${escapeHTML(r.tour_name || '-')}</b><br><span class="gl">${escapeHTML(String(r.group_leader ?? '').trim() || '-')}</span></td>
+              <td>${escapeHTML((r.building || '').trim() || '-')}</td>
+              <td class="rooms">${escapeHTML(roomsFromSlip(r).join(', ') || '-')}</td>
+              <td><b>${guests(r)}</b></td>
+              <td>${escapeHTML(fmtDT(ci))}</td>
+              <td>${escapeHTML(fmtDT(co))}</td>
+            </tr>`;
+        }).join('');
+        w.document.open();
+        w.document.write(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>${escapeHTML(title)}</title>
+<style>
+@page { size: A4 landscape; margin: 10mm; }
+html, body { margin: 0; background: #fff; color: #000; font: 11px/1.3 Arial, Helvetica, sans-serif; }
+body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1 { font-size: 15px; margin: 0 0 2px; text-align: center; }
+.sub { text-align: center; font-size: 11px; margin: 0 0 6px; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { border: 1px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+th { background: #eee; font-size: 11px; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; page-break-inside: avoid; }
+td .gl { font-size: 10px; }
+td.rooms { font-size: 10px; }
+.bar { position: sticky; top: 0; display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: #fffaf1; border-bottom: 1px solid #dcc7a4; font: 13px system-ui, sans-serif; }
+.bar button { font: inherit; padding: 5px 14px; border: 1px solid #d4af37; border-radius: 8px; background: #d4af37; color: #fff; font-weight: 700; cursor: pointer; }
+@media screen { body { background: #e9e6df; } .page { width: 277mm; margin: 10mm auto; padding: 10mm; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); } }
+@media print { .bar { display: none; } }
+</style></head>
+<body>
+<div class="bar"><button type="button" onclick="window.print()">Print</button><span>A4 landscape · 1 cm margins — choose A4 and Landscape if the printer asks</span></div>
+<div class="page">
+<h1>${escapeHTML(title)}</h1>
+<p class="sub">${escapeHTML(rangeLabel())} · ${rows.length} group${rows.length === 1 ? '' : 's'} · ${total} pax</p>
+<table>
+<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>
+<thead><tr><th>SH No</th><th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th><th>Check-in</th><th>Check-out</th></tr></thead>
+<tbody>${body}</tbody>
+</table>
+</div>
+<script>
+window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 250); });
+</script>
+</body></html>`);
+        w.document.close();
     }
 
     /* ===== Wiring ===== */
@@ -230,8 +279,8 @@ export default async function mount(ctx) {
     $('btnRun').addEventListener('click', run);
     $('csvIn').addEventListener('click', () => exportRows('in'));
     $('csvOut').addEventListener('click', () => exportRows('out'));
-    $('printIn').addEventListener('click', () => printTableOnly('tblIn'));
-    $('printOut').addEventListener('click', () => printTableOnly('tblOut'));
+    $('printIn').addEventListener('click', () => printTable('in'));
+    $('printOut').addEventListener('click', () => printTable('out'));
     const rangeLabel = () => `${$('dateFrom').value} ${$('timeFrom').value} → ${$('dateTo').value} ${$('timeTo').value}`;
     // the admin changed this login's pages while the page is open
     window.addEventListener('pms:desk-changed', () => { applyAccess(); run(); });

@@ -10,6 +10,8 @@ import { loadSettings, DEFAULTS } from './settings.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function ymdToDMY(ymd) { if (!ymd) return ''; const [y, m, d] = ymd.split('-'); return `${d}/${m}/${y}`; }
+// group leader as printed: a dash when there is none
+const glName = (rec) => String(rec.group_leader ?? '').trim() || '-';
 function hhmmToHMS(hhmm) { if (!hhmm) return ''; const [h, m] = hhmm.split(':'); return `${h}:${m}:00`; }
 
 // GL copy ink per building (Setup → GL copy colours, setting gl_colors). The building's own entry, else one whose
@@ -77,7 +79,7 @@ export function slipHTML(rec, rows) {
     <table class="grid pair">
       <tbody>
         <tr><th>TOUR NAME</th><td colspan="3">${esc(rec.tour_name)}</td></tr>
-        <tr><th>GRP LEADER</th><td colspan="3">${esc(rec.group_leader)}</td></tr>
+        <tr><th>GRP LEADER</th><td colspan="3">${esc(glName(rec))}</td></tr>
         <tr><th>CHECK IN</th><td>${ymdToDMY(rec.checkin_date || '')}</td><td>${hhmmToHMS(rec.checkin_time || '')}</td><td></td></tr>
         <tr><th>CHECK OUT</th><td>${ymdToDMY(rec.checkout_date || '')}</td><td>${hhmmToHMS(rec.checkout_time || '')}</td><td></td></tr>
         <tr><th>BUILDING</th><td colspan="3">${esc(rec.building)}</td></tr>
@@ -243,7 +245,7 @@ export async function openGlCopies(recs, opts = {}) {
         <div class="gl-list pms-slips gl">
           ${recs.map((rec, i) => `
             <div class="gl-item">
-              <div class="gl-bar"><b>SH ${esc(rec.sh_no)}</b> · ${esc(rec.group_leader || rec.tour_name || '')}
+              <div class="gl-bar"><b>SH ${esc(rec.sh_no)}</b> · ${esc(String(rec.group_leader ?? '').trim() || rec.tour_name || '-')}
                 ${canCopy ? `<button type="button" data-copy="${i}">Copy picture</button>` : ''}
                 <button type="button" data-jpeg="${i}">Save JPEG</button></div>
               <div class="gl-card" data-card="${i}">${slipHTML(rec, rowsFor(rec)).replace('class="slip"', `class="slip" style="${inkStyle(glColor(rec, colors))}"`)}</div>
