@@ -1,6 +1,8 @@
 // PMS cloud API — Cloudflare Worker + D1. Single file, no dependencies.
 //
 // Bindings:  DB (D1 database)   ALLOWED_ORIGINS (var, comma-separated, e.g. "https://faizehashemi.github.io")
+//            CHAT_BOT_TOKEN (secret) — Telegram bot token for the guest chatbot (chat.html); never put it in the site
+//            CHAT_TG_CHAT_ID (optional var) — Telegram group the chatbot posts to
 //
 // Auth: each desk logs in (POST /api/login) and gets a bearer token (30 days, extended while in use).
 //   desk   — reads every site, writes only its own site
@@ -84,6 +86,37 @@ function sameHex(a, b) {
     return d === 0;
 }
 
+/* ------------------------------ guest chatbot ------------------------------ */
+
+// chat.html posts the request text here; the Worker sends it to the staff Telegram group with the
+// bot token kept as a Cloudflare secret, so the token never appears in the public site.
+const CHAT_TG_CHAT_ID = '-4754144977';
+const CHAT_MAX_CHARS = 2000;
+
+async function chatNotify(req, env) {
+    const origin = req.headers.get('Origin') || '';
+    const allowed = String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!allowed.includes(origin) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) throw new HttpError(403, 'Origin not allowed');
+    if (!env.CHAT_BOT_TOKEN) throw new HttpError(503, 'Chat bot is not configured');
+    const b = await body(req);
+    const text = typeof b.text === 'string' ? b.text.trim() : '';
+    if (!text) throw new HttpError(400, 'text is required');
+    if (text.length > CHAT_MAX_CHARS) throw new HttpError(400, 'text is too long');
+
+    const send = (extra) => fetch(`https://api.telegram.org/bot${env.CHAT_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: env.CHAT_TG_CHAT_ID || CHAT_TG_CHAT_ID, text, ...extra }),
+    });
+    let r = await send({ parse_mode: 'Markdown' });
+    if (r.status === 400) r = await send({}); // guest text broke the Markdown: send it plain
+    if (!r.ok) {
+        console.error('Telegram sendMessage failed', r.status, await r.text());
+        throw new HttpError(502, 'Could not reach Telegram');
+    }
+    return json({ ok: true });
+}
+
 /* --------------------------------- routes --------------------------------- */
 
 async function route(req, env) {
@@ -95,6 +128,7 @@ async function route(req, env) {
     if (p === '/api/login' && m === 'POST') return login(req, env);
     if (p === '/api/public/signage' && m === 'GET') return publicSignage(url, env); // no login: the TV board
     if (p === '/api/public/signage/setup' && m === 'GET') return publicSignageSetup(url, env);
+    if (p === '/api/public/chat-notify' && m === 'POST') return chatNotify(req, env); // no login: guest chatbot
 
     const me = await authenticate(req, env);
     if (p === '/api/logout' && m === 'POST') {
