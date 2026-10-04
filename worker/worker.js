@@ -1357,7 +1357,7 @@ async function putTransport(req, env, me) {
 
 /* -------------------------------- signage -------------------------------- */
 // The public board /<site>/signage and its Signage Builder (Transport menu).
-//   signage_config (one per site): { window, slides } — window = which trips (Riyadh time); slides = per trip type
+//   signage_config (one per site): { window, slides, fade } — window = which trips (Riyadh time); slides = per trip type
 //     (a route such as "MAKKAH-MADINA") the template it is shown with ('classic', 'none' or a template id) and the
 //     seconds a slide stays. Order of `slides` = order on the board.
 //   signage_templates: the designs made in the builder (elements, columns, colours, images as data: URLs).
@@ -1365,6 +1365,7 @@ async function putTransport(req, env, me) {
 
 const SIGNAGE_WINDOW = { from: 'now', to_day: 1, to_time: '23:59' };   // default: upcoming today + all of tomorrow
 const SIGNAGE_DEFAULT_SLIDES = ['MAKKAH-JEDDAH AIRPORT', 'MAKKAH-MADINA', 'MAKKAH-MAKKAH ATRAAF'].map(type => ({ type, template: 'classic', seconds: 15 }));
+const SIGNAGE_FADE = 0.3;   // seconds each way between slides (0 = cut); Signage Builder → Slides
 const MAX_TEMPLATE_BYTES = 1800 * 1024;
 const DATA_IMAGE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 
@@ -1375,10 +1376,10 @@ function checkWindow(v) {
 
 async function signageConfig(env, site) {
     const row = await env.DB.prepare('SELECT c.data, c.version, c.updated_at, d.name AS updated_by FROM signage_config c LEFT JOIN desks d ON d.id = c.updated_by WHERE c.site = ?').bind(site).first();
-    if (row) return { ...JSON.parse(row.data), version: row.version, updated_at: row.updated_at, updated_by: row.updated_by };
+    if (row) return { fade: SIGNAGE_FADE, ...JSON.parse(row.data), version: row.version, updated_at: row.updated_at, updated_by: row.updated_by };
     // never saved: the window from the old Setup setting, the three Makkah destinations on the Classic board
     const set = await env.DB.prepare("SELECT value FROM settings WHERE key = 'signage_window'").first();
-    return { window: { ...SIGNAGE_WINDOW, ...(set ? JSON.parse(set.value) : {}) }, slides: SIGNAGE_DEFAULT_SLIDES, version: 0, updated_at: null, updated_by: null };
+    return { window: { ...SIGNAGE_WINDOW, ...(set ? JSON.parse(set.value) : {}) }, slides: SIGNAGE_DEFAULT_SLIDES, fade: SIGNAGE_FADE, version: 0, updated_at: null, updated_by: null };
 }
 
 // Template content: markup characters out of every string, images only as data:image URLs, bounded depth and size
@@ -1428,7 +1429,10 @@ async function putSignageConfig(req, env, me) {
         template: s && (s.template === 'classic' || s.template === 'none') ? s.template : (Number(s && s.template) || 'none'),
         seconds: Math.min(600, Math.max(3, Math.round(Number(s && s.seconds) || 15))),
     })).filter(s => s.type);
-    const data = JSON.stringify({ window: { from: window.from, to_day: window.to_day, to_time: window.to_time }, slides: clean });
+    const fadeIn = config.fade === undefined ? cur.fade : Number(config.fade);
+    if (!Number.isFinite(fadeIn) || fadeIn < 0 || fadeIn > 3) throw new HttpError(400, 'Transition: 0 to 3 seconds.');
+    const fade = Math.round(fadeIn * 10) / 10;
+    const data = JSON.stringify({ window: { from: window.from, to_day: window.to_day, to_time: window.to_time }, slides: clean, fade });
     const v = Number(version) || 0;
     const write = v === 0
         ? env.DB.prepare('INSERT OR IGNORE INTO signage_config (site, data, version, updated_at, updated_by) VALUES (?, ?, 1, ?, ?)').bind(site, data, now(), me.id)
@@ -1536,7 +1540,7 @@ async function publicSignageSetup(url, env) {
         const { results } = await env.DB.prepare(`SELECT id, name, data FROM signage_templates WHERE site = ? AND id IN (${ids.map(() => '?').join(', ')})`).bind(site, ...ids).all();
         templates = results.map(r => ({ id: r.id, name: r.name, data: JSON.parse(r.data) }));
     }
-    return publicJson({ site, slides: cfg.slides, templates, stamp: await signageStamp(env, site, cfg) });
+    return publicJson({ site, slides: cfg.slides, fade: cfg.fade ?? SIGNAGE_FADE, templates, stamp: await signageStamp(env, site, cfg) });
 }
 
 async function deleteTransport(url, env, me) {

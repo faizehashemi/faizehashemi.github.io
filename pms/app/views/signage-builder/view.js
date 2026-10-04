@@ -474,12 +474,16 @@ export default async function mount(ctx) {
         $('sbSlidesMsg').textContent = 'Not saved yet.';
         slidesTable();
     });
+    // transition: each way, seconds (0 = cut)
+    const fadeLabel = (v) => Number(v) ? `${Number(v).toFixed(1)} s` : 'cut';
+    function drawFade() { $('sbFade').value = String(cfg?.fade ?? 0.3); $('sbFadeOut').textContent = fadeLabel($('sbFade').value); $('sbFade').disabled = !writable; }
+    $('sbFade').addEventListener('input', () => { $('sbFadeOut').textContent = fadeLabel($('sbFade').value); $('sbSlidesMsg').textContent = 'Not saved yet.'; });
     $('sbSlidesSave').addEventListener('click', async () => {
         $('sbSlidesSave').disabled = true;
         try {
-            const r = await ctx.guard(saveSignageConfig(ctx.siteId, { slides: order.map(({ type, template, seconds }) => ({ type, template, seconds })) }, cfg.version));
+            const r = await ctx.guard(saveSignageConfig(ctx.siteId, { slides: order.map(({ type, template, seconds }) => ({ type, template, seconds })), fade: Number($('sbFade').value) }, cfg.version));
             cfg = r.config; templates = r.templates; order = [];
-            slidesTable(); tplOptions();
+            slidesTable(); tplOptions(); drawFade();
             $('sbSlidesMsg').textContent = 'Saved — the board uses it from its next slide.';
         } catch (e) {
             $('sbSlidesMsg').textContent = e instanceof UserError ? e.message : 'Could not save.';
@@ -499,6 +503,7 @@ export default async function mount(ctx) {
     fit();
     if (templates.length) open(templates[0]); else open(null);
     slidesTable();
+    drawFade();
     await loadPreviewDay();
     return () => { ro.disconnect(); document.removeEventListener('keydown', onKey); };
 }

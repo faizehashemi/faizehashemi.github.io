@@ -74,6 +74,9 @@
             The window (which days and hours) is set on the Transport day page.</p>
         <div id="sbSlides"><p class="tp-empty">Loading…</p></div>
         <div class="tp-bar sb-slide-go">
+            <label class="sb-fade">Transition between slides
+                <input type="range" id="sbFade" min="0" max="3" step="0.1" value="0.3" aria-describedby="sbFadeOut">
+                <output id="sbFadeOut">0.3 s</output></label>
             <button type="button" class="tp-btn gold" id="sbSlidesSave">Save slides</button>
             <span class="tp-muted" id="sbSlidesMsg"></span>
         </div>
