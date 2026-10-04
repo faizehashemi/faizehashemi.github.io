@@ -5,6 +5,7 @@
     </header>
     <nav class="la-tabs" role="tablist" aria-label="Laundry admin">
         <button type="button" data-tab="bills" aria-selected="true">🧾 Bills</button>
+        <button type="button" data-tab="payments">💰 Payments</button>
         <button type="button" data-tab="reports">📈 Reports</button>
         <button type="button" data-tab="free">👷 Staff only</button>
         <button type="button" data-tab="building">🏨 Building</button>
@@ -20,6 +21,12 @@
             <label>To <input type="date" id="bTo"></label>
         </div>
         <div id="bBody"></div>
+    </section>
+
+    <!-- PAYMENTS: the log of every "mark paid" / "mark unpaid" — who, when, which bills, how much -->
+    <section class="la-pane" id="tab-payments" hidden>
+        <div class="la-range" data-range="payments"></div>
+        <div id="payBody"></div>
     </section>
 
     <section class="la-pane" id="tab-reports" hidden>

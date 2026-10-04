@@ -194,11 +194,28 @@ CREATE TABLE IF NOT EXISTS laundry_bills (
     updated_at  TEXT NOT NULL,
     updated_by  INTEGER,
     settled_at  TEXT,                                -- cash bill marked paid by the admin (worker handed the cash over)
-    settled_by  INTEGER
+    settled_by  INTEGER,
+    settlement_id INTEGER,                           -- the laundry_settlements row that marked it paid
+    old_receipt_no TEXT                              -- its number before the 2026-10-04 renumbering (separate series per kind)
 );
+CREATE TABLE IF NOT EXISTS laundry_settlements (     -- payment log: each "mark paid" / "mark unpaid" with the bills it covered
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    site      TEXT NOT NULL,
+    day       TEXT NOT NULL,                         -- Jeddah date of the action
+    at        TEXT NOT NULL,
+    by_id     INTEGER,
+    by_name   TEXT NOT NULL,
+    action    TEXT NOT NULL,                         -- paid | unpaid
+    bills     TEXT NOT NULL,                         -- JSON [{ id, receipt_no, amount, day, worker, room }]
+    count     INTEGER NOT NULL,
+    total     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS laundry_settlements_day ON laundry_settlements(site, day);
 -- added 2026-10-02 on existing databases with: ALTER TABLE laundry_items ADD COLUMN category TEXT NOT NULL DEFAULT 'guest';
 --   ALTER TABLE laundry_bills ADD COLUMN settled_at TEXT; ALTER TABLE laundry_bills ADD COLUMN settled_by INTEGER;
 -- added 2026-10-03: ALTER TABLE laundry_staff ADD COLUMN category TEXT NOT NULL DEFAULT '';
+-- added 2026-10-04: ALTER TABLE laundry_bills ADD COLUMN settlement_id INTEGER; ALTER TABLE laundry_bills ADD COLUMN old_receipt_no TEXT;
+--   receipt counters are now keyed site|kind|day (worker/migrations/2026-10-04-receipt-series.sql renumbered the old bills)
 CREATE INDEX IF NOT EXISTS laundry_bills_day ON laundry_bills(site, day);
 CREATE INDEX IF NOT EXISTS laundry_bills_staff ON laundry_bills(staff_id, day);
 CREATE TABLE IF NOT EXISTS laundry_counters (key TEXT PRIMARY KEY, n INTEGER NOT NULL);   -- receipt numbers per site and day

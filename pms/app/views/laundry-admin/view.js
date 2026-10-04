@@ -1,4 +1,5 @@
 // Laundry admin (PC): cash bills (from → to; mark Paid one by one, by selection or by the amount the worker
+// handed over), the payments log (every mark paid / unpaid with its bills),
 // handed over — audited; open a bill to edit / cancel / reprint), reports, staff-only laundry (dashboard,
 // register, staff history), building linen (what the laundry screen's Building tab sent: item-wise, day-wise, every
 // entry), prices (clothes and building linen, with pictures), staff profiles (photo, limits, categories)
@@ -48,7 +49,7 @@ export default async function mount(ctx) {
         S.tab = tab;
         ctx.root.querySelectorAll('.la-tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
         ctx.root.querySelectorAll('.la-pane').forEach(p => { p.hidden = p.id !== 'tab-' + tab; });
-        ({ reports: drawReports, bills: drawBills, free: drawFree, building: drawBuilding, prices: drawPrices, staff: drawStaff, notice: drawNotice })[tab]();
+        ({ payments: drawPayments, reports: drawReports, bills: drawBills, free: drawFree, building: drawBuilding, prices: drawPrices, staff: drawStaff, notice: drawNotice })[tab]();
     }
     ctx.root.querySelector('.la-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
 
@@ -130,6 +131,45 @@ export default async function mount(ctx) {
     });
     ctx.root.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const tr = e.target.closest('tr[data-bill]'); if (tr && S.billIndex) openBill(S.billIndex.get(Number(tr.dataset.bill))); } });
     const indexBills = (bills) => { S.billIndex = S.billIndex || new Map(); for (const b of bills) S.billIndex.set(b.id, b); };
+
+    /* ----------------------------- payments log ----------------------------- */
+    // every "mark paid" / "mark unpaid" (Bills tab) — the cash the workers handed over, and who received it
+    let payData = [];
+    async function drawPayments() {
+        const r = rangeUI('payments', drawPayments, 'week');
+        const body = $('payBody');
+        body.innerHTML = '<p class="la-muted">Loading…</p>';
+        try {
+            payData = (await api('GET', `/api/laundry/settlements?site=${site}&from=${r.from}&to=${r.to}`)).settlements;
+            const paid = payData.filter(p => p.action === 'paid'), undone = payData.filter(p => p.action === 'unpaid');
+            const sum = (a) => a.reduce((n, p) => n + p.total, 0);
+            body.innerHTML = `<div class="la-kpis">${kpi('💰', sar(sum(paid)), `received SAR · ${paid.length} payment${paid.length === 1 ? '' : 's'}`, 'big')}${kpi('🧾', paid.reduce((n, p) => n + p.count, 0), 'bills marked paid')}${undone.length ? kpi('↩', sar(sum(undone)), `undone SAR · ${undone.length}`, 'neg') : ''}</div>
+              <div class="la-card"><h3>💰 Payments log</h3>${payData.length ? `<div class="la-scroll"><table class="la-t"><thead><tr><th>#</th><th>Date</th><th>Time</th><th>Action</th><th>Marked by</th><th class="n">Bills</th><th class="n">Amount SAR</th><th>Receipts</th></tr></thead><tbody>
+                ${payData.map((p, i) => `<tr class="click" data-pay="${i}"><td class="mono">#${p.id}</td><td>${esc(fmtDay(p.day))}</td><td>${esc(jeddahTime(p.at))}</td>
+                  <td>${p.action === 'paid' ? '<span class="la-tag paid">Paid</span>' : '<span class="la-tag unpaid">↩ Unpaid again</span>'}</td><td>${esc(p.by_name)}</td><td class="n">${p.count}</td>
+                  <td class="n"><b class="${p.action === 'paid' ? '' : 'neg'}">${p.action === 'paid' ? '' : '−'}${sar(p.total)}</b></td>
+                  <td><small class="mono">${p.bills.slice(0, 3).map(b => esc(b.receipt_no)).join(', ')}${p.bills.length > 3 ? ` +${p.bills.length - 3} more` : ''}</small></td></tr>`).join('')}</tbody></table></div>`
+                : '<p class="la-muted">No payments in this period.</p>'}</div>`;
+        } catch (e) { body.innerHTML = errBox(e); }
+    }
+    // one payment: the bills it covered
+    $('payBody').addEventListener('click', (e) => {
+        const tr = e.target.closest('tr[data-pay]');
+        if (!tr) return;
+        const p = payData[Number(tr.dataset.pay)];
+        const dlg = document.createElement('dialog');
+        dlg.className = 'la-dlg wide';
+        dlg.innerHTML = `<div class="la-dlg-h"><h2>💰 Payment #${p.id} · ${p.action === 'paid' ? 'Paid' : 'Unpaid again'}</h2><button type="button" data-x aria-label="Close">✕</button></div>
+            <p>${esc(jeddahDate(p.at))} ${esc(jeddahTime(p.at))} · marked by <b>${esc(p.by_name)}</b> · ${p.count} bill${p.count === 1 ? '' : 's'} · <b>${sar(p.total)} SAR</b></p>
+            <table class="la-t"><thead><tr><th>Receipt</th><th>Bill date</th><th>Building · room</th><th>Worker</th><th class="n">Amount SAR</th></tr></thead><tbody>
+              ${p.bills.map(b => `<tr><td class="mono">${esc(b.receipt_no)}</td><td>${esc(fmtDay(b.day))}</td><td>${esc(b.room || '')}</td><td>${esc(b.worker || '')}</td><td class="n">${sar(b.amount)}</td></tr>`).join('')}
+              <tr><td colspan="4"><b>Total</b></td><td class="n"><b>${sar(p.total)}</b></td></tr></tbody></table>
+            <p class="la-muted">Bill numbers as they were when the payment was recorded.</p>`;
+        ctx.root.appendChild(dlg);
+        dlg.addEventListener('click', (ev) => { if (ev.target.closest('[data-x]')) dlg.close(); });
+        dlg.addEventListener('close', () => dlg.remove());
+        dlg.showModal();
+    });
 
     /* ----------------------------- reports ----------------------------- */
     let lastReport = null;
@@ -233,7 +273,7 @@ export default async function mount(ctx) {
               ${B.bills.map(b => `<tr data-bill="${b.id}" class="${b.settled_at ? 'paid' : 'unpaid'}${B.sel.has(b.id) ? ' sel' : ''}">
                 ${canPay ? `<td>${b.settled_at ? '' : `<input type="checkbox" data-sel="${b.id}" ${B.sel.has(b.id) ? 'checked' : ''} aria-label="Select ${esc(b.receipt_no)}">`}</td>` : ''}
                 <td>${esc(fmtDay(b.day))}</td><td>${esc(jeddahTime(b.given_at))}</td><td class="mono">${esc(b.receipt_no)}</td><td>${who(b)}</td><td class="n">${b.items}</td><td class="n"><b>${sar(b.paid)}</b></td><td>${esc(b.worker)}</td>
-                <td>${b.settled_at ? `<span class="la-tag paid">Paid</span> <small class="la-muted">${esc(jeddahDate(b.settled_at))}${b.settled_by ? ' · ' + esc(b.settled_by) : ''}</small>` : '<span class="la-tag unpaid">Unpaid</span>'}</td>
+                <td>${b.settled_at ? `<span class="la-tag paid">Paid</span> <small class="la-muted">${esc(jeddahDate(b.settled_at))}${b.settled_by ? ' · ' + esc(b.settled_by) : ''}${b.settlement_id ? ' · #' + b.settlement_id : ''}</small>` : '<span class="la-tag unpaid">Unpaid</span>'}</td>
                 ${canPay ? `<td>${b.settled_at ? `<button type="button" class="la-mini" data-unpay="${b.id}">↩ Unpaid</button>` : `<button type="button" class="la-mini ok" data-pay="${b.id}">✔ Paid</button>`}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
             : '<p class="la-muted">No cash bills in these dates.</p>'}`;
     }
@@ -289,6 +329,8 @@ export default async function mount(ctx) {
               ${b.kind === 'free' ? `<div class="la-staffline">${staffPhoto(b.staff_id, 'la-photo-sm')}<div><b>${esc(b.staff_name)}</b><small>Free staff laundry · value ${sar(b.value)} SAR · paid 0</small></div></div>` : ''}
               <dl class="la-dl">
                 <dt>Given</dt><dd>${esc(jeddahDate(b.given_at))} ${esc(jeddahTime(b.given_at))} · by ${esc(b.worker)}</dd>
+                ${b.kind === 'paid' ? `<dt>Cash</dt><dd>${b.settled_at ? `<span class="la-tag paid">Paid</span> ${esc(jeddahDate(b.settled_at))} ${esc(jeddahTime(b.settled_at))}${b.settled_by ? ' · marked by ' + esc(b.settled_by) : ''}${b.settlement_id ? ` · payment #${b.settlement_id}` : ''}` : '<span class="la-tag unpaid">Unpaid</span>'}</dd>` : ''}
+                ${b.old_receipt_no && b.old_receipt_no !== b.receipt_no ? `<dt>Earlier No.</dt><dd class="mono">${esc(b.old_receipt_no)} <small class="la-muted">(printed before the 4 Oct renumbering)</small></dd>` : ''}
                 ${b.customer?.group ? `<dt>Group</dt><dd>${esc(b.customer.group)}${b.customer.building ? ' · ' + esc(b.customer.building) : ''}</dd>` : ''}
                 ${b.customer?.contact ? `<dt>Contact</dt><dd>${esc(b.customer.contact)}</dd>` : ''}
                 ${b.approval_by ? `<dt>Approved by</dt><dd>${esc(b.approval_by)}</dd>` : ''}
