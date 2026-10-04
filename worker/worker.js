@@ -90,7 +90,7 @@ function sameHex(a, b) {
 
 // chat.html posts the request text here; the Worker sends it to the staff Telegram group with the
 // bot token kept as a Cloudflare secret, so the token never appears in the public site.
-const CHAT_TG_CHAT_ID = '-4754144977';
+const CHAT_TG_CHAT_ID = '-1003946914913'; // supergroup (the old group -4754144977 was upgraded)
 const CHAT_MAX_CHARS = 2000;
 
 async function chatNotify(req, env) {

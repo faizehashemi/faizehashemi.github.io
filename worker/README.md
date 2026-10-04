@@ -154,4 +154,4 @@ Set or change the token (either way):
 - dashboard: Worker `pms-api` → *Settings* → *Variables and Secrets* → **Add** → type **Secret**,
   name `CHAT_BOT_TOKEN`, paste the token → **Deploy**.
 
-The bot must be a member of the group (default `-4754144977`; override with a `CHAT_TG_CHAT_ID` variable).
+The bot must be a member of the group (default `-1003946914913`; override with a `CHAT_TG_CHAT_ID` variable).
