@@ -142,16 +142,3 @@ await api.addDesk('Admin', 'makkah', 'admin', 'admin-pass-1');
 h.routeFetch((await import('/pms/app/config.js')).API_URL);
 ```
 then log in on the page. The harness lives in memory: reloading the page resets it.
-
-## Guest chatbot → Telegram (`chat.html`)
-
-`POST /api/public/chat-notify` `{ text }` — no login, only from `ALLOWED_ORIGINS`. The Worker posts the text
-to the staff Telegram group. The bot token is a **secret** in Cloudflare and must never be put in the site's
-files (the site is public, which is how the previous token leaked).
-
-Set or change the token (either way):
-- wrangler, from this folder: `npx wrangler secret put CHAT_BOT_TOKEN_1` and paste the token when asked.
-- dashboard: Worker `pms-api` → *Settings* → *Variables and Secrets* → **Add** → type **Secret**,
-  name `CHAT_BOT_TOKEN_1`, paste the token → **Deploy**.
-
-The bot must be a member of the group (default `-1003946914913`; override with a `CHAT_TG_CHAT_ID` variable).
