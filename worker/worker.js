@@ -1,7 +1,7 @@
 // PMS cloud API — Cloudflare Worker + D1. Single file, no dependencies.
 //
 // Bindings:  DB (D1 database)   ALLOWED_ORIGINS (var, comma-separated, e.g. "https://faizehashemi.github.io")
-//            CHAT_BOT_TOKEN (secret) — Telegram bot token for the guest chatbot (chat.html); never put it in the site
+//            CHAT_BOT_TOKEN_1 (secret) — Telegram bot token for the guest chatbot (chat.html); never put it in the site
 //            CHAT_TG_CHAT_ID (optional var) — Telegram group the chatbot posts to
 //
 // Auth: each desk logs in (POST /api/login) and gets a bearer token (30 days, extended while in use).
@@ -97,13 +97,13 @@ async function chatNotify(req, env) {
     const origin = req.headers.get('Origin') || '';
     const allowed = String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
     if (!allowed.includes(origin) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) throw new HttpError(403, 'Origin not allowed');
-    if (!env.CHAT_BOT_TOKEN) throw new HttpError(503, 'Chat bot is not configured');
+    if (!env.CHAT_BOT_TOKEN_1) throw new HttpError(503, 'Chat bot is not configured');
     const b = await body(req);
     const text = typeof b.text === 'string' ? b.text.trim() : '';
     if (!text) throw new HttpError(400, 'text is required');
     if (text.length > CHAT_MAX_CHARS) throw new HttpError(400, 'text is too long');
 
-    const send = (extra) => fetch(`https://api.telegram.org/bot${env.CHAT_BOT_TOKEN}/sendMessage`, {
+    const send = (extra) => fetch(`https://api.telegram.org/bot${env.CHAT_BOT_TOKEN_1}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: env.CHAT_TG_CHAT_ID || CHAT_TG_CHAT_ID, text, ...extra }),

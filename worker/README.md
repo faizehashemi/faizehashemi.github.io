@@ -150,8 +150,8 @@ to the staff Telegram group. The bot token is a **secret** in Cloudflare and mus
 files (the site is public, which is how the previous token leaked).
 
 Set or change the token (either way):
-- wrangler, from this folder: `npx wrangler secret put CHAT_BOT_TOKEN` and paste the token when asked.
+- wrangler, from this folder: `npx wrangler secret put CHAT_BOT_TOKEN_1` and paste the token when asked.
 - dashboard: Worker `pms-api` → *Settings* → *Variables and Secrets* → **Add** → type **Secret**,
-  name `CHAT_BOT_TOKEN`, paste the token → **Deploy**.
+  name `CHAT_BOT_TOKEN_1`, paste the token → **Deploy**.
 
 The bot must be a member of the group (default `-1003946914913`; override with a `CHAT_TG_CHAT_ID` variable).
