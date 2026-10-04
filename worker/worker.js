@@ -787,7 +787,10 @@ async function deleteDesk(env, me, id) {
 // in bulk). Only an admin changes
 // prices, staff profiles, edits or voids bills (audited: before → after).
 
-const LAUNDRY_PREFIX = { makkah: 'MM-LD', medina: 'MD-LD' };
+// receipt numbers: <site>-<kind>-YYYYMMDD-NNN, a separate daily series per kind — cash MM-LD-…, staff only MM-ST-…,
+// building linen MM-BL-… (Medina MD-…). Renumbered once on 2026-10-04; each bill keeps its earlier number in old_receipt_no.
+const LAUNDRY_PREFIX = { makkah: 'MM', medina: 'MD' };
+const LAUNDRY_KIND_CODE = { paid: 'LD', free: 'ST', building: 'BL' };
 const MAX_IMAGE = 200 * 1024;     // item image / staff photo as a data: URL (the page shrinks them first)
 const LAUNDRY_DEFAULT_ITEMS = [   // first use of a site only; the admin edits them on the Prices tab
     ['Kurta', 300, '👔'], ['Saaya', 300, '🧥'], ['Pajama', 300, '👖'], ['Vest', 200, '🎽'], ['Brief', 100, '🩲'],
@@ -1041,7 +1044,8 @@ function rowToBill(r) {
         given_at: r.given_at, ready_at: r.ready_at, collected_at: r.collected_at, collected_by: r.collected_by_name,
         worker_id: r.worker_id, worker: r.worker_name, day: r.day, approval_by: r.approval_by, warnings: JSON.parse(r.warnings || '[]'),
         version: r.version, created_at: r.created_at, updated_at: r.updated_at, updated_by: r.updated_by_name,
-        settled_at: r.settled_at || null, settled_by: r.settled_by_name || null,
+        settled_at: r.settled_at || null, settled_by: r.settled_by_name || null, settlement_id: r.settlement_id || null,
+        old_receipt_no: r.old_receipt_no || null,
     };
 }
 
@@ -1076,10 +1080,10 @@ function prepareCustomer(c) {
     return { name: text(c.name, 80), room: text(c.room, 20), building: text(c.building, 40), contact: text(c.contact, 30), group: text(c.group, 80) };
 }
 
-async function nextReceipt(env, site, day) {
-    const key = `${site}|${day}`;
+async function nextReceipt(env, site, day, kind) {
+    const key = `${site}|${kind}|${day}`;
     const r = await env.DB.prepare('INSERT INTO laundry_counters (key, n) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET n = n + 1 RETURNING n').bind(key).first();
-    return `${LAUNDRY_PREFIX[site] || 'LD'}-${day.replace(/-/g, '')}-${String(r.n).padStart(3, '0')}`;
+    return `${LAUNDRY_PREFIX[site] || 'XX'}-${LAUNDRY_KIND_CODE[kind] || 'LD'}-${day.replace(/-/g, '')}-${String(r.n).padStart(3, '0')}`;
 }
 
 async function createLaundryBill(req, env, me) {
@@ -1121,7 +1125,7 @@ async function createLaundryBill(req, env, me) {
         received = b.received === '' || b.received == null ? value : halalas(b.received);
         if (!(received >= 0 && received <= 10000000)) throw new HttpError(400, 'Amount received is not a valid number.');
     }
-    const receipt = await nextReceipt(env, site, day);
+    const receipt = await nextReceipt(env, site, day, kind);
     const res = await env.DB.prepare(`INSERT OR IGNORE INTO laundry_bills (site, receipt_no, client_uid, kind, customer, staff_id, staff_name, lines, items, value,
             paid, method, received, status, voided, given_at, worker_id, worker_name, day, approval_by, warnings, version, created_at, updated_at, updated_by)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', 0, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`)
@@ -1249,14 +1253,30 @@ async function settleLaundryBills(req, env, me) {
     const todo = results.filter(r => paid ? !r.settled_at : !!r.settled_at);
     if (todo.length) {
         const t = now(), list = todo.map(r => r.id), m2 = list.map(() => '?').join(',');
+        const full = (await env.DB.prepare(`SELECT id, site, receipt_no, paid, day, worker_name, customer FROM laundry_bills WHERE id IN (${m2})`).bind(...list).all()).results;
+        const lines = full.map(r => { const c = JSON.parse(r.customer || '{}'); return { id: r.id, receipt_no: r.receipt_no, amount: r.paid, day: r.day, worker: r.worker_name, room: [c.building, c.room].filter(Boolean).join(' ') }; });
+        const site = full[0].site, total = full.reduce((n, r) => n + r.paid, 0);
         await env.DB.batch([
-            env.DB.prepare(`UPDATE laundry_bills SET settled_at = ?, settled_by = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id IN (${m2})`)
+            // the payment log: one row per "mark paid" / "mark unpaid", with the bills it covered
+            env.DB.prepare(`INSERT INTO laundry_settlements (site, day, at, by_id, by_name, action, bills, count, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+                .bind(site, jeddahDay(Date.parse(t)), t, me.id, me.name, paid ? 'paid' : 'unpaid', JSON.stringify(lines), lines.length, total),
+            env.DB.prepare(`UPDATE laundry_bills SET settled_at = ?, settled_by = ?, settlement_id = ${paid ? '(SELECT MAX(id) FROM laundry_settlements)' : 'NULL'}, version = version + 1, updated_at = ?, updated_by = ? WHERE id IN (${m2})`)
                 .bind(paid ? t : null, paid ? me.id : null, t, me.id, ...list),
             auditStmt(env, me, 'laundry-settle', null, `${paid ? 'Marked paid' : 'Marked unpaid'}: ${todo.length} bill${todo.length === 1 ? '' : 's'}, ${todo.reduce((n, r) => n + r.paid, 0) / 100} SAR — ${todo.map(r => r.receipt_no).join(', ')}`.slice(0, 1000)),
         ]);
     }
     const { results: rows } = await env.DB.prepare(`${BILL_SELECT} WHERE b.id IN (${marks})`).bind(...ids).all();
     return json({ bills: rows.map(rowToBill), changed: todo.length });
+}
+
+// The payment log (admin, viewer, desk): every "mark paid" / "mark unpaid" in a date range, newest first
+async function listSettlements(url, env, me) {
+    const site = laundrySite(me, url.searchParams.get('site'));
+    if (me.role === 'desk' && site !== me.site) throw new HttpError(403, `${me.name} works at ${SITES[me.site]}.`);
+    const from = url.searchParams.get('from') || jeddahDay(), to = url.searchParams.get('to') || from;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new HttpError(400, 'Dates must be YYYY-MM-DD.');
+    const { results } = await env.DB.prepare('SELECT * FROM laundry_settlements WHERE site = ? AND day >= ? AND day <= ? ORDER BY at DESC, id DESC LIMIT 2000').bind(site, from, to).all();
+    return json({ settlements: results.map(r => ({ ...r, bills: JSON.parse(r.bills || '[]') })) });
 }
 
 // Day close: the worker counts the cash; expected = their cash bills that day. Once per worker and day.
@@ -1303,6 +1323,7 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (p === '/api/laundry/bills' && m === 'POST') return createLaundryBill(req, env, me);
     if (p === '/api/laundry/search' && m === 'GET') return searchLaundry(url, env, me);
     if (p === '/api/laundry/settle' && m === 'POST') return settleLaundryBills(req, env, me);
+    if (p === '/api/laundry/settlements' && m === 'GET') return listSettlements(url, env, me);
     if (p === '/api/laundry/customers' && m === 'GET') return laundryCustomers(url, env, me);
     mm = p.match(/^\/api\/laundry\/bills\/(\d+)(?:\/(void))?$/);
     if (mm && !mm[2] && m === 'PUT') return editLaundryBill(req, env, me, Number(mm[1]));
