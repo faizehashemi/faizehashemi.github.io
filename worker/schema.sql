@@ -216,9 +216,10 @@ CREATE INDEX IF NOT EXISTS laundry_settlements_day ON laundry_settlements(site, 
 -- added 2026-10-03: ALTER TABLE laundry_staff ADD COLUMN category TEXT NOT NULL DEFAULT '';
 -- added 2026-10-04: ALTER TABLE laundry_bills ADD COLUMN settlement_id INTEGER; ALTER TABLE laundry_bills ADD COLUMN old_receipt_no TEXT;
 --   receipt counters are now keyed site|kind|day (worker/migrations/2026-10-04-receipt-series.sql renumbered the old bills)
+-- 2026-10-05: counters keyed site|kind (a running serial; worker/migrations/2026-10-05-receipt-continuous.sql)
 CREATE INDEX IF NOT EXISTS laundry_bills_day ON laundry_bills(site, day);
 CREATE INDEX IF NOT EXISTS laundry_bills_staff ON laundry_bills(staff_id, day);
-CREATE TABLE IF NOT EXISTS laundry_counters (key TEXT PRIMARY KEY, n INTEGER NOT NULL);   -- receipt numbers per site and day
+CREATE TABLE IF NOT EXISTS laundry_counters (key TEXT PRIMARY KEY, n INTEGER NOT NULL);   -- receipt serials, key site|kind
 CREATE TABLE IF NOT EXISTS laundry_closings (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     site          TEXT NOT NULL,

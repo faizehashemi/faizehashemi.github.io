@@ -821,8 +821,10 @@ async function deleteDesk(env, me, id) {
 // in bulk). Only an admin changes
 // prices, staff profiles, edits or voids bills (audited: before → after).
 
-// receipt numbers: <site>-<kind>-YYYYMMDD-NNN, a separate daily series per kind — cash MM-LD-…, staff only MM-ST-…,
-// building linen MM-BL-… (Medina MD-…). Renumbered once on 2026-10-04; each bill keeps its earlier number in old_receipt_no.
+// receipt numbers: <site>-<kind>-YYYYMMDD-NNN — a running serial per kind that never restarts by date (the date
+// is the bill's own day): cash MM-LD-…, staff only MM-ST-…, building linen MM-BL-… (Medina MD-…).
+// Renumbered on 2026-10-04 (series per kind) and 2026-10-05 (4–5 Oct continued from 3 Oct); old_receipt_no keeps
+// the number a bill had before it was first renumbered.
 const LAUNDRY_PREFIX = { makkah: 'MM', medina: 'MD' };
 const LAUNDRY_KIND_CODE = { paid: 'LD', free: 'ST', building: 'BL' };
 const MAX_IMAGE = 200 * 1024;     // item image / staff photo as a data: URL (the page shrinks them first)
@@ -1115,7 +1117,7 @@ function prepareCustomer(c) {
 }
 
 async function nextReceipt(env, site, day, kind) {
-    const key = `${site}|${kind}|${day}`;
+    const key = `${site}|${kind}`;                       // one running serial per site and kind
     const r = await env.DB.prepare('INSERT INTO laundry_counters (key, n) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET n = n + 1 RETURNING n').bind(key).first();
     return `${LAUNDRY_PREFIX[site] || 'XX'}-${LAUNDRY_KIND_CODE[kind] || 'LD'}-${day.replace(/-/g, '')}-${String(r.n).padStart(3, '0')}`;
 }
