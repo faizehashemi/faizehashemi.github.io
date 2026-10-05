@@ -130,6 +130,44 @@ export default async function mount(ctx) {
     });
     await renderFe();
 
+    /* ------------------------------- SH prefixes ------------------------------- */
+    let shp = [];
+    function drawShp() {
+        $('shpChips').innerHTML = shp.length
+            ? shp.map((p, i) => `<span class="shp-chip"><b>${esc(p)}</b><small>${esc(p)}44030</small>${isAdmin ? `<button type="button" data-shpdel="${i}" aria-label="Remove ${esc(p)}">✕</button>` : ''}</span>`).join('')
+            : '<span class="muted small">No prefixes — only plain numbers are accepted.</span>';
+        for (const id of ['shpNew', 'shpAdd', 'shpSave']) $(id).hidden = !isAdmin;
+    }
+    async function renderShp() {
+        const s = await ctx.guard(loadSettings());
+        shp = [...(s.settings.sh_prefixes || DEFAULTS.sh_prefixes)];
+        drawShp();
+        if (!isAdmin) $('shpMsg').textContent = 'Only an admin can change these.';
+    }
+    function addShp() {
+        const p = $('shpNew').value.trim().toUpperCase();
+        if (!/^[A-Z]{1,4}$/.test(p)) { $('shpMsg').textContent = 'A prefix is 1–4 letters (A–Z).'; return; }
+        if (shp.includes(p)) { $('shpMsg').textContent = `${p} is already there.`; return; }
+        if (shp.length >= 20) { $('shpMsg').textContent = 'Up to 20 prefixes.'; return; }
+        shp.push(p); $('shpNew').value = ''; drawShp();
+        $('shpMsg').textContent = 'Press Save prefixes to keep it.';
+    }
+    $('shpAdd').addEventListener('click', addShp);
+    $('shpNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addShp(); } });
+    $('shpChips').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-shpdel]');
+        if (!b) return;
+        shp.splice(Number(b.dataset.shpdel), 1); drawShp();
+        $('shpMsg').textContent = 'Press Save prefixes to keep the change.';
+    });
+    $('shpSave').addEventListener('click', async () => {
+        $('shpSave').disabled = true;
+        try { await ctx.guard(saveSettings({ sh_prefixes: shp })); await renderShp(); $('shpMsg').textContent = 'Saved — the Slip page accepts these on every desk.'; }
+        catch (err) { $('shpMsg').textContent = err.status === 400 ? err.message : (err.message || String(err)); }
+        finally { $('shpSave').disabled = false; }
+    });
+    await renderShp();
+
     /* ----------------------------- GL copy colours ----------------------------- */
     // one row per building in Rooms & Buildings (both cities), plus any colour saved for a name not there
     let glc = {};

@@ -107,6 +107,12 @@ h4 { margin: 16px 0 8px; color: #7a5b13 }
 .kg-row input { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; background: #fff; }
 .kg-row button { padding: 6px 10px; }
 .fe-rows { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 4px; }
+.shp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.shp-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border: 1px solid var(--edge); border-radius: 999px; background: #fff; }
+.shp-chip b { font-size: 15px; }
+.shp-chip small { color: var(--muted); font-family: ui-monospace, Consolas, monospace; }
+.shp-chip button { padding: 2px 8px; border-radius: 999px; }
+#shpNew { width: 90px; padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; text-transform: uppercase; background: #fff; }
 .glc-rows { display: grid; gap: 6px; margin-bottom: 4px; }
 .glc-row { display: grid; grid-template-columns: minmax(120px, 200px) 52px 96px minmax(0, 1fr); gap: 8px; align-items: center; }
 .glc-name { font-weight: 700; }

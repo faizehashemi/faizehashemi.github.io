@@ -22,6 +22,8 @@ export const DEFAULTS = {
     // Home → Fakkul Ehraam counts (Setup → Fakkul Ehraam windows): Morning = check-ins from morning_from the day
     // before to split today; Night = split to night_to today
     fe_windows: { morning_from: '20:00', split: '07:00', night_to: '20:00' },
+    // SH number prefixes the Slip page accepts (Setup → SH prefixes): S44030, E44030, ES44030 …
+    sh_prefixes: ['S', 'E', 'ES'],
     // GL copy ink per building (Setup → GL copy colours); a building not listed prints black
     gl_colors: { MOHAMMEDI: '#e8590c', MUFADDAL: '#7b2cbf', SNOOD: '#66bb6a', BAHA: '#808080', HUSN: '#8b5a2b' },
     // /<site>/signage (Setup → Signage window): from 'now' or 'HH:MM' today, until to_day (0 today, 1 tomorrow, 2) at to_time
@@ -75,4 +77,11 @@ export function shiftTime(date, time, hours) {
     const [hh, mm] = String(time || '00:00').split(':').map(Number);
     const t = new Date(Date.UTC(y, m - 1, d, hh || 0, mm || 0) + Math.round(hours * 60) * 60000);
     return { date: t.toISOString().slice(0, 10), time: t.toISOString().slice(11, 16) };
+}
+
+/** A pattern for a valid SH No.: digits, optionally after one of the prefixes (longest first, so ES wins over E). */
+export function shPattern(prefixes = DEFAULTS.sh_prefixes) {
+    const list = [...new Set((prefixes || []).map(p => String(p).trim().toUpperCase()).filter(p => /^[A-Z]{1,4}$/.test(p)))]
+        .sort((a, b) => b.length - a.length);
+    return new RegExp(`^(?:${list.length ? `(?:${list.join('|')})` : ''})?\\d+$`, 'i');
 }

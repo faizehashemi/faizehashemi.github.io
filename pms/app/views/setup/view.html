@@ -56,6 +56,18 @@
         </div>
     </section>
 
+    <section class="card" id="shpCard">
+        <h3>SH prefixes <span class="muted small">— letters allowed before an SH number on the Slip page, every desk</span></h3>
+        <p class="muted small">An SH No. is digits, or digits after one of these (S44030 is a group's second check-in here). 1–4 letters each.</p>
+        <div class="shp-chips" id="shpChips"></div>
+        <div class="actions">
+            <input id="shpNew" maxlength="4" placeholder="e.g. ES" aria-label="New prefix" autocomplete="off" spellcheck="false">
+            <button type="button" id="shpAdd">➕ Add prefix</button>
+            <button type="button" class="primary" id="shpSave">Save prefixes</button>
+            <span class="muted small" id="shpMsg"></span>
+        </div>
+    </section>
+
     <section class="card" id="glcCard">
         <h3>GL copy colours <span class="muted small">— the ink of the GL copy per building, every desk</span></h3>
         <p class="muted small">Used by <b>GL copy</b> on the Print slips page and on Check-ins. A building without a colour prints black.</p>

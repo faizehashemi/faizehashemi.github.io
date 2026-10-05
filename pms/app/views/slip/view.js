@@ -6,13 +6,16 @@ import { loadBuildings, buildingNames, builderCapacity } from '../../core/rooms.
 import { baseSh } from '../../core/ums.js';
 import { openRoomPicker } from './room-picker.js';
 import { getPrefs } from '../../core/prefs.js';
+import { loadSettings, DEFAULTS, shPattern } from '../../core/settings.js';
 
-// SH numbers: 44030, or S44030 for a group's second check-in at this site
-const SH_RE = /^S?\d+$/i;
+// SH numbers: 44030, or with a prefix from Setup → SH prefixes (S44030 a group's second check-in at this site, E…, ES…)
+let SH_PREFIXES = DEFAULTS.sh_prefixes;
+let SH_RE = shPattern(SH_PREFIXES);
 const shValue = (v) => { const s = String(v ?? '').trim().toUpperCase(); return s === '' ? '' : /^\d+$/.test(s) ? Number(s) : s; };
 
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
+    try { SH_PREFIXES = (await ctx.guard(loadSettings())).settings.sh_prefixes || SH_PREFIXES; SH_RE = shPattern(SH_PREFIXES); } catch { }
 
     /* ------------------------------ Data ------------------------------ */
     const addRecord = (data) => db.add(data);
@@ -555,7 +558,7 @@ export default async function mount(ctx) {
 
     async function fetchBySh() {
         const raw = $('sh_no').value.trim();
-        if (!SH_RE.test(raw)) { alert('Enter a valid SH No. (e.g. 44030, or S44030 for a second check-in).'); return; }
+        if (!SH_RE.test(raw)) { alert(`Enter a valid SH No.: digits (e.g. 44030)${SH_PREFIXES.length ? `, optionally after ${SH_PREFIXES.join(', ')} (e.g. ${SH_PREFIXES[0]}44030)` : ''}.`); return; }
         const rec = await pickStayFor(raw);
         if (!rec) { $('status').textContent = 'No slip found for that SH.'; return; }
         setCurrent(rec.id);

@@ -165,6 +165,10 @@ for the site if the browser blocks it. There is also **GL copy**, a window with 
 as an A5 card in its building colour: snip it, or *Copy picture* (PNG on the clipboard, paste into the group
 leader's chat) or *Save JPEG*. The slip layout is shared with the Print slips page: `app/core/slip-print.js`.
 
+**SH prefixes** (Setup → SH prefixes, admin): the letters the Slip page accepts before an SH number — default
+**S, E, ES** (S44030 is a group's second check-in here). Stored on the server as `sh_prefixes`; add or remove them
+as chips (1–4 letters each). `shPattern()` in `app/core/settings.js` builds the check.
+
 **GL copy colours** (Setup → GL copy colours, admin): the ink of the GL copy per building — on the Print slips page's
 *GL copy* and on Check-ins → *GL copy*. One row per building in Rooms & Buildings with a colour picker and hex box;
 stored on the server as `gl_colors` (`{ "MOHAMMEDI": "#e8590c", … }`). Defaults: Mohammedi orange, Mufaddal purple,

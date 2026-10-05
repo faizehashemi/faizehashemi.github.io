@@ -471,6 +471,11 @@ const SETTINGS = {
             && ['morning_from', 'split', 'night_to'].every(k => HHMM(v[k])) && v.split < v.night_to,
         msg: 'Fakkul Ehraam windows: three times HH:MM, and Night must end after it starts.',
     },
+    // SH number prefixes the Slip page accepts before the digits, e.g. ["S", "E", "ES"] (S44030, E44030, ES44030)
+    sh_prefixes: {
+        check: (v) => Array.isArray(v) && v.length <= 20 && v.every(p => typeof p === 'string' && /^[A-Z]{1,4}$/.test(p)) && new Set(v).size === v.length,
+        msg: 'SH prefixes: up to 20, each 1–4 capital letters, no repeats.',
+    },
     // GL copy ink per building (Print slips page and Check-ins → GL copy): { "MOHAMMEDI": "#e8590c", … }
     gl_colors: {
         check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= 100
