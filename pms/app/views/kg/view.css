@@ -34,7 +34,6 @@ body { background: var(--kg-bg) url("../../../assets/pattern_gold_2x.png") repea
     border: 1px solid rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .95); color: var(--kg-ink); min-width: 0; }
 .kg-session select { width: 240px; }
 .kg-session #sessionDate { width: 160px; }
-.kg-session #busDefault { width: 76px; text-align: center; font-weight: 800; }
 
 /* ---------- layout ---------- */
 .kg-main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 14px; align-items: start; }

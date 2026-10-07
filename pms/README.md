@@ -202,8 +202,8 @@ locked** (it would make a duplicate) and **Edit** is highlighted; *Save a copy i
 
 The page (redesigned 2026-10-07): each name is numbered in the order shown. **Order** — Random by default (shuffled
 once per visit; *Shuffle* re-deals), A–Z, last activity, most / least active, or fewest FE1 / FE2 / Atraaf first; ticks
-stay when the order changes. **Atraaf bus**: each Atraaf tick gets the bus number set at the top, shown in a box beside
-the tick that can be changed per person; the message shows it ("2. Name — Bus 3"). The bus is only in the message,
+stay when the order changes. **Atraaf bus**: each Atraaf tick gets the next bus number (highest given so far + 1), shown in a
+box beside the tick that can be changed per person; the message shows it ("2. Name — Bus 3"). The bus is only in the message,
 not saved in the history. The message numbers names under each floor. The side panel has tabs: Message, FE1 helper,
 Stats (today's counts, chart, Excel/JSON, reset) and History.
 

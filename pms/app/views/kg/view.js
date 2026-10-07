@@ -4,7 +4,7 @@
 // until saved.
 //   Order: random by default (shuffled once per visit, new names land anywhere); A–Z, last activity, most /
 //   least active, or fewest FE1 / FE2 / Atraaf first.
-//   Atraaf: each tick gets the "Atraaf bus" number from the top (editable per row); the message shows it.
+//   Atraaf: each new tick gets the next bus number (highest given so far + 1), editable per row; the message shows it.
 import { request, canWrite, UserError } from '../../core/cloud.js';
 import { loadSettings, DEFAULTS, to12h } from '../../core/settings.js';
 
@@ -77,6 +77,8 @@ export default async function mount(ctx) {
 
     /* ---------------------------------- people list ---------------------------------- */
     const tick = (name) => { let t = transient.get(name); if (!t) { t = { type: new Set(), location: '', bus: '' }; transient.set(name, t); } return t; };
+    // the next Atraaf bus: one more than the highest number given so far (1 for the first)
+    const nextBus = () => String(1 + Math.max(0, ...[...transient.values()].filter(t => t.type.has('Atraaf')).map(t => parseInt(t.bus, 10)).filter(Number.isFinite)));
     const isTicked = (name) => (transient.get(name)?.type.size || 0) > 0;
 
     function renderPeople() {
@@ -118,7 +120,7 @@ export default async function mount(ctx) {
             if (e.target.checked) t.type.add(k); else t.type.delete(k);
             if (k === 'Atraaf') {
                 const bus = row.querySelector('[data-bus]');
-                if (e.target.checked && !t.bus) { t.bus = $('#busDefault').value.trim(); bus.value = t.bus; }
+                if (e.target.checked && !t.bus) { t.bus = nextBus(); bus.value = t.bus; }
                 bus.hidden = !e.target.checked;
             }
             row.classList.toggle('on', t.type.size > 0);
