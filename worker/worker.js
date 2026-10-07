@@ -158,6 +158,11 @@ async function route(req, env) {
     mm = p.match(/^\/api\/kg\/log\/(\d+)$/);
     if (mm && m === 'DELETE') return deleteKgLog(url, env, me, Number(mm[1]));
 
+    if (p === '/api/alloc-log' && m === 'GET') return getAllocLog(env, String(url.searchParams.get('site') || me.site));
+    if (p === '/api/alloc-log' && m === 'POST') return addAllocLog(req, env, me);
+    mm = p.match(/^\/api\/alloc-log\/(\d+)\/undo$/);
+    if (mm && m === 'POST') return undoAllocLog(req, env, me, Number(mm[1]));
+
 
     if (p === '/api/transport' && m === 'GET') return getTransport(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
     if (p === '/api/transport/types' && m === 'GET') return transportTypes(env, transportSite(url.searchParams.get('site'), me));
@@ -780,6 +785,53 @@ async function addKgLog(req, env, me) {
     const out = await getKg(env, site);
     const data = await out.json();
     return json({ ...data, added });
+}
+
+/* ------------------------- bulk allocation log (Forecast) ------------------------- */
+
+// Every "Write building" / "Apply allocations" on the Forecast page: which slips changed, with their building and
+// rooms before and after, so a desk can see it and undo it. The undo itself is done by the page through the normal
+// slip writes (version-checked); here it is only marked as undone.
+const ALLOC_KINDS = ['planner', 'allocate-day'];
+async function getAllocLog(env, site) {
+    if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+    const { results } = await env.DB.prepare(
+        `SELECT l.id, l.kind, l.note, l.count, l.changes, l.created_at, l.undone_at, l.undo_note,
+                COALESCE(d.name, x.name || ' (deleted)') AS by_name, COALESCE(u.name, y.name || ' (deleted)') AS undone_by_name
+         FROM alloc_log l LEFT JOIN desks d ON d.id = l.created_by LEFT JOIN deleted_desks x ON x.id = l.created_by
+         LEFT JOIN desks u ON u.id = l.undone_by LEFT JOIN deleted_desks y ON y.id = l.undone_by
+         WHERE l.site = ? ORDER BY l.id DESC LIMIT 40`
+    ).bind(site).all();
+    return json({ log: results.map(r => ({ ...r, changes: JSON.parse(r.changes) })) });
+}
+async function addAllocLog(req, env, me) {
+    const { site, kind, note = '', changes } = await body(req);
+    assertWrite(me, site);
+    if (!ALLOC_KINDS.includes(kind)) throw new HttpError(400, 'Unknown kind.');
+    if (!Array.isArray(changes) || !changes.length || changes.length > 1000) throw new HttpError(400, '1–1000 changes.');
+    const clean = changes.map(c => ({ id: Number(c && c.id), sh: cleanSlip(String(c && c.sh || '')), before: cleanSlip(c && c.before || {}), after: cleanSlip(c && c.after || {}) }));
+    if (clean.some(c => !Number.isInteger(c.id) || c.id <= 0)) throw new HttpError(400, 'Each change needs a slip id.');
+    const text = JSON.stringify(clean);
+    if (text.length > 900000) throw new HttpError(413, 'Too large.');
+    await env.DB.batch([
+        env.DB.prepare('INSERT INTO alloc_log (site, kind, note, count, changes, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .bind(site, kind, String(note).replace(/[<>]/g, '').slice(0, 200), clean.length, text, now(), me.id),
+        auditStmt(env, me, 'alloc-apply', null, `${site} ${kind}: ${clean.length} slip(s)`),
+    ]);
+    return getAllocLog(env, site);
+}
+async function undoAllocLog(req, env, me, id) {
+    const row = await env.DB.prepare('SELECT site, kind, count, undone_at FROM alloc_log WHERE id = ?').bind(id).first();
+    if (!row) throw new HttpError(404, 'That log entry is gone.');
+    assertWrite(me, row.site);
+    if (row.undone_at) throw new HttpError(409, 'This was undone already.');
+    const { note = '' } = await body(req);
+    await env.DB.batch([
+        env.DB.prepare('UPDATE alloc_log SET undone_at = ?, undone_by = ?, undo_note = ? WHERE id = ? AND undone_at IS NULL')
+            .bind(now(), me.id, String(note).replace(/[<>]/g, '').slice(0, 300), id),
+        auditStmt(env, me, 'alloc-undo', null, `${row.site} ${row.kind} #${id}: ${String(note).slice(0, 120)}`),
+    ]);
+    return getAllocLog(env, row.site);
 }
 
 async function deleteKgLog(url, env, me, id) {

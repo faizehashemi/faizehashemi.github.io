@@ -287,3 +287,20 @@ CREATE TABLE IF NOT EXISTS signage_templates (
     updated_by  INTEGER
 );
 CREATE INDEX IF NOT EXISTS signage_templates_site ON signage_templates(site);
+
+-- Forecast page: each bulk "Write building" / "Apply allocations", with every slip's building and rooms before and
+-- after, so it can be shown and undone (the undo restores the slips that were not changed since).
+CREATE TABLE IF NOT EXISTS alloc_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    site        TEXT NOT NULL CHECK (site IN ('makkah', 'medina')),
+    kind        TEXT NOT NULL,              -- planner | allocate-day
+    note        TEXT NOT NULL DEFAULT '',
+    count       INTEGER NOT NULL,
+    changes     TEXT NOT NULL,              -- JSON [{ id, sh, before: { building, rooms }, after: { building, rooms } }]
+    created_at  TEXT NOT NULL,
+    created_by  INTEGER,
+    undone_at   TEXT,
+    undone_by   INTEGER,
+    undo_note   TEXT
+);
+CREATE INDEX IF NOT EXISTS alloc_log_site ON alloc_log(site, id);

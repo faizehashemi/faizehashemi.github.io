@@ -2,6 +2,9 @@
 // Rooms and bed counts come from Rooms & Buildings when it has the building (else from slip history).
 
 import { loadBuildings, buildingsOfSite, buildingNames, builderCapacity, activeRooms } from '../../core/rooms.js';
+import { mountPlanner } from './planner.js';
+import { mountAllocator } from './allocate.js';
+import { mountAllocLog } from './alloclog.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -177,6 +180,9 @@ let BUILDINGS = [];
             $('btnRun').addEventListener('click', runForecast);
             $('btnPrint').addEventListener('click', () => window.print());
 
+            const planner = mountPlanner({ ctx, host: $('planner') });
+            mountAllocator({ ctx, host: $('allocator'), planner });
+            mountAllocLog({ ctx, host: $('alloclog') });
             refreshDB().then(runForecast).catch(err => { console.error(err); $('status').textContent = 'Could not read local DB. Open the slip page first in this browser and save at least one slip.'; });
         })();
 

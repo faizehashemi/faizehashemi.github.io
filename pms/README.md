@@ -156,6 +156,27 @@ Mumineen Calendar project's (github.com/mygulamali/mumineen_calendar_js, MIT lic
 `app/data/miqaats.json` with its licence in `app/data/miqaats.LICENSE.txt`; refresh that file from the project
 to pick up new entries.
 
+## Forecast: building planner, day allocation, bulk log
+
+Three sections above the vacancy forecast (`app/views/forecast/planner.js`, `allocate.js`, `alloclog.js`):
+
+- **Building planner** — put the site's buildings in the order they should fill (drag or ▲▼, untick to leave one out,
+  optional *target %* of its beds; kept per browser). *Suggest buildings* reads every slip: slips with a building are
+  fixed, groups without one whose stay overlaps the next 7/14/30/60 days are placed. About 250 placement orders are
+  tried (arrival, biggest first, longest stay first, most bed-nights, shortest, departure, and random mixes); each puts a
+  group into the most wanted building with room for its whole stay (bed use checked at every change of occupancy,
+  groups never split, beds = gents + ladies + children). The best are improved (move groups up; make room for an
+  unplaced group by moving one out) and the three best plans are shown: per building average / peak %, a daily heat map,
+  and a building per group with the reason ("MOHAMMEDI full 12 Oct"). *Write building on ticked slips* sets only the
+  building.
+- **Allocate rooms for a day's check-ins** — every group checking in on the date without rooms gets a building (its own,
+  else the plan's suggestion, else the most wanted with room) and rooms like *Fill automatically* (whole-stay free beds,
+  room types, empty rooms first, never gents and ladies of different groups in one room; biggest groups first). A summary
+  shows groups, beds and rooms per building and any shortfall; *Apply* writes building + rooms on the ticked slips.
+- **Bulk changes** — every apply above, for every desk (table `alloc_log`, `GET/POST /api/alloc-log`,
+  `POST /api/alloc-log/:id/undo`), with each slip's building and rooms before and after. **Undo** restores the slips
+  that still look exactly as the apply left them; slips changed since are left alone and listed.
+
 ## Check-ins: Print slips and GL copy
 
 Each table (Check-ins, Check-outs) has **Print slips** — every slip in that table, printed like the Print
