@@ -1,134 +1,128 @@
-<header>
-        <h1>Fakkul Ehraam & Atraaf — Assignment Console</h1>
-        <div class="row" style="align-items:center">
-            <label for="sessionTitle" class="sr-only">Session</label>
-            <select id="sessionTitle" class="select" style="width:210px">
+<div class="kg">
+    <header class="kg-head">
+        <div class="kg-title">
+            <h1>Fakkul Ehraam &amp; Atraaf</h1>
+            <p>Tick who goes, pick a floor, copy the message. Saving logs it for the counts.</p>
+        </div>
+        <div class="kg-session">
+            <label>Event
                 <!-- filled from Setup → KG event times -->
-            </select>
-            <input id="sessionDate" class="select" type="date" style="width:210px" />
-            <button class="copy" id="btnCopy">Copy to clipboard</button>
-            <button id="btnExportExcel">Export Excel (.xls)</button>
-
+                <select id="sessionTitle"></select>
+            </label>
+            <label>Date<input id="sessionDate" type="date"></label>
+            <label title="Bus number given to each new Atraaf tick; change any row's box afterwards">Atraaf bus
+                <input id="busDefault" type="text" maxlength="6" value="1" autocomplete="off">
+            </label>
         </div>
     </header>
 
-    <main class="row" style="padding:0 12px 18px">
-        <section class="card shadow" style="flex:1; min-width:640px">
-            <div class="sticky-actions">
-                <div class="row" style="justify-content:space-between; align-items:center">
-                    <div>
-                        <strong>People</strong>
-                        <span class="small">Tick FE1/FE2/Atraaf. Pick a location for grouping. FE1 balancing helper is on the right.</span>
-                    </div>
-                    <div class="row" style="align-items:center; gap:8px">
-                        <div class="row" style="gap:6px">
-                            <input id="newPersonName" placeholder="Add person e.g. M Taha Kamlapur" type="text" style="width:260px" />
-                            <button id="btnAddPerson">Add</button>
-                        </div>
-                        <div class="actions">
-                            <button id="btnSave">Save assignment</button>
-                            <button id="btnClearChecks" title="Uncheck everything">Clear ticks</button>
-                        </div>
-                    </div>
+    <main class="kg-main">
+        <section class="kg-card kg-people">
+            <div class="kg-toolbar">
+                <div class="kg-tools-left">
+                    <label class="kg-sort">Order
+                        <select id="sortBy">
+                            <option value="random">Random</option>
+                            <option value="az">A – Z</option>
+                            <option value="last">Last activity</option>
+                            <option value="most">Most active</option>
+                            <option value="least">Least active</option>
+                            <option value="FE1">Fakkul Ehraam 1 (fewest first)</option>
+                            <option value="FE2">Fakkul Ehraam 2 (fewest first)</option>
+                            <option value="Atraaf">Atraaf (fewest first)</option>
+                        </select>
+                    </label>
+                    <button type="button" id="btnShuffle" class="kg-btn ghost" title="A new random order">🔀 Shuffle</button>
+                    <input id="findName" type="search" placeholder="Find name…" aria-label="Find name" autocomplete="off">
+                </div>
+                <div class="kg-tools-right">
+                    <span class="kg-count" id="tickCount">0 ticked</span>
+                    <button type="button" id="btnClearChecks" class="kg-btn ghost" title="Untick everything">Clear ticks</button>
+                    <button type="button" id="btnSave" class="kg-btn primary">Save assignment</button>
                 </div>
             </div>
-            <div class="divider"></div>
 
-            <div class="people" id="peopleList"></div>
-            <div class="hint" style="margin-top:10px">
-                Saving logs the current date/time automatically. Stats, charts and history update instantly. Clipboard hides FE1/FE2 by design.
+            <div class="kg-colhead" aria-hidden="true">
+                <span>#</span><span>Name</span><span>FE1</span><span>FE2</span><span>Atraaf · bus</span><span>Location</span><span></span>
+            </div>
+            <div class="kg-list" id="peopleList"></div>
+
+            <div class="kg-add">
+                <input id="newPersonName" placeholder="Add a person, e.g. M Taha Kamlapur" type="text" autocomplete="off">
+                <button type="button" id="btnAddPerson" class="kg-btn">➕ Add</button>
             </div>
         </section>
 
-        <aside class="grid" style="width:560px; min-width:440px">
-            <!-- ICONS -->
-            <div class="iconbar hidden">
-                <button id="toggleDash" class="iconbtn" title="Show dashboard">📊</button>
-                <button id="toggleHistory" class="iconbtn" title="Show assignment history">🕘</button>
-            </div>
+        <aside class="kg-side">
+            <nav class="kg-tabs" role="tablist">
+                <button type="button" role="tab" data-tab="msg" aria-selected="true">✉️ Message</button>
+                <button type="button" role="tab" data-tab="fe1" aria-selected="false">⚖️ FE1 helper</button>
+                <button type="button" role="tab" data-tab="stats" aria-selected="false">📊 Stats</button>
+                <button type="button" role="tab" data-tab="hist" aria-selected="false">🕘 History</button>
+            </nav>
 
-            <!-- RIGHT COLUMN -->
-            <aside class="right-rail force-fixed">
-                <!-- Session preview (clipboard output) -->
-                <div class="card shadow">
-                    <p class="panel-title">Session preview (clipboard output)</p>
-                    <div id="preview" class="mono small notice"
-                         contenteditable="true"
-                         style="white-space:pre; background:#ffffff; border:1px solid var(--edge2); border-radius:10px; padding:8px; min-height:120px"></div>
-
+            <section class="kg-card kg-pane" data-pane="msg">
+                <div class="kg-pane-head">
+                    <h2>Message</h2>
+                    <button type="button" class="kg-btn primary" id="btnCopy">📋 Copy</button>
                 </div>
+                <div id="preview" class="kg-preview" contenteditable="true" spellcheck="false"></div>
+                <p class="kg-note">Names are numbered under each floor; Atraaf names carry their bus. FE1 / FE2 are not shown in the message. You can edit the text before copying.</p>
+            </section>
 
-                <!-- FE1 balance helper with BOOKMARK ROTA -->
-                <div class="card shadow">
-                    <p class="panel-title">FE1 balance helper</p>
-
-                    <div class="row" style="align-items:center">
-                        <button id="btnRecommendFE1">Recommend lowest FE1</button>
-                        <input id="recCount" type="number" min="1" step="1" value="3" class="select" style="width:90px" />
-                        <span class="small">ticks FE1 for N most under-served people (ties by least recent FE1)</span>
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <div class="row" style="align-items:center">
-                        <select id="feBookmark" class="select" style="width:220px"></select>
-                        <button id="btnSetBookmark">Set bookmark</button>
-                        <span id="bookmarkDisplay" class="small" style="margin-left:6px">Bookmark: —</span>
-                    </div>
-                    <div class="row" style="align-items:center; margin-top:8px">
-                        <button id="btnNextFromBookmark">Next N from bookmark</button>
-                        <input id="recCount2" type="number" min="1" step="1" value="3" class="select" style="width:90px" />
-                        <span class="small">assigns FE1 to next N names after the bookmark (rotates & updates bookmark)</span>
-                    </div>
-
-                    <div class="chips" id="fe1Leaderboard" style="margin-top:8px"></div>
-                </div>
-
-                <!-- DASHBOARD (hidden by default) -->
-                <div class="card shadow">
-                    <p class="panel-title">Dashboard</p>
-                    <div class="kpi">
-                        <div class="card"><div class="small">FE1 today</div><h3 id="kpiFE1Today">0</h3></div>
-                        <div class="card"><div class="small">FE2 today</div><h3 id="kpiFE2Today">0</h3></div>
-                        <div class="card"><div class="small">Atraaf today</div><h3 id="kpiATToday">0</h3></div>
-                        <div class="card"><div class="small">Total logged</div><h3 id="kpiTotal">0</h3></div>
-                    </div>
-                    <div class="divider"></div>
-                    <canvas id="histPeople" height="260"></canvas>
-                    <div class="small" style="margin-top:6px">Histogram: per-person counts for FE1, FE2, Atraaf.</div>
-                </div>
-
-                <!-- HISTORY + DATA (hidden by default) -->
-                <div class="card shadow">
-                    <div>
-                        <p class="panel-title">Assignment history</p>
-                        <div class="log">
-                            <table id="logTable">
-                                <thead>
-                                    <tr>
-                                        <th>Date/Time</th>
-                                        <th>Type</th>
-                                        <th>Person</th>
-                                        <th>Location</th>
-                                        <th style="width:64px; text-align:center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div>
-                        <p class="panel-title">Data</p>
-                        <div class="row" style="gap:8px; flex-wrap:wrap">
-                            <button id="btnExport">Export JSON</button>
-                            <button id="btnImport">Import JSON</button>
-                            <button id="btnReset" style="border-color:var(--bad); color:#ffdada">Reset all</button>
-                        </div>
-                        <p class="small muted" style="margin-top:10px">Export/Import only affects history; people list persists separately.</p>
+            <section class="kg-card kg-pane" data-pane="fe1" hidden>
+                <h2>FE1 balance helper</h2>
+                <div class="kg-block">
+                    <p class="kg-note">Tick FE1 for the people with the fewest FE1 (ties: longest since their last FE1).</p>
+                    <div class="kg-inline">
+                        <input id="recCount" type="number" min="1" step="1" value="3" aria-label="How many">
+                        <button type="button" id="btnRecommendFE1" class="kg-btn">Tick lowest FE1</button>
                     </div>
                 </div>
-            </aside>
+                <div class="kg-block">
+                    <p class="kg-note">Or go round the list: tick the next N after the bookmark, then move the bookmark on.</p>
+                    <div class="kg-inline">
+                        <select id="feBookmark" aria-label="Bookmark"></select>
+                        <button type="button" id="btnSetBookmark" class="kg-btn ghost">Set bookmark</button>
+                    </div>
+                    <div class="kg-inline">
+                        <input id="recCount2" type="number" min="1" step="1" value="3" aria-label="How many">
+                        <button type="button" id="btnNextFromBookmark" class="kg-btn">Tick next N</button>
+                        <span id="bookmarkDisplay" class="kg-note">Bookmark: —</span>
+                    </div>
+                </div>
+                <h3>FE1 so far <span class="kg-note">fewest first</span></h3>
+                <ol class="kg-board" id="fe1Leaderboard"></ol>
+            </section>
 
+            <section class="kg-card kg-pane" data-pane="stats" hidden>
+                <h2>Today</h2>
+                <div class="kg-kpis">
+                    <div><b id="kpiFE1Today">0</b><span>FE1</span></div>
+                    <div><b id="kpiFE2Today">0</b><span>FE2</span></div>
+                    <div><b id="kpiATToday">0</b><span>Atraaf</span></div>
+                    <div><b id="kpiTotal">0</b><span>All time</span></div>
+                </div>
+                <h3>Per person <span class="kg-legend"><i class="c1"></i>FE1 <i class="c2"></i>FE2 <i class="c3"></i>Atraaf</span></h3>
+                <canvas id="histPeople" height="260"></canvas>
+                <div class="kg-inline kg-data">
+                    <button type="button" id="btnExportExcel" class="kg-btn">⬇ Excel (.xls)</button>
+                    <button type="button" id="btnExport" class="kg-btn ghost">Export JSON</button>
+                    <button type="button" id="btnImport" class="kg-btn ghost">Import JSON</button>
+                    <button type="button" id="btnReset" class="kg-btn danger">Reset all</button>
+                </div>
+                <p class="kg-note">Export / import cover the saved history. Reset wipes the history and the names for every desk of this site.</p>
+            </section>
+
+            <section class="kg-card kg-pane" data-pane="hist" hidden>
+                <h2>Saved assignments</h2>
+                <div class="kg-log">
+                    <table id="logTable">
+                        <thead><tr><th>When</th><th>Type</th><th>Person</th><th>Location</th><th></th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
         </aside>
-
     </main>
+</div>
