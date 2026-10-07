@@ -2,6 +2,7 @@
 // big pictures of each item, big numbers, a few icons, one SAVE button. Everything is cash.
 //   🧺 New bill: swipe building → floor → room (wheels) → tap clothes (tap = one more) → SAVE → receipt
 //   👷 Staff only: tap the staff category → a window with its people → tap the person, check the PHOTO, tap clothes → SAVE (value recorded, 0 collected)
+//   📒 Staff log: the staff-only entries of one day (today by default), read only — tap one to see / print its receipt
 //   🏨 Building: the building's linen (no building to choose) — tap an item → number pad for the quantity → SAVE
 //   💵 Pending cash: my cash bills from a date (to a date) — Unpaid until the admin marks them Paid
 // Prices come from the server; the worker cannot change them. Works offline (bills wait on this device).
@@ -70,6 +71,7 @@ export default async function mount(ctx) {
         const billish = MODES.includes(tab);
         $('paneBill').hidden = !billish;
         $('paneCash').hidden = tab !== 'cash';
+        $('paneSlog').hidden = tab !== 'slog';
         if (billish) {
             $('ldCustomer').hidden = tab !== 'bill';                       // the room wheels are for guests only
             $('ldStaff').hidden = tab !== 'free';
@@ -81,6 +83,7 @@ export default async function mount(ctx) {
             drawItems(); drawCart(); drawPicked();
         }
         if (tab === 'cash') loadCash();
+        if (tab === 'slog') loadSlog();
         window.scrollTo(0, 0);
     }
     ctx.root.querySelector('.ld-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
@@ -323,13 +326,14 @@ export default async function mount(ctx) {
         dlg.showModal();
     }
 
-    function showReceipt(b, warnings = [], offline = false) {
+    function showReceipt(b, warnings = [], offline = false, closeLabel = '➕ Next bill') {
         const dlg = document.createElement('dialog');
         dlg.className = 'ld-dlg ld-rdlg';
-        dlg.innerHTML = `<div class="ld-done">${offline ? '⏳ Saved on this device — will send when online' : b.kind === 'free' ? '✅ Saved · STAFF' : b.kind === 'building' ? '✅ Saved · building linen' : `✅ Saved · ${sar(b.paid)} SAR cash`}</div>
+        const viewing = closeLabel !== '➕ Next bill';   // opened from a list: just the receipt, no "Saved"
+        dlg.innerHTML = `${viewing ? '' : `<div class="ld-done">${offline ? '⏳ Saved on this device — will send when online' : b.kind === 'free' ? '✅ Saved · STAFF' : b.kind === 'building' ? '✅ Saved · building linen' : `✅ Saved · ${sar(b.paid)} SAR cash`}</div>`}
             ${warnings?.length ? `<div class="ld-warn">⚠️ ${warnings.map(esc).join('<br>⚠️ ')}</div>` : ''}
             ${receiptHTML(b, st.info)}
-            <div class="ld-dlg-b"><button type="button" data-print>🖨 Print</button><button type="button" class="ok" data-x>➕ Next bill</button></div>`;
+            <div class="ld-dlg-b"><button type="button" data-print>🖨 Print</button><button type="button" class="ok" data-x>${closeLabel}</button></div>`;
         ctx.root.appendChild(dlg);
         dlg.querySelector('[data-print]').onclick = () => printReceipt(b, st.info);
         dlg.querySelector('[data-x]').onclick = () => dlg.close();
@@ -340,6 +344,34 @@ export default async function mount(ctx) {
     const custLabel = (b) => b.kind === 'free' ? '👷 ' + esc(b.staff_name)
         : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + esc(b.customer.building) : ''}`
             : `🚪 ${esc([b.customer?.building, b.customer?.room || '—'].filter(Boolean).join(' · '))}${b.customer?.name ? ' · ' + esc(b.customer.name) : ''}`;
+
+    /* ------------------------------- staff log ------------------------------- */
+    // every staff-only entry of the site on one day (all workers), read only
+    const slog = { day: jeddahDay(), bills: [] };
+    const shiftDay = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+    async function loadSlog() {
+        $('ldSlogDay').value = slog.day;
+        $('ldSlogNext').disabled = slog.day >= jeddahDay();
+        $('ldSlogList').innerHTML = '<p class="ld-muted">Loading…</p>';
+        try { slog.bills = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&from=${slog.day}&to=${slog.day}&kind=free&all=1`))).bills; }
+        catch (e) { $('ldSlogList').innerHTML = `<p class="ld-muted">${esc(e.message || 'Not available offline.')}</p>`; $('ldSlogKpis').innerHTML = ''; return; }
+        const live = slog.bills.filter(b => !b.voided);
+        $('ldSlogKpis').innerHTML = `<div class="ld-kpi"><span>👷</span><b>${new Set(live.map(b => b.staff_id)).size}</b><small>staff</small></div>
+            <div class="ld-kpi"><span>🧾</span><b>${live.length}</b><small>entries</small></div>
+            <div class="ld-kpi"><span>👕</span><b>${live.reduce((n, b) => n + b.items, 0)}</b><small>pieces</small></div>`;
+        const photo = (b) => { const s = st.staffList.find(x => x.id === b.staff_id); return s?.photo ? `<img class="ld-mini" src="${s.photo}" alt="">` : '<span class="ld-mini none">👤</span>'; };
+        $('ldSlogList').innerHTML = slog.bills.slice().sort((a, b) => a.given_at.localeCompare(b.given_at)).map(b => `<button type="button" class="ld-card row slog ${b.voided ? 'void' : ''}" data-slog="${b.id}">
+            ${photo(b)}
+            <div class="ld-cmain"><b>👷 ${esc(b.staff_name || '')}</b>
+              <small>${esc(jeddahTime(b.given_at))} · ${esc(b.receipt_no)} · ${esc(b.worker || '')}${b.voided ? ' · ❌ cancelled' : ''}</small>
+              <small>${b.lines.map(l => `${esc(l.name)} × ${l.qty}`).join(', ')}</small></div>
+            <b class="ld-amt">${b.items} <small>pcs</small></b></button>`).join('') || '<p class="ld-muted">No staff laundry on this day.</p>';
+    }
+    $('ldSlogPrev').addEventListener('click', () => { slog.day = shiftDay(slog.day, -1); loadSlog(); });
+    $('ldSlogNext').addEventListener('click', () => { if (slog.day < jeddahDay()) { slog.day = shiftDay(slog.day, 1); loadSlog(); } });
+    $('ldSlogToday').addEventListener('click', () => { slog.day = jeddahDay(); loadSlog(); });
+    $('ldSlogDay').addEventListener('change', () => { slog.day = $('ldSlogDay').value || jeddahDay(); loadSlog(); });
+    $('ldSlogList').addEventListener('click', (e) => { const c = e.target.closest('[data-slog]'); if (c) showReceipt(slog.bills.find(b => b.id === Number(c.dataset.slog)), [], false, '✖ Close'); });
 
     /* ----------------------------- pending cash ----------------------------- */
     // cash bills from a date (to a date, or up to today); Unpaid until the admin marks them Paid
@@ -372,7 +404,7 @@ export default async function mount(ctx) {
     $('ldCashFrom').addEventListener('change', () => { cashSt.from = $('ldCashFrom').value || jeddahDay(); loadCash(); });
     $('ldCashTo').addEventListener('change', () => { cashSt.to = $('ldCashTo').value; loadCash(); });
     $('ldCashToClear').addEventListener('click', () => { $('ldCashTo').value = ''; cashSt.to = ''; loadCash(); });
-    $('ldCashList').addEventListener('click', (e) => { const b = e.target.closest('[data-bill]'); if (b) showReceipt(cashSt.bills.find(x => x.id === Number(b.dataset.bill))); });
+    $('ldCashList').addEventListener('click', (e) => { const b = e.target.closest('[data-bill]'); if (b) showReceipt(cashSt.bills.find(x => x.id === Number(b.dataset.bill)), [], false, '✖ Close'); });
 
     // bills still waiting on this device (offline) — shown on the Pending cash tab
     function drawQueue() {

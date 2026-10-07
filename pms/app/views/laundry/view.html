@@ -2,6 +2,7 @@
     <nav class="ld-tabs" role="tablist" aria-label="Laundry">
         <button type="button" role="tab" data-tab="bill" aria-selected="true"><span aria-hidden="true">🧺</span>New bill</button>
         <button type="button" role="tab" data-tab="free"><span aria-hidden="true">👷</span>Staff only</button>
+        <button type="button" role="tab" data-tab="slog"><span aria-hidden="true">📒</span>Staff log</button>
         <button type="button" role="tab" data-tab="building"><span aria-hidden="true">🏨</span>Building</button>
         <button type="button" role="tab" data-tab="cash"><span aria-hidden="true">💵</span>Pending cash</button>
     </nav>
@@ -46,6 +47,18 @@
             <button type="button" class="ld-clear" id="ldClear" aria-label="Clear the bill">✖</button>
             <button type="button" class="ld-save" id="ldSave" disabled><span aria-hidden="true">✔</span> SAVE</button>
         </div>
+    </section>
+
+    <!-- STAFF LOG: every staff-only entry of one day (read only), today by default -->
+    <section class="ld-pane" id="paneSlog" hidden>
+        <div class="ld-dates ld-day">
+            <button type="button" id="ldSlogPrev" aria-label="Previous day">◀</button>
+            <label><span>📅 Day</span><input type="date" id="ldSlogDay"></label>
+            <button type="button" id="ldSlogNext" aria-label="Next day">▶</button>
+            <button type="button" id="ldSlogToday">Today</button>
+        </div>
+        <div class="ld-kpis" id="ldSlogKpis"></div>
+        <div class="ld-cards" id="ldSlogList"></div>
     </section>
 
     <!-- PENDING CASH: my cash bills from a date (to a date); Unpaid until the admin marks them Paid -->
