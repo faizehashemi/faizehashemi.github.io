@@ -1,0 +1,43 @@
+<div class="tp mcd">
+    <header class="tp-head">
+        <div>
+            <h1>Menu Card</h1>
+            <p class="tp-sub">Type the lunch and dinner menu, one dish per line — the card is drawn as you type. Download it or copy it to paste into WhatsApp.</p>
+        </div>
+        <div class="tp-actions">
+            <button type="button" class="tp-btn gold" id="mcdDownload">⬇️ Download</button>
+            <button type="button" class="tp-btn" id="mcdCopy">📋 Copy image</button>
+            <button type="button" class="tp-btn" id="mcdShare" hidden>📤 Share</button>
+        </div>
+    </header>
+
+    <div class="mcd-main">
+        <section class="tp-card mcd-form">
+            <div class="mcd-row">
+                <label>Date <input type="date" id="mcdDate"></label>
+            </div>
+            <div class="mcd-row">
+                <label class="grow">Date line <input type="text" id="mcdGreg" autocomplete="off"></label>
+            </div>
+            <div class="mcd-row">
+                <label class="grow">Hijri line <input type="text" id="mcdHijri" autocomplete="off"></label>
+                <button type="button" class="tp-link" id="mcdReset" title="Fill both date lines from the date again">↺ from date</button>
+            </div>
+            <div class="mcd-meals">
+                <div class="mcd-meal">
+                    <div class="mcd-meal-h"><b>Lunch</b> <label>time <input type="text" id="mcdLunchTime" class="mcd-time" autocomplete="off"></label></div>
+                    <textarea id="mcdLunch" rows="8" spellcheck="false" placeholder="Namak&#10;Ice Cream Kwality&#10;Samosa&#10;Naan, Kasak&#10;Chaas&#10;Keri Achar"></textarea>
+                </div>
+                <div class="mcd-meal">
+                    <div class="mcd-meal-h"><b>Dinner</b> <label>time <input type="text" id="mcdDinnerTime" class="mcd-time" autocomplete="off"></label></div>
+                    <textarea id="mcdDinner" rows="8" spellcheck="false" placeholder="Namak&#10;Sholo&#10;Chilli Chicken&#10;Chicken Angara, Manda&#10;Khichdi, Bhajiya Kadi&#10;Lemon Ichar, Fruits"></textarea>
+                </div>
+            </div>
+            <p class="tp-muted" id="mcdMsg">Your text is kept on this device for each date.</p>
+        </section>
+
+        <section class="mcd-preview">
+            <canvas id="mcdCanvas" aria-label="Menu card preview"></canvas>
+        </section>
+    </div>
+</div>
