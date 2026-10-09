@@ -1,9 +1,10 @@
 <div class="ld">
-    <nav class="ld-tabs" role="tablist" aria-label="Laundry">
+    <nav class="ld-tabs" role="tablist" aria-label="Laundry POS">
         <button type="button" role="tab" data-tab="bill" aria-selected="true"><span aria-hidden="true">🧺</span>New bill</button>
         <button type="button" role="tab" data-tab="free"><span aria-hidden="true">👷</span>Staff only</button>
         <button type="button" role="tab" data-tab="slog"><span aria-hidden="true">📒</span>Staff log</button>
         <button type="button" role="tab" data-tab="building"><span aria-hidden="true">🏨</span>Building</button>
+        <button type="button" role="tab" data-tab="blog"><span aria-hidden="true">🧾</span>Building log</button>
         <button type="button" role="tab" data-tab="cash"><span aria-hidden="true">💵</span>Pending cash</button>
     </nav>
 
@@ -49,7 +50,7 @@
         </div>
     </section>
 
-    <!-- STAFF LOG: every staff-only entry of one day (read only), today by default -->
+    <!-- STAFF LOG / BUILDING LOG: one day of staff-only entries or building linen (read only), today by default -->
     <section class="ld-pane" id="paneSlog" hidden>
         <div class="ld-dates ld-day">
             <button type="button" id="ldSlogPrev" aria-label="Previous day">◀</button>
@@ -58,6 +59,7 @@
             <button type="button" id="ldSlogToday">Today</button>
         </div>
         <div class="ld-kpis" id="ldSlogKpis"></div>
+        <div class="ld-logitems" id="ldSlogItems"></div>
         <div class="ld-cards" id="ldSlogList"></div>
     </section>
 

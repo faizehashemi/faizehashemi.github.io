@@ -43,7 +43,7 @@ export const VIEWS = [
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
-    { id: 'laundry',      label: 'Laundry',            title: 'Laundry',               hint: 'New bill, free staff laundry, pending, close day' },
+    { id: 'laundry',      label: 'Laundry POS',        title: 'Laundry POS',           hint: 'New bill, staff only, building linen, logs, pending cash' },
     { id: 'laundry-admin', label: 'Laundry admin',     title: 'Laundry admin',         hint: 'Sales, reports, bills, prices, staff' },
     { id: 'pending-checkouts', label: 'Pending checkouts', title: 'Pending Checkouts',    hint: 'UMS checkout list: zero-advance groups and their rooms' },
     { id: 'transport',    label: 'Transport day',      title: 'Transport',             hint: 'The day\'s trips, bus numbers, signage link' },

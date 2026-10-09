@@ -2,7 +2,8 @@
 // big pictures of each item, big numbers, a few icons, one SAVE button. Everything is cash.
 //   🧺 New bill: swipe building → floor → room (wheels) → tap clothes (tap = one more) → SAVE → receipt
 //   👷 Staff only: tap the staff category → a window with its people → tap the person, check the PHOTO, tap clothes → SAVE (value recorded, 0 collected)
-//   📒 Staff log: the staff-only entries of one day (today by default), read only — tap one to see / print its receipt
+//   📒 Staff log / 🧾 Building log: one day of staff-only entries or building linen (today by default), read only —
+//      tap one to see / print its receipt
 //   🏨 Building: the building's linen (no building to choose) — tap an item → number pad for the quantity → SAVE
 //   💵 Pending cash: my cash bills from a date (to a date) — Unpaid until the admin marks them Paid
 // Prices come from the server; the worker cannot change them. Works offline (bills wait on this device).
@@ -71,7 +72,7 @@ export default async function mount(ctx) {
         const billish = MODES.includes(tab);
         $('paneBill').hidden = !billish;
         $('paneCash').hidden = tab !== 'cash';
-        $('paneSlog').hidden = tab !== 'slog';
+        $('paneSlog').hidden = tab !== 'slog' && tab !== 'blog';
         if (billish) {
             $('ldCustomer').hidden = tab !== 'bill';                       // the room wheels are for guests only
             $('ldStaff').hidden = tab !== 'free';
@@ -83,7 +84,7 @@ export default async function mount(ctx) {
             drawItems(); drawCart(); drawPicked();
         }
         if (tab === 'cash') loadCash();
-        if (tab === 'slog') loadSlog();
+        if (tab === 'slog' || tab === 'blog') { slog.kind = tab === 'blog' ? 'building' : 'free'; loadSlog(); }
         window.scrollTo(0, 0);
     }
     ctx.root.querySelector('.ld-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
@@ -345,27 +346,36 @@ export default async function mount(ctx) {
         : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + esc(b.customer.building) : ''}`
             : `🚪 ${esc([b.customer?.building, b.customer?.room || '—'].filter(Boolean).join(' · '))}${b.customer?.name ? ' · ' + esc(b.customer.name) : ''}`;
 
-    /* ------------------------------- staff log ------------------------------- */
-    // every staff-only entry of the site on one day (all workers), read only
-    const slog = { day: jeddahDay(), bills: [] };
+    /* -------------------------- staff log / building log -------------------------- */
+    // one day of staff-only entries (📒 Staff log) or building linen (🧾 Building log), all workers, read only
+    const slog = { day: jeddahDay(), bills: [], kind: 'free' };
     const shiftDay = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
     async function loadSlog() {
+        const bld = slog.kind === 'building';
         $('ldSlogDay').value = slog.day;
         $('ldSlogNext').disabled = slog.day >= jeddahDay();
         $('ldSlogList').innerHTML = '<p class="ld-muted">Loading…</p>';
-        try { slog.bills = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&from=${slog.day}&to=${slog.day}&kind=free&all=1`))).bills; }
-        catch (e) { $('ldSlogList').innerHTML = `<p class="ld-muted">${esc(e.message || 'Not available offline.')}</p>`; $('ldSlogKpis').innerHTML = ''; return; }
+        try { slog.bills = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&from=${slog.day}&to=${slog.day}&kind=${slog.kind}&all=1`))).bills; }
+        catch (e) { $('ldSlogList').innerHTML = `<p class="ld-muted">${esc(e.message || 'Not available offline.')}</p>`; $('ldSlogKpis').innerHTML = ''; $('ldSlogItems').innerHTML = ''; return; }
         const live = slog.bills.filter(b => !b.voided);
-        $('ldSlogKpis').innerHTML = `<div class="ld-kpi"><span>👷</span><b>${new Set(live.map(b => b.staff_id)).size}</b><small>staff</small></div>
-            <div class="ld-kpi"><span>🧾</span><b>${live.length}</b><small>entries</small></div>
-            <div class="ld-kpi"><span>👕</span><b>${live.reduce((n, b) => n + b.items, 0)}</b><small>pieces</small></div>`;
-        const photo = (b) => { const s = st.staffList.find(x => x.id === b.staff_id); return s?.photo ? `<img class="ld-mini" src="${s.photo}" alt="">` : '<span class="ld-mini none">👤</span>'; };
-        $('ldSlogList').innerHTML = slog.bills.slice().sort((a, b) => a.given_at.localeCompare(b.given_at)).map(b => `<button type="button" class="ld-card row slog ${b.voided ? 'void' : ''}" data-slog="${b.id}">
+        const pcs = live.reduce((n, b) => n + b.items, 0);
+        $('ldSlogKpis').innerHTML = (bld ? '' : `<div class="ld-kpi"><span>👷</span><b>${new Set(live.map(b => b.staff_id)).size}</b><small>staff</small></div>`)
+            + `<div class="ld-kpi"><span>🧾</span><b>${live.length}</b><small>${live.length === 1 ? "entry" : "entries"}</small></div>
+               <div class="ld-kpi"><span>${bld ? '🧺' : '👕'}</span><b>${pcs}</b><small>pieces</small></div>`;
+        // building linen: how many of each item went out that day
+        const byItem = new Map();
+        if (bld) for (const b of live) for (const l of b.lines) byItem.set(l.name, (byItem.get(l.name) || 0) + l.qty);
+        $('ldSlogItems').innerHTML = [...byItem].sort((x, y) => (st.items.findIndex(i => i.name === x[0]) + 1 || 999) - (st.items.findIndex(i => i.name === y[0]) + 1 || 999)).map(([n, q]) => `<span class="ld-logitem">${itemPic(st.items.find(i => i.name === n) || { name: n }, 'ld-pic sm')}<b>${q}</b><small>${esc(n)}</small></span>`).join('');
+        const photo = (b) => {
+            if (bld) { const l = b.lines[0]; return itemPic(st.items.find(i => i.name === l?.name) || { name: l?.name }, 'ld-mini'); }
+            const s = st.staffList.find(x => x.id === b.staff_id); return s?.photo ? `<img class="ld-mini" src="${s.photo}" alt="">` : '<span class="ld-mini none">👤</span>';
+        };
+        $('ldSlogList').innerHTML = slog.bills.slice().sort((a, b) => a.given_at.localeCompare(b.given_at)).map(b => `<button type="button" class="ld-card row slog ${bld ? 'blog' : ''} ${b.voided ? 'void' : ''}" data-slog="${b.id}">
             ${photo(b)}
-            <div class="ld-cmain"><b>👷 ${esc(b.staff_name || '')}</b>
+            <div class="ld-cmain"><b>${bld ? '🏨 Building linen' : '👷 ' + esc(b.staff_name || '')}</b>
               <small>${esc(jeddahTime(b.given_at))} · ${esc(b.receipt_no)} · ${esc(b.worker || '')}${b.voided ? ' · ❌ cancelled' : ''}</small>
               <small>${b.lines.map(l => `${esc(l.name)} × ${l.qty}`).join(', ')}</small></div>
-            <b class="ld-amt">${b.items} <small>pcs</small></b></button>`).join('') || '<p class="ld-muted">No staff laundry on this day.</p>';
+            <b class="ld-amt">${b.items} <small>pcs</small></b></button>`).join('') || `<p class="ld-muted">No ${bld ? 'building linen' : 'staff laundry'} on this day.</p>`;
     }
     $('ldSlogPrev').addEventListener('click', () => { slog.day = shiftDay(slog.day, -1); loadSlog(); });
     $('ldSlogNext').addEventListener('click', () => { if (slog.day < jeddahDay()) { slog.day = shiftDay(slog.day, 1); loadSlog(); } });

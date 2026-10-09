@@ -9,7 +9,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ld { max-width: 1100px; margin: 0 auto; padding: 10px 10px 120px; }
 
 /* tabs: icon + short word */
-.ld-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; position: sticky; top: 52px; z-index: 5; background: var(--bg); padding: 6px 0; }
+.ld-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; position: sticky; top: 52px; z-index: 5; background: var(--bg); padding: 6px 0; }
 .ld-tabs button { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border: 2px solid var(--edge); border-radius: 14px; background: #fff; font-size: 13px; font-weight: 700; position: relative; }
 .ld-tabs button span { font-size: 26px; line-height: 1; }
 .ld-tabs button[aria-selected="true"] { border-color: var(--gold-deep); background: #f6e7bf; }
@@ -208,3 +208,12 @@ button.ld-kpi { cursor: pointer; }
 .ld-card.slog { border-left-color: var(--free); }
 .ld-card.slog .ld-cmain small + small { color: var(--ink); }
 .ld-mini.none { display: grid; place-items: center; font-size: 28px; background: #f1ece2; }
+
+/* building log */
+.ld-card.slog.blog { border-left-color: #1f5fa8; }
+.ld-card.slog.blog .ld-mini { object-fit: contain; background: #fff; }
+.ld-logitems { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.ld-logitems:empty { display: none; }
+.ld-logitem { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 2px solid #dbe6f3; border-radius: 12px; background: #f4f8fd; }
+.ld-logitem b { font-size: 20px; color: #163f6e; } .ld-logitem small { color: var(--muted); }
+.ld-logitem .ld-pic.icon { object-fit: contain; }
