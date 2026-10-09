@@ -143,6 +143,11 @@ typed on the tile for a building not set up there) and a chart of guests by chec
 The **Jeddah flights** tile (Airlabs) was removed and Airlabs disconnected on 2026-10-03: the Worker has no
 flight routes or cron any more and the `AIRLABS_KEY` secret is deleted. The `flight_board` table is left as it was.
 
+**Look ahead** (bar above the Fakkul Ehraam cards): pick a date (◀ ▶, Today) and the day cards — check-ins /
+check-outs / in Makkah (at 12:00 on another day), Fakkul Ehraam, thaals and building occupancy — show that day with the
+same rules, from the slips as they are now (Transport stays on today). *Summary* gives a day-by-day table for a period
+(up to 92 days) with totals; a row opens that day on the cards. *Open Forecast →* links to the Forecast page.
+
 **Currently in Makkah** opens the list of groups staying there right now (`app/views/home/inhouse.js`):
 SH, group and leader, building and rooms, stay, guests (G/L/C/I) and beds, with checks for slips that look
 wrong — no building or a building of the other city, no rooms, fewer or more beds than adults, total ≠

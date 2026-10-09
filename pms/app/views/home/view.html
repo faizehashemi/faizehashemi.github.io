@@ -23,6 +23,22 @@
         </div>
     </section>
 
+    <section class="hm-tt" id="hmTt" aria-label="Look at another day">
+        <div class="hm-tt-row">
+            <span class="hm-tt-lbl">📅 Look ahead</span>
+            <button type="button" class="hm-tt-btn" id="ttPrev" aria-label="Day before">◀</button>
+            <input type="date" id="ttDate" aria-label="Show the cards for this day">
+            <button type="button" class="hm-tt-btn" id="ttNext" aria-label="Day after">▶</button>
+            <button type="button" class="hm-tt-btn" id="ttToday">Today</button>
+            <span class="hm-tt-sep"></span>
+            <span class="hm-tt-lbl">Summary</span>
+            <input type="date" id="ttFrom" aria-label="Summary from"> <span class="hm-sub">to</span> <input type="date" id="ttTo" aria-label="Summary to">
+            <button type="button" class="hm-tt-btn go" id="ttSum">Show summary</button>
+            <a class="hm-more" id="ttForecast" href="#">Open Forecast →</a>
+        </div>
+        <p class="hm-tt-note" id="ttNote" hidden></p>
+    </section>
+
     <section class="hm-mega fe" aria-labelledby="hmFeTitle">
         <div class="hm-head">
             <h2 id="hmFeTitle">🕋 Fakkul Ehraam counts</h2>

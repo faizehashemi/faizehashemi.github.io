@@ -245,3 +245,26 @@ dialog.ih::backdrop { background: rgba(30, 20, 5, .5); }
 .ih-tbl tr.rider td { background: #fffbea; }
 .ih-tbl tr.rider td.bus { color: var(--muted); font-size: 12px; font-weight: 600; }
 .ih-tbl tr.past td { opacity: .55; }
+
+/* ---------- look ahead: another day / a period summary ---------- */
+.hm-tt { padding: 10px 14px; border-radius: 14px; border: 1px solid var(--edge); background: var(--panel); box-shadow: var(--shade); }
+.hm-tt-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.hm-tt-lbl { font-weight: 800; color: var(--gold-deep); font-size: 14px; }
+.hm-tt input[type=date] { font: inherit; padding: 6px 8px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; }
+.hm-tt-btn { font: inherit; font-weight: 700; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--gold); background: #fff; color: #7a5b13; cursor: pointer; }
+.hm-tt-btn:hover { background: #fff6dd; }
+.hm-tt-btn.go { background: linear-gradient(#e6c65a, #d4af37); border-color: #b8931f; color: #3b2a06; }
+.hm-tt-sep { flex: 0 0 1px; align-self: stretch; background: var(--edge); margin: 0 4px; }
+.hm-tt #ttForecast { margin-left: auto; }
+.hm-tt-note { margin: 8px 0 0; padding: 6px 10px; border-radius: 8px; background: #fff4d6; border: 1px solid #ecd9a6; color: #7a4d00; font-size: 13px; font-weight: 600; }
+.hm.travel .hm-section:first-of-type, .hm.travel .hm-mega.fe, .hm.travel .hm-mega.meals, .hm.travel .hm-occ { outline: 2px dashed #e0b24a; outline-offset: 4px; border-radius: 14px; }
+@media (max-width: 640px) { .hm-tt-sep { display: none; } .hm-tt #ttForecast { margin-left: 0; } }
+
+/* period summary window */
+.ts-tbl td, .ts-tbl th { text-align: center; }
+.ts-tbl td:first-child, .ts-tbl th:first-child { text-align: left; }
+.ts-tbl tbody tr { cursor: pointer; }
+.ts-tbl tbody tr:hover { background: #fff6dd; }
+.ts-tbl tfoot td { font-weight: 800; background: #f6ecd2; border-top: 2px solid var(--edge); }
+.ts-tbl .grp { font-size: 11px; color: var(--muted); display: block; font-weight: 500; }
+.ts-tbl .wk { font-size: 11px; color: var(--muted); display: block; }

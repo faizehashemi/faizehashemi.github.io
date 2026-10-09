@@ -16,14 +16,14 @@ const loadCaps = () => { try { return JSON.parse(localStorage.getItem(CAP_KEY) |
 const saveCaps = (m) => { try { localStorage.setItem(CAP_KEY, JSON.stringify(m || {})); } catch { } };
 
 /** Draw the panel into `root` (the #hmOcc section). Call again to refresh. */
-export async function renderOccupancy(ctx, root, slips) {
+export async function renderOccupancy(ctx, root, slips, day = ymd(new Date())) {
     const $ = (sel) => root.querySelector(sel);
     const builder = buildingsOfSite(await ctx.guard(loadBuildings({ force: true })), ctx.siteId).filter(b => b.rooms.length);
     const beds = Object.fromEntries(builder.map(b => [b.name, totalBeds(b)]));
     const buildings = [...new Set([...builder.map(b => b.name), ...slips.map(s => String(s.building || '').trim())])].sort((a, b) => a.localeCompare(b));
 
-    // guests per building staying today (check-in date ≤ today ≤ check-out date)
-    const today = ymd(new Date());
+    // guests per building staying on the day (check-in date ≤ day ≤ check-out date); today unless the Home page looks ahead
+    const today = day;
     const used = {};
     for (const s of slips) {
         if (!s.checkin_date || !s.checkout_date || s.checkin_date > today || s.checkout_date < today) continue;

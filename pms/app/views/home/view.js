@@ -5,6 +5,8 @@
 // yesterday to 07:00 today, Night = 07:00 to 20:00 today (Madina groups included), Night · from Madina = those whose
 // SH starts with S. Tiles open the groups (groups.js).
 // Transport today: buses to Atraaf, Madina and Jeddah Airport from today's Transport list (cloud); tiles open the trips.
+// Look ahead (above Fakkul Ehraam): pick a date and the day cards (check-ins / check-outs / in Makkah, Fakkul Ehraam,
+// thaals, occupancy) show that day with the same rules; or a period, for a day-by-day summary (row → that day).
 
 import { currentDesk, mirrorAll, canOpen } from '../../core/cloud.js';
 import { mealThalsFor, mealGuestsFor } from '../../core/meals.js';
@@ -124,49 +126,127 @@ export default async function mount(ctx) {
 
     /* ------------------------------ today's numbers ------------------------------ */
     const setStat = (id, big, small) => { $(id).querySelector('b').textContent = big; $(id).querySelector('small').textContent = small; };
-    async function numbers() {
-        const here = await ctx.db.all(); // this site, freshly synced
-        const all = (await ctx.guard(mirrorAll())).filter(r => !r.deleted);
-        const t = new Date();
-        const from = new Date(`${ymd(t)}T03:00`), to = new Date(from.getTime() + 864e5); // the Check-ins page's "today"
+    // One day's numbers with the Home rules. `day` is YYYY-MM-DD; "in Makkah" is counted now (today) or at 12:00.
+    function dayNumbers(day, here, all) {
+        const isToday = day === ymd(new Date());
+        const t = isToday ? new Date() : new Date(`${day}T12:00`);
+        const from = new Date(`${day}T03:00`), to = new Date(from.getTime() + 864e5); // the Check-ins page's "today"
         const inWin = (d) => d && d >= from && d < to;
         const ins = here.filter(r => inWin(parseDT(r.checkin_date, r.checkin_time)));
         const outs = here.filter(r => inWin(parseDT(r.checkout_date, r.checkout_time)));
-        const groups = (n) => `${n} group${n === 1 ? '' : 's'}`;
-        setStat('stIn', ins.reduce((s, r) => s + guests(r), 0), `${groups(ins.length)} · ${ctx.site.label}`);
-        setStat('stOut', outs.reduce((s, r) => s + guests(r), 0), `${groups(outs.length)} · ${ctx.site.label}`);
-        const inHouse = (site) => {
-            const list = all.filter(r => r.site === site).filter(r => { const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time); return ci && co && ci <= t && t < co; });
-            return [list.reduce((s, r) => s + guests(r), 0), list.length];
-        };
-        const [mk, mkG] = inHouse('makkah');
-        setStat('stMakkah', mk, `guests right now · ${groups(mkG)}`);
-        $('hmTodaySub').textContent = `Check-ins and check-outs from 03:00 today to 03:00 tomorrow · ${ctx.site.label}`;
-
+        const mk = all.filter(r => r.site === 'makkah').filter(r => { const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time); return ci && co && ci <= t && t < co; });
         // Fakkul Ehraam: Makkah arrivals in the Setup windows
-        const at = (h, dayOffset = 0) => { const d = new Date(`${ymd(t)}T${h}`); d.setDate(d.getDate() + dayOffset); return d; };
+        const at = (h, dayOffset = 0) => { const d = new Date(`${day}T${h}`); d.setDate(d.getDate() + dayOffset); return d; };
         const makkah = all.filter(r => r.site === 'makkah');
         const arrivals = (from, to, only = () => true) => ({ from, to, items: makkah.filter(only)
             .filter(r => { const ci = parseDT(r.checkin_date, r.checkin_time); return ci && ci >= from && ci < to; })
             .map(r => ({ r, pax: guests(r) })) });
         const fromMadina = (r) => /^S/i.test(String(r.sh_no ?? '').trim());
         const { morning_from: mf, split: sp, night_to: nt } = feWin;
-        fe = { morning: arrivals(at(mf, -1), at(sp)), night: arrivals(at(sp), at(nt)), madina: arrivals(at(sp), at(nt), fromMadina) };
-        for (const [id, key, when] of [['feMorning', 'morning', `${mf} yesterday – ${sp}`], ['feNight', 'night', `${sp} – ${nt}, with Madina`],
-            ['feMadina', 'madina', `${sp} – ${nt}, SH starting with S`]]) {
-            const w = fe[key];
-            setStat(id, w.items.reduce((s, x) => s + x.pax, 0), `${groups(w.items.length)} · ${when}`);
-        }
+        const fe = { morning: arrivals(at(mf, -1), at(sp)), night: arrivals(at(sp), at(nt)), madina: arrivals(at(sp), at(nt), fromMadina) };
+        const pax = (rows) => rows.reduce((s, r) => s + guests(r), 0);
+        return { day, isToday, t, ins, outs, inPax: pax(ins), outPax: pax(outs), mk, mkPax: pax(mk), fe,
+            fePax: Object.fromEntries(Object.entries(fe).map(([k, w]) => [k, w.items.reduce((s, x) => s + x.pax, 0)])),
+            meals: mealThalsFor(here, day), mealsWho: mealGuestsFor(here, day) };
+    }
 
-        mealsWho = mealGuestsFor(here, ymd(t));
-        const meals = mealThalsFor(here, ymd(t));
-        if (meals) {
-            setStat('mlB', meals.breakfast, `${meals.pax.breakfast} guests`);
-            setStat('mlL', meals.lunch, `${meals.pax.lunch} guests`);
-            setStat('mlD', meals.dinner, `${meals.pax.dinner} guests`);
+    let viewDay = ymd(new Date()); // the day the cards show (Look ahead)
+    async function numbers() {
+        const here = await ctx.db.all(); // this site, freshly synced
+        const all = (await ctx.guard(mirrorAll())).filter(r => !r.deleted);
+        const N = dayNumbers(viewDay, here, all);
+        const groups = (n) => `${n} group${n === 1 ? '' : 's'}`;
+        const label = N.isToday ? 'today' : new Date(`${viewDay}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+        setStat('stIn', N.inPax, `${groups(N.ins.length)} · ${ctx.site.label}`);
+        setStat('stOut', N.outPax, `${groups(N.outs.length)} · ${ctx.site.label}`);
+        $('stIn').querySelector('.hm-lbl').textContent = `Check-ins ${label}`;
+        $('stOut').querySelector('.hm-lbl').textContent = `Check-outs ${label}`;
+        $('stMakkah').querySelector('.hm-lbl').textContent = N.isToday ? 'Currently in Makkah' : `In Makkah ${label}`;
+        setStat('stMakkah', N.mkPax, `${N.isToday ? 'guests right now' : 'guests at 12:00'} · ${groups(N.mk.length)}`);
+        $('hmTodayTitle').textContent = N.isToday ? 'Today at a glance' : `${label} at a glance`;
+        $('hmTodaySub').textContent = `Check-ins and check-outs from 03:00 ${N.isToday ? 'today' : label} to 03:00 the next day · ${ctx.site.label}`;
+
+        fe = N.fe;
+        const { morning_from: mf, split: sp, night_to: nt } = feWin;
+        for (const [id, key, when] of [['feMorning', 'morning', `${mf} the day before – ${sp}`], ['feNight', 'night', `${sp} – ${nt}, with Madina`],
+            ['feMadina', 'madina', `${sp} – ${nt}, SH starting with S`]]) {
+            setStat(id, N.fePax[key], `${groups(fe[key].items.length)} · ${when}`);
         }
-        $('hmMealsTitle').textContent = `Thaals today · ${ctx.site.label}`;
-        await renderOccupancy(ctx, $('hmOcc'), here);
+        $('hmFeTitle').textContent = `🕋 Fakkul Ehraam counts${N.isToday ? '' : ` · ${label}`}`;
+
+        mealsWho = N.mealsWho;
+        if (N.meals) {
+            setStat('mlB', N.meals.breakfast, `${N.meals.pax.breakfast} guests`);
+            setStat('mlL', N.meals.lunch, `${N.meals.pax.lunch} guests`);
+            setStat('mlD', N.meals.dinner, `${N.meals.pax.dinner} guests`);
+        }
+        $('hmMealsTitle').textContent = `Thaals ${label} · ${ctx.site.label}`;
+        await renderOccupancy(ctx, $('hmOcc'), here, viewDay);
+        $('hmOcc').querySelector('.hm-head .hm-sub').textContent = `Share of each building's beds in use ${label}. Capacities come from Rooms & Buildings.`;
+        ctx.root.querySelector('.hm').classList.toggle('travel', !N.isToday);
+        $('ttNote').hidden = N.isToday;
+        $('ttNote').textContent = N.isToday ? '' : `Showing ${new Date(`${viewDay}T12:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} — from the slips as they are now. Transport stays on today.`;
+    }
+
+    /* ------------------------------ look ahead ------------------------------ */
+    const shift = (d, n) => { const x = new Date(`${d}T12:00`); x.setDate(x.getDate() + n); return ymd(x); };
+    $('ttDate').value = viewDay;
+    $('ttFrom').value = viewDay; $('ttTo').value = shift(viewDay, 6);
+    $('ttForecast').hidden = !canOpen('forecast', desk);
+    if (canOpen('forecast', desk)) $('ttForecast').href = ctx.href('forecast');
+    const goDay = (d) => { if (!d) return; viewDay = d; $('ttDate').value = d; numbers().catch(e => console.warn('home numbers', e)); };
+    $('ttDate').addEventListener('change', () => goDay($('ttDate').value));
+    $('ttPrev').addEventListener('click', () => goDay(shift(viewDay, -1)));
+    $('ttNext').addEventListener('click', () => goDay(shift(viewDay, 1)));
+    $('ttToday').addEventListener('click', () => goDay(ymd(new Date())));
+    $('ttSum').addEventListener('click', async () => {
+        let a = $('ttFrom').value, b = $('ttTo').value;
+        if (!a || !b) { alert('Choose both dates.'); return; }
+        if (a > b) [a, b] = [b, a];
+        const days = [];
+        for (let d = a; d <= b && days.length < 92; d = shift(d, 1)) days.push(d);
+        const here = await ctx.db.all();
+        const all = (await ctx.guard(mirrorAll())).filter(r => !r.deleted);
+        openSummary(days.map(d => dayNumbers(d, here, all)), days.length === 92 && days[91] < b);
+    });
+
+    function openSummary(rows, cut) {
+        const sum = (f) => rows.reduce((s, r) => s + f(r), 0);
+        const peak = Math.max(0, ...rows.map(r => r.mkPax));
+        const g = (n) => `<span class="grp">${n} grp</span>`;
+        const meal = (r, k) => r.meals ? r.meals[k] : '—';
+        const dlg = document.createElement('dialog');
+        dlg.className = 'ih';
+        dlg.innerHTML = `
+          <div class="ih-wrap">
+            <header class="ih-head">
+              <div><h2>Summary · ${esc(rows[0].day)} → ${esc(rows.at(-1).day)}</h2>
+                <p>${rows.length} day${rows.length === 1 ? '' : 's'} · ${ctx.site.label} · ${sum(r => r.inPax)} arriving, ${sum(r => r.outPax)} leaving · Makkah busiest ${peak} guests${cut ? ' · first 92 days only' : ''}</p></div>
+              <button type="button" class="ih-x" data-close aria-label="Close">✕</button>
+            </header>
+            <div class="ih-list">
+              <table class="ih-tbl ts-tbl" data-no-cards>
+                <thead><tr><th>Day</th><th>Check-ins</th><th>Check-outs</th><th>In Makkah<br><small>12:00 · now</small></th>
+                  <th>FE Morning</th><th>FE Night</th><th>FE from Madina</th><th>Breakfast<br><small>thaals</small></th><th>Lunch<br><small>thaals</small></th><th>Dinner<br><small>thaals</small></th></tr></thead>
+                <tbody>${rows.map(r => `<tr data-day="${r.day}" title="Show ${r.day} on the cards">
+                  <td><b>${esc(new Date(`${r.day}T12:00`).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }))}</b><span class="wk">${esc(new Date(`${r.day}T12:00`).toLocaleDateString(undefined, { weekday: 'long' }))}</span></td>
+                  <td><b>${r.inPax}</b>${g(r.ins.length)}</td><td><b>${r.outPax}</b>${g(r.outs.length)}</td><td><b>${r.mkPax}</b>${g(r.mk.length)}</td>
+                  <td><b>${r.fePax.morning}</b>${g(r.fe.morning.items.length)}</td><td><b>${r.fePax.night}</b>${g(r.fe.night.items.length)}</td><td><b>${r.fePax.madina}</b>${g(r.fe.madina.items.length)}</td>
+                  <td>${meal(r, 'breakfast')}</td><td>${meal(r, 'lunch')}</td><td>${meal(r, 'dinner')}</td></tr>`).join('')}</tbody>
+                <tfoot><tr><td>Total</td><td>${sum(r => r.inPax)}</td><td>${sum(r => r.outPax)}</td><td>peak ${peak}</td>
+                  <td>${sum(r => r.fePax.morning)}</td><td>${sum(r => r.fePax.night)}</td><td>${sum(r => r.fePax.madina)}</td>
+                  <td>${sum(r => r.meals?.breakfast || 0)}</td><td>${sum(r => r.meals?.lunch || 0)}</td><td>${sum(r => r.meals?.dinner || 0)}</td></tr></tfoot>
+              </table>
+            </div>
+          </div>`;
+        ctx.root.appendChild(dlg);
+        dlg.addEventListener('click', (e) => {
+            if (e.target.closest('[data-close]') || e.target === dlg) { dlg.close(); return; }
+            const tr = e.target.closest('tr[data-day]');
+            if (tr) { dlg.close(); goDay(tr.dataset.day); $('hmTt').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        });
+        dlg.addEventListener('close', () => dlg.remove());
+        dlg.showModal();
     }
 
     // the in-house calendar, from the Hijri date
