@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>UMS sync — settings</title>
+    <style>
+        body { font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #f7efe1; color: #2b1e15; margin: 0; }
+        main { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+        h1 { font-size: 20px; margin: 0 0 4px; }
+        .card { background: #fffaf1; border: 1px solid #dcc7a4; border-radius: 12px; padding: 16px; margin: 14px 0; }
+        label { display: block; font-weight: 600; margin: 12px 0 4px; }
+        .hint { color: #6b5e4a; font-size: 12px; font-weight: 400; }
+        input[type=text], input[type=url], input[type=number] { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #cdb492; border-radius: 8px; font: inherit; background: #fff; }
+        input[type=number] { width: 110px; }
+        .row { display: flex; gap: 16px; flex-wrap: wrap; }
+        button { padding: 7px 14px; border: 1px solid #d4af37; border-radius: 8px; background: #fffdf5; color: #7a5b13; font: inherit; cursor: pointer; }
+        button.primary { background: #d4af37; color: #fff; font-weight: 700; }
+        .actions { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+        .ok { color: #2f7d32; } .bad { color: #a12a2a; }
+        code { background: #f3ead8; padding: 0 5px; border-radius: 5px; }
+        ol { padding-left: 20px; margin: 6px 0; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>PMS — UMS Group List sync</h1>
+    <div class="hint">Exports the Group List from your logged-in UMS tab on a schedule and hands it to the PMS. It never stores your UMS password.</div>
+
+    <div class="card">
+        <label for="umsUrl">UMS Group List page address
+            <div class="hint">Open the Group List in UMS, set the filters you want exported, and copy the address bar here.</div></label>
+        <input id="umsUrl" type="url" placeholder="https://…/GroupList.aspx">
+
+        <label for="exportSelector">Export control (optional)
+            <div class="hint">Leave empty to find the "Export / Excel" button automatically. Otherwise a CSS selector, e.g. <code>#ctl00_ContentPlaceHolder1_btnExport</code></div></label>
+        <input id="exportSelector" type="text" placeholder="auto-detect">
+
+        <div class="row">
+            <div><label for="intervalMin">Fetch every (minutes)</label><input id="intervalMin" type="number" min="5" step="5"></div>
+            <div><label for="keepAliveMin">Keep session alive every (minutes, 0 = off)</label><input id="keepAliveMin" type="number" min="0" step="1"></div>
+        </div>
+        <label><input id="openTab" type="checkbox"> Open the UMS page in a pinned background tab when none is open</label>
+
+        <div class="actions">
+            <button id="save" class="primary">Save</button>
+            <button id="fetchNow">Fetch now</button>
+            <span id="msg"></span>
+        </div>
+    </div>
+
+    <div class="card">
+        <b>Status</b>
+        <div id="status" class="hint">—</div>
+    </div>
+
+    <div class="card">
+        <b>On the PMS side</b>
+        <ol>
+            <li>Keep one PMS tab open on this computer (any page).</li>
+            <li>In the PMS open <b>UMS</b> and tick <i>Apply every file the extension fetches automatically</i> for your site —
+                or leave it off and review each file there with <i>Use latest from extension</i>.</li>
+        </ol>
+    </div>
+</main>
+<script src="options.js"></script>
+</body>
+</html>

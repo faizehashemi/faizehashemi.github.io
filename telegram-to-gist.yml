@@ -1,0 +1,42 @@
+name: Telegram to Gist Sync
+
+on:
+  # Schedule the workflow to run every 5 minutes. You can adjust the interval as needed.
+  schedule:
+    - cron: '*/5 * * * *'
+  # Allow manual triggering from the Actions tab
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Run sync ignoring previous run'
+        required: false
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install node-fetch@^3
+
+      - name: Run Telegram to Gist sync
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          FILE_REGEX: ${{ vars.FILE_REGEX || '' }}
+          KEEP_HISTORY: ${{ vars.KEEP_HISTORY || '' }}
+        run: node ./telegram_to_gist.js
+
+      - name: Commit and push changes (optional)
+        if: false
+        run: echo "This step is intentionally disabled because the script only interacts with external APIs and does not modify the repo itself."

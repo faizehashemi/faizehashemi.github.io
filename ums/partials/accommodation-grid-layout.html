@@ -1,0 +1,181 @@
+
+            <div class="container-fluid p-0">
+
+<div class="row mb-2 mb-xl-3">
+  <div class="col-auto d-none d-sm-block">
+    <h3 class="mb-0"><strong>Accommodation</strong> / Grid Layout</h3>
+    <div class="text-muted">Visual building layout showing occupancy and room states.</div>
+  </div>
+</div>
+
+              <div class="row">
+                <div class="col-xxl-9"><div class="row">
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Rooms occupied</div>
+      <h3 class="mb-2">482</h3>
+      <span class="badge bg-primary">78% occupancy</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Rooms free</div>
+      <h3 class="mb-2">134</h3>
+      <span class="badge bg-success">Ready</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Blocked</div>
+      <h3 class="mb-2">12</h3>
+      <span class="badge bg-warning">Maintenance</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Pending clean</div>
+      <h3 class="mb-2">21</h3>
+      <span class="badge bg-danger">Housekeeping</span>
+    </div>
+  </div>
+</div>
+</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <form class="row g-3">
+
+<div class="col-md-3">
+  <label class="form-label">Building</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Building">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">View</label>
+  <input type="text" class="form-control form-control-sm" placeholder="View">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Legend</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Legend">
+</div>
+
+              <div class="col-md-3 d-flex align-items-end">
+                <div class="btn-group">
+                  <button type="button" class="btn btn-primary btn-sm">Apply</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="card-title mb-0">Floor grid</h5>
+    <div class="text-muted small">Click a room to open drawer with details.</div>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="border rounded p-3">
+          <div class="d-flex justify-content-between">
+            <strong>Room 1405</strong>
+            <span class="badge bg-success">Occupied</span>
+          </div>
+          <div class="text-muted small">Capacity 4 · Current 3</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="border rounded p-3">
+          <div class="d-flex justify-content-between">
+            <strong>Room 1502</strong>
+            <span class="badge bg-warning">Maintenance</span>
+          </div>
+          <div class="text-muted small">HVAC issue · ETA 18:00</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="border rounded p-3">
+          <div class="d-flex justify-content-between">
+            <strong>Room 1207</strong>
+            <span class="badge bg-info">Reserved</span>
+          </div>
+          <div class="text-muted small">Arriving 21:00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+                <div class="col-xxl-3">
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="card-title mb-0">Legend</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small"></p>
+    <ul class="small ps-3 mb-0"><li>Green = Occupied</li><li>Gray = Vacant</li><li>Blue = Reserved</li><li>Orange = Blocked</li></ul>
+
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="card-title mb-0">Actions</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small"></p>
+    <ul class="small ps-3 mb-0"><li>Move guest</li><li>Mark maintenance</li><li>Mark cleaned</li></ul>
+
+  </div>
+</div>
+</div>
+              </div>
+
+<div class="modal fade" tabindex="-1" id="modal-move-guest" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Move guest</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Select target room and reason.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" tabindex="-1" id="modal-block-room" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Block / Unblock room</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Capture reason and duration.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+            </div>

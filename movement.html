@@ -1,0 +1,783 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Check‑ins & Check‑outs — Mobile</title>
+    <style>
+        :root {
+            --ink: #1a0f0a;
+            --muted: #5e4a39;
+            --bg: #fff;
+            --border: #e4d8c8;
+            --t-font: 13; /* table font px */
+            --t-pad: 6; /* cell padding px */
+            --t-minw: 560px; /* smaller min width so wrapping helps on phones */
+            --radius: 12px;
+            /* Cream • Gold • Brown palette */
+            --ink: #1a0f0a; /* darkest brown for all text */
+            --muted: #5e4a39; /* softer brown for secondary text */
+            --card: #fffaf1; /* warm off-white panels */
+            --border: #dcc7a4; /* soft cream-gold border */
+            --accent: #d4af37; /* gold accent */
+            --shadow: 0 10px 28px rgba(92,64,28,.12);
+            --chip: #f7ecd1; /* pale gold chip hover/base */
+        }
+
+        * {
+            box-sizing: border-box
+        }
+        /* Paste into your stylesheet. Works with <button id="btnRun">Submit</button> */
+
+        #btnRun {
+            /* core look */
+            color: #fff6dc; /* cream text */
+            background: linear-gradient(180deg,#5a3a2c,#3f271d); /* dark brown */
+            border: 1px solid #352117; /* deep brown border */
+            border-radius: 12px;
+            padding: 10px 16px;
+            font: 700 14px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            letter-spacing: .02em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden; /* for sheen */
+            box-shadow: 0 8px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+            transition: transform .06s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+        }
+
+            /* subtle top sheen */
+            #btnRun::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                background: linear-gradient(to bottom, rgba(255,255,255,.10), rgba(255,255,255,0) 35%);
+            }
+
+            /* hover: brighten + lift */
+            #btnRun:hover {
+                filter: brightness(1.05);
+                box-shadow: 0 10px 22px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.14);
+            }
+
+            /* active: pressed */
+            #btnRun:active {
+                transform: translateY(1px);
+                background: linear-gradient(180deg,#3f271d,#2b1a13);
+                box-shadow: 0 4px 10px rgba(0,0,0,.3), inset 0 2px 6px rgba(0,0,0,.35);
+            }
+
+            /* keyboard focus */
+            #btnRun:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(212,175,55,.35), 0 8px 18px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+            }
+
+            /* disabled */
+            #btnRun:disabled {
+                opacity: .6;
+                cursor: not-allowed;
+                box-shadow: none;
+                filter: none;
+            }
+
+
+        body {
+            font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+            color: var(--ink);
+            margin: 0;
+            background: #f7efe1 url("./pattern_gold_2x.png") repeat;
+            background-size: 150px auto;
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 12px
+        }
+
+
+        header.hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin: 8px 0 12px;
+            background: #fff
+        }
+
+            header.hero h1 {
+                margin: 0;
+                font-size: 18px
+            }
+
+        .pill {
+            display: inline-block;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 10px;
+            color: var(--muted);
+            font-size: 12px
+        }
+
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(6,minmax(120px,1fr));
+            gap: 8px;
+            margin: 8px 0 12px
+        }
+
+            .controls label {
+                font-size: 12px;
+                color: var(--muted);
+                display: block;
+                margin-bottom: 4px
+            }
+
+            .controls input, .controls select, .controls button {
+                font: inherit;
+                padding: 8px 10px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: #fff;
+                color: var(--ink)
+            }
+
+            .controls button {
+                cursor: pointer
+            }
+
+
+        .panel {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px;
+            background: #fff;
+            margin: 10px 0
+        }
+
+            .panel h3 {
+                margin: 0 0 8px;
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+                align-items: center
+            }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+
+        /* ===== tables ===== */
+        .table-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+            .table-controls label {
+                font-size: 12px;
+                color: var(--muted)
+            }
+
+            .table-controls input[type="range"] {
+                width: 110px
+            }
+
+
+        .table-wrap {
+            position: relative;
+            overflow: auto;
+            resize: both;
+            min-width: 100%;
+            min-height: 220px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff
+        }
+
+            .table-wrap:before, .table-wrap:after {
+                content: "";
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 12px;
+                pointer-events: none;
+                transition: opacity .15s
+            }
+
+            .table-wrap:before {
+                left: 0;
+                box-shadow: inset 8px 0 8px -8px rgba(0,0,0,.15);
+                opacity: 0
+            }
+
+            .table-wrap:after {
+                right: 0;
+                box-shadow: inset -8px 0 8px -8px rgba(0,0,0,.15);
+                opacity: 0
+            }
+
+            .table-wrap.is-scrolling-left:before {
+                opacity: 1
+            }
+
+            .table-wrap.is-scrolling-right:after {
+                opacity: 1
+            }
+
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            font-size: calc(var(--t-font)*1px);
+            table-layout: fixed
+        }
+
+        .table-inner {
+            min-width: var(--t-minw)
+        }
+        /* WRAP ALL CELL CONTENT — no ellipses, no clipping */
+        th, td {
+            border-bottom: 1px solid var(--border);
+            padding: calc(var(--t-pad)*1px) 8px;
+            white-space: normal; /* allow wrapping */
+            overflow: visible; /* show full content */
+            text-overflow: clip; /* disable ellipsis */
+            vertical-align: top;
+            word-break: break-word; /* break long tokens */
+            overflow-wrap: anywhere; /* wrap anywhere if needed */
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #faf5ea;
+            font-weight: 700
+        }
+
+        .nowrap {
+            white-space: normal
+        }
+        /* override old nowrap to allow wrapping */
+        .right {
+            text-align: right
+        }
+
+
+        .compact th, .compact td {
+            padding: calc((var(--t-pad)-2)*1px) 6px
+        }
+
+
+        @media (max-width: 800px) {
+            .controls {
+                grid-template-columns: 1fr 1fr
+            }
+
+            header.hero {
+                border-radius: 0;
+                border-left: none;
+                border-right: none
+            }
+
+            .wrap {
+                padding: 8px
+            }
+            /* Center all table text (headers + data) */
+            #tblIn th, #tblIn td,
+            #tblOut th, #tblOut td {
+                text-align: center;
+                vertical-align: middle; /* nicer than 'top' for centered look */
+            }
+
+            /* Light cream grid lines for every cell */
+            #tblIn th, #tblIn td,
+            #tblOut th, #tblOut td {
+                border: 1px solid var(--border); /* already a soft cream-gold */
+            }
+
+            /* The "As." column had class="right" in HTML; neutralize it */
+            .right {
+                text-align: center;
+            }
+            /* Kill all shadows inside the tables */
+            #tblIn, #tblOut,
+            #tblIn *, #tblOut * {
+                box-shadow: none !important;
+                text-shadow: none !important;
+                filter: none !important; /* nukes drop-shadow filters */
+            }
+
+                /* If your sticky headers had shadow for "depth", flatten them too */
+                #tblIn thead, #tblOut thead,
+                #tblIn thead th, #tblOut thead th {
+                    box-shadow: none !important;
+                    text-shadow: none !important;
+                    filter: none !important;
+                }
+
+                /* If any row hovers add shadow, stop that */
+                #tblIn tr:hover, #tblOut tr:hover,
+                #tblIn tr:hover *, #tblOut tr:hover * {
+                    box-shadow: none !important;
+                    text-shadow: none !important;
+                    filter: none !important;
+                }
+
+
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header class="hero">
+            <h1>Check‑ins & Check‑outs</h1>
+            <!--<div class="pill" id="status">Loading…</div>-->
+        </header>
+
+        <div class="controls">
+            <div><label for="dateFrom">From date</label><input id="dateFrom" type="date"></div>
+            <div><label for="timeFrom">From time</label><input id="timeFrom" type="time"></div>
+            <div><label for="dateTo">To date</label><input id="dateTo" type="date"></div>
+            <div><label for="timeTo">To time</label><input id="timeTo" type="time"></div>
+            <!-- Replace the existing Building input block inside .controls with this -->
+            <div>
+                <label for="building">Building</label>
+                <select id="building">
+                    <option value="">All buildings</option>
+                    <option>MOHAMMEDI</option>
+                    <option>MUFADDAL</option>
+                    <option>SNOOD</option>
+                    <option>BAHA</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:8px;align-items:end"><button id="btnRun">Submit</button><button id="btnRefresh" >Refresh DB</button></div>
+        </div>
+
+        <!-- Column chooser (applies to BOTH tables). Default unchecked for As., G, L, C, I -->
+        <div class="col-chooser" id="colChooser">
+            <span class="pill">Columns: only checked are shown</span>
+            <div class="group">
+                <label><input type="checkbox" data-col="as"> As.</label>
+                <label><input type="checkbox" data-col="g"> G</label>
+                <label><input type="checkbox" data-col="l"> L</label>
+                <label><input type="checkbox" data-col="c"> C</label>
+                <label><input type="checkbox" data-col="i"> I</label>
+            </div>
+        </div>
+
+        <!-- IN -->
+        <div class="panel" id="panelIn">
+            <h3>
+                <span>Check‑ins</span>
+                <span class="toolbar">
+                    <span class="pill" id="sumIn">0 slips • 0 guests</span>
+                    <div class="table-controls" id="ctrlIn">
+                        <label>Text <input type="range" min="10" max="18" value="13" data-bind="font"></label>
+                        <label>Rows <input type="range" min="4" max="12" value="6" data-bind="pad"></label>
+                        <label>Min‑W <input type="range" min="520" max="1200" value="720" data-bind="minw"></label>
+                        <button id="toggleIn" type="button">Compact</button>
+                        <button id="csvIn" type="button">CSV</button>
+                        <button id="printIn" type="button">Print</button>
+                    </div>
+                </span>
+            </h3>
+            <div class="table-wrap" id="wrapIn">
+                <table id="tblIn" class="table-inner">
+                    <thead>
+                        <tr>
+                            <th class="nowrap" data-col="cin">Check‑in</th>
+                            <th data-col="sh">SH No</th>
+                            <th data-col="group">Group</th>
+                            <th data-col="leader">Leader</th>
+                            <th data-col="bld">Building</th>
+                            <th data-col="rooms">Rooms</th>
+                            <th data-col="as">As.</th>
+                            <th data-col="t">T</th>
+                            <th data-col="g">G</th>
+                            <th data-col="l">L</th>
+                            <th data-col="c">C</th>
+                            <th data-col="i">I</th>
+                            <th class="nowrap" data-col="cout">Check‑out</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- OUT -->
+        <div class="panel" id="panelOut">
+            <h3>
+                <span>Check‑outs</span>
+                <span class="toolbar">
+                    <span class="pill" id="sumOut">0 slips • 0 guests</span>
+                    <div class="table-controls" id="ctrlOut">
+                        <label>Text <input type="range" min="10" max="18" value="13" data-bind="font"></label>
+                        <label>Rows <input type="range" min="4" max="12" value="6" data-bind="pad"></label>
+                        <label>Min‑W <input type="range" min="520" max="1200" value="720" data-bind="minw"></label>
+                        <button id="toggleOut" type="button">Compact</button>
+                        <button id="csvOut" type="button">CSV</button>
+                        <button id="printOut" type="button">Print</button>
+                    </div>
+                </span>
+            </h3>
+            <div class="table-wrap" id="wrapOut">
+                <table id="tblOut" class="table-inner">
+                    <thead>
+                        <tr>
+                            <th class="nowrap" data-col="cout">Check‑out</th>
+                            <th data-col="sh">SH No</th>
+                            <th data-col="group">Group</th>
+                            <th data-col="leader">Leader</th>
+                            <th data-col="bld">Building</th>
+                            <th data-col="rooms">Rooms</th>
+                            <th data-col="as">As.</th>
+                            <th data-col="t">T</th>
+                            <th data-col="g">G</th>
+                            <th data-col="l">L</th>
+                            <th data-col="c">C</th>
+                            <th data-col="i">I</th>
+                            <th class="nowrap" data-col="cin">Check‑in</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== DB plumbing (IndexedDB first, optional Gist fallback) =====
+    const DB_NAME = 'pms_accommodation_db';
+    const STORE = 'slips';
+    const RAW_GIST = 'https://gist.githubusercontent.com/faizehashemi/4d98eb35d2f88b099a1eb099a510dfed/raw';
+
+    function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME);req.onerror=()=>reject(req.error);req.onsuccess=()=>resolve(req.result);});}
+    async function getAllRecords(){
+      try{
+        const db = await openDB();
+        const tx = db.transaction(STORE,'readonly');
+        const st = tx.objectStore(STORE);
+        const rq = st.getAll();
+        const rows = await new Promise((res,rej)=>{rq.onsuccess=()=>res(rq.result||[]);rq.onerror=()=>rej(rq.error)});
+        db.close();
+        if(rows && rows.length) return rows;
+      }catch{ /* fall through */ }
+      // Fallback to read-only gist if local DB is empty
+      try{
+        const r = await fetch(RAW_GIST+'?cb='+Date.now(),{cache:'no-store'}); if(!r.ok) throw 0; const payload = await r.json();
+        if(Array.isArray(payload)) return payload;
+        if(Array.isArray(payload?.slips)) return payload.slips;
+        return payload?.db?.stores?.slips?.rows || [];
+      }catch{ return []; }
+    }
+
+    // ===== helpers =====
+    const $ = s=>document.querySelector(s);
+    const $$ = s=>Array.from(document.querySelectorAll(s));
+    const pad2 = n=>String(n).padStart(2,'0');
+    function parseDT(d,t){ if(!d) return null; const [y,m,day]=String(d).split('-').map(Number); let hh=0,mm=0; if(t && /^\d{1,2}:\d{2}$/.test(t)){[hh,mm]=t.split(':').map(Number)} return new Date(y,(m||1)-1,day||1,hh||0,mm||0,0,0); }
+    const fmt = dt=> dt? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(dt):'';
+    const nz = v=>Number(v||0);
+
+    function roomList(rec){ const all=[]; (rec.rooms?.gents||[]).forEach(x=>all.push(String(x.room_no||'').trim())); (rec.rooms?.ladies||[]).forEach(x=>all.push(String(x.room_no||'').trim())); const uniq=[...new Set(all.filter(Boolean))]; return uniq.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).join(', '); }
+    function assignedSum(rec){ let s=0; (rec.rooms?.gents||[]).forEach(x=>{const a=Number(x.assigned); if(Number.isFinite(a)) s+=a}); (rec.rooms?.ladies||[]).forEach(x=>{const a=Number(x.assigned); if(Number.isFinite(a)) s+=a}); return s||''; }
+
+    function bindTableControls(ctrlId, wrapId, tableId, toggleId){
+      const ctrl=document.getElementById(ctrlId), wrap=document.getElementById(wrapId), table=document.getElementById(tableId), toggle=document.getElementById(toggleId);
+      if(!ctrl||!wrap||!table) return;
+      ctrl.querySelectorAll('input[type="range"]').forEach(r=>{
+        const bind=r.dataset.bind; const apply=()=>{ if(bind==='font') table.style.setProperty('--t-font', r.value); if(bind==='pad'){ table.style.setProperty('--t-pad', r.value); table.classList.toggle('compact', Number(r.value)<=5); } if(bind==='minw') table.style.setProperty('--t-minw', r.value+'px'); };
+        r.addEventListener('input', apply); apply();
+      });
+      toggle?.addEventListener('click',()=> table.classList.toggle('compact'));
+      const cue=()=>{ const L=wrap.scrollLeft<=0; const R=Math.ceil(wrap.scrollLeft+wrap.clientWidth)>=wrap.scrollWidth; wrap.classList.toggle('is-scrolling-left', !L); wrap.classList.toggle('is-scrolling-right', !R); };
+      wrap.addEventListener('scroll', cue, {passive:true}); new ResizeObserver(cue).observe(wrap); cue();
+    }
+
+    function tableToCSV(table){
+      const rows=[...table.querySelectorAll('tr')];
+      const csv = rows.map(tr=>[...tr.children].map(td=>{ const t=td.textContent.replace(/\s+/g,' ').trim(); return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t; }).join(',')).join('\n');
+      return csv;
+    }
+
+    function download(name, text){ const blob=new Blob([text],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 500); }
+
+    // ===== column visibility =====
+    function applyColumnVisibility(){
+      const checks = $$('#colChooser input[type="checkbox"]');
+      const hidden = checks.filter(cb=> !cb.checked).map(cb=> cb.dataset.col);
+      const style = document.getElementById('colStyle') || (()=>{ const el=document.createElement('style'); el.id='colStyle'; document.head.appendChild(el); return el; })();
+      if(!hidden.length){ style.textContent=''; return; }
+      const sel = hidden.map(k=> `#tblIn [data-col="${k}"], #tblOut [data-col="${k}"]`).join(',');
+      style.textContent = `${sel}{display:none}`;
+    }
+
+    // ===== data + render =====
+    let DB_CACHE=[];
+
+    function currentRange(){
+      const df=$('#dateFrom').value, tf=$('#timeFrom').value||'03:00', dt=$('#dateTo').value, tt=$('#timeTo').value||'03:00';
+      const start=parseDT(df,tf), end=parseDT(dt,tt); return {start,end};
+    }
+
+    function run(){
+      const {start,end}=currentRange(); if(!start||!end||!(end>=start)){ alert('Choose a valid date/time range.'); return; }
+      const b=(($('#building').value)||'').trim();
+      const ins=[], outs=[];
+      for(const r of DB_CACHE){
+        const bld=(r.building||'').trim(); if(b && bld!==b) continue;
+        const ci=parseDT(r.checkin_date,r.checkin_time); const co=parseDT(r.checkout_date,r.checkout_time);
+        if(ci && ci>=start && ci<=end) ins.push(r);
+        if(co && co>=start && co<=end) outs.push(r);
+      }
+      ins.sort((a,b)=> (a.checkin_date+a.checkin_time).localeCompare(b.checkin_date+b.checkin_time));
+      outs.sort((a,b)=> (a.checkout_date+a.checkout_time).localeCompare(b.checkout_date+b.checkout_time));
+      renderIn(ins); renderOut(outs);
+      applyColumnVisibility(); // re-apply after re-render
+      $('#status').textContent = `${DB_CACHE.length} slip(s) loaded • range ${fmt(start)} → ${fmt(end)}`;
+    }
+
+    function renderIn(rows){
+      const tb=$('#tblIn tbody'); tb.innerHTML=''; let slips=0, guests=0;
+      for(const r of rows){
+        slips++; const g=nz(r.gents), l=nz(r.ladies), c=nz(r.children), i=nz(r.infants); const t = nz(r.total)|| (g+l+c+i); guests += t;
+        const tr=document.createElement('tr'); tr.innerHTML=`
+          <td data-col="cin">${fmt(parseDT(r.checkin_date,r.checkin_time))}</td>
+          <td data-col="sh">${r.sh_no??''}</td>
+          <td data-col="group" title="${r.tour_name||''}">${r.tour_name||''}</td>
+          <td data-col="leader" title="${r.group_leader||''}">${(r.group_leader||'')}</td>
+          <td data-col="bld">${(r.building||'')}</td>
+          <td data-col="rooms" title="${roomList(r)}">${roomList(r)}</td>
+          <td data-col="as" class="right">${assignedSum(r)}</td>
+          <td data-col="t">${t}</td>
+          <td data-col="g">${g}</td>
+          <td data-col="l">${l}</td>
+          <td data-col="c">${c}</td>
+          <td data-col="i">${i}</td>
+          <td data-col="cout">${fmt(parseDT(r.checkout_date,r.checkout_time))}</td>`;
+        tb.appendChild(tr);
+      }
+      $('#sumIn').textContent = `${slips} slip${slips!==1?'s':''} • ${guests} guests`;
+    }
+
+    function renderOut(rows){
+      const tb=$('#tblOut tbody'); tb.innerHTML=''; let slips=0, guests=0;
+      for(const r of rows){
+        slips++; const g=nz(r.gents), l=nz(r.ladies), c=nz(r.children), i=nz(r.infants); const t=nz(r.total)|| (g+l+c+i); guests+=t;
+        const tr=document.createElement('tr'); tr.innerHTML=`
+          <td data-col="cout">${fmt(parseDT(r.checkout_date,r.checkout_time))}</td>
+          <td data-col="sh">${r.sh_no??''}</td>
+          <td data-col="group" title="${r.tour_name||''}">${r.tour_name||''}</td>
+          <td data-col="leader" title="${r.group_leader||''}">${(r.group_leader||'')}</td>
+          <td data-col="bld">${(r.building||'')}</td>
+          <td data-col="rooms" title="${roomList(r)}">${roomList(r)}</td>
+          <td data-col="as" class="right">${assignedSum(r)}</td>
+          <td data-col="t">${t}</td>
+          <td data-col="g">${g}</td>
+          <td data-col="l">${l}</td>
+          <td data-col="c">${c}</td>
+          <td data-col="i">${i}</td>
+          <td data-col="cin">${fmt(parseDT(r.checkin_date,r.checkin_time))}</td>`;
+        tb.appendChild(tr);
+      }
+      $('#sumOut').textContent = `${slips} slip${slips!==1?'s':''} • ${guests} guests`;
+    }
+
+    // ===== boot =====
+    async function refresh(){ DB_CACHE = await getAllRecords(); if(!DB_CACHE.length){ $('#status').textContent='No slips found. Open the slip page once to seed local DB.'; } run(); }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const now=new Date(); const yyyy=now.getFullYear(), mm=pad2(now.getMonth()+1), dd=pad2(now.getDate());
+      $('#dateFrom').value=`${yyyy}-${mm}-${dd}`; $('#dateTo').value=`${yyyy}-${mm}-${dd}`;
+      $('#timeFrom').value='03:00'; $('#timeTo').value='03:00';
+      $('#btnRun').addEventListener('click', run);
+      $('#btnRefresh').addEventListener('click', refresh);
+      // per-table controls
+      bindTableControls('ctrlIn','wrapIn','tblIn','toggleIn');
+      bindTableControls('ctrlOut','wrapOut','tblOut','toggleOut');
+      // exports & print
+      $('#csvIn').addEventListener('click',()=>download(`checkins_${yyyy}${mm}${dd}.csv`, tableToCSV(document.getElementById('tblIn'))));
+      $('#csvOut').addEventListener('click',()=>download(`checkouts_${yyyy}${mm}${dd}.csv`, tableToCSV(document.getElementById('tblOut'))));
+      $('#printIn').addEventListener('click',()=>window.print());
+      $('#printOut').addEventListener('click',()=>window.print());
+
+      // column chooser wiring
+      document.getElementById('colChooser').addEventListener('change', (e)=>{
+        if(e.target.matches('input[type="checkbox"][data-col]')) applyColumnVisibility();
+      });
+      // default: unchecked for As., G, L, C, I (already unchecked in markup) → hide them now
+      applyColumnVisibility();
+
+      refresh();
+    });
+    </script>
+    <script>
+  /* ===== Auto "Date To = Date From + 1" wiring, 3am defaults, preset integration ===== */
+      (function () {
+          const $ = id => document.getElementById(id);
+          const pad = n => String(n).padStart(2, "0");
+          const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+          // yyyy-mm-dd -> tomorrow (yyyy-mm-dd), local time
+          function plusOneDay(yyyy_mm_dd) {
+              if (!yyyy_mm_dd) return "";
+              const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
+              const dt = new Date(y, (m || 1) - 1, d || 1);
+              dt.setDate(dt.getDate() + 1);
+              return ymd(dt);
+          }
+
+          // Users can override dateTo; we remember if they did
+          let userEditedDateTo = false;
+          let lastAutoTo = ""; // last automatically set dateTo to avoid fighting the user
+
+          // Ensure inputs exist before poking them
+          function haveInputs() {
+              return $('dateFrom') && $('dateTo') && $('timeFrom') && $('timeTo');
+          }
+
+          // Initialize defaults: today → tomorrow, 03:00 → 03:00
+          function applyDefaults() {
+              const now = new Date();
+              const df = ymd(now);
+              const dt = plusOneDay(df);
+              $('dateFrom').value = $('dateFrom').value || df;
+              $('dateTo').value = $('dateTo').value || dt;
+              $('timeFrom').value = $('timeFrom').value || '03:00';
+              $('timeTo').value = $('timeTo').value || '03:00';
+              lastAutoTo = $('dateTo').value;
+              userEditedDateTo = false;
+          }
+
+          // When user picks a Date From, auto bump Date To to next day unless they already edited it
+          function wireAutoTo() {
+              $('dateFrom').addEventListener('input', () => {
+                  const df = $('dateFrom').value;
+                  if (!df) return;
+                  // only auto-set if dateTo hasn't been manually changed, or still equals our last auto value
+                  if (!userEditedDateTo || $('dateTo').value === lastAutoTo) {
+                      const next = plusOneDay(df);
+                      $('dateTo').value = next;
+                      lastAutoTo = next;
+                      userEditedDateTo = false;
+                  }
+              });
+              $('dateTo').addEventListener('input', () => {
+                  userEditedDateTo = true;
+              });
+          }
+
+          // Make sure inputs represent a valid 24h window if end <= start (e.g. 03:00 to 03:00)
+          function ensureDateRange() {
+              const df = $('dateFrom').value;
+              // If no Date To yet, set it to +1 day
+              if (!$('dateTo').value && df) {
+                  $('dateTo').value = plusOneDay(df);
+                  lastAutoTo = $('dateTo').value;
+                  userEditedDateTo = false;
+              }
+              const tf = $('timeFrom').value || '03:00';
+              const tt = $('timeTo').value || '03:00';
+              const start = df ? new Date(`${df}T${tf}`) : null;
+              const dt = $('dateTo').value;
+              let end = dt ? new Date(`${dt}T${tt}`) : null;
+
+              if (start && end && !(end > start)) {
+                  // bump end by 24h to represent the full-day window
+                  end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+                  $('dateTo').value = ymd(end);
+                  $('timeTo').value = pad(end.getHours()) + ":" + pad(end.getMinutes());
+                  lastAutoTo = $('dateTo').value;
+                  userEditedDateTo = false;
+              }
+              return { start, end };
+          }
+
+          // Help presets behave: they should set 03:00 → 03:00 and use plusOneDay for the "to" date
+          function wirePresets() {
+              const setRange = (df, dt) => {
+                  $('dateFrom').value = df;
+                  $('dateTo').value = dt;
+                  $('timeFrom').value = '03:00';
+                  $('timeTo').value = '03:00';
+                  lastAutoTo = dt; userEditedDateTo = false;
+                  ensureDateRange();
+                  if (typeof window.run === 'function') window.run();
+              };
+
+              $('presetToday')?.addEventListener('click', () => {
+                  const d = new Date(); const df = ymd(d);
+                  setRange(df, plusOneDay(df));
+              });
+
+              $('presetYesterday')?.addEventListener('click', () => {
+                  const d = new Date(); d.setDate(d.getDate() - 1);
+                  const df = ymd(d);
+                  setRange(df, plusOneDay(df));
+              });
+
+              $('preset7')?.addEventListener('click', () => {
+                  const end = new Date();
+                  const start = new Date(); start.setDate(end.getDate() - 6);
+                  setRange(ymd(start), plusOneDay(ymd(end)));
+              });
+
+              $('preset30')?.addEventListener('click', () => {
+                  const end = new Date();
+                  const start = new Date(); start.setDate(end.getDate() - 29);
+                  setRange(ymd(start), plusOneDay(ymd(end)));
+              });
+          }
+
+          // Wrap your existing run() so it always has a sane range
+          function patchRun() {
+              if (typeof window.run !== 'function') return;
+              const orig = window.run;
+              window.run = function patchedRun(...args) {
+                  ensureDateRange();
+                  return orig.apply(this, args);
+              };
+          }
+
+          // If you have export/print handlers that read inputs, they’ll just work after ensureDateRange().
+          // If they run without calling run(), you can patch them similarly, or call ensureDateRange() inside them.
+
+          // Boot
+          function start() {
+              if (!haveInputs()) return;
+              applyDefaults();
+              wireAutoTo();
+              wirePresets();
+              patchRun();
+              // First paint
+              ensureDateRange();
+              if (typeof window.run === 'function') window.run();
+          }
+
+          if (document.readyState === 'complete' || document.readyState === 'interactive') start();
+          else document.addEventListener('DOMContentLoaded', start);
+
+          // Expose plusOneDay if you want it elsewhere
+          window.plusOneDay = plusOneDay;
+      })();</script>
+</body>
+</html>

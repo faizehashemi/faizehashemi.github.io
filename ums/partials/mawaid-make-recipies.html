@@ -1,0 +1,151 @@
+
+            <div class="container-fluid p-0">
+
+<div class="row mb-2 mb-xl-3">
+  <div class="col-auto d-none d-sm-block">
+    <h3 class="mb-0"><strong>Mawaid</strong> / Make Recipes</h3>
+    <div class="text-muted">Manage master recipes and ingredients.</div>
+  </div>
+</div>
+
+              <div class="row">
+                <div class="col-xxl-9"><div class="row">
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Total recipes</div>
+      <h3 class="mb-2">182</h3>
+      <span class="badge bg-primary">Active</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Under testing</div>
+      <h3 class="mb-2">12</h3>
+      <span class="badge bg-primary">Draft</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Recently updated</div>
+      <h3 class="mb-2">8</h3>
+      <span class="badge bg-primary">Last 7 days</span>
+    </div>
+  </div>
+</div>
+
+<div class="col-sm-6 col-lg-3">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="text-muted small">Ingredients per recipe</div>
+      <h3 class="mb-2">14 avg</h3>
+      <span class="badge bg-primary">Reference</span>
+    </div>
+  </div>
+</div>
+</div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <form class="row g-3">
+
+<div class="col-md-3">
+  <label class="form-label">Search dish</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Search dish">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Category</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Category">
+</div>
+
+<div class="col-md-3">
+  <label class="form-label">Tags</label>
+  <input type="text" class="form-control form-control-sm" placeholder="Tags">
+</div>
+
+              <div class="col-md-3 d-flex align-items-end">
+                <div class="btn-group">
+                  <button type="button" class="btn btn-primary btn-sm">Apply</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm">Reset</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+<div class="d-flex flex-wrap gap-2 mb-3"><button type="button" class="btn btn-outline-primary btn-sm">New recipe</button><button type="button" class="btn btn-outline-primary btn-sm">Scale recipe</button></div>
+
+        <div class="card mb-3">
+          <div class="card-header">
+            <h5 class="card-title mb-0">Recipe list</h5>
+            <div class="text-muted small">Replace with live data</div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr><th>Dish</th><th>Category</th><th>Yield (servings)</th><th>Status</th><th>Last updated</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+<tr><td>Sample Dish</td><td>Sample Category</td><td>Sample Yield (servings)</td><td>Sample Status</td><td>Sample Last updated</td><td>Sample Actions</td></tr><tr><td>Sample Dish</td><td>Sample Category</td><td>Sample Yield (servings)</td><td>Sample Status</td><td>Sample Last updated</td><td>Sample Actions</td></tr><tr><td>Sample Dish</td><td>Sample Category</td><td>Sample Yield (servings)</td><td>Sample Status</td><td>Sample Last updated</td><td>Sample Actions</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+</div>
+                <div class="col-xxl-3">
+<div class="card mb-3">
+  <div class="card-header">
+    <h5 class="card-title mb-0">Actions</h5>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small"></p>
+    <ul class="small ps-3 mb-0"><li>Create / Edit recipe</li><li>Duplicate recipe</li><li>Export ingredients list</li></ul>
+
+  </div>
+</div>
+</div>
+              </div>
+
+<div class="modal fade" tabindex="-1" id="modal-edit-recipe" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Recipe editor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Dish details, method, ingredients table.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" tabindex="-1" id="modal-scale-recipe" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Scale recipe</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">Enter desired servings to recalc ingredients.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+            </div>

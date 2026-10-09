@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<link rel=stylesheet href=styles.css><script defer src=db.js></script>
+<script defer>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await kmsOpenDB(); const tbody=document.querySelector('#tbl tbody');
+  async function render(){ const rows=await kmsGetAll('timesheet_entries'); tbody.innerHTML='';
+    for(const e of rows.sort((a,b)=> b.entry_date.localeCompare(a.entry_date) || b.hour_24-a.hour_24)){ const tr=document.createElement('tr');
+      tr.innerHTML = `<td>${e.entry_date}</td><td>${e.hour_24}</td><td>${e.worker_id}</td><td>${e.task_id}</td><td>${e.station_id||''}</td><td>${e.quantity||''} ${e.unit||''}</td><td>${e.status}</td>
+      <td><button data-id="${e.entry_id}" class=ghost>Edit</button> <button data-del="${e.entry_id}" class=ghost>Delete</button></td>`; tbody.appendChild(tr); } }
+  await render();
+  tbody.addEventListener('click', async e=>{
+    const id = e.target.getAttribute('data-id'); const del=e.target.getAttribute('data-del');
+    if(del){ await kmsDel('timesheet_entries', Number(del)); await render(); return; }
+    if(!id) return; const rows=await kmsGetAll('timesheet_entries'); const row=rows.find(r=>r.entry_id===Number(id)); if(!row) return;
+    const qty=prompt('Quantity', row.quantity??''); if(qty!==null) row.quantity=qty===''?null:Number(qty);
+    const unit=prompt('Unit', row.unit??''); if(unit!==null) row.unit=unit||null;
+    const status=prompt('Status (recorded|verified|void)', row.status); if(status!==null) row.status=status;
+    await kmsPut('timesheet_entries', row); await render();
+  });
+});
+</script>
+<title>Edit</title></head><body>
+<div class=container>
+  <h1>Edit Logs</h1>
+  <div class=card>
+    <table class=table id=tbl><thead><tr><th>Date</th><th>Hour</th><th>Worker</th><th>Task</th><th>Station</th><th>Output</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<nav class=bottom>
+  <a href=index.html>🏠</a><a href=init.html>⚙️</a><a href=log.html>📝</a><a href=reports.html>📊</a><a href=behavior.html>⭐</a><a class=active href=edit.html>✏️</a>
+</nav><div style="height:72px"></div>
+</body></html>

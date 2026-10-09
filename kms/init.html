@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<link rel=stylesheet href=styles.css><script defer src=db.js></script>
+<script defer>
+document.addEventListener('DOMContentLoaded', async ()=>{
+  await kmsOpenDB(); await kmsEnsureSeeds();
+  const roles = await kmsGetAll('roles');
+  document.getElementById('roles').innerHTML = roles.map(r=>`<option value="${r.role_id}">${r.name}</option>`).join('');
+  const form = document.getElementById('workerForm');
+  form.addEventListener('submit', async e=>{
+    e.preventDefault();
+    await kmsAdd('workers',{full_name: form.full_name.value, role_id: Number(form.role_id.value), is_active:true});
+    form.reset(); renderWorkers();
+  });
+  async function renderWorkers(){
+    const list = await kmsGetAll('workers'); const roles = await kmsGetAll('roles');
+    const ul = document.getElementById('workersList'); ul.innerHTML='';
+    for(const w of list){ const r = roles.find(x=>x.role_id===w.role_id); const li=document.createElement('li'); li.textContent = `${w.full_name} • ${(r&&r.name)||''}`; ul.appendChild(li); }
+  } renderWorkers();
+});
+</script>
+<title>Init</title></head><body>
+<div class=container>
+  <h1>Initialization</h1>
+  <div class=card>
+    <form id=workerForm>
+      <label>Full name</label><input name=full_name required>
+      <label>Role</label><select id=roles name=role_id></select>
+      <button type=submit>Save Worker</button>
+    </form>
+    <h3>Workers</h3><ul id=workersList></ul>
+  </div>
+</div>
+<nav class=bottom>
+  <a href=index.html>🏠</a><a class=active href=init.html>⚙️</a><a href=log.html>📝</a><a href=reports.html>📊</a><a href=behavior.html>⭐</a><a href=edit.html>✏️</a>
+</nav><div style="height:72px"></div>
+</body></html>
