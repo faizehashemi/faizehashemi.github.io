@@ -10,6 +10,8 @@
 //          trip with the same Dora No.
 //   bus  — vehicle number within its destination (each destination counts from 1); kept across re-imports.
 //   vehicle — 'car' when switched on the Transport day page (cars count from 1 on their own); else a bus.
+//   at_manual, at_import — the time was changed by hand on the Transport day page; at_import = the list's time.
+//          A re-import keeps the hand-set time unless the list itself brings a different time.
 
 import { request } from './cloud.js';
 
@@ -210,9 +212,11 @@ export function diffDay(saved, incoming) {
     const old = new Map(saved.map(r => [r.key, r]));
     const seen = new Set();
     const out = { added: [], removed: [], changed: [], same: 0 };
-    for (const r of incoming) {
+    for (let r of incoming) {
         seen.add(r.key);
         const o = old.get(r.key);
+        // a time set by hand stays while the list still has the time it had then
+        if (o && o.at_manual && r.at === o.at_import) r = { ...r, at: o.at, at_manual: true, at_import: o.at_import };
         if (!o) { out.added.push(r); continue; }
         const fields = FIELDS.filter(f => show(o, f) !== show(r, f)).map(f => [f[1], show(o, f), show(r, f)]);
         if (fields.length) out.changed.push({ old: o, now: r, fields }); else out.same++;

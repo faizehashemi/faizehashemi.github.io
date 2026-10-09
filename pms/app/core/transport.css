@@ -104,3 +104,9 @@ body {
 .tp-vt.car { background: #e7f0ff; border-color: #364fc7; }
 .tp-vt:hover { box-shadow: 0 0 0 2px rgba(201, 162, 39, .35); }
 .tp-tbl .bus { width: 110px; }
+.tp-time { font: inherit; font-weight: 650; white-space: nowrap; padding: 3px 8px; border: 1px dashed transparent; border-radius: 8px; background: none; color: inherit; cursor: pointer; }
+.tp-time span { font-size: 11px; opacity: .35; }
+.tp-time:hover { border-color: #c9a227; background: #fff; }
+.tp-time:hover span { opacity: .8; }
+.tp-time.manual { color: #364fc7; }
+.tp-time-in { font: inherit; font-weight: 650; padding: 3px 6px; border: 1px solid #364fc7; border-radius: 8px; background: #fff; width: 120px; }

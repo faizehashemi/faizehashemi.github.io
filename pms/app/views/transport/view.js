@@ -1,5 +1,6 @@
 // Transport day: the saved trips of one day (cloud, GET /api/transport), bus numbers per destination
-// (type one in to change it — kept by later imports), and links to the import page, bus sheets and signage.
+// (type one in to change it — kept by later imports), times (tap to change, with a confirmation; kept by later
+// imports unless the list's own time changes), and links to the import page, bus sheets and signage.
 // Day in the address: #/<site>/transport?day=YYYY-MM-DD (default today).
 import { canWrite, canOpen, currentDesk, UserError } from '../../core/cloud.js';
 import { DESTS, resolve, signage, renumber, assignBuses, vehicleOf, vehicleNo, VEHICLES, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
@@ -62,7 +63,7 @@ export default async function mount(ctx) {
                     <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle))}` : writable
                         ? `<span class="tp-veh"><button type="button" class="tp-vt ${b.vehicle}" data-veh="${esc(r.key)}" title="${b.vehicle === 'car' ? 'Car — tap to make it a bus' : 'Bus — tap to make it a car'}" aria-label="${VEHICLES[b.vehicle].title}: switch">${VEHICLES[b.vehicle].icon}</button><input type="number" min="1" max="999" inputmode="numeric" value="${esc(b.bus ?? '')}" data-key="${esc(r.key)}" class="${r.bus_manual ? 'manual' : ''}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' dup' : ''}" aria-label="${VEHICLES[b.vehicle].title} number" title="${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' · used twice' : ''}"></span>`
                         : `${VEHICLES[b.vehicle].icon} ${esc(b.bus ?? '—')}`}</td>
-                    <td class="t">${esc(time12(r.at))}</td>
+                    ${timeCell(r)}
                     <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
                     <td>${esc(r.operator || '—')}</td>
                     <td>${esc(r.leader || '—')}</td>
@@ -82,7 +83,7 @@ export default async function mount(ctx) {
               <thead><tr><th>Time</th><th>Route</th><th>Vehicle</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Rooms</th><th>Remarks</th></tr></thead>
               <tbody>${rows.map(r => { const i = info.get(r.key); return `
                 <tr class="${i.parent ? 'rider' : ''}${r.at < past ? ' past' : ''}">
-                  <td class="t">${esc(time12(r.at))}</td>
+                  ${timeCell(r)}
                   <td>${esc(i.route || '—')}${i.parent ? '<small>grouped</small>' : ''}</td>
                   <td class="bus">${i.dest ? `${VEHICLES[i.vehicle].icon} ${esc(i.bus ?? '—')}` : ''}</td>
                   <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
@@ -94,6 +95,14 @@ export default async function mount(ctx) {
                   <td>${esc(r.remarks)}</td>
                 </tr>`; }).join('')}</tbody></table></div>` : '<p class="tp-empty">Nothing matches.</p>';
         }
+    }
+
+    // the time: tap to change it (desks that may write); a hand-set time shows the list's time under it
+    function timeCell(r) {
+        const was = r.at_manual && r.at_import && r.at_import !== r.at ? `<small title="Changed by hand — the transport list says ${esc(time12(r.at_import))}">list: ${esc(time12(r.at_import))}</small>` : '';
+        return writable
+            ? `<td class="t"><button type="button" class="tp-time${r.at_manual ? ' manual' : ''}" data-time="${esc(r.key)}" title="Change the time">${esc(time12(r.at))} <span aria-hidden="true">✎</span></button>${was}</td>`
+            : `<td class="t">${esc(time12(r.at))}${was}</td>`;
     }
 
     function meta() {
@@ -183,6 +192,48 @@ export default async function mount(ctx) {
         } finally { $('sgSave').disabled = false; }
     });
 
+    // change a time: tap → time box → Enter / leave the box → confirm → saved for the signage and the bus sheets.
+    // The groups riding the same bus at the same time move with it.
+    $('tpList').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-time]');
+        if (!btn || saving) return;
+        const row = doc.rows.find(r => r.key === btn.dataset.time);
+        if (!row) return;
+        const inp = document.createElement('input');
+        inp.type = 'time';
+        inp.className = 'tp-time-in';
+        inp.value = row.at.slice(11, 16);
+        inp.setAttribute('aria-label', `New time for SH ${row.ref}`);
+        btn.replaceWith(inp);
+        inp.focus();
+        let done = false;
+        const finish = (commit) => {
+            if (done) return;
+            done = true;
+            const hm = inp.value;
+            if (!commit || !/^\d{2}:\d{2}$/.test(hm) || hm === row.at.slice(11, 16)) { list(); return; }
+            const at = `${row.at.slice(0, 10)}T${hm}`;
+            const info = resolve(doc.rows);
+            const riders = info.get(row.key)?.parent ? [] : doc.rows.filter(r => info.get(r.key)?.parent === row && r.at === row.at);
+            const ok = confirm([
+                `Change the time of SH ${row.ref}${row.leader ? ` (${row.leader})` : ''}`,
+                `from ${time12(row.at)} to ${time12(at)}?`,
+                ...(riders.length ? ['', `${riders.length} grouped trip${riders.length === 1 ? '' : 's'} on the same ${vehicleOf(row)} move${riders.length === 1 ? 's' : ''} with it.`] : []),
+                '', 'The signage and the bus sheet will show the new time.',
+            ].join('\n'));
+            if (!ok) { list(); return; }
+            const move = new Set([row.key, ...riders.map(r => r.key)]);
+            const rows = doc.rows.map(r => {
+                if (!move.has(r.key)) return r;
+                const listAt = r.at_manual ? r.at_import : r.at; // the transport list's own time
+                return at === listAt ? (({ at_manual, at_import, ...x }) => ({ ...x, at }))(r) : { ...r, at, at_manual: true, at_import: listAt };
+            }).sort((a, b) => a.at.localeCompare(b.at));
+            save(rows, `time of SH ${row.ref}: ${row.at.slice(11, 16)} → ${hm}${riders.length ? ` (+${riders.length} grouped)` : ''}`);
+        };
+        inp.addEventListener('keydown', (k) => { if (k.key === 'Enter') { k.preventDefault(); finish(true); } else if (k.key === 'Escape') finish(false); });
+        inp.addEventListener('blur', () => finish(true));
+    });
+
     // 🚌 ⇄ 🚗: a car counts from 1 on its own (per destination); buses keep their numbers
     $('tpList').addEventListener('click', (e) => {
         const b = e.target.closest('button[data-veh]');
@@ -213,7 +264,7 @@ export default async function mount(ctx) {
     await signageWindow();
     // other desks' imports: check every 30 s (not while a bus number is being typed)
     const t = setInterval(() => {
-        if (saving || document.visibilityState !== 'visible' || ctx.root.contains(document.activeElement) && document.activeElement.matches('input[data-key]')) return;
+        if (saving || document.visibilityState !== 'visible' || ctx.root.contains(document.activeElement) && document.activeElement.matches('input[data-key], input.tp-time-in')) return;
         load({ quiet: true });
     }, 30e3);
     return () => clearInterval(t);
