@@ -323,18 +323,60 @@ export default async function mount(ctx) {
     }
 
     /* ------------------------------------- history ------------------------------------- */
+    // Everyone's saved assignments, or one person's profile: FE1, FE2, FE total and Atraaf counts and their
+    // own list (each entry can be deleted). Click a name in the table, or pick one from the list.
+    let profileOf = '';
+    const whenTxt = (ts) => new Date(ts).toLocaleString(undefined, { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const delBtn = (r) => `<button type="button" class="kg-del" data-logdel="${r.id}" title="Delete this entry" aria-label="Delete ${esc(r.type)} on ${esc(whenTxt(r.ts))}">✕</button>`;
     function renderHistory() {
+        const names = [...new Set([...people, ...history.map(h => h.person)])].sort(natural);
+        if (profileOf && !names.includes(profileOf)) profileOf = '';
+        $('#histPerson').innerHTML = '<option value="">Everyone</option>' + names.map(n => `<option ${n === profileOf ? 'selected' : ''}>${esc(n)}</option>`).join('');
         const sorted = [...history].sort((a, b) => b.ts.localeCompare(a.ts));
-        $('#logTable tbody').innerHTML = sorted.map(r => `<tr>
-            <td>${esc(new Date(r.ts).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }))}</td>
-            <td><span class="kg-type t-${esc(r.type)}">${esc(r.type)}</span></td>
-            <td>${esc(r.person)}</td><td>${esc(r.location || '')}</td>
-            <td><button type="button" class="kg-del" data-logdel="${r.id}" title="Delete this entry" aria-label="Delete">✕</button></td></tr>`).join('')
-            || '<tr><td colspan="5" class="kg-empty">Nothing saved yet.</td></tr>';
+        if (!profileOf) {
+            $('#histBox').innerHTML = `<div class="kg-log"><table>
+                <thead><tr><th>When</th><th>Type</th><th>Person</th><th>Location</th><th></th></tr></thead>
+                <tbody>${sorted.map(r => `<tr>
+                    <td>${esc(whenTxt(r.ts))}</td>
+                    <td><span class="kg-type t-${esc(r.type)}">${esc(r.type)}</span></td>
+                    <td><button type="button" class="kg-person" data-profile="${esc(r.person)}" title="Open ${esc(r.person)}'s profile">${esc(r.person)}</button></td>
+                    <td>${esc(r.location || '')}</td><td>${delBtn(r)}</td></tr>`).join('') || '<tr><td colspan="5" class="kg-empty">Nothing saved yet.</td></tr>'}</tbody>
+            </table></div>`;
+            return;
+        }
+        const mine = sorted.filter(h => h.person === profileOf);
+        const c = (k) => mine.filter(h => h.type === k).length;
+        const fe1 = c('FE1'), fe2 = c('FE2'), at = c('Atraaf');
+        const first = mine.at(-1), last = mine[0];
+        $('#histBox').innerHTML = `
+            <div class="kg-prof">
+                <div class="kg-prof-head">
+                    <button type="button" class="kg-btn ghost" data-profile="">← Everyone</button>
+                    <div><h3>${esc(profileOf)}</h3>
+                        <p class="kg-note">${mine.length ? `${mine.length} assignment${mine.length === 1 ? '' : 's'} · first ${esc(whenTxt(first.ts))} · last ${esc(whenTxt(last.ts))}` : 'No saved assignments yet.'}${people.includes(profileOf) ? '' : ' · no longer in the name list'}</p></div>
+                </div>
+                <div class="kg-kpis kg-prof-kpis">
+                    <div><b class="c-fe1">${fe1}</b><span>FE1</span></div>
+                    <div><b class="c-fe2">${fe2}</b><span>FE2</span></div>
+                    <div><b>${fe1 + fe2}</b><span>FE total</span></div>
+                    <div><b class="c-at">${at}</b><span>Atraaf</span></div>
+                </div>
+                <div class="kg-log"><table>
+                    <thead><tr><th>When</th><th>Type</th><th>Location</th><th></th></tr></thead>
+                    <tbody>${mine.map(r => `<tr><td>${esc(whenTxt(r.ts))}</td><td><span class="kg-type t-${esc(r.type)}">${esc(r.type)}</span></td>
+                        <td>${esc(r.location || '')}</td><td>${delBtn(r)}</td></tr>`).join('') || '<tr><td colspan="4" class="kg-empty">Nothing saved yet.</td></tr>'}</tbody>
+                </table></div>
+            </div>`;
     }
-    $('#logTable tbody').addEventListener('click', (e) => {
+    const openProfile = (name) => { profileOf = name || ''; renderHistory(); $('#histBox').scrollTop = 0; };
+    $('#histPerson').addEventListener('change', () => openProfile($('#histPerson').value));
+    $('#histBox').addEventListener('click', (e) => {
+        const p = e.target.closest('[data-profile]');
+        if (p) { openProfile(p.dataset.profile); return; }
         const b = e.target.closest('[data-logdel]');
-        if (!b || !confirm('Delete this saved assignment?')) return;
+        if (!b) return;
+        const r = history.find(h => String(h.id) === b.dataset.logdel);
+        if (!confirm(r ? `Delete ${r.person}'s ${r.type} on ${whenTxt(r.ts)}?` : 'Delete this saved assignment?')) return;
         cloud(() => request('DELETE', `/api/kg/log/${b.dataset.logdel}?site=${site}`), () => flash('Assignment deleted.'));
     });
 

@@ -161,3 +161,12 @@ body { background: var(--kg-bg) url("../../../assets/pattern_gold_2x.png") repea
     .kg-tools-left, .kg-tools-right { width: 100%; }
     .kg-tabs button { font-size: 12px; }
 }
+
+/* ---------- history: a person's profile ---------- */
+.kg-pane-head #histPerson { max-width: 55%; }
+.kg-person { font: inherit; padding: 0; border: 0; background: none; color: var(--kg-gold-deep); font-weight: 700; cursor: pointer; text-align: left; }
+.kg-person:hover { text-decoration: underline; }
+.kg-prof { display: grid; gap: 10px; }
+.kg-prof-head { display: flex; gap: 10px; align-items: flex-start; }
+.kg-prof-head h3 { margin: 2px 0 0; font-size: 17px; color: var(--kg-ink); }
+.kg-prof-kpis .c-fe1 { color: var(--kg-fe1); } .kg-prof-kpis .c-fe2 { color: var(--kg-fe2); } .kg-prof-kpis .c-at { color: var(--kg-at); }

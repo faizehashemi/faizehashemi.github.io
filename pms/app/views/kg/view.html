@@ -112,13 +112,11 @@
             </section>
 
             <section class="kg-card kg-pane" data-pane="hist" hidden>
-                <h2>Saved assignments</h2>
-                <div class="kg-log">
-                    <table id="logTable">
-                        <thead><tr><th>When</th><th>Type</th><th>Person</th><th>Location</th><th></th></tr></thead>
-                        <tbody></tbody>
-                    </table>
+                <div class="kg-pane-head">
+                    <h2>Saved assignments</h2>
+                    <select id="histPerson" aria-label="Show one person"><option value="">Everyone</option></select>
                 </div>
+                <div id="histBox"></div>
             </section>
         </aside>
     </main>
