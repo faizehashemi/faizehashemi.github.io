@@ -31,7 +31,7 @@ function sheet(day, dest, b) {
         <tr><td class="h time">${esc(time12(b.at))}</td><td class="h col">SH REF</td><td class="h col">PAX NO</td></tr>
         ${b.rows.map(r => `<tr class="row"><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td>${esc(r.ref)}</td><td>${esc(r.pax)}</td></tr>`).join('')}
       </table>
-      <div class="foot"><span>${esc([b.transporter, b.vch && `Vch ${b.vch}`].filter(Boolean).join(' · '))}</span>
+      <div class="foot"><span>${b.building ? `<b class="from">Departs from ${esc(b.building)}</b>` : ''}${esc([b.transporter, b.vch && `Vch ${b.vch}`].filter(Boolean).join(' · '))}</span>
         ${b.rows.length > 1 ? `<span>Total pax <span class="total">${esc(b.pax)}</span></span>` : ''}</div>
     </section>`;
 }
@@ -41,16 +41,16 @@ function summary(day, groups) {
     return groups.map(({ dest, buses }) => {
         const pax = buses.reduce((s, b) => s + b.pax, 0);
         return `<table class="sum">
-          <colgroup><col style="width:22%"><col style="width:33%"><col style="width:11%"><col style="width:8%"><col style="width:11%"><col style="width:8%"><col style="width:7%"></colgroup>
+          <colgroup><col style="width:19%"><col style="width:28%"><col style="width:10%"><col style="width:7%"><col style="width:10%"><col style="width:12%"><col style="width:8%"><col style="width:6%"></colgroup>
           <thead>
-            <tr class="band"><th class="d">${esc(sheetDate(day))}</th><th class="t" colspan="6">${esc(dest.label)}</th></tr>
-            <tr class="cols"><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>VEHICLE</th><th>NO</th></tr>
+            <tr class="band"><th class="d">${esc(sheetDate(day))}</th><th class="t" colspan="7">${esc(dest.label)}</th></tr>
+            <tr class="cols"><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>BUILDING</th><th>VEHICLE</th><th>NO</th></tr>
           </thead>
           <tbody>${[...buses].sort((a, b) => a.at.localeCompare(b.at) || (a.vehicle === b.vehicle ? 0 : a.vehicle === 'car' ? 1 : -1) || (a.bus ?? 1e9) - (b.bus ?? 1e9))
               .flatMap(b => b.rows.map((r, i) => `<tr${i ? ' class="rider"' : ''}>
             <td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td>
-            <td class="n">${esc(time12(b.at))}</td><td>${VEHICLES[b.vehicle].label}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
-          <tfoot><tr><td colspan="3">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="3"></td></tr></tfoot>
+            <td class="n">${esc(time12(b.at))}</td><td>${esc(b.building || '')}</td><td>${VEHICLES[b.vehicle].label}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
+          <tfoot><tr><td colspan="3">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="4"></td></tr></tfoot>
         </table>`;
     }).join('');
 }

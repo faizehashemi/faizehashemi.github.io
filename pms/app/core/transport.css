@@ -110,3 +110,6 @@ body {
 .tp-time:hover span { opacity: .8; }
 .tp-time.manual { color: #364fc7; }
 .tp-time-in { font: inherit; font-weight: 650; padding: 3px 6px; border: 1px solid #364fc7; border-radius: 8px; background: #fff; width: 120px; }
+.tp-tbl .from { white-space: nowrap; }
+.tp-from { font: inherit; font-size: 12.5px; font-weight: 650; padding: 3px 6px; border: 1px solid #e3d2b1; border-radius: 8px; background: #fff; color: var(--muted); max-width: 150px; }
+.tp-from.set { color: var(--ink); border-color: #c9a227; background: #fffdf3; }

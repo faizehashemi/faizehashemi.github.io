@@ -55,8 +55,10 @@
         const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         // "2026-10-04T03:00" → "04-10-2026 03:00"
         const when = (at) => `${at.slice(8, 10)}-${at.slice(5, 7)}-${at.slice(0, 4)} ${at.slice(11, 16)}`;
-        const HEAD = `<tr>
-            <th class="rounded-start-2 border-0" scope="col" style="color:#663300;background-color:#F9BB00;">SH Ref</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Travel To</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Date</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Tour Group</th><th class="border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Total Pax</th><th class="rounded-end-2 border-0" scope="col" style="color:#663300;background-color:#F9BB00;">Bus No</th>
+        const TH = 'scope="col" style="color:#663300;background-color:#F9BB00;"';
+        // "Building" (where the bus leaves from) only when the Transport day page has set one for a Classic trip
+        const head = (building) => `<tr>
+            <th class="rounded-start-2 border-0" ${TH}>SH Ref</th><th class="border-0" ${TH}>Travel To</th><th class="border-0" ${TH}>Date</th><th class="border-0" ${TH}>Tour Group</th><th class="border-0" ${TH}>Total Pax</th>${building ? `<th class="border-0" ${TH}>Building</th>` : ''}<th class="rounded-end-2 border-0" ${TH}>Bus No</th>
         </tr>`;
         const ROW = 'border border-warning border-bottom border-top-0 border-start-0 border-end-0';
 
@@ -65,16 +67,17 @@
 
         /* ---------------- Classic (the sigatulhaj layout) ---------------- */
         function renderClassic(list) {
+            const building = slides.some(s => s.template === 'classic' && s.trips.some(t => t.building));
             const body = list.map((t, i) => {
                 // "Travel To" once for the rows that share it on this page
                 let span = 0;
                 if (i === 0 || list[i - 1].to !== t.to) { span = 1; while (list[i + span] && list[i + span].to === t.to) span++; }
                 const op = t.r.operator && t.r.operator.toUpperCase() !== 'SELF' ? `${esc(t.r.operator)}<br>` : '';
                 return `<tr class="${ROW}">
-                    <td class="text-center align-middle">${esc(t.r.ref)}</td>${span ? `<td class="align-middle bg-body-tertiary fw-bold text-primary table-warning " rowspan="${span}">${esc(t.to)}</td>` : ''}<td>${esc(when(t.r.at))}</td><td class="text-center align-middle">${op}${esc(t.r.leader)}</td><td class="text-center align-middle">${esc(t.r.pax)}</td><td class="text-center align-middle">${esc(vehicleNo(t.bus, t.vehicle))}</td>
+                    <td class="text-center align-middle">${esc(t.r.ref)}</td>${span ? `<td class="align-middle bg-body-tertiary fw-bold text-primary table-warning " rowspan="${span}">${esc(t.to)}</td>` : ''}<td>${esc(when(t.r.at))}</td><td class="text-center align-middle">${op}${esc(t.r.leader)}</td><td class="text-center align-middle">${esc(t.r.pax)}</td>${building ? `<td class="text-center align-middle fw-bold">${esc(t.building || '')}</td>` : ''}<td class="text-center align-middle">${esc(vehicleNo(t.bus, t.vehicle))}</td>
                 </tr>`;
             }).join('');
-            $('gvTransportList').tBodies[0].innerHTML = HEAD + (body || `<tr class="${ROW}"><td class="text-center align-middle" colspan="6">No transport scheduled</td></tr>`);
+            $('gvTransportList').tBodies[0].innerHTML = head(building) + (body || `<tr class="${ROW}"><td class="text-center align-middle" colspan="${building ? 7 : 6}">No transport scheduled</td></tr>`);
         }
 
         /* ---------------- custom templates (Signage Builder) ---------------- */

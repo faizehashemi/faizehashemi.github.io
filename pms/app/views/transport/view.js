@@ -6,6 +6,7 @@ import { canWrite, canOpen, currentDesk, UserError } from '../../core/cloud.js';
 import { DESTS, resolve, signage, renumber, assignBuses, vehicleOf, vehicleNo, VEHICLES, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { loadSignage, saveSignageConfig } from '../../core/signage-api.js';
+import { loadBuildings, buildingNames } from '../../core/rooms.js';
 
 export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
@@ -64,6 +65,7 @@ export default async function mount(ctx) {
                         ? `<span class="tp-veh"><button type="button" class="tp-vt ${b.vehicle}" data-veh="${esc(r.key)}" title="${b.vehicle === 'car' ? 'Car — tap to make it a bus' : 'Bus — tap to make it a car'}" aria-label="${VEHICLES[b.vehicle].title}: switch">${VEHICLES[b.vehicle].icon}</button><input type="number" min="1" max="999" inputmode="numeric" value="${esc(b.bus ?? '')}" data-key="${esc(r.key)}" class="${r.bus_manual ? 'manual' : ''}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' dup' : ''}" aria-label="${VEHICLES[b.vehicle].title} number" title="${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' · used twice' : ''}"></span>`
                         : `${VEHICLES[b.vehicle].icon} ${esc(b.bus ?? '—')}`}</td>
                     ${timeCell(r)}
+                    ${fromCell(r, i ? b : null)}
                     <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
                     <td>${esc(r.operator || '—')}</td>
                     <td>${esc(r.leader || '—')}</td>
@@ -73,17 +75,18 @@ export default async function mount(ctx) {
                   </tr>`).join('');
                 return `<div class="tp-dest"><span aria-hidden="true">${s.dest.icon}</span>${esc(s.dest.label)}
                     <small>${fleet(s.buses)} · ${s.groups} groups · ${s.pax} pax</small></div>
-                  ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Vehicle</th><th>Time</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th></tr></thead>
+                  ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Vehicle</th><th>Time</th><th>From</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th></tr></thead>
                     <tbody>${body}</tbody></table></div>` : `<p class="tp-empty">${s.buses.length ? 'Nothing matches.' : 'No trips.'}</p>`}`;
             }).join('');
             $('tpList').innerHTML = html;
         } else {
             const rows = [...doc.rows].sort((a, b) => a.at.localeCompare(b.at)).filter(r => matches(r, q));
             $('tpList').innerHTML = rows.length ? `<div class="tp-scroll"><table class="tp-tbl">
-              <thead><tr><th>Time</th><th>Route</th><th>Vehicle</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Rooms</th><th>Remarks</th></tr></thead>
+              <thead><tr><th>Time</th><th>From</th><th>Route</th><th>Vehicle</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Rooms</th><th>Remarks</th></tr></thead>
               <tbody>${rows.map(r => { const i = info.get(r.key); return `
                 <tr class="${i.parent ? 'rider' : ''}${r.at < past ? ' past' : ''}">
                   ${timeCell(r)}
+                  ${fromCell(r, i.parent ? { building: i.building } : null)}
                   <td>${esc(i.route || '—')}${i.parent ? '<small>grouped</small>' : ''}</td>
                   <td class="bus">${i.dest ? `${VEHICLES[i.vehicle].icon} ${esc(i.bus ?? '—')}` : ''}</td>
                   <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
@@ -103,6 +106,16 @@ export default async function mount(ctx) {
         return writable
             ? `<td class="t"><button type="button" class="tp-time${r.at_manual ? ' manual' : ''}" data-time="${esc(r.key)}" title="Change the time">${esc(time12(r.at))} <span aria-hidden="true">✎</span></button>${was}</td>`
             : `<td class="t">${esc(time12(r.at))}${was}</td>`;
+    }
+
+    // departs from: a building of this site (Rooms & Buildings); grouped trips show their bus's
+    let buildings = [];
+    function fromCell(r, bus) {
+        if (bus) return `<td class="from"><span class="tp-muted">${bus.building ? `↳ ${esc(bus.building)}` : ''}</span></td>`;
+        if (!writable) return `<td class="from">${esc(r.building || '—')}</td>`;
+        const names = r.building && !buildings.includes(r.building) ? [...buildings, r.building] : buildings;
+        return `<td class="from"><select class="tp-from${r.building ? ' set' : ''}" data-from="${esc(r.key)}" aria-label="Departs from (building)">
+            <option value="">—</option>${names.map(n => `<option${n === r.building ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></td>`;
     }
 
     function meta() {
@@ -192,6 +205,15 @@ export default async function mount(ctx) {
         } finally { $('sgSave').disabled = false; }
     });
 
+    // departure building: saved at once (signage, bus sheets and summary show it)
+    $('tpList').addEventListener('change', (e) => {
+        const sel = e.target.closest('select[data-from]');
+        if (!sel || saving) return;
+        const key = sel.dataset.from, building = sel.value;
+        const rows = doc.rows.map(r => r.key === key ? (building ? { ...r, building } : (({ building: _, ...x }) => x)(r)) : r);
+        save(rows, `SH ${key} departs from ${building || '(none)'}`);
+    });
+
     // change a time: tap → time box → Enter / leave the box → confirm → saved for the signage and the bus sheets.
     // The groups riding the same bus at the same time move with it.
     $('tpList').addEventListener('click', (e) => {
@@ -260,11 +282,12 @@ export default async function mount(ctx) {
         await load();
     });
 
+    try { buildings = buildingNames(await ctx.guard(loadBuildings()), ctx.siteId); } catch { buildings = buildingNames([], ctx.siteId); }
     await load();
     await signageWindow();
     // other desks' imports: check every 30 s (not while a bus number is being typed)
     const t = setInterval(() => {
-        if (saving || document.visibilityState !== 'visible' || ctx.root.contains(document.activeElement) && document.activeElement.matches('input[data-key], input.tp-time-in')) return;
+        if (saving || document.visibilityState !== 'visible' || ctx.root.contains(document.activeElement) && document.activeElement.matches('input[data-key], input.tp-time-in, select[data-from]')) return;
         load({ quiet: true });
     }, 30e3);
     return () => clearInterval(t);

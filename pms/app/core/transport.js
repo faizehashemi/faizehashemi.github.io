@@ -10,6 +10,8 @@
 //          trip with the same Dora No.
 //   bus  — vehicle number within its destination (each destination counts from 1); kept across re-imports.
 //   vehicle — 'car' when switched on the Transport day page (cars count from 1 on their own); else a bus.
+//   building — the building the bus departs from (Transport day page; names from Rooms & Buildings); grouped trips
+//          take their bus's. Kept by re-imports.
 //   at_manual, at_import — the time was changed by hand on the Transport day page; at_import = the list's time.
 //          A re-import keeps the hand-set time unless the list itself brings a different time.
 
@@ -130,7 +132,7 @@ export function resolve(rows) {
         const parent = r.route ? null : (r.adj && byVch.get(r.adj)) || (r.dora && byDora.get(r.dora)) || null;
         const route = parent ? parent.route : r.route;
         const dest = DEST_OF_ROUTE[normRoute(route)] || null;
-        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r) });
+        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r), building: (parent || r).building || '' });
     }
     return out;
 }
@@ -176,7 +178,7 @@ export function signage(rows) {
             .sort((a, b) => (vehicleOf(a) === vehicleOf(b) ? 0 : vehicleOf(a) === 'bus' ? -1 : 1) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || byTime(a, b));
         const buses = mains.map(r => {
             const riders = [r, ...rows.filter(x => info.get(x.key).parent === r)];
-            return { bus: r.bus, vehicle: vehicleOf(r), at: r.at, rows: riders, pax: riders.reduce((s, x) => s + (Number(x.pax) || 0), 0), transporter: r.transporter, vch: r.vch };
+            return { bus: r.bus, vehicle: vehicleOf(r), building: r.building || '', at: r.at, rows: riders, pax: riders.reduce((s, x) => s + (Number(x.pax) || 0), 0), transporter: r.transporter, vch: r.vch };
         });
         return { dest: d, buses, pax: buses.reduce((s, b) => s + b.pax, 0), groups: buses.reduce((s, b) => s + b.rows.length, 0) };
     });
@@ -232,7 +234,7 @@ export function diffDay(saved, incoming) {
 export function applyChanges(saved, diff, pick) {
     const map = new Map(saved.map(r => [r.key, { ...r }]));
     for (const r of diff.added) if (pick.has('add:' + r.key)) map.set(r.key, { ...r });
-    for (const c of diff.changed) if (pick.has('chg:' + c.now.key)) map.set(c.now.key, { ...c.now, bus: c.old.bus, bus_manual: c.old.bus_manual, ...(c.old.vehicle ? { vehicle: c.old.vehicle } : {}) });
+    for (const c of diff.changed) if (pick.has('chg:' + c.now.key)) map.set(c.now.key, { ...c.now, bus: c.old.bus, bus_manual: c.old.bus_manual, ...(c.old.vehicle ? { vehicle: c.old.vehicle } : {}), ...(c.old.building ? { building: c.old.building } : {}) });
     for (const r of diff.removed) if (pick.has('del:' + r.key)) map.delete(r.key);
     const rows = [...map.values()].sort(byTime);
     return assignBuses(rows, saved);

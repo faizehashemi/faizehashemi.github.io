@@ -39,6 +39,7 @@ export const FIELDS = {
     mfc: ['M / F / C', (t) => [t.r.m && `M ${t.r.m}`, t.r.f && `F ${t.r.f}`, t.r.c && `C ${t.r.c}`].filter(Boolean).join('  ')],
     bus: ['Bus No', (t) => vehicleNo(t.bus, t.vehicle)],
     vehicle: ['Vehicle', (t) => VEHICLES[t.vehicle === 'car' ? 'car' : 'bus'].label],
+    building: ['Building', (t) => t.building || ''],
     transporter: ['Transporter', (t) => t.r.transporter || ''],
     vch: ['Vch No', (t) => t.r.vch],
     dora: ['Dora No', (t) => t.r.dora],
@@ -86,7 +87,7 @@ export function tripsOf(data) {
             const i = info.get(r.key);
             const type = i.route || r.route;
             if (!type || r.at < from || r.at > to) continue;
-            out.push({ r, type, to: travelTo(type), bus: i.bus, vehicle: i.vehicle });
+            out.push({ r, type, to: travelTo(type), bus: i.bus, vehicle: i.vehicle, building: i.building || '' });
         }
     }
     return out;
@@ -241,7 +242,7 @@ function sampleTrips(n) {
     return Array.from({ length: Math.min(n, 12) }, (_, i) => {
         const [operator, leader] = names[i % names.length];
         return { r: { ref: String(43000 + i * 17), at: `2026-10-04T${two(6 + i)}:30`, operator, leader, pax: 3 + i * 7, m: 2, f: 1 + i, c: 0, vch: String(5000 + i), dora: '', transporter: 'YUSUF BHAI' },
-            type: i < 3 ? 'MAKKAH-JEDDAH AIRPORT' : 'MAKKAH-MADINA', to: i < 3 ? 'JEDDAH AIRPORT' : 'MADINA', bus: i + 1 };
+            type: i < 3 ? 'MAKKAH-JEDDAH AIRPORT' : 'MAKKAH-MADINA', to: i < 3 ? 'JEDDAH AIRPORT' : 'MADINA', bus: i + 1, building: ['MOHAMMEDI', 'SNOOD', 'BAHA'][i % 3] };
     });
 }
 

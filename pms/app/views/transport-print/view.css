@@ -21,6 +21,7 @@
 .sheet .row td { font-family: "Times New Roman", Times, Georgia, serif; font-weight: 700; font-size: 22pt; text-transform: uppercase; height: 30mm; }
 .sheet.many .row td { font-size: 16pt; height: auto; padding: 1.5mm 3mm; }
 .sheet .foot { display: flex; justify-content: space-between; align-items: baseline; margin-top: 2mm; font: 700 11pt Arial, sans-serif; color: #333; }
+.sheet .foot .from { display: block; font: 900 20pt "Arial Black", Arial, sans-serif; color: #000; margin-bottom: 1mm; }
 .sheet .foot .total { font-size: 16pt; color: #000; border: 2px solid #000; padding: 0 5mm; }
 .tq-none { padding: 30px; color: var(--muted); text-align: center; }
 
