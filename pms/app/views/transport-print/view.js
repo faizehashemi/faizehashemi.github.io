@@ -4,7 +4,7 @@
 // #/<site>/transport-print?day=YYYY-MM-DD
 import { loadDay, listDays, signage, DESTS, VEHICLES, today, sheetDate, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
-import { UserError } from '../../core/cloud.js';
+import { UserError, canOpen } from '../../core/cloud.js';
 
 const PICK_KEY = 'pms_transport_print_dests';
 
@@ -59,6 +59,8 @@ export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
     const day = /^\d{4}-\d{2}-\d{2}$/.test(ctx.params.get('day') || '') ? ctx.params.get('day') : today();
     $('tqDay').href = ctx.href('transport', { day });
+    $('tqTosha').href = ctx.href('tosha');
+    $('tqTosha').hidden = !canOpen('tosha');
     let picked = DESTS.map(d => d.id);
     try { const s = JSON.parse(localStorage.getItem(PICK_KEY) || 'null'); if (Array.isArray(s)) picked = s; } catch { }
 

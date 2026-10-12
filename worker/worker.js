@@ -165,6 +165,8 @@ async function route(req, env) {
 
 
     if (p === '/api/transport' && m === 'GET') return getTransport(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
+    if (p === '/api/tosha' && m === 'GET') return getTosha(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
+    if (p === '/api/tosha' && m === 'PUT') return putTosha(req, env, me);
     if (p === '/api/transport/types' && m === 'GET') return transportTypes(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage' && m === 'GET') return getSignage(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage/config' && m === 'PUT') return putSignageConfig(req, env, me);
@@ -1655,6 +1657,24 @@ async function publicSignageSetup(url, env) {
         templates = results.map(r => ({ id: r.id, name: r.name, data: JSON.parse(r.data) }));
     }
     return publicJson({ site, slides: cfg.slides, fade: cfg.fade ?? SIGNAGE_FADE, templates, stamp: await signageStamp(env, site, cfg) });
+}
+
+// Tosha (travel refreshments) choices per site and day — Mawaid → Tosha summary: Madina preparation time and meal,
+// per-bus Tosha packet / burger for the airport. Small JSON; read: any login · write: desk of the site, admin.
+async function getTosha(env, site, day) {
+    const row = await env.DB.prepare('SELECT t.data, t.updated_at, d.name AS updated_by FROM tosha_days t LEFT JOIN desks d ON d.id = t.updated_by WHERE t.site = ? AND t.day = ?').bind(site, day).first();
+    return json({ site, day, data: row ? JSON.parse(row.data) : {}, updated_at: row ? row.updated_at : null, updated_by: row ? row.updated_by : null });
+}
+async function putTosha(req, env, me) {
+    const { site, day, data } = await body(req);
+    assertWrite(me, site);
+    const d = transportDay(day);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new HttpError(400, 'data must be an object.');
+    const text = JSON.stringify(cleanSlip(data, 1));
+    if (text.length > 64 * 1024) throw new HttpError(413, 'Too large.');
+    await env.DB.prepare('INSERT INTO tosha_days (site, day, data, updated_at, updated_by) VALUES (?, ?, ?, ?, ?) ON CONFLICT(site, day) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by')
+        .bind(site, d, text, now(), me.id).run();
+    return getTosha(env, site, d);
 }
 
 async function deleteTransport(url, env, me) {

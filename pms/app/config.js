@@ -37,6 +37,7 @@ export const VIEWS = [
     { id: 'print',        label: 'Print slips',        title: 'Print — GL Copy',       key: '8', hint: 'A5 slips and group-leader copies' },
     { id: 'admin',        label: 'Slip admin',         title: 'Admin',                 key: '9', hint: 'Search, delete, back up slips' },
     { id: 'mawaid',       label: 'Mawaid',             title: 'Mawaid Stats',          key: '0', hint: 'Meal counts and thals per building' },
+    { id: 'tosha',        label: 'Tosha summary',      title: 'Tosha Summary',         hint: 'Travel refreshments for tomorrow’s and today’s buses' },
     { id: 'menu-card',    label: 'Menu Card',          title: 'Menu Card',             hint: 'Lunch & dinner menu image to download or copy' },
     { id: 'movement',     label: 'Movement',           title: 'Check-ins & Check-outs — Mobile', hint: 'Phone-friendly arrivals and departures' },
     { id: 'group-export', label: 'Group export',       title: 'Groups Export',         hint: 'Group signs as PDF or Word' },
@@ -60,7 +61,7 @@ export const VIEWS = [
 export const NAV = [
     { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'movement', 'print'] },
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'builder'] },
-    { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'menu-card'] },
+    { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
     { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts'] },

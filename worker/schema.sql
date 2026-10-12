@@ -304,3 +304,13 @@ CREATE TABLE IF NOT EXISTS alloc_log (
     undo_note   TEXT
 );
 CREATE INDEX IF NOT EXISTS alloc_log_site ON alloc_log(site, id);
+
+-- Tosha (travel refreshments) choices per site and day (Mawaid → Tosha summary)
+CREATE TABLE IF NOT EXISTS tosha_days (
+    site        TEXT NOT NULL,
+    day         TEXT NOT NULL,
+    data        TEXT NOT NULL,                       -- JSON { madina: { time, biryani, burger, packet }, buses: { <trip key>: { packet, burger } } }
+    updated_at  TEXT NOT NULL,
+    updated_by  INTEGER,
+    PRIMARY KEY (site, day)
+);
