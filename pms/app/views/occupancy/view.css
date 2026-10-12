@@ -1,0 +1,81 @@
+/* Occupancy details (cream • gold • brown) */
+:root {
+    --oc-bg: #f7efe1; --oc-panel: #fffaf1; --oc-ink: #2b1e15; --oc-muted: #6b5e4a;
+    --oc-gold: #d4af37; --oc-gold-deep: #9a7414; --oc-edge: #e3d2b1; --oc-shade: 0 8px 24px rgba(92, 64, 28, .10);
+}
+body { background: var(--oc-bg) url("../../../assets/pattern_gold_2x.png") repeat; background-size: 150px auto; margin: 0; color: var(--oc-ink); }
+.oc { max-width: 1440px; margin: 0 auto; padding: 16px 16px 28px; display: grid; gap: 14px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.oc * { box-sizing: border-box; }
+
+.oc-head { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; justify-content: space-between; padding: 18px 20px; border-radius: 16px; color: #fffaf0;
+    background: radial-gradient(120% 140% at 0% 0%, rgba(255, 236, 170, .35), transparent 55%), linear-gradient(135deg, #7a5410 0%, #b8871d 45%, #d4af37 100%);
+    box-shadow: 0 12px 30px rgba(122, 84, 16, .25); }
+.oc-head h1 { margin: 0; font-size: clamp(19px, 2.4vw, 24px); }
+.oc-head p { margin: 4px 0 0; font-size: 13px; opacity: .92; max-width: 70ch; }
+.oc-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.oc-controls label { display: grid; gap: 3px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.oc-controls input, .oc-controls select { font: inherit; font-size: 14px; text-transform: none; letter-spacing: 0; padding: 7px 9px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .7); background: #fff; color: var(--oc-ink); }
+.oc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.oc-chips button, .oc-btn { font: inherit; font-size: 12px; font-weight: 700; padding: 7px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .18); color: #fff; cursor: pointer; }
+.oc-chips button:hover, .oc-btn:hover { background: rgba(255, 255, 255, .32); }
+
+.oc-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.oc-kpi { display: grid; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--oc-panel); border: 1px solid var(--oc-edge); box-shadow: var(--oc-shade); }
+.oc-kpi span { font-size: 12px; font-weight: 700; color: var(--oc-muted); }
+.oc-kpi b { font-size: 26px; line-height: 1.1; color: var(--oc-gold-deep); font-variant-numeric: tabular-nums; }
+.oc-kpi small { font-size: 12px; color: var(--oc-muted); }
+.oc-kpi.big { background: linear-gradient(180deg, #fff6e2, #fbefd6); border-color: #e6c766; }
+.oc-kpi.big b { font-size: 34px; }
+.oc-kpi.warn b { color: #a86a00; }
+
+.oc-card { background: var(--oc-panel); border: 1px solid var(--oc-edge); border-radius: 16px; padding: 14px; box-shadow: var(--oc-shade); min-width: 0; }
+.oc-card-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.oc-card-head h2 { margin: 0; font-size: 16px; color: var(--oc-gold-deep); }
+.oc-note { font-size: 12px; color: var(--oc-muted); }
+
+.oc-bars { display: grid; gap: 8px; }
+.oc-bar { display: grid; grid-template-columns: 120px minmax(140px, 1fr) auto; gap: 12px; align-items: center; }
+.oc-meter { position: relative; height: 14px; border-radius: 999px; background: #efe5d1; overflow: visible; }
+.oc-meter i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, #d4af37, #b8871d); }
+.oc-meter em { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1px; background: #a12a2a; border-radius: 2px; }
+.oc-bar-num { font-size: 13px; color: var(--oc-muted); }
+.oc-bar-num b { color: var(--oc-ink); font-size: 15px; }
+
+.oc-scroll { overflow-x: auto; border: 1px solid var(--oc-edge); border-radius: 12px; background: #fff; }
+.oc-tbl { border-collapse: collapse; font-size: 12px; width: max-content; min-width: 100%; }
+.oc-tbl th, .oc-tbl td { padding: 5px 6px; border: 1px solid #f0e6d2; text-align: center; white-space: nowrap; }
+.oc-tbl thead th { background: #f6ecd2; font-weight: 700; line-height: 1.15; }
+.oc-tbl thead th span { display: block; font-size: 10px; font-weight: 500; color: var(--oc-muted); }
+.oc-tbl .oc-sticky { position: sticky; left: 0; background: #fffaf1; text-align: left; z-index: 1; }
+.oc-tbl th small, .oc-tbl td small { display: block; font-size: 10px; font-weight: 500; color: var(--oc-muted); }
+.oc-tbl td[style*="--p"] { font-weight: 700; background: color-mix(in srgb, #2f7d32 calc(var(--p) * 1%), #fbf6ea); color: #2b1e15; }
+.oc-tbl td sup { color: #a86a00; font-weight: 800; }
+.oc-tbl .oc-avg { font-weight: 800; border-left: 2px solid var(--oc-gold); }
+.oc-tbl tr.oc-total th, .oc-tbl tr.oc-total td { border-bottom: 2px solid var(--oc-gold); font-size: 13px; }
+.oc-tbl tr.oc-total th { background: #f3e6ca; }
+
+.oc-bld { border: 1px solid var(--oc-edge); border-radius: 12px; background: #fff; margin-top: 8px; }
+.oc-bld summary { padding: 9px 12px; cursor: pointer; font-size: 14px; }
+.oc-bld .oc-scroll { border: 0; border-top: 1px solid var(--oc-edge); border-radius: 0 0 12px 12px; }
+.oc-rooms tr.oc-floor td { text-align: left; font-weight: 800; color: var(--oc-gold-deep); background: #fbf4e4; }
+.oc-rooms tr.oc-off th { color: #a12a2a; }
+.oc-rooms td.oc-over { background: #fde8e6; }
+.oc-rooms tfoot td, .oc-rooms tfoot th { background: #f6ecd2; font-weight: 800; }
+.oc-dots { display: inline-flex; flex-wrap: wrap; gap: 2px; max-width: 64px; justify-content: center; }
+.oc-dots i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #c9b48e; background: #fff; }
+.oc-dots i.on { background: #2f7d32; border-color: #2f7d32; }
+.oc-dots i.over { background: #c0392b; border-color: #c0392b; }
+.oc-n { font-weight: 700; }
+
+@media (max-width: 640px) {
+    .oc { padding: 10px 10px 24px; }
+    .oc-bar { grid-template-columns: 1fr; gap: 4px; }
+}
+@media print {
+    body { background: #fff; }
+    .oc-controls, .oc-chips { display: none; }
+    .oc-head { color: #000; background: none; box-shadow: none; padding: 0; }
+    .oc-card, .oc-kpi { box-shadow: none; }
+    .oc-scroll { overflow: visible; }
+    .oc-tbl td[style*="--p"], .oc-dots i, .oc-meter i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

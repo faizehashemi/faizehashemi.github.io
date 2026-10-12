@@ -1,0 +1,53 @@
+<div class="oc">
+    <header class="oc-head">
+        <div>
+            <h1>Occupancy details</h1>
+            <p>Beds in use each night (counted at 22:00) — totals first, then each building, then every room and bed. From the rooms assigned on the slips; beds come from Rooms &amp; Buildings.</p>
+        </div>
+        <div class="oc-controls">
+            <label>From<input type="date" id="ocFrom"></label>
+            <label>To<input type="date" id="ocTo"></label>
+            <label>Building<select id="ocBld"><option value="">All buildings</option></select></label>
+            <div class="oc-chips">
+                <button type="button" data-range="0,6">Next 7 days</button>
+                <button type="button" data-range="0,13">Next 14</button>
+                <button type="button" data-range="0,29">Next 30</button>
+                <button type="button" data-range="-7,-1">Last 7</button>
+                <button type="button" data-range="-30,-1">Last 30</button>
+            </div>
+            <button type="button" id="ocPrint" class="oc-btn">🖨 Print</button>
+        </div>
+    </header>
+
+    <!-- 1. the whole: period totals and averages -->
+    <section class="oc-kpis" id="ocKpis"></section>
+
+    <!-- 2. aggregates per building -->
+    <section class="oc-card">
+        <div class="oc-card-head">
+            <h2>Buildings — period averages</h2>
+            <span class="oc-note">average and busiest night per building over the period</span>
+        </div>
+        <div class="oc-bars" id="ocBldSummary"></div>
+    </section>
+
+    <!-- 3. night by night -->
+    <section class="oc-card">
+        <div class="oc-card-head">
+            <h2>Night by night</h2>
+            <span class="oc-note">% of beds in use · hover a cell for beds · the first row is all buildings, the last column the average</span>
+        </div>
+        <div class="oc-scroll" id="ocBuildings"></div>
+    </section>
+
+    <!-- 4. details: rooms and beds -->
+    <section class="oc-card">
+        <div class="oc-card-head">
+            <h2>Rooms and beds</h2>
+            <span class="oc-note">each dot is a bed: filled = in use that night · red = more guests than beds · avg = share of the room's bed-nights used</span>
+        </div>
+        <div id="ocRooms"></div>
+    </section>
+
+    <p class="oc-note" id="ocStatus"></p>
+</div>

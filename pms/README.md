@@ -161,6 +161,15 @@ Mumineen Calendar project's (github.com/mygulamali/mumineen_calendar_js, MIT lic
 `app/data/miqaats.json` with its licence in `app/data/miqaats.LICENSE.txt`; refresh that file from the project
 to pick up new entries.
 
+## Occupancy details (Rooms)
+
+`app/views/occupancy/`: beds in use each night of a chosen period (counted at 22:00: check-in ≤ 22:00 < check-out),
+from the beds assigned to rooms on the slips; capacity = active rooms in Rooms & Buildings. Top first: period totals
+(average occupancy, beds, beds in use per night, busiest / quietest night, bed-nights, empty rooms, guests without
+rooms), then each building's average and busiest night, then a night-by-night table (all buildings first, average
+column), then every room bed by bed (a dot per bed, red when more guests than beds, average per room). Guests whose
+slip has a building but no rooms are shown apart and are not in the %. Up to 62 nights; one building or all.
+
 ## Forecast: building planner, day allocation, bulk log
 
 Three sections above the vacancy forecast (`app/views/forecast/planner.js`, `allocate.js`, `alloclog.js`):
