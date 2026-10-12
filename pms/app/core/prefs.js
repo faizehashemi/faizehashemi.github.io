@@ -49,6 +49,8 @@ export const DEFAULT_PREFS = {
     slipCheckoutTime: '',
     slipAutoLoadSh: true,      // load the slip when an SH is typed into an empty form
     pickerOnlyFree: true,      // Pick rooms…: hide full rooms at first
+    // check-ins page
+    checkinsSplit: false,      // split the tables by where groups come from / go to (airport or the other city)
     // data + privacy
     syncSeconds: 30,           // 0 = only on page change / when back online
     analytics: true,           // anonymous usage statistics (PostHog)

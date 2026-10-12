@@ -269,3 +269,11 @@
 /* no Slip page access: no Open column */
 table.no-open th:last-child, table.no-open td:last-child { display: none; }
 .toolbar button[hidden] { display: none !important; }
+
+/* split view: one table body per source / destination */
+.split-tick { display: inline-flex; gap: 8px; align-items: center; font-weight: 700; padding: 8px 10px; border: 1px solid #e3d2b1; border-radius: 10px; background: #fff; cursor: pointer; white-space: nowrap; }
+.split-tick input { width: 18px; height: 18px; }
+tbody.split-part tr.split-title td { background: #f3e6ca; font-weight: 800; font-size: 15px; padding: 10px 12px; color: #6b4e0f; border-top: 3px solid #d4af37; }
+tbody.split-part tr.split-title td small { font-weight: 600; color: #6b5e4a; margin-left: 8px; font-size: 12px; }
+tbody.split-part tr.split-cols th { background: #fbf4e4; font-size: 12px; }
+tbody.split-part tr.split-empty td { color: #6b5e4a; font-style: italic; }

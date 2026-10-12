@@ -206,6 +206,11 @@ in `app/core/slip-print.js`.
 Check-in · Check-out, all centred (no As./G/L/C/I). The page on screen is unchanged. A missing group leader shows
 as **-** on the table, slips and GL copies.
 
+**Split by from / to** (tick on the page; default per login in Settings → Check-ins page, `checkinsSplit`): check-ins
+in two tables, *From the airport* and *From* the other city; check-outs in *Departing to the airport* and *Departing to*
+the other city. UMS slips use their itinerary (`ums.itinerary`, `ums.seg`); slips made by hand count as from the other
+city when the SH starts with S, and as departing to it when the same group has a stay there starting within a day.
+
 ## Mawaid
 
 Redesigned after the old `pms_web` Mawaid page: building table (BAHA+HUSN merged), **Cooking Count**

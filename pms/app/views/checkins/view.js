@@ -4,7 +4,9 @@
 // presets span 03:00 → 03:00 of the following day, and an empty/reversed range becomes 24h.
 
 import { printSlips, openGlCopies } from '../../core/slip-print.js';
-import { canOpen } from '../../core/cloud.js';
+import { canOpen, mirrorAll } from '../../core/cloud.js';
+import { getPrefs } from '../../core/prefs.js';
+import { baseSh } from '../../core/ums.js';
 
 export default async function mount(ctx) {
     const { db } = ctx;
@@ -126,9 +128,55 @@ export default async function mount(ctx) {
         $('status').textContent = `Range ${df} ${tf} → ${dt} ${tt} • ${CACHE.length} slip(s) in DB`;
     }
 
+    /* ===== Split view: where a stay comes from and goes to ===== */
+    // UMS slips: the stay's place in the group's itinerary (e.g. MAKKAH→MADINA→MAKKAH, 2nd Makkah stay = from Madina,
+    // to the airport). Slips made by hand: an SH starting with S came from the other city; it leaves for the other city
+    // when the same group has a stay there starting within a day of this check-out, else for the airport.
+    const CITY = { MAKKAH: 'makkah', MADINA: 'medina' };
+    const other = ctx.siteId === 'makkah' ? 'medina' : 'makkah';
+    const otherLabel = other === 'medina' ? 'Madina' : 'Makkah';
+    let OTHER = []; // the other site's slips (for hand-made slips)
+    function legOf(r) {
+        const it = String(r.ums?.itinerary || '');
+        if (it) {
+            const legs = it.split('→').map(c => CITY[c.trim()]);
+            const seg = Number(r.ums?.seg) || 1;
+            let idx = -1, n = 0;
+            for (let i = 0; i < legs.length; i++) if (legs[i] === ctx.siteId && ++n === seg) { idx = i; break; }
+            if (idx >= 0) return { from: idx === 0 ? 'airport' : legs[idx - 1], to: idx === legs.length - 1 ? 'airport' : legs[idx + 1] };
+        }
+        const from = /^S/i.test(String(r.sh_no ?? '').trim()) ? other : 'airport';
+        const co = r.checkout_date, key = baseSh(r.sh_no);
+        const day = (d, n) => { const x = new Date(`${d}T12:00`); x.setDate(x.getDate() + n); return ymd(x); };
+        const next = key && co && OTHER.some(o => !o.deleted && baseSh(o.sh_no) === key && o.checkin_date >= day(co, -1) && o.checkin_date <= day(co, 1));
+        return { from, to: next ? other : 'airport' };
+    }
+    const splitOn = () => $('splitView').checked;
+
     function renderTable(kind, rows, key) {
-        const tbody = $(`tbl${kind}`).querySelector('tbody');
-        tbody.innerHTML = '';
+        const table = $(`tbl${kind}`);
+        table.querySelectorAll('tbody').forEach(b => b.remove());
+        const cols = table.querySelector('thead tr').outerHTML.replace('<tr', '<tr class="split-cols"');
+        const parts = !splitOn() ? [[null, rows]] : (() => {
+            const side = key === 'checkin' ? 'from' : 'to';
+            const pick = (w) => rows.filter(r => legOf(r)[side] === w);
+            return key === 'checkin'
+                ? [['From the airport', pick('airport')], [`From ${otherLabel}`, pick(other)]]
+                : [['Departing to the airport', pick('airport')], [`Departing to ${otherLabel}`, pick(other)]];
+        })();
+        table.querySelector('thead').hidden = splitOn();
+        for (const [title, list] of parts) {
+            const tbody = document.createElement('tbody');
+            if (title) {
+                tbody.className = 'split-part';
+                tbody.innerHTML = `<tr class="split-title"><td colspan="14">${escapeHTML(title)}<small>${list.length} slip${list.length === 1 ? '' : 's'} · ${list.reduce((s, r) => s + guests(r), 0)} guests</small></td></tr>${cols}`
+                    + (list.length ? '' : '<tr class="split-empty"><td colspan="14">None in this range.</td></tr>');
+            }
+            table.appendChild(tbody);
+            fillRows(tbody, list, key);
+        }
+    }
+    function fillRows(tbody, rows, key) {
         for (const r of rows) {
             const ci = parseDT(r.checkin_date, r.checkin_time);
             const co = parseDT(r.checkout_date, r.checkout_time);
@@ -277,6 +325,9 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
 
     $('btnRefresh').addEventListener('click', refresh);
     $('btnRun').addEventListener('click', run);
+    // split view: this login's default from Settings → Check-ins page; the tick switches it for now
+    $('splitView').checked = !!getPrefs().checkinsSplit;
+    $('splitView').addEventListener('change', run);
     $('csvIn').addEventListener('click', () => exportRows('in'));
     $('csvOut').addEventListener('click', () => exportRows('out'));
     $('printIn').addEventListener('click', () => printTable('in'));
@@ -294,6 +345,7 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     async function refresh() {
         try {
             CACHE = await getAllRecords();
+            try { OTHER = (await mirrorAll()).filter(r => r.site === other); } catch { OTHER = []; }
             const today = ymd(new Date());
             setRange(today, plusOneDay(today));
         } catch (e) {
