@@ -100,6 +100,29 @@ function drawImage(m) {
 }
 
 const blobOf = (canvas) => new Promise(res => canvas.toBlob(res, 'image/png'));
+// the same PNG made at once (no await), so Share still counts as part of the tap
+function blobNow(canvas) {
+    const bin = atob(canvas.toDataURL('image/png').split(',')[1]);
+    const u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return new Blob([u], { type: 'image/png' });
+}
+
+// all the day's cards in one picture, one under the other, under a heading
+function drawAll(models, heading) {
+    const parts = models.map(drawImage);
+    const W = parts[0].width, HEAD = 120, GAP = 10;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = HEAD + parts.reduce((s, p) => s + p.height + GAP, 0);
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff9e6'; g.fillRect(0, 0, c.width, c.height);
+    g.fillStyle = '#7a5410'; g.fillRect(44, 36, W - 88, HEAD - 44);
+    g.fillStyle = '#fff'; g.textBaseline = 'middle';
+    g.font = '900 52px "Arial Black", Arial, sans-serif'; g.fillText(heading, 80, 36 + (HEAD - 44) / 2);
+    let y = HEAD;
+    for (const p of parts) { g.drawImage(p, 0, y); y += p.height + GAP; }
+    return c;
+}
 
 /* ---------------------------------- page ---------------------------------- */
 
@@ -227,7 +250,11 @@ export default async function mount(ctx) {
         if (!st) { el.innerHTML = `<h2>${d.label}<small>${esc(longDate(d.day))}</small></h2><p class="tp-empty">Could not load.</p>`; return; }
         const any = st.groups.some(g => g.buses.length);
         el.innerHTML = `<h2>${d.label} <small>${esc(longDate(d.day))}${st.updated_at ? ` · choices saved ${new Date(st.updated_at).toLocaleString()}${st.updated_by ? ' by ' + esc(st.updated_by) : ''}` : ''}</small></h2>
-          ${any ? `<div class="ts-cards">${madinaCard(d, st)}${airportCard(d, st)}${atraafCard(d, st)}</div>`
+          ${any ? `<div class="ts-act ts-all" data-day="${d.day}">
+              <button type="button" class="tp-btn gold" data-copy-all>📋 Copy all 3 in one image</button>
+              ${canShare ? '<button type="button" class="tp-btn" data-share-all>📤 Share all 3</button>' : ''}
+              <span class="tp-muted" data-note></span></div>
+            <div class="ts-cards">${madinaCard(d, st)}${airportCard(d, st)}${atraafCard(d, st)}</div>`
                 : `<p class="tp-empty">No transport list saved for ${esc(longDate(d.day))} yet.</p>`}`;
         if (!writable) el.querySelectorAll('input').forEach(i => { i.disabled = true; });
     }
@@ -245,7 +272,10 @@ export default async function mount(ctx) {
             } catch (e) { msg(e instanceof UserError ? e.message : 'Could not save the choices.'); }
         }, 500));
     }
-    ctx.root.addEventListener('change', (e) => {
+    // listeners on this page's own element (the shared page container outlives the page: listeners there pile up
+    // with every visit and one tap would then copy or share several times)
+    const page = ctx.root.querySelector('.ts');
+    page.addEventListener('change', (e) => {
         const t = e.target, art = t.closest('[data-day]');
         if (!art) return;
         const d = days.find(x => x.day === art.dataset.day), st = state.get(d.day);
@@ -265,32 +295,45 @@ export default async function mount(ctx) {
         render(d);
     });
 
-    /* -------- copy / share the card as a picture -------- */
-    ctx.root.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-copy], [data-share]');
-        if (!btn) return;
-        const art = btn.closest('[data-card]'), note = art.querySelector('[data-note]');
-        const model = state.get(art.dataset.day)?.models.get(art.dataset.card);
-        if (!model) return;
-        const canvas = drawImage(model);
-        const name = `tosha-${art.dataset.card}-${art.dataset.day}.png`;
+    /* -------- copy / share a card — or all three in one picture -------- */
+    let busy = false;
+    page.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-copy], [data-share], [data-copy-all], [data-share-all]');
+        if (!btn || busy) return;
+        const box = btn.closest('[data-day]'), note = box.querySelector('[data-note]');
+        const st = state.get(box.dataset.day);
+        if (!st) return;
+        const all = btn.hasAttribute('data-copy-all') || btn.hasAttribute('data-share-all');
+        const share = btn.hasAttribute('data-share') || btn.hasAttribute('data-share-all');
+        let canvas, name, title;
+        if (all) {
+            const models = ['madina', 'airport', 'atraaf'].map(k => st.models.get(k)).filter(m => m && m.rows.length);
+            if (!models.length) return;
+            canvas = drawAll(models, `TOSHA SUMMARY · ${sheetDate(box.dataset.day)}`);
+            name = `tosha-${box.dataset.day}.png`; title = 'Tosha summary';
+        } else {
+            const model = st.models.get(box.dataset.card);
+            if (!model) return;
+            canvas = drawImage(model);
+            name = `tosha-${box.dataset.card}-${box.dataset.day}.png`; title = model.title;
+        }
+        busy = true;
+        const say = (t) => { note.textContent = t; setTimeout(() => { if (note.textContent === t) note.textContent = ''; }, 6000); };
         try {
-            if (btn.hasAttribute('data-share')) {
-                const blob = await blobOf(canvas);
-                await navigator.share({ files: [new File([blob], name, { type: 'image/png' })], title: model.title });
-                note.textContent = '';
+            if (share) {
+                await navigator.share({ files: [new File([blobNow(canvas)], name, { type: 'image/png' })], title });
                 return;
             }
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobOf(canvas) })]);
-            note.textContent = 'Copied — paste it in the Mawaid WhatsApp group.';
+            say('Copied — paste it in the Mawaid WhatsApp group.');
         } catch (err) {
-            if (err && err.name === 'AbortError') return;
-            // no image clipboard here: download it instead
+            if (err && err.name === 'AbortError') return; // the share sheet was closed
+            if (share) { say('Sharing did not open here — use Copy image instead.'); return; }
+            // no picture clipboard in this browser: one download instead
             const a = document.createElement('a');
             a.href = canvas.toDataURL('image/png'); a.download = name; a.click();
-            note.textContent = 'This browser cannot copy pictures — the image was downloaded instead.';
-        }
-        setTimeout(() => { note.textContent = ''; }, 6000);
+            say('This browser cannot copy pictures — the image was downloaded instead.');
+        } finally { busy = false; }
     });
 
     async function refresh() {

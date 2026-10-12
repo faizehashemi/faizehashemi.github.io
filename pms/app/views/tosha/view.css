@@ -40,3 +40,4 @@
 @media (max-width: 640px) {
     .ts-cards { grid-template-columns: 1fr; }
 }
+.ts-all { margin-top: -4px; }
