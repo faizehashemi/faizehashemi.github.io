@@ -348,9 +348,10 @@ export default async function mount(ctx) {
         }
         const uniqRooms = Array.from(roomInfo.keys());
 
-        // Per-room stats from overlapping OTHER slips
-        const stats = new Map(); // room -> { existing: number, freeAt: Date|null }
-        for (const room of uniqRooms) stats.set(room, { existing: 0, freeAt: null });
+        // Per-room use by OTHER slips during this stay: the busiest moment counts, not the sum of every stay that
+        // overlaps somewhere (two groups one after the other in a 2-bed room never fill it together).
+        const stays = new Map(); // room -> [{ start, end, beds }]
+        for (const room of uniqRooms) stays.set(room, []);
 
         for (const r of DB_CACHE) {
             if (CURRENT_ID && r.id === CURRENT_ID) continue; // ignore self
@@ -364,12 +365,20 @@ export default async function mount(ctx) {
             for (const x of used) {
                 const room = cleanRoom(x.room_no);
                 if (!room || !roomInfo.has(room)) continue;
-                const s = stats.get(room);
                 const a = Number.isFinite(+x.assigned) ? +x.assigned : 0;
-                s.existing += a;
-                // latest checkout among overlapping stays decides "free at"
-                if (!s.freeAt || s.freeAt < rco) s.freeAt = rco;
+                if (a > 0) stays.get(room).push({ start: Math.max(+rci, +ci), end: Math.min(+rco, +co), beds: a, out: rco });
             }
+        }
+        // existing = beds taken at the busiest moment of the stay; freeAt = when the stays at that moment have left
+        const stats = new Map(); // room -> { existing: number, freeAt: Date|null }
+        for (const [room, list] of stays) {
+            let existing = 0, freeAt = null;
+            for (const t of new Set(list.map(e => e.start))) {
+                const here = list.filter(e => e.start <= t && t < e.end);
+                const n = here.reduce((s, e) => s + e.beds, 0);
+                if (n > existing) { existing = n; freeAt = here.reduce((m, e) => (!m || m < e.out ? e.out : m), null); }
+            }
+            stats.set(room, { existing, freeAt });
         }
 
         // Capacity from the current row first, then Rooms & Buildings, then last-known from history
