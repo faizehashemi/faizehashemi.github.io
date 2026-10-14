@@ -162,24 +162,29 @@ export default async function mount(ctx) {
         return { from, to: next ? other : 'airport' };
     }
     const splitOn = () => $('splitView').checked;
+    // [[title, rows]]: one untitled part, or (split view) arrivals by where from / departures by where to.
+    // The table, the CSV and Print table all use it, so they always agree.
+    function partsOf(rows, key) {
+        if (!splitOn()) return [[null, rows]];
+        const side = key === 'checkin' ? 'from' : 'to';
+        const pick = (w) => rows.filter(r => legOf(r)[side] === w);
+        return key === 'checkin'
+            ? [['From the airport', pick('airport')], [`From ${otherLabel}`, pick(other)]]
+            : [['Departing to the airport', pick('airport')], [`Departing to ${otherLabel}`, pick(other)]];
+    }
+    const partSum = (list) => `${list.length} slip${list.length === 1 ? '' : 's'} · ${list.reduce((s, r) => s + guests(r), 0)} guests`;
 
     function renderTable(kind, rows, key) {
         const table = $(`tbl${kind}`);
         table.querySelectorAll('tbody').forEach(b => b.remove());
         const cols = table.querySelector('thead tr').outerHTML.replace('<tr', '<tr class="split-cols"');
-        const parts = !splitOn() ? [[null, rows]] : (() => {
-            const side = key === 'checkin' ? 'from' : 'to';
-            const pick = (w) => rows.filter(r => legOf(r)[side] === w);
-            return key === 'checkin'
-                ? [['From the airport', pick('airport')], [`From ${otherLabel}`, pick(other)]]
-                : [['Departing to the airport', pick('airport')], [`Departing to ${otherLabel}`, pick(other)]];
-        })();
+        const parts = partsOf(rows, key);
         table.querySelector('thead').hidden = splitOn();
         for (const [title, list] of parts) {
             const tbody = document.createElement('tbody');
             if (title) {
                 tbody.className = 'split-part';
-                tbody.innerHTML = `<tr class="split-title"><td colspan="14">${escapeHTML(title)}<small>${list.length} slip${list.length === 1 ? '' : 's'} · ${list.reduce((s, r) => s + guests(r), 0)} guests</small></td></tr>${cols}`
+                tbody.innerHTML = `<tr class="split-title"><td colspan="14">${escapeHTML(title)}<small>${partSum(list)}</small></td></tr>${cols}`
                     + (list.length ? '' : '<tr class="split-empty"><td colspan="14">None in this range.</td></tr>');
             }
             table.appendChild(tbody);
@@ -225,16 +230,20 @@ export default async function mount(ctx) {
             ? ['Check-in', 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
             : ['Check-out', 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
         const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-        const lines = [head.join(',')];
-        for (const r of rows) {
-            const ci = parseDT(r.checkin_date, r.checkin_time);
-            const co = parseDT(r.checkout_date, r.checkout_time);
-            const gl = String(r.group_leader ?? '').trim() || '-';
-            const mid = [r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
-                roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
-                num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant)];
-            const row = kind === 'in' ? [fmtDT(ci), ...mid, fmtDT(co)] : [fmtDT(co), ...mid, fmtDT(ci)];
-            lines.push(row.map(esc).join(','));
+        const lines = [];
+        for (const [title, list] of partsOf(rows, kind === 'in' ? 'checkin' : 'checkout')) {
+            if (title) { if (lines.length) lines.push(''); lines.push(esc(`${title} — ${partSum(list)}`)); }
+            lines.push(head.join(','));
+            for (const r of list) {
+                const ci = parseDT(r.checkin_date, r.checkin_time);
+                const co = parseDT(r.checkout_date, r.checkout_time);
+                const gl = String(r.group_leader ?? '').trim() || '-';
+                const mid = [r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
+                    roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
+                    num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant)];
+                const row = kind === 'in' ? [fmtDT(ci), ...mid, fmtDT(co)] : [fmtDT(co), ...mid, fmtDT(ci)];
+                lines.push(row.map(esc).join(','));
+            }
         }
         return lines.join('\r\n');
     }
@@ -246,12 +255,11 @@ export default async function mount(ctx) {
         document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     }
 
+    // the rows in the table (same range, delayed departures and split as on screen)
     function exportRows(kind) {
-        const df = $('dateFrom').value, dt = $('dateTo').value, tf = $('timeFrom').value || '00:00', tt = $('timeTo').value || '23:59';
-        const start = new Date(`${df}T${tf}`), end = new Date(`${dt}T${tt}`);
-        const pick = kind === 'in' ? r => parseDT(r.checkin_date, r.checkin_time) : r => parseDT(r.checkout_date, r.checkout_time);
-        const rows = CACHE.filter(r => { const d = pick(r); return d && d >= start && d <= end; }).sort((a, b) => pick(a) - pick(b));
-        downloadCSV(toCSV(rows, kind), `${kind === 'in' ? 'checkins' : 'checkouts'}_${df}_${dt}.csv`);
+        const df = $('dateFrom').value, dt = $('dateTo').value;
+        const rows = kind === 'in' ? SHOWN.in : SHOWN.out;
+        downloadCSV(toCSV(rows, kind), `${kind === 'in' ? 'checkins' : 'checkouts'}_${df}_${dt}${splitOn() ? '_split' : ''}.csv`);
     }
 
     // Print table: the rows shown, in a tab of their own laid out for A4 landscape with 1 cm margins —
@@ -264,7 +272,7 @@ export default async function mount(ctx) {
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print table again.'); return; }
         const title = `${kind === 'in' ? 'Check-ins' : 'Check-outs'} · ${ctx.site.label}`;
         const total = rows.reduce((s, r) => s + guests(r), 0);
-        const body = rows.map(r => {
+        const rowHtml = (r) => {
             const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
             return `<tr>
               <td>${escapeHTML(r.sh_no ?? '')}</td>
@@ -275,7 +283,12 @@ export default async function mount(ctx) {
               <td>${escapeHTML(fmtDT(ci))}</td>
               <td>${escapeHTML(fmtDT(co))}</td>
             </tr>`;
-        }).join('');
+        };
+        const thead = '<thead><tr><th>SH No</th><th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th><th>Check-in</th><th>Check-out</th></tr></thead>';
+        const colgroup = '<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>';
+        const tables = partsOf(rows, kind === 'in' ? 'checkin' : 'checkout').map(([t, list]) =>
+            (t ? `<h2>${escapeHTML(t)} <small>${escapeHTML(partSum(list))}</small></h2>` : '')
+            + `<table>${colgroup}${thead}<tbody>${list.length ? list.map(rowHtml).join('') : '<tr><td colspan="7">None in this range.</td></tr>'}</tbody></table>`).join('');
         w.document.open();
         w.document.write(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>${escapeHTML(title)}</title>
@@ -284,6 +297,8 @@ export default async function mount(ctx) {
 html, body { margin: 0; background: #fff; color: #000; font: 11px/1.3 Arial, Helvetica, sans-serif; }
 body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 h1 { font-size: 15px; margin: 0 0 2px; text-align: center; }
+h2 { font-size: 13px; margin: 10px 0 4px; break-after: avoid; page-break-after: avoid; }
+h2 small { font-weight: normal; font-size: 11px; margin-left: 6px; }
 .sub { text-align: center; font-size: 11px; margin: 0 0 6px; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 th, td { border: 1px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
@@ -302,11 +317,7 @@ td.rooms { font-size: 10px; }
 <div class="page">
 <h1>${escapeHTML(title)}</h1>
 <p class="sub">${escapeHTML(rangeLabel())} · ${rows.length} group${rows.length === 1 ? '' : 's'} · ${total} pax</p>
-<table>
-<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>
-<thead><tr><th>SH No</th><th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th><th>Check-in</th><th>Check-out</th></tr></thead>
-<tbody>${body}</tbody>
-</table>
+${tables}
 </div>
 <script>
 window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 250); });
