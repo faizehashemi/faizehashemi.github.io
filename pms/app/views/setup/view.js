@@ -47,7 +47,8 @@ export default async function mount(ctx) {
         $('tExample').innerHTML = `
             <div>Flight lands <b>${fmtDT('2026-11-25', '23:00')}</b> → hotel check-in <b>${fmtDT(land.date, land.time)}</b></div>
             <div>Flight departs <b>${fmtDT('2026-12-01', '04:30')}</b> → hotel check-out <b>${fmtDT(out.date, out.time)}</b></div>
-            <div>Makkah ⇄ Madina on the day of the move: check-out <b>${esc($('tOut').value)}</b>, check-in <b>${esc($('tIn').value)}</b></div>`;
+            <div>Makkah ⇄ Madina on the day of the move: check-out <b>${esc($('tOut').value)}</b>, check-in <b>${esc($('tIn').value)}</b></div>
+            <div>Arriving or leaving by <b>car, bus or train</b> (UMS "CAR-…" / "BUS-…" / "TRAIN-…"): the UMS time is the hotel time, nothing added or taken off</div>`;
     }
     async function renderTravel() {
         const s = await ctx.guard(loadSettings());

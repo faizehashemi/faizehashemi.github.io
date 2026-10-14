@@ -159,17 +159,22 @@ export function parseUms(html) {
 
 /* -------------------------------- itinerary -------------------------------- */
 
+/** UMS writes the travel mode before the number: "CAR-CAR", "BUS-BUS", "TRAIN-TRN-" (a flight is "SAUDIA -SV 771"). */
+export const byRoad = (leg) => /^(CAR|BUS|TRAIN)\b/i.test(String(leg?.flight || '').trim());
+
 /**
  * Split a group into hotel stays per city. Hotel times, not flight times: check-in is the landing
  * time plus the airport→hotel travel time, the last check-out is the flight time minus the lead
  * time (both admin settings), and moves between cities use the transfer times.
+ * Arriving or leaving by car, bus or train: the UMS time is used as it is (no travel time either way).
  * @returns {{ stays: {site, start:{date,time}, end:{date,time}, n}[], warnings: string[] }}
  */
 export function staysOf(g, cfg = UMS) {
     const city = (c) => Object.values(SITES).find(s => s.umsCity === c)?.id;
     const makkah = city('MAKKAH'), medina = city('MADINA');
-    const A = shiftTime(g.arrival.date, g.arrival.time, +cfg.arrivalCommuteHours);
-    const D = shiftTime(g.departure.date, g.departure.time, -cfg.departureLeadHours);
+    // by car, bus or train the UMS time is the hotel time itself: no airport travel added or taken off
+    const A = byRoad(g.arrival) ? { date: g.arrival.date, time: g.arrival.time } : shiftTime(g.arrival.date, g.arrival.time, +cfg.arrivalCommuteHours);
+    const D = byRoad(g.departure) ? { date: g.departure.date, time: g.departure.time } : shiftTime(g.departure.date, g.departure.time, -cfg.departureLeadHours);
     const outOf = (date) => ({ date, time: cfg.transferCheckoutTime }); // leave a city mid-trip
     const into = (date) => ({ date, time: cfg.transferCheckinTime }); // arrive in the next city
     const warnings = [];
