@@ -5,6 +5,7 @@
 // Only one view is mounted at a time, so each view keeps its original page-level CSS untouched.
 // Anything a view attaches to window/document/body/head is tracked and undone on navigation.
 
+import { showLoader } from './core/loader.js';
 import { SITES, VIEWS, NAV, DEFAULT_SITE, LEGACY_PAGES } from './config.js';
 import { createDb } from './core/db.js';
 import { currentDesk, logout, sync, state, mirrorAll, canOpen, siteFor, refreshDesk, firstPage } from './core/cloud.js';
@@ -175,6 +176,7 @@ async function route() {
 
     unmount();
     outlet.setAttribute('aria-busy', 'true');
+    const stopLoader = showLoader({ text: `Opening ${view.title}` }); // only shows if the page takes a moment
     try {
         if (!htmlCache.has(view.id)) {
             const resp = await fetch(`app/views/${view.id}/view.html`);
@@ -223,6 +225,7 @@ async function route() {
         outlet.innerHTML = `<div style="max-width:720px;margin:40px auto;padding:16px;border:1px solid #e6bcbc;background:#fff1f1;border-radius:12px;font:14px system-ui">
             <b>Could not open “${view.title}”.</b><br>${String(err && err.message || err)}</div>`;
     } finally {
+        stopLoader();
         if (seq === routeSeq) outlet.removeAttribute('aria-busy');
     }
     if (seq === routeSeq && desk) refreshBadge();
