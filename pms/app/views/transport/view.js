@@ -72,17 +72,18 @@ export default async function mount(ctx) {
                     <td class="n">${pax(r)}</td>
                     <td>${esc(r.transporter || (i ? 'with the bus above' : '—'))}${r.vch ? `<small>Vch ${esc(r.vch)}</small>` : ''}</td>
                     <td>${esc(r.remarks)}</td>
+                    ${delCell(r)}
                   </tr>`).join('');
                 return `<div class="tp-dest"><span aria-hidden="true">${s.dest.icon}</span>${esc(s.dest.label)}
                     <small>${fleet(s.buses)} · ${s.groups} groups · ${s.pax} pax</small></div>
-                  ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Vehicle</th><th>Time</th><th>From</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th></tr></thead>
+                  ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Vehicle</th><th>Time</th><th>From</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th>${writable ? '<th></th>' : ''}</tr></thead>
                     <tbody>${body}</tbody></table></div>` : `<p class="tp-empty">${s.buses.length ? 'Nothing matches.' : 'No trips.'}</p>`}`;
             }).join('');
             $('tpList').innerHTML = html;
         } else {
             const rows = [...doc.rows].sort((a, b) => a.at.localeCompare(b.at)).filter(r => matches(r, q));
             $('tpList').innerHTML = rows.length ? `<div class="tp-scroll"><table class="tp-tbl">
-              <thead><tr><th>Time</th><th>From</th><th>Route</th><th>Vehicle</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Rooms</th><th>Remarks</th></tr></thead>
+              <thead><tr><th>Time</th><th>From</th><th>Route</th><th>Vehicle</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Rooms</th><th>Remarks</th>${writable ? '<th></th>' : ''}</tr></thead>
               <tbody>${rows.map(r => { const i = info.get(r.key); return `
                 <tr class="${i.parent ? 'rider' : ''}${r.at < past ? ' past' : ''}">
                   ${timeCell(r)}
@@ -96,6 +97,7 @@ export default async function mount(ctx) {
                   <td>${esc(r.transporter || '—')}${r.vch ? `<small>Vch ${esc(r.vch)}</small>` : ''}</td>
                   <td>${esc((r.rooms || []).join(', '))}</td>
                   <td>${esc(r.remarks)}</td>
+                  ${delCell(r)}
                 </tr>`; }).join('')}</tbody></table></div>` : '<p class="tp-empty">Nothing matches.</p>';
         }
     }
@@ -108,15 +110,19 @@ export default async function mount(ctx) {
             : `<td class="t">${esc(time12(r.at))}${was}</td>`;
     }
 
-    // departs from: a building of this site (Rooms & Buildings); grouped trips show their bus's
+    // departs from: a building of this site (Rooms & Buildings). A grouped trip (same Dora / adjusted into a bus)
+    // follows its bus's building unless it is given its own — a trailing group picked up somewhere else.
     let buildings = [];
     function fromCell(r, bus) {
-        if (bus) return `<td class="from"><span class="tp-muted">${bus.building ? `↳ ${esc(bus.building)}` : ''}</span></td>`;
-        if (!writable) return `<td class="from">${esc(r.building || '—')}</td>`;
-        const names = r.building && !buildings.includes(r.building) ? [...buildings, r.building] : buildings;
-        return `<td class="from"><select class="tp-from${r.building ? ' set' : ''}" data-from="${esc(r.key)}" aria-label="Departs from (building)">
-            <option value="">—</option>${names.map(n => `<option${n === r.building ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></td>`;
+        const own = r.building || '';
+        if (!writable) return `<td class="from">${own ? esc(own) : bus ? `<span class="tp-muted">${bus.building ? `↳ ${esc(bus.building)}` : ''}</span>` : '—'}</td>`;
+        const names = own && !buildings.includes(own) ? [...buildings, own] : buildings;
+        const none = bus ? `↳ same as bus${bus.building ? ` (${bus.building})` : ''}` : '—';
+        return `<td class="from"><select class="tp-from${own ? ' set' : ''}" data-from="${esc(r.key)}" aria-label="Departs from (building)">
+            <option value="">${esc(none)}</option>${names.map(n => `<option${n === own ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></td>`;
     }
+    // remove one trip from the day (desks that may write)
+    const delCell = (r) => writable ? `<td class="del"><button type="button" class="tp-del" data-del="${esc(r.key)}" title="Delete this trip" aria-label="Delete SH ${esc(r.ref)}">🗑</button></td>` : '';
 
     function meta() {
         const n = doc.rows.length;
@@ -203,6 +209,23 @@ export default async function mount(ctx) {
             $('sgMsg').textContent = err instanceof UserError ? err.message : 'Could not save.';
             if (err.status === 409) await signageWindow();
         } finally { $('sgSave').disabled = false; }
+    });
+
+    // delete a trip: confirm, then the day is saved without it (a re-import offers it again as "New" — untick it there)
+    $('tpList').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-del]');
+        if (!b || saving) return;
+        const row = doc.rows.find(r => r.key === b.dataset.del);
+        if (!row) return;
+        const info = resolve(doc.rows);
+        const riders = doc.rows.filter(r => info.get(r.key)?.parent === row);
+        const ok = confirm([
+            `Delete SH ${row.ref}${row.leader ? ` (${row.leader})` : ''} — ${time12(row.at)}${info.get(row.key)?.route ? ', ' + info.get(row.key).route : ''}?`,
+            ...(riders.length ? ['', `${riders.length} grouped trip${riders.length === 1 ? '' : 's'} ride${riders.length === 1 ? 's' : ''} with it (${riders.map(r => r.ref).join(', ')}) — ${riders.length === 1 ? 'it keeps' : 'they keep'} ${riders.length === 1 ? 'its' : 'their'} own entr${riders.length === 1 ? 'y' : 'ies'} but no longer ${riders.length === 1 ? 'has' : 'have'} this bus.`] : []),
+            '', 'It disappears from the signage and the bus sheets. A later import of the list would offer it again as “New”.',
+        ].join('\n'));
+        if (!ok) return;
+        save(doc.rows.filter(r => r.key !== row.key), `deleted SH ${row.ref}`);
     });
 
     // departure building: saved at once (signage, bus sheets and summary show it)

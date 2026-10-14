@@ -10,8 +10,8 @@
 //          trip with the same Dora No.
 //   bus  — vehicle number within its destination (each destination counts from 1); kept across re-imports.
 //   vehicle — 'car' when switched on the Transport day page (cars count from 1 on their own); else a bus.
-//   building — the building the bus departs from (Transport day page; names from Rooms & Buildings); grouped trips
-//          take their bus's. Kept by re-imports.
+//   building — the building the bus departs from (Transport day page; names from Rooms & Buildings); a grouped trip
+//          takes its bus's unless given its own (a trailing group picked up elsewhere). Kept by re-imports.
 //   at_manual, at_import — the time was changed by hand on the Transport day page; at_import = the list's time.
 //          A re-import keeps the hand-set time unless the list itself brings a different time.
 
@@ -132,7 +132,7 @@ export function resolve(rows) {
         const parent = r.route ? null : (r.adj && byVch.get(r.adj)) || (r.dora && byDora.get(r.dora)) || null;
         const route = parent ? parent.route : r.route;
         const dest = DEST_OF_ROUTE[normRoute(route)] || null;
-        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r), building: (parent || r).building || '' });
+        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r), building: r.building || parent?.building || '' });
     }
     return out;
 }

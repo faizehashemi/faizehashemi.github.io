@@ -113,3 +113,6 @@ body {
 .tp-tbl .from { white-space: nowrap; }
 .tp-from { font: inherit; font-size: 12.5px; font-weight: 650; padding: 3px 6px; border: 1px solid #e3d2b1; border-radius: 8px; background: #fff; color: var(--muted); max-width: 150px; }
 .tp-from.set { color: var(--ink); border-color: #c9a227; background: #fffdf3; }
+.tp-tbl td.del { width: 40px; text-align: center; }
+.tp-del { font: inherit; font-size: 14px; width: 30px; height: 28px; border: 1px solid transparent; border-radius: 8px; background: none; cursor: pointer; opacity: .45; }
+.tp-del:hover { opacity: 1; border-color: #e6bcbc; background: #fff1f1; }

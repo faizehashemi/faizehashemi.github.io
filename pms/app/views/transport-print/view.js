@@ -20,6 +20,14 @@ function parseOnly(text) {
     return out.size ? out : null;
 }
 
+// "Departs from SNOOD" — plus the pick-ups of grouped trips given another building on the Transport day page
+function fromLine(b) {
+    const other = b.rows.slice(1).filter(r => r.building && r.building !== b.building);
+    if (!b.building && !other.length) return '';
+    return `<b class="from">${b.building ? `Departs from ${esc(b.building)}` : 'Departs from —'}${other.length
+        ? `<small> · pick up ${other.map(r => `SH ${esc(r.ref)} at ${esc(r.building)}`).join(', ')}</small>` : ''}</b>`;
+}
+
 function sheet(day, dest, b) {
     const many = b.rows.length > 3;
     return `<section class="sheet${many ? ' many' : ''}">
@@ -31,7 +39,7 @@ function sheet(day, dest, b) {
         <tr><td class="h time">${esc(time12(b.at))}</td><td class="h col">SH REF</td><td class="h col">PAX NO</td></tr>
         ${b.rows.map(r => `<tr class="row"><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td>${esc(r.ref)}</td><td>${esc(r.pax)}</td></tr>`).join('')}
       </table>
-      <div class="foot"><span>${b.building ? `<b class="from">Departs from ${esc(b.building)}</b>` : ''}${esc([b.transporter, b.vch && `Vch ${b.vch}`].filter(Boolean).join(' · '))}</span>
+      <div class="foot"><span>${fromLine(b)}${esc([b.transporter, b.vch && `Vch ${b.vch}`].filter(Boolean).join(' · '))}</span>
         ${b.rows.length > 1 ? `<span>Total pax <span class="total">${esc(b.pax)}</span></span>` : ''}</div>
     </section>`;
 }
@@ -49,7 +57,7 @@ function summary(day, groups) {
           <tbody>${[...buses].sort((a, b) => a.at.localeCompare(b.at) || (a.vehicle === b.vehicle ? 0 : a.vehicle === 'car' ? 1 : -1) || (a.bus ?? 1e9) - (b.bus ?? 1e9))
               .flatMap(b => b.rows.map((r, i) => `<tr${i ? ' class="rider"' : ''}>
             <td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td>
-            <td class="n">${esc(time12(b.at))}</td><td>${esc(b.building || '')}</td><td>${VEHICLES[b.vehicle].label}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
+            <td class="n">${esc(time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${VEHICLES[b.vehicle].label}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
           <tfoot><tr><td colspan="3">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="4"></td></tr></tfoot>
         </table>`;
     }).join('');

@@ -69,8 +69,12 @@ export default async function mount(ctx) {
     applyAccess();
     window.addEventListener('pms:desk-changed', () => { location.reload(); });
 
-    // "Currently in Makkah": the groups behind the number, to spot slips that need fixing
-    for (const [id, site, label] of [['stMakkah', 'makkah', 'Makkah']]) {
+    // "Currently in <city>": this site's city (Makkah for Makkah desks, Madina for Medina desks) — the groups behind
+    // the number, to spot slips that need fixing
+    const CITY = ctx.siteId === 'medina' ? 'Madina' : 'Makkah';
+    $('stMakkah').querySelector('.hm-ico').textContent = ctx.siteId === 'medina' ? '🕌' : '🕋';
+    $('stMakkah').title = `See every group staying in ${CITY} now`;
+    for (const [id, site, label] of [['stMakkah', ctx.siteId, CITY]]) {
         $(id).addEventListener('click', async () => {
             const slips = await ctx.guard(mirrorAll());
             // open a slip only where this login may (its own site; admins both) and only if it may open the Slip page
@@ -128,7 +132,7 @@ export default async function mount(ctx) {
 
     /* ------------------------------ today's numbers ------------------------------ */
     const setStat = (id, big, small) => { $(id).querySelector('b').textContent = big; $(id).querySelector('small').textContent = small; };
-    // One day's numbers with the Home rules. `day` is YYYY-MM-DD; "in Makkah" is counted now (today) or at 12:00.
+    // One day's numbers with the Home rules. `day` is YYYY-MM-DD; "in <city>" (this site) is counted now (today) or at 12:00.
     function dayNumbers(day, here, all) {
         const isToday = day === ymd(new Date());
         const t = isToday ? new Date() : new Date(`${day}T12:00`);
@@ -139,7 +143,7 @@ export default async function mount(ctx) {
         const outEv = here.flatMap(r => departuresOf(r).filter(d => inWin(new Date(d.at)))
             .map(d => ({ r, pax: isDelayed(r) ? paxAt(r, d.at - 1).total - paxAt(r, d.at).total : guests(r) })));
         const outs = [...new Set(outEv.map(e => e.r))];
-        const mk = all.filter(r => r.site === 'makkah').filter(r => presentAt(r, +t));
+        const mk = all.filter(r => r.site === ctx.siteId).filter(r => presentAt(r, +t));
         // Fakkul Ehraam: Makkah arrivals in the Setup windows
         const at = (h, dayOffset = 0) => { const d = new Date(`${day}T${h}`); d.setDate(d.getDate() + dayOffset); return d; };
         const makkah = all.filter(r => r.site === 'makkah');
@@ -166,7 +170,7 @@ export default async function mount(ctx) {
         setStat('stOut', N.outPax, `${groups(N.outs.length)} · ${ctx.site.label}`);
         $('stIn').querySelector('.hm-lbl').textContent = `Check-ins ${label}`;
         $('stOut').querySelector('.hm-lbl').textContent = `Check-outs ${label}`;
-        $('stMakkah').querySelector('.hm-lbl').textContent = N.isToday ? 'Currently in Makkah' : `In Makkah ${label}`;
+        $('stMakkah').querySelector('.hm-lbl').textContent = N.isToday ? `Currently in ${CITY}` : `In ${CITY} ${label}`;
         setStat('stMakkah', N.mkPax, `${N.isToday ? 'guests right now' : 'guests at 12:00'} · ${groups(N.mk.length)}`);
         $('hmTodayTitle').textContent = N.isToday ? 'Today at a glance' : `${label} at a glance`;
         $('hmTodaySub').textContent = `Check-ins and check-outs from 03:00 ${N.isToday ? 'today' : label} to 03:00 the next day · ${ctx.site.label}`;
@@ -256,12 +260,12 @@ export default async function mount(ctx) {
           <div class="ih-wrap">
             <header class="ih-head">
               <div><h2>Summary · ${esc(rows[0].day)} → ${esc(rows.at(-1).day)}</h2>
-                <p>${rows.length} day${rows.length === 1 ? '' : 's'} · ${ctx.site.label} · ${sum(r => r.inPax)} arriving, ${sum(r => r.outPax)} leaving · Makkah busiest ${peak} guests${cut ? ' · first 92 days only' : ''}</p></div>
+                <p>${rows.length} day${rows.length === 1 ? '' : 's'} · ${ctx.site.label} · ${sum(r => r.inPax)} arriving, ${sum(r => r.outPax)} leaving · ${CITY} busiest ${peak} guests${cut ? ' · first 92 days only' : ''}</p></div>
               <button type="button" class="ih-x" data-close aria-label="Close">✕</button>
             </header>
             <div class="ih-list">
               <table class="ih-tbl ts-tbl" data-no-cards>
-                <thead><tr><th>Day</th><th>Check-ins</th><th>Check-outs</th><th>In Makkah<br><small>12:00 · now</small></th>
+                <thead><tr><th>Day</th><th>Check-ins</th><th>Check-outs</th><th>In ${CITY}<br><small>12:00 · now</small></th>
                   <th>FE Morning</th><th>FE Night</th><th>FE from Madina</th><th>Breakfast<br><small>thaals</small></th><th>Lunch<br><small>thaals</small></th><th>Dinner<br><small>thaals</small></th></tr></thead>
                 <tbody>${rows.map(r => `<tr data-day="${r.day}" title="Show ${r.day} on the cards">
                   <td><b>${esc(new Date(`${r.day}T12:00`).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }))}</b><span class="wk">${esc(new Date(`${r.day}T12:00`).toLocaleDateString(undefined, { weekday: 'long' }))}</span></td>

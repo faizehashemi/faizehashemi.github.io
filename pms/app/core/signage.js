@@ -46,7 +46,7 @@ export const FIELDS = {
 };
 export const FONTS = ['Roboto', 'Arial', 'Arial Black', 'Georgia', 'Times New Roman', 'Bookman Old Style', 'Segoe UI', 'Courier New'];
 export const PLACEHOLDERS = { '{type}': 'trip type', '{date}': "today's date", '{time}': 'clock', '{page}': 'page', '{pages}': 'pages',
-    '{trips}': 'trips of the slide', '{pax}': 'pax of the slide', '{today}': 'today (dd-mm-yyyy)', '{tomorrow}': 'tomorrow' };
+    '{trips}': 'trips of the slide', '{pax}': 'pax of the slide', '{today}': 'today (dd-mm-yyyy)', '{tomorrow}': 'tomorrow', '{sdate}': 'short date (dd/mm/yyyy)' };
 
 /* -------------------------------- new elements -------------------------------- */
 
@@ -57,6 +57,7 @@ export function newElement(type, x = 160, y = 140) {
     if (type === 'title') return { id, type: 'text', x, y, w: 1600, h: 110, text: 'Umrah Transport Schedule', size: 64, color: '#664d03', bold: true, align: 'center', valign: 'middle', font: 'Roboto' };
     if (type === 'text') return { id, type: 'text', x, y, w: 700, h: 80, text: 'Text', size: 36, color: '#222222', align: 'left', valign: 'middle', font: 'Roboto' };
     if (type === 'clock') return { id, type: 'text', x, y, w: 420, h: 80, text: '{time}', size: 48, color: '#664d03', bold: true, align: 'right', valign: 'middle', font: 'Roboto' };
+    if (type === 'sdate') return { id, type: 'text', x, y, w: 360, h: 70, text: '{sdate}', size: 36, color: '#664d03', bold: true, align: 'left', valign: 'middle', font: 'Roboto' };
     if (type === 'date') return { id, type: 'text', x, y, w: 520, h: 70, text: '{date}', size: 34, color: '#664d03', align: 'left', valign: 'middle', font: 'Roboto' };
     if (type === 'heading') return { id, type: 'text', x, y, w: 900, h: 100, text: '{type}', size: 60, color: '#ffffff', bg: '#f1c232', bold: true, align: 'center', valign: 'middle', font: 'Arial Black', radius: 12 };
     if (type === 'image') return { id, type: 'image', x, y, w: 300, h: 300, src: '', fit: 'contain', radius: 0, opacity: 1 };
@@ -151,9 +152,9 @@ export function fillText(text, slide, now = new Date()) {
         '{trips}': slide?.trips?.length ?? 0, '{pax}': slide?.pax ?? 0,
         '{date}': new Date(`${today}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
         '{time}': r.slice(11, 19),
-        '{today}': dmy(today + 'T'), '{tomorrow}': dmy(`${tomorrow.getFullYear()}-${two(tomorrow.getMonth() + 1)}-${two(tomorrow.getDate())}T`),
+        '{today}': dmy(today + 'T'), '{sdate}': dmy(today + 'T').replace(/-/g, '/'), '{tomorrow}': dmy(`${tomorrow.getFullYear()}-${two(tomorrow.getMonth() + 1)}-${two(tomorrow.getDate())}T`),
     };
-    return String(text ?? '').replace(/\{(type|page|pages|trips|pax|date|time|today|tomorrow)\}/g, (k) => String(map[k]));
+    return String(text ?? '').replace(/\{(type|page|pages|trips|pax|date|sdate|time|today|tomorrow)\}/g, (k) => String(map[k]));
 }
 
 function box(el, e) {
