@@ -16,6 +16,7 @@ import { openInHouse } from './inhouse.js';
 import { openGroupList } from './groups.js';
 import { loadSettings, DEFAULTS } from '../../core/settings.js';
 import { renderOccupancy } from './occupancy.js';
+import { renderDayCounts } from './daycount.js';
 import { presentAt, paxAt, departuresOf, isDelayed, rowsOf, slipEnd, roomConflicts } from '../../core/stay.js';
 import { loadBuildings, builderCapacity } from '../../core/rooms.js';
 import { openTransportList } from './transport.js';
@@ -191,6 +192,7 @@ export default async function mount(ctx) {
         }
         $('hmMealsTitle').textContent = `Thaals ${label} · ${ctx.site.label}`;
         await renderOccupancy(ctx, $('hmOcc'), here, viewDay);
+        renderDayCounts($('hmDayCount'), all);
         await delayedCard(here).catch(e => console.warn('home delayed', e));
         $('hmOcc').querySelector('.hm-head .hm-sub').textContent = `Share of each building's beds in use ${label}. Capacities come from Rooms & Buildings.`;
         ctx.root.querySelector('.hm').classList.toggle('travel', !N.isToday);

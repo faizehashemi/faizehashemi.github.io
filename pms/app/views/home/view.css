@@ -165,19 +165,31 @@ dialog.mc::backdrop { background: rgba(30, 20, 5, .5); }
 .hm-occ .meter { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; font-weight: 700; text-shadow: 0 1px 0 rgba(255, 255, 255, .5); }
 .hm-occ .b-stats { display: flex; gap: 8px; justify-content: space-between; font-size: 12px; color: var(--muted); }
 .hm-occ .b-stats b { color: var(--ink); }
-.hm-occ .chart-wrap { border: 1px solid var(--edge); border-radius: 14px; padding: 12px; background: var(--panel); box-shadow: var(--shade); }
-.hm-occ .chart-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.hm-occ .chart-toolbar .left { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.hm-occ .chip { font: inherit; font-size: 12px; border: 1px solid var(--edge); border-radius: 999px; padding: 4px 10px; cursor: pointer; background: #fff; color: var(--ink); }
-.hm-occ .chip[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #fff; font-weight: 700; }
-.hm-occ .chip:hover { background: #fff6dd; }
-.hm-occ .chip[aria-pressed="true"]:hover { background: var(--gold); }
-.hm-occ svg.chart { width: 100%; height: 220px; display: block; }
-.hm-occ .axis { stroke: var(--muted); stroke-width: 1; }
-.hm-occ .bar { fill: #d4af37; }
-.hm-occ .bar:hover { fill: #b8871d; }
-.hm-occ .gridline { stroke: var(--edge); stroke-width: .8; }
-.hm-occ svg text { fill: var(--muted); }
+/* ---------- guests day by day (Count in Makkah / Medina) ---------- */
+.hm-dc .dc-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--panel); }
+.hm-dc .dc-tools label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.hm-dc .dc-tools input, .hm-dc .dc-tools select { font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; color: var(--ink); }
+.hm-dc .dc-markh { color: #c62828; font-weight: 700; }
+.hm-dc .dc-btn { font: inherit; font-size: 12px; border: 1px solid var(--gold); border-radius: 999px; padding: 5px 12px; cursor: pointer; background: #fffdf5; color: var(--gold-deep); }
+.hm-dc .dc-btn:hover { background: #fff6dd; }
+.hm-dc .dc-expand { margin-left: auto; font-weight: 700; }
+.hm-dc .dc-fig { border: 1px solid var(--edge); border-radius: 14px; padding: 12px 12px 4px; background: #fbf3e2; box-shadow: var(--shade); min-width: 0; }
+.hm-dc .dc-title { margin: 2px 0 4px; text-align: center; font-size: 22px; font-weight: 800; color: #7f7f7f; letter-spacing: .02em; }
+.hm-dc .dc-title small { font-size: 14px; font-weight: 800; letter-spacing: .06em; }
+.hm-dc .dc-scroll { overflow-x: auto; }
+.hm-dc .dc-svg { display: block; max-width: none !important; }
+.hm-dc .dc-bar { fill: #ffc000; }
+.hm-dc .dc-bar:hover { fill: #e0a800; }
+.hm-dc .dc-bar.marked { fill: #e53935; }
+.hm-dc .dc-grid { stroke: #ead9b8; stroke-width: .8; }
+.hm-dc .dc-base { stroke: #bfbfbf; stroke-width: 1; }
+.hm-dc svg text { fill: #404040; font-size: 11px; font-variant-numeric: tabular-nums; }
+.hm-dc svg text.dc-axis { fill: #595959; }
+.hm-dc svg text.dc-count { font-weight: 600; }
+.hm-dc svg text.marked { fill: #c62828; font-weight: 800; }
+/* full view: the section covers the screen until Minimize / Esc */
+.hm-dc.full { position: fixed; inset: 0; z-index: 2000; overflow: auto; padding: 14px 18px; background: var(--bg); align-content: start; }
+body.dc-noscroll { overflow: hidden; }
 
 /* ---------- smaller screens ---------- */
 @media (max-width: 980px) {
