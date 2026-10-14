@@ -13,6 +13,7 @@
 
 import { findBuilding, normRoom, floorOf } from '../../core/rooms.js';
 import { recordApply } from './alloclog.js';
+import { rowsOf } from '../../core/stay.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -49,12 +50,9 @@ export function mountAllocator({ ctx, host, planner }) {
         for (const r of slips) {
             if (r.deleted) continue;
             const b = String(r.building || '').trim().toUpperCase();
-            const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
-            if (!b || !ci || !co) continue;
-            for (const s of ['gents', 'ladies']) for (const x of r.rooms?.[s] || []) {
-                const beds = x.assigned !== '' && x.assigned != null ? num(x.assigned) : num(x.capacity);
-                if (String(x.room_no || '').trim() && beds > 0) addBooking(b, x.room_no, ci, co, beds, s);
-            }
+            if (!b) continue;
+            // each room row's own window (delayed departures — core/stay.js)
+            for (const w of rowsOf(r)) if (w.start && w.end && w.beds > 0) addBooking(b, w.room_no, w.start, w.end, w.beds, w.side);
         }
         // busiest moment in [ci, co) for a room
         const peak = (b, room, ci, co) => {

@@ -22,6 +22,8 @@ export const DEFAULTS = {
     // Home → Fakkul Ehraam counts (Setup → Fakkul Ehraam windows): Morning = check-ins from morning_from the day
     // before to split today; Night = split to night_to today
     fe_windows: { morning_from: '20:00', split: '07:00', night_to: '20:00' },
+    // Delayed departures (Setup → Delayed departures): an "unknown" departure holds its rooms this many days from today
+    delay_hold_days: 30,
     // SH number prefixes the Slip page accepts (Setup → SH prefixes): S44030, E44030, ES44030 …
     sh_prefixes: ['S', 'E', 'ES'],
     // GL copy ink per building (Setup → GL copy colours); a building not listed prints black

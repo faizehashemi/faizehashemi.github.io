@@ -4,6 +4,7 @@
 // Only a building the builder has no rooms for falls back to the rooms named on its slips.
 
 import { loadBuildings, buildingsOfSite, findBuilding } from '../../core/rooms.js';
+import { rowsOf } from '../../core/stay.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -53,8 +54,7 @@ let BUILDINGS = [];
             records.forEach(r => {
                 if ((r.building || '').trim() !== b) return;
                 if (useBuilder) { // only rooms someone is in at the chosen time
-                    const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
-                    if (!ci || !co || !overlapsIn(when, ci, co)) return;
+                    if (!rowsOf(r).some(w => w.start && w.end && overlapsIn(when, w.start, w.end))) return;
                 }
                 roomsFromSlip(r).forEach(k => {
                     if (rooms.has(k)) return;
@@ -88,15 +88,13 @@ let BUILDINGS = [];
         let CACHE = [];
         const overlapsIn = (when, ci, co) => when >= ci && when < co;
 
+        // this slip's rows for the room that are in house at `when` (a delayed group's rows have their own check-out)
+        const rowsHere = (r, roomNorm, when) => rowsOf(r).filter(w => normRoom(w.room_no) === roomNorm && w.start && w.end && overlapsIn(when, w.start, w.end));
         function getActiveSlipsForRoom(when, building, roomNorm) {
             const out = [];
             for (const r of CACHE) {
                 if ((r.building || '').trim() !== building) continue;
-                const ci = parseDT(r.checkin_date, r.checkin_time);
-                const co = parseDT(r.checkout_date, r.checkout_time);
-                if (!ci || !co) continue;
-                if (!overlapsIn(when, ci, co)) continue;
-                if (roomsFromSlip(r).includes(roomNorm)) out.push(r);
+                if (rowsHere(r, roomNorm, when).length) out.push(r);
             }
             return out;
         }
@@ -133,27 +131,14 @@ let BUILDINGS = [];
             return cap; // Map<roomNorm, capacity>
         }
 
-        function assignedInSlipForRoom(rec, roomNorm) {
-            let sum = 0;
-            for (const side of ['gents', 'ladies']) {
-                for (const it of (rec.rooms?.[side] || [])) {
-                    const rn = normRoom(it.room_no ?? it);
-                    if (rn !== roomNorm) continue;
-                    const a = Number(it.assigned ?? it.pax ?? it.count ?? 0);
-                    if (!Number.isNaN(a)) sum += a;
-                }
-            }
-            return sum;
-        }
-
         function aggregateRoomTotals(building, roomNorm, when, capMap) {
             const active = getActiveSlipsForRoom(when, building, roomNorm);
             let assigned = 0, shNos = [], coTimes = [];
             for (const rec of active) {
-                assigned += assignedInSlipForRoom(rec, roomNorm);
+                const here = rowsHere(rec, roomNorm, when);
+                assigned += here.reduce((s, w) => s + (Number(w.row.assigned ?? w.row.pax ?? w.row.count ?? 0) || 0), 0);
                 if (rec.sh_no != null) shNos.push(String(rec.sh_no));
-                const co = parseDT(rec.checkout_date, rec.checkout_time);
-                if (co) coTimes.push(co);
+                for (const w of here) coTimes.push(new Date(w.end));
             }
             const capacity = capMap.get(roomNorm) ?? null;
             const earliestOut = coTimes.length ? new Date(Math.min(...coTimes.map(t => t.getTime()))) : null;

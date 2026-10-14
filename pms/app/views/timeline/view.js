@@ -1,6 +1,7 @@
 // Ported from pms/timeline_db.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
 
 import { loadBuildings, buildingsOfSite } from '../../core/rooms.js';
+import { rowsOf } from '../../core/stay.js';
 
 export default async function mount(app) {
 const { db } = app; // not "ctx": this page uses ctx for its canvas
@@ -119,20 +120,12 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
 
       const out=[];
       for(const r of all){
-        const ci=parseDT(r.checkin_date, r.checkin_time);
-        const co=parseDT(r.checkout_date, r.checkout_time);
-        if(!ci||!co||co<=ci) continue;
-        const eat=arr=>{
-          for(const x of arr||[]){
-            const rm=String(x.room_no||'').trim();
-            const assigned=Number(x.assigned||0);
-            if(rm===room && assigned>0){
-              // include assigned in the event
-              out.push({ sh_no:r.sh_no, start:ci, end:co, assigned:assigned });
-            }
-          }
-          };
-        eat(r.rooms?.gents); eat(r.rooms?.ladies);
+        // each room row's own window (a delayed departure gives rows their own check-out — core/stay.js)
+        for(const w of rowsOf(r)){
+          const assigned=Number(w.row.assigned||0);
+          if(w.room_no===room && assigned>0 && w.start && w.end && w.end>w.start)
+            out.push({ sh_no:r.sh_no, start:new Date(w.start), end:new Date(w.end), assigned:assigned });
+        }
       }
 
       EVENTS = out.filter(ev=>ev.end>viewStart && ev.start<viewEnd).sort((a,b)=>a.start-b.start);

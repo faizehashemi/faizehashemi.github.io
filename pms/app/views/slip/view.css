@@ -333,3 +333,21 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .rp .rp-msg:not(:empty) { padding: 6px 18px; background: #f2faf5; border-bottom: 1px solid #e3e8ef; }
 .rp .rp-msg.warn:not(:empty) { color: #a12a2a; background: #fdf1f0; }
 @media (max-width: 800px) { .rp .rp-msg:not(:empty) { padding: 6px 12px; } }
+
+/* delayed departure: each room row gets its own check-out */
+.delay-box { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 12px 0 4px; padding: 10px 12px; border: 1px dashed #d8b46a; border-radius: 10px; background: #fffaf0; }
+.delay-box.on { border: 2px solid #c0392b; background: #fff4f2; }
+.delay-on { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
+.delay-on input { width: 18px; height: 18px; }
+.delay-box.on .delay-on b { color: #a12a2a; }
+.delay-ctl { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; width: 100%; }
+.delay-ctl label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; font-weight: 600; }
+.delay-note { flex: 1 1 260px; }
+.delay-note input { flex: 1; }
+.delay-all { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; font-weight: 600; }
+.subtables .out-cell { display: none; }
+.subtables.delayed .out-cell { display: table-cell; white-space: nowrap; }
+.subtables.delayed .out-cell input[type=date] { width: 132px; }
+.subtables.delayed .out-cell input[type=time] { width: 92px; }
+.subtables.delayed .out-cell select { width: auto; }
+.subtables.delayed .out-cell .out-split { padding: 2px 8px; }

@@ -8,6 +8,7 @@
 //   💵 Pending cash: my cash bills from a date (to a date) — Unpaid until the admin marks them Paid
 // Prices come from the server; the worker cannot change them. Works offline (bills wait on this device).
 
+import { rowsOf } from '../../core/stay.js';
 import { request, mirrorAll, UserError } from '../../core/cloud.js';
 import {
     sar, esc, jeddahDay, jeddahTime, jeddahDate, DEFAULT_INFO, itemPic, cached, saveBill, flushQueue, queued, dropQueued,
@@ -197,9 +198,9 @@ export default async function mount(ctx) {
     function groupIn(building, room) {
         const now = Date.now();
         for (const s of st.slips) {
-            const ci = Date.parse(`${s.checkin_date}T${s.checkin_time || '00:00'}`), co = Date.parse(`${s.checkout_date}T${s.checkout_time || '23:59'}`);
-            if (!(ci <= now && now < co) || normBuilding(s.building) !== building) continue;
-            if (['gents', 'ladies'].some(k => (s.rooms?.[k] || []).some(r => normRoom(r.room_no) === room))) return s.tour_name || '';
+            if (normBuilding(s.building) !== building) continue;
+            // the room's own row still in house (a delayed group's rooms leave one by one — core/stay.js)
+            if (rowsOf(s).some(w => normRoom(w.room_no) === room && w.start <= now && now < w.end)) return s.tour_name || '';
         }
         return '';
     }

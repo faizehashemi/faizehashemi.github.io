@@ -7,6 +7,7 @@ import { printSlips, openGlCopies } from '../../core/slip-print.js';
 import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
 import { baseSh } from '../../core/ums.js';
+import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
 
 export default async function mount(ctx) {
     const { db } = ctx;
@@ -27,8 +28,9 @@ export default async function mount(ctx) {
         dt.setDate(dt.getDate() + 1);
         return ymd(dt);
     }
-    function roomsFromSlip(r) { const bag = []; (r.rooms?.gents || []).forEach(x => bag.push(String(x.room_no || '').trim())); (r.rooms?.ladies || []).forEach(x => bag.push(String(x.room_no || '').trim())); return Array.from(new Set(bag.filter(Boolean))); }
-    function guests(r) { const tot = num(r.total); if (tot) return tot; const kids = num(r.children ?? r.child); const inf = num(r.infants ?? r.infant); return num(r.gents) + num(r.ladies) + kids + inf; }
+    // a partial departure (delayed group, core/stay.js) lists only the rooms leaving then
+    function roomsFromSlip(r) { if (r._dep) return [...new Set(r._dep.rooms.map(x => String(x.room_no)))]; const bag = []; (r.rooms?.gents || []).forEach(x => bag.push(String(x.room_no || '').trim())); (r.rooms?.ladies || []).forEach(x => bag.push(String(x.room_no || '').trim())); return Array.from(new Set(bag.filter(Boolean))); }
+    function guests(r) { if (r._dep) return r._dep.pax; const tot = num(r.total); if (tot) return tot; const kids = num(r.children ?? r.child); const inf = num(r.infants ?? r.infant); return num(r.gents) + num(r.ladies) + kids + inf; }
     function fmtDT(dt) { if (!dt) return ''; try { return dt.toLocaleString([], { year: '2-digit', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) { return dt.toISOString().slice(0, 16).replace('T', ' ') } }
     function within(dt, start, end) { return dt && dt >= start && dt <= end; }
     function escapeHTML(s) { return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])) }
@@ -111,7 +113,15 @@ export default async function mount(ctx) {
             const ci = parseDT(r.checkin_date, r.checkin_time);
             const co = parseDT(r.checkout_date, r.checkout_time);
             if (ci && within(ci, start, end)) ins.push(r);
-            if (co && within(co, start, end)) outs.push(r);
+            if (!isDelayed(r)) { if (co && within(co, start, end)) outs.push(r); continue; }
+            // delayed: one check-out row per departure (the rooms and guests leaving then)
+            for (const d of departuresOf(r)) {
+                const at = new Date(d.at);
+                if (!within(at, start, end)) continue;
+                const pad2 = (n) => String(n).padStart(2, '0');
+                outs.push({ ...r, checkout_date: ymd(at), checkout_time: `${pad2(at.getHours())}:${pad2(at.getMinutes())}`,
+                    _dep: { rooms: d.rooms, status: d.status, last: d.last, pax: paxAt(r, d.at - 1).total - paxAt(r, d.at).total } });
+            }
         }
         ins.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
         outs.sort((a, b) => parseDT(a.checkout_date, a.checkout_time) - parseDT(b.checkout_date, b.checkout_time));
@@ -192,7 +202,7 @@ export default async function mount(ctx) {
             tr.innerHTML = `
       <td class="nowrap">${t}</td>
       <td>${escapeHTML(r.sh_no || '')}</td>
-      <td>${escapeHTML(r.tour_name || '')}</td>
+      <td>${escapeHTML(r.tour_name || '')}${isDelayed(r) ? ` <span class="badge-delay" title="${escapeHTML(r.delayed.note || '')}">Delayed · ${escapeHTML(r._dep ? r._dep.status : (r.delayed.status || ''))}${r._dep && !r._dep.last ? ' · part' : ''}</span>` : ''}</td>
       <td>${escapeHTML(gl)}</td>
       <td>${escapeHTML((r.building || '').trim())}</td>
       <td>${escapeHTML(roomsFromSlip(r).join(', '))}</td>

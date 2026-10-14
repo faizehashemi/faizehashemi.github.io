@@ -1,0 +1,41 @@
+<div class="dp">
+    <header class="dp-head">
+        <div>
+            <h1>Delayed departures</h1>
+            <p>Groups that could not leave on their booked date. Each room has its own check-out: <b>confirmed</b>, <b>tentative</b> (ticket not confirmed) or <b>unknown</b> (beds held). Every change is checked against the groups booked into those rooms next.</p>
+        </div>
+        <button type="button" id="dpRefresh" class="dp-btn ghost">↻ Refresh</button>
+    </header>
+
+    <!-- the whole first -->
+    <section class="dp-kpis" id="dpKpis"></section>
+
+    <!-- actions on the ticked rooms -->
+    <section class="dp-bar" id="dpBar">
+        <span class="dp-count" id="dpCount">0 rooms ticked</span>
+        <span class="dp-act">Leaves <input type="date" id="dpDate"><input type="time" id="dpTime">
+            <select id="dpStatus"><option value="tentative">tentative</option><option value="confirmed">confirmed</option><option value="unknown">unknown</option></select>
+            <button type="button" class="dp-btn primary" id="dpApply">Set for ticked</button></span>
+        <button type="button" class="dp-btn" id="dpHold">Hold unknown</button>
+        <button type="button" class="dp-btn" id="dpLeft">Left now</button>
+        <span class="dp-msg" id="dpMsg" role="status"></span>
+    </section>
+
+    <section class="dp-card">
+        <div class="dp-card-head"><h2>Delayed groups</h2><span class="dp-note">tick rooms, then use the bar above · red = the room overflows with the next group · amber = next group within 2 days</span></div>
+        <div id="dpGroups"></div>
+    </section>
+
+    <section class="dp-two">
+        <div class="dp-card">
+            <div class="dp-card-head"><h2>Leaving per day</h2><span class="dp-note">guests leaving from delayed groups — for transport</span></div>
+            <div id="dpDays"></div>
+        </div>
+        <div class="dp-card">
+            <div class="dp-card-head"><h2>Booked to leave today &amp; tomorrow</h2><span class="dp-note">mark a group delayed if its flight is off</span></div>
+            <div id="dpSoon"></div>
+        </div>
+    </section>
+
+    <section class="dp-card" id="dpLog"></section>
+</div>

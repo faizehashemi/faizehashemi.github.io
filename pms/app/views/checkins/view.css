@@ -277,3 +277,6 @@ tbody.split-part tr.split-title td { background: #f3e6ca; font-weight: 800; font
 tbody.split-part tr.split-title td small { font-weight: 600; color: #6b5e4a; margin-left: 8px; font-size: 12px; }
 tbody.split-part tr.split-cols th { background: #fbf4e4; font-size: 12px; }
 tbody.split-part tr.split-empty td { color: #6b5e4a; font-style: italic; }
+
+/* delayed departure badge (core/stay.js) */
+.badge-delay { display: inline-block; margin-left: 4px; padding: 0 7px; border-radius: 999px; background: #c0392b; color: #fff; font-size: 11px; font-weight: 800; white-space: nowrap; vertical-align: middle; }

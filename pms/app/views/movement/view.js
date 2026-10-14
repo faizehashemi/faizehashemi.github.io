@@ -1,3 +1,4 @@
+import { isDelayed, departuresOf, paxAt } from '../../core/stay.js';
 // Ported from pms_web/movement.html (mobile check-ins/check-outs). Its two scripts are merged;
 // the range behaviour matches the Checkins view (today 03:00 → tomorrow 03:00 by default).
 // It used to read IndexedDB and fall back to the Gist; that choice is now the nav's data source.
@@ -125,7 +126,14 @@ export default async function mount(ctx) {
             const bld = (r.building || '').trim(); if (b && bld !== b) continue;
             const ci = parseDT(r.checkin_date, r.checkin_time); const co = parseDT(r.checkout_date, r.checkout_time);
             if (ci && ci >= start && ci <= end) ins.push(r);
-            if (co && co >= start && co <= end) outs.push(r);
+            if (!isDelayed(r)) { if (co && co >= start && co <= end) outs.push(r); continue; }
+            // delayed: one row per departure, with the guests leaving then (core/stay.js)
+            for (const d of departuresOf(r)) {
+                if (d.at < +start || d.at > +end) continue;
+                const p0 = paxAt(r, d.at - 1), p1 = paxAt(r, d.at), at = new Date(d.at), pad2 = (n) => String(n).padStart(2, '0');
+                outs.push({ ...r, checkout_date: `${at.getFullYear()}-${pad2(at.getMonth() + 1)}-${pad2(at.getDate())}`, checkout_time: `${pad2(at.getHours())}:${pad2(at.getMinutes())}`,
+                    gents: p0.gents - p1.gents, ladies: p0.ladies - p1.ladies, children: p0.children - p1.children, infants: p0.infants - p1.infants, total: p0.total - p1.total });
+            }
         }
         ins.sort((a, b) => (a.checkin_date + a.checkin_time).localeCompare(b.checkin_date + b.checkin_time));
         outs.sort((a, b) => (a.checkout_date + a.checkout_time).localeCompare(b.checkout_date + b.checkout_time));

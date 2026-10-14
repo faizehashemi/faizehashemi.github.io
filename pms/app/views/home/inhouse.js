@@ -4,6 +4,7 @@
 
 import { siteOfBuilding } from '../../config.js';
 import { baseSh } from '../../core/ums.js';
+import { presentAt, paxAt, isDelayed } from '../../core/stay.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -11,7 +12,8 @@ const parseDT = (d, t) => { if (!d) return null; const v = new Date(`${d}T${t &&
 const fmt = (dt) => dt ? dt.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 
-const guestsOf = (r) => num(r.total) || (num(r.gents) + num(r.ladies) + num(r.children) + num(r.infants));
+// guests here now (a delayed group counts only the rooms still in house)
+const guestsOf = (r) => isDelayed(r) ? paxAt(r, Date.now()).total : (num(r.total) || (num(r.gents) + num(r.ladies) + num(r.children) + num(r.infants)));
 const bedsOf = (r) => ['gents', 'ladies'].reduce((n, side) => n + (r.rooms?.[side] || []).reduce((m, x) => m + (x.assigned !== '' && x.assigned != null ? num(x.assigned) : num(x.capacity)), 0), 0);
 const roomsOf = (r) => ['gents', 'ladies'].flatMap(side => (r.rooms?.[side] || []).map(x => String(x.room_no || '').trim()).filter(Boolean));
 
@@ -43,10 +45,7 @@ function issuesOf(r, site, dupes) {
  */
 export function openInHouse(o) {
     const now = new Date();
-    const stays = o.slips.filter(r => !r.deleted && r.site === o.site).filter(r => {
-        const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
-        return ci && co && ci <= now && now < co;
-    });
+    const stays = o.slips.filter(r => !r.deleted && r.site === o.site).filter(r => presentAt(r, +now));
     const count = new Map();
     for (const r of stays) { const k = baseSh(r.sh_no); if (k) count.set(k, (count.get(k) || 0) + 1); }
     const dupes = new Set([...count].filter(([, n]) => n > 1).map(([k]) => k));

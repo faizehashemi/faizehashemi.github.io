@@ -6,6 +6,7 @@
 //   apart ("without rooms"); they are not in the %.
 
 import { loadBuildings, buildingsOfSite, normRoom, floorOf } from '../../core/rooms.js';
+import { rowsOf, slipEnd, isDelayed, paxAt } from '../../core/stay.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -51,26 +52,25 @@ export default async function mount(ctx) {
             if (s.deleted) continue;
             const b = byName.get(String(s.building || '').trim().toUpperCase());
             if (!b) continue;
-            const ci = parseDT(s.checkin_date, s.checkin_time), co = parseDT(s.checkout_date, s.checkout_time);
+            const ci = parseDT(s.checkin_date, s.checkin_time), co = slipEnd(s); // a delayed group: its last room
             if (!ci || !co) continue;
             const on = nights.map(t => ci <= t && t < co);
             if (!on.some(Boolean)) continue;
-            const rows = ['gents', 'ladies'].flatMap(side => (s.rooms?.[side] || []).filter(x => String(x.room_no || '').trim()));
+            const rows = rowsOf(s); // each room row's own window (core/stay.js)
             if (!rows.length) {
                 const beds = (num(s.gents) + num(s.ladies) + num(s.children)) || num(s.total);
-                on.forEach((v, i) => { if (v) b.unroomed[i] += beds; });
+                on.forEach((v, i) => { if (v) b.unroomed[i] += isDelayed(s) ? paxAt(s, nights[i]).total : beds; });
                 continue;
             }
-            for (const x of rows) {
-                const beds = x.assigned !== '' && x.assigned != null ? num(x.assigned) : num(x.capacity);
-                if (beds <= 0) continue;
-                let room = b.byKey.get(normRoom(x.room_no));
+            for (const w of rows) {
+                if (w.beds <= 0) continue;
+                let room = b.byKey.get(normRoom(w.room_no));
                 if (!room) { // a room the slips use that is not active in Rooms & Buildings
-                    const k = normRoom(x.room_no);
-                    room = b.extra.get(k) || { no: String(x.room_no).trim(), key: k, floor: floorOf(x.room_no), cap: 0, used: days.map(() => 0), off: true };
+                    const k = normRoom(w.room_no);
+                    room = b.extra.get(k) || { no: w.room_no, key: k, floor: floorOf(w.room_no), cap: 0, used: days.map(() => 0), off: true };
                     b.extra.set(k, room);
                 }
-                on.forEach((v, i) => { if (v) { room.used[i] += beds; if (!room.off) b.used[i] += beds; } });
+                nights.forEach((t, i) => { if (w.start <= t && t < w.end) { room.used[i] += w.beds; if (!room.off) b.used[i] += w.beds; } });
             }
         }
         for (const b of blds) b.rooms.push(...[...b.extra.values()].sort((x, y) => natural(x.no, y.no)));

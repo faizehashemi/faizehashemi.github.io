@@ -478,6 +478,8 @@ const SETTINGS = {
             && ['morning_from', 'split', 'night_to'].every(k => HHMM(v[k])) && v.split < v.night_to,
         msg: 'Fakkul Ehraam windows: three times HH:MM, and Night must end after it starts.',
     },
+    // Delayed departures: a room row marked "unknown" is held until today + this many days (the desk can change it)
+    delay_hold_days: { check: (v) => Number.isInteger(v) && v >= 1 && v <= 120, msg: 'Hold for unknown departures: 1–120 days.' },
     // SH number prefixes the Slip page accepts before the digits, e.g. ["S", "E", "ES"] (S44030, E44030, ES44030)
     sh_prefixes: {
         check: (v) => Array.isArray(v) && v.length <= 20 && v.every(p => typeof p === 'string' && /^[A-Z]{1,4}$/.test(p)) && new Set(v).size === v.length,
@@ -794,7 +796,7 @@ async function addKgLog(req, env, me) {
 // Every "Write building" / "Apply allocations" on the Forecast page: which slips changed, with their building and
 // rooms before and after, so a desk can see it and undo it. The undo itself is done by the page through the normal
 // slip writes (version-checked); here it is only marked as undone.
-const ALLOC_KINDS = ['planner', 'allocate-day'];
+const ALLOC_KINDS = ['planner', 'allocate-day', 'delay'];
 async function getAllocLog(env, site) {
     if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
     const { results } = await env.DB.prepare(

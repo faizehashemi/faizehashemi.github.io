@@ -6,18 +6,26 @@
 import { request } from '../../core/cloud.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const KIND = { planner: 'Building planner', 'allocate-day': "Day's check-ins" };
+const KIND = { planner: 'Building planner', 'allocate-day': "Day's check-ins", delay: 'Delayed departures' };
 const when = (iso) => iso ? new Date(iso).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 
-/** building + rooms of a slip, in a form that can be compared */
+/** building, rooms (with each room's own check-out when delayed), check-out and delay of a slip — comparable */
 export function allocOf(r) {
     const side = (s) => (r.rooms?.[s] || []).filter(x => String(x.room_no || '').trim())
-        .map(x => ({ room_no: String(x.room_no).trim(), capacity: x.capacity ?? '', assigned: x.assigned ?? '', ...(x.gl ? { gl: true } : {}) }));
-    return { building: String(r.building || '').trim(), rooms: { gents: side('gents'), ladies: side('ladies') } };
+        .map(x => ({ room_no: String(x.room_no).trim(), capacity: x.capacity ?? '', assigned: x.assigned ?? '', ...(x.gl ? { gl: true } : {}),
+            ...(x.out ? { out: { date: x.out.date || '', time: x.out.time || '' }, out_status: x.out_status || 'confirmed' } : {}) }));
+    return { building: String(r.building || '').trim(), rooms: { gents: side('gents'), ladies: side('ladies') },
+        checkout_date: r.checkout_date || '', checkout_time: r.checkout_time || '', delayed: r.delayed && r.delayed.on ? r.delayed : null };
 }
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// a slip still looks like `saved` (older log entries saved only building + rooms without per-room check-outs)
+function same(cur, saved) {
+    const hasOut = ['gents', 'ladies'].some(s => (saved.rooms?.[s] || []).some(x => x.out));
+    const strip = (rooms) => hasOut ? rooms : { gents: rooms.gents.map(({ out, out_status, ...x }) => x), ladies: rooms.ladies.map(({ out, out_status, ...x }) => x) };
+    return Object.keys(saved).every(k => JSON.stringify(k === 'rooms' ? strip(cur.rooms) : cur[k]) === JSON.stringify(saved[k]));
+}
 const roomsText = (a) => {
-    const list = (s) => a.rooms[s].map(x => x.room_no).join(', ');
+    // a delayed room shows its own check-out: 1720→14/10 10:00 (unknown)
+    const list = (s) => a.rooms[s].map(x => x.room_no + (x.out ? `→${String(x.out.date).slice(8, 10)}/${String(x.out.date).slice(5, 7)} ${x.out.time}${x.out_status && x.out_status !== 'confirmed' ? ` (${x.out_status})` : ''}` : '')).join(', ');
     const parts = [list('gents') && `G ${list('gents')}`, list('ladies') && `L ${list('ladies')}`].filter(Boolean);
     return `${a.building || 'no building'}${parts.length ? ` · ${parts.join(' · ')}` : ''}`;
 };
@@ -72,7 +80,10 @@ export function mountAllocLog({ ctx, host }) {
             const r = current.get(c.id);
             if (!r) { gone.push(c.sh); continue; }
             if (!same(allocOf(r), c.after)) { changed.push(c.sh); continue; }
-            put.push({ ...r, building: c.before.building, rooms: { gents: c.before.rooms.gents, ladies: c.before.rooms.ladies } });
+            const b = c.before;
+            put.push({ ...r, building: b.building, rooms: { gents: b.rooms.gents, ladies: b.rooms.ladies },
+                ...('checkout_date' in b ? { checkout_date: b.checkout_date, checkout_time: b.checkout_time } : {}),
+                ...('delayed' in b ? { delayed: b.delayed } : {}) });
         }
         try {
             const res = put.length ? await ctx.guard(ctx.db.bulkWrite({ put }, 'alloc-undo')) : { updated: 0 };

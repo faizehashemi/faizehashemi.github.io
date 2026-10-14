@@ -1,4 +1,6 @@
 // Meal counts (Mawaid rules) — one source for the Mawaid page and the Home page.
+// Delayed departures (core/stay.js): a group stays until its last room leaves, and a meal counts only the guests still
+// in house when it starts (or when they arrive, if later).
 // A guest counts for a meal when the stay overlaps the meal window ([check-in, check-out) vs [start, end));
 // a group checking in at exactly 15:00 gets no lunch that day. Thals = pax ÷ thal size, rounded up per row.
 
@@ -8,6 +10,15 @@ export const MEAL_DEFAULTS = {
     thal: 8,
     incAdults: true, incChildren: false, incInfants: false,
 };
+
+import { isDelayed, slipEnd, paxAt } from './stay.js';
+
+// guest counts present for a meal window [start, end) — the slip itself unless its departure is delayed
+function atMeal(rec, ci, start) {
+    if (!isDelayed(rec)) return rec;
+    const p = paxAt(rec, Math.max(+ci, +start));
+    return { ...rec, gents: p.gents, ladies: p.ladies, children: p.children, infants: p.infants, total: p.total };
+}
 
 export function parseLocalDateTime(d, t) {
     if (!d) return null;
@@ -64,35 +75,28 @@ export function computeByBuilding(slips, dateStr, ranges, thal, incA, incC, incI
         if (!b || !agg.has(b)) continue;
 
         const ci = parseLocalDateTime(rec.checkin_date, rec.checkin_time);
-        const co = parseLocalDateTime(rec.checkout_date, rec.checkout_time);
+        const co = isDelayed(rec) ? new Date(slipEnd(rec)) : parseLocalDateTime(rec.checkout_date, rec.checkout_time);
         if (!ci || !co) continue;
 
-        const pax = paxOf(rec, incA, incC, incI);
-        const g = Number(rec.gents) || 0;
-        const l = Number(rec.ladies) || 0;
-        const c = Number(rec.children) || 0;
-        const i = Number(rec.infants) || 0;
-
         const a = agg.get(b);
+        const add = (key, R) => { // one meal: the guests here at its start
+            const r = atMeal(rec, ci, R[0]);
+            a[key + 'p'] += paxOf(r, incA, incC, incI);
+            const m = a[key]; m.g += Number(r.gents) || 0; m.l += Number(r.ladies) || 0; m.c += Number(r.children) || 0; m.i += Number(r.infants) || 0;
+        };
 
         // Breakfast
-        if (overlap(ci, co, bR[0], bR[1])) {
-            a.bp += pax; a.b.g += g; a.b.l += l; a.b.c += c; a.b.i += i;
-        }
+        if (overlap(ci, co, bR[0], bR[1])) add('b', bR);
 
         // Lunch: skip only if today is the check-in date AND time is exactly 15:00
         const skipLunchToday =
             dateStr === (rec.checkin_date || '').trim() &&
             ((rec.checkin_time || '').trim() === '15:00');
 
-        if (!skipLunchToday && overlap(ci, co, lR[0], lR[1])) {
-            a.lp += pax; a.l.g += g; a.l.l += l; a.l.c += c; a.l.i += i;
-        }
+        if (!skipLunchToday && overlap(ci, co, lR[0], lR[1])) add('l', lR);
 
         // Dinner
-        if (overlap(ci, co, dR[0], dR[1])) {
-            a.dp += pax; a.d.g += g; a.d.l += l; a.d.c += c; a.d.i += i;
-        }
+        if (overlap(ci, co, dR[0], dR[1])) add('d', dR);
     }
 
     let tBP = 0, tLP = 0, tDP = 0;
@@ -187,13 +191,14 @@ export function mealGuestsFor(slips, dateStr, opts = MEAL_DEFAULTS) {
     const out = { B: [], L: [], D: [] };
     for (const r of slips) {
         if (!(r.building || '').trim()) continue;
-        const ci = parseLocalDateTime(r.checkin_date, r.checkin_time), co = parseLocalDateTime(r.checkout_date, r.checkout_time);
+        const ci = parseLocalDateTime(r.checkin_date, r.checkin_time);
+        const co = isDelayed(r) ? new Date(slipEnd(r)) : parseLocalDateTime(r.checkout_date, r.checkout_time);
         if (!ci || !co) continue;
-        const pax = paxOf(r, opts.incAdults, opts.incChildren, opts.incInfants);
-        if (overlap(ci, co, bR[0], bR[1])) out.B.push({ r, pax });
+        const pax = (R) => paxOf(atMeal(r, ci, R[0]), opts.incAdults, opts.incChildren, opts.incInfants);
+        if (overlap(ci, co, bR[0], bR[1])) out.B.push({ r, pax: pax(bR) });
         const skipLunchToday = dateStr === (r.checkin_date || '').trim() && (r.checkin_time || '').trim() === '15:00';
-        if (!skipLunchToday && overlap(ci, co, lR[0], lR[1])) out.L.push({ r, pax });
-        if (overlap(ci, co, dR[0], dR[1])) out.D.push({ r, pax });
+        if (!skipLunchToday && overlap(ci, co, lR[0], lR[1])) out.L.push({ r, pax: pax(lR) });
+        if (overlap(ci, co, dR[0], dR[1])) out.D.push({ r, pax: pax(dR) });
     }
     return out;
 }

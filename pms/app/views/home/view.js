@@ -16,6 +16,8 @@ import { openInHouse } from './inhouse.js';
 import { openGroupList } from './groups.js';
 import { loadSettings, DEFAULTS } from '../../core/settings.js';
 import { renderOccupancy } from './occupancy.js';
+import { presentAt, paxAt, departuresOf, isDelayed, rowsOf, slipEnd, roomConflicts } from '../../core/stay.js';
+import { loadBuildings, builderCapacity } from '../../core/rooms.js';
 import { openTransportList } from './transport.js';
 import { loadDay as loadTransport, signage as transportSignage, today as transportToday, time12 } from '../../core/transport.js';
 
@@ -133,8 +135,11 @@ export default async function mount(ctx) {
         const from = new Date(`${day}T03:00`), to = new Date(from.getTime() + 864e5); // the Check-ins page's "today"
         const inWin = (d) => d && d >= from && d < to;
         const ins = here.filter(r => inWin(parseDT(r.checkin_date, r.checkin_time)));
-        const outs = here.filter(r => inWin(parseDT(r.checkout_date, r.checkout_time)));
-        const mk = all.filter(r => r.site === 'makkah').filter(r => { const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time); return ci && co && ci <= t && t < co; });
+        // check-outs: every departure in the window — a delayed group leaves room by room (core/stay.js)
+        const outEv = here.flatMap(r => departuresOf(r).filter(d => inWin(new Date(d.at)))
+            .map(d => ({ r, pax: isDelayed(r) ? paxAt(r, d.at - 1).total - paxAt(r, d.at).total : guests(r) })));
+        const outs = [...new Set(outEv.map(e => e.r))];
+        const mk = all.filter(r => r.site === 'makkah').filter(r => presentAt(r, +t));
         // Fakkul Ehraam: Makkah arrivals in the Setup windows
         const at = (h, dayOffset = 0) => { const d = new Date(`${day}T${h}`); d.setDate(d.getDate() + dayOffset); return d; };
         const makkah = all.filter(r => r.site === 'makkah');
@@ -145,7 +150,7 @@ export default async function mount(ctx) {
         const { morning_from: mf, split: sp, night_to: nt } = feWin;
         const fe = { morning: arrivals(at(mf, -1), at(sp)), night: arrivals(at(sp), at(nt)), madina: arrivals(at(sp), at(nt), fromMadina) };
         const pax = (rows) => rows.reduce((s, r) => s + guests(r), 0);
-        return { day, isToday, t, ins, outs, inPax: pax(ins), outPax: pax(outs), mk, mkPax: pax(mk), fe,
+        return { day, isToday, t, ins, outs, inPax: pax(ins), outPax: outEv.reduce((s, e) => s + e.pax, 0), mk, mkPax: mk.reduce((s, r) => s + paxAt(r, +t).total, 0), fe,
             fePax: Object.fromEntries(Object.entries(fe).map(([k, w]) => [k, w.items.reduce((s, x) => s + x.pax, 0)])),
             meals: mealThalsFor(here, day), mealsWho: mealGuestsFor(here, day) };
     }
@@ -182,10 +187,40 @@ export default async function mount(ctx) {
         }
         $('hmMealsTitle').textContent = `Thaals ${label} · ${ctx.site.label}`;
         await renderOccupancy(ctx, $('hmOcc'), here, viewDay);
+        await delayedCard(here).catch(e => console.warn('home delayed', e));
         $('hmOcc').querySelector('.hm-head .hm-sub').textContent = `Share of each building's beds in use ${label}. Capacities come from Rooms & Buildings.`;
         ctx.root.querySelector('.hm').classList.toggle('travel', !N.isToday);
         $('ttNote').hidden = N.isToday;
         $('ttNote').textContent = N.isToday ? '' : `Showing ${new Date(`${viewDay}T12:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} — from the slips as they are now. Transport stays on today.`;
+    }
+
+    /* --------------------------- delayed departures --------------------------- */
+    let dlLists = null;
+    $('hmDlLink').hidden = !canOpen('departures', desk);
+    if (canOpen('departures', desk)) $('hmDlLink').href = ctx.href('departures');
+    async function delayedCard(here) {
+        const now = Date.now();
+        const delayed = here.filter(s => !s.deleted && isDelayed(s) && slipEnd(s) > now);
+        $('hmDl').hidden = !delayed.length;
+        if (!delayed.length) { dlLists = null; return; }
+        const blds = await ctx.guard(loadBuildings());
+        const capOf = (b, room) => builderCapacity(blds, b, room);
+        const today = ymd(new Date());
+        const stay = delayed.filter(s => presentAt(s, now)).map(r => ({ r, pax: paxAt(r, now).total }));
+        const unknown = delayed.map(r => ({ r, pax: rowsOf(r).filter(w => w.end > now && w.status === 'unknown').reduce((n, w) => n + w.beds, 0) })).filter(x => x.pax);
+        const leaving = delayed.map(r => ({ r, pax: departuresOf(r).filter(d => d.at > now && ymd(new Date(d.at)) === today).reduce((n, d) => n + paxAt(r, d.at - 1).total - paxAt(r, d.at).total, 0) })).filter(x => x.pax);
+        const clash = delayed.map(r => ({ r, n: roomConflicts(r, here, capOf, now).filter(c => c.clash).length })).filter(x => x.n).map(x => ({ r: x.r, pax: x.n }));
+        const sum = (a) => a.reduce((n, x) => n + x.pax, 0);
+        const g = (a) => `${a.length} group${a.length === 1 ? '' : 's'}`;
+        setStat('dlStay', sum(stay), `${g(stay)} in house now`);
+        setStat('dlUnknown', sum(unknown), `beds held · ${g(unknown)}`);
+        setStat('dlToday', sum(leaving), `guests · ${g(leaving)}`);
+        setStat('dlClash', sum(clash), clash.length ? `rooms · ${g(clash)} — open the page` : 'none');
+        dlLists = { stay, unknown, leaving, clash };
+    }
+    for (const [id, key, title, label] of [['dlStay', 'stay', 'Delayed — staying now', 'guests'], ['dlUnknown', 'unknown', 'Delayed — unknown date', 'beds held'],
+        ['dlToday', 'leaving', 'Delayed — leaving today', 'guests'], ['dlClash', 'clash', 'Delayed — rooms clashing with the next group', 'rooms']]) {
+        $(id).addEventListener('click', () => { if (dlLists?.[key]?.length) list(ctx.siteId, title, ctx.site.label, dlLists[key], label); });
     }
 
     /* ------------------------------ look ahead ------------------------------ */

@@ -310,6 +310,8 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
                 if (f === 'group_leader' && !u) continue; // UMS often has no GL yet; keep whatever the desk typed
                 const cur = slip[f];
                 if (eq(cur, u)) continue;
+                // a delayed departure (Slip page / Delayed departures) keeps its check-out: old flight data must not shorten it
+                if (slip.delayed?.on && (f === 'checkout_date' || f === 'checkout_time')) { kept[f] = { yours: cur, ums: u, delayed: true }; continue; }
                 if (!base || !(f in base)) changes[f] = { from: cur, to: u, kind: 'link' };
                 else if (eq(cur, base[f])) changes[f] = { from: cur, to: u, kind: 'ums' };
                 else if (eq(u, base[f])) kept[f] = { yours: cur, ums: u };            // desk edit, UMS unchanged

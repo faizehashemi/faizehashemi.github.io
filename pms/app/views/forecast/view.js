@@ -3,6 +3,7 @@
 
 import { loadBuildings, buildingsOfSite, buildingNames, builderCapacity, activeRooms } from '../../core/rooms.js';
 import { mountPlanner } from './planner.js';
+import { rowsOf, presentAt } from '../../core/stay.js';
 import { mountAllocator } from './allocate.js';
 import { mountAllocLog } from './alloclog.js';
 
@@ -41,8 +42,9 @@ let BUILDINGS = [];
         function assignedNow(building, room, when) {
             const target = normRoom(room); let sum = 0;
             for (const rec of DB_CACHE) {
-                if (clean(rec.building) !== building) continue; const ci = parseDT(rec.checkin_date, rec.checkin_time); const co = parseDT(rec.checkout_date, rec.checkout_time); if (!ci || !co || (when < ci || when >= co)) continue; const take = x => { const raw = clean(x.room_no); if (!raw || normRoom(raw) !== target) return; sum += toInt(x.assigned); };
-                (rec.rooms?.gents || []).forEach(take); (rec.rooms?.ladies || []).forEach(take);
+                if (clean(rec.building) !== building) continue;
+                // each room row's own window (delayed departures — core/stay.js)
+                for (const w of rowsOf(rec)) if (normRoom(w.room_no) === target && w.start <= when && when < w.end) sum += toInt(w.row.assigned);
             }
             return sum;
         }
@@ -82,15 +84,15 @@ let BUILDINGS = [];
             const inventory = getInventoryRooms(mode, manualText, DB_CACHE, building);
 
             // Active slips at snapshot
-            const active = DB_CACHE.filter(r => { if (building !== 'ALL' && clean(r.building) !== building) return false; const ci = parseDT(r.checkin_date, r.checkin_time); const co = parseDT(r.checkout_date, r.checkout_time); return ci && co && when >= ci && when < co; });
+            const active = DB_CACHE.filter(r => { if (building !== 'ALL' && clean(r.building) !== building) return false; return presentAt(r, +when); });
 
             // Occupancy map: room -> list of active entries
             const occ = new Map();
             const pushOcc = (room, entry) => { const key = cleanRoom(room); if (!key) return; if (!occ.has(key)) occ.set(key, []); occ.get(key).push(entry); };
             for (const r of active) {
                 const base = { tour: clean(r.tour_name), leader: clean(r.group_leader), sh: r.sh_no ?? '', bld: clean(r.building), win: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}` };
-                (r.rooms?.gents || []).forEach(x => pushOcc(x.room_no, { ...base, gender: 'Gents', cap: toInt(x.capacity), asg: toInt(x.assigned) }));
-                (r.rooms?.ladies || []).forEach(x => pushOcc(x.room_no, { ...base, gender: 'Ladies', cap: toInt(x.capacity), asg: toInt(x.assigned) }));
+                for (const w of rowsOf(r)) if (w.start <= when && when < w.end) // only the rooms still in house
+                    pushOcc(w.room_no, { ...base, gender: w.side === 'gents' ? 'Gents' : 'Ladies', cap: toInt(w.row.capacity), asg: toInt(w.row.assigned), win: `${fmt(new Date(w.start))} → ${fmt(new Date(w.end))}` });
             }
 
             // Render Occupied

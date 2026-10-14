@@ -7,6 +7,7 @@ import { baseSh } from '../../core/ums.js';
 import { openRoomPicker } from './room-picker.js';
 import { getPrefs } from '../../core/prefs.js';
 import { loadSettings, DEFAULTS, shPattern } from '../../core/settings.js';
+import { rowsOf } from '../../core/stay.js';
 
 // SH numbers: 44030, or with a prefix from Setup → SH prefixes (S44030 a group's second check-in at this site, E…, ES…)
 let SH_PREFIXES = DEFAULTS.sh_prefixes;
@@ -15,7 +16,12 @@ const shValue = (v) => { const s = String(v ?? '').trim().toUpperCase(); return 
 
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
-    try { SH_PREFIXES = (await ctx.guard(loadSettings())).settings.sh_prefixes || SH_PREFIXES; SH_RE = shPattern(SH_PREFIXES); } catch { }
+    let HOLD_DAYS = DEFAULTS.delay_hold_days; // Setup → Delayed departures: an unknown date holds the beds this long
+    try {
+        const st = (await ctx.guard(loadSettings())).settings;
+        SH_PREFIXES = st.sh_prefixes || SH_PREFIXES; SH_RE = shPattern(SH_PREFIXES);
+        HOLD_DAYS = Number(st.delay_hold_days) || HOLD_DAYS;
+    } catch { }
 
     /* ------------------------------ Data ------------------------------ */
     const addRecord = (data) => db.add(data);
@@ -135,6 +141,20 @@ export default async function mount(ctx) {
             });
         }
 
+        // Leaves (delayed departure): this row's own check-out, status, and split
+        const tdOut = document.createElement('td');
+        tdOut.className = 'out-cell';
+        tdOut.innerHTML = `<input type="date" class="out-date" aria-label="Leaves on"><input type="time" class="out-time" aria-label="Leaves at">
+            <select class="out-status" aria-label="Status"><option value="confirmed">confirmed</option><option value="tentative">tentative</option><option value="unknown">unknown</option></select>
+            <button type="button" class="row-btn out-split" title="Split this row: some of its beds leave at a different time">✂</button>`;
+        tdOut.querySelector('.out-date').value = data.out?.date || '';
+        tdOut.querySelector('.out-time').value = data.out?.time || '';
+        tdOut.querySelector('.out-status').value = data.out_status || 'confirmed';
+        tdOut.querySelector('.out-status').addEventListener('change', (e) => {
+            if (e.target.value === 'unknown') { const h = holdUntil(); tdOut.querySelector('.out-date').value = h.date; tdOut.querySelector('.out-time').value = h.time; }
+        });
+        tdOut.querySelector('.out-split').addEventListener('click', () => splitRow(group, tr));
+
         // Delete
         const tdDel = document.createElement('td');
         const btnDel = document.createElement('button');
@@ -145,7 +165,7 @@ export default async function mount(ctx) {
         btnDel.onclick = () => { tr.remove(); showAllocSum(); };
         tdDel.appendChild(btnDel);
 
-        tr.append(tdRoom, tdCap, tdAsg, tdDel);
+        tr.append(tdRoom, tdCap, tdAsg, tdOut, tdDel);
         tbody.appendChild(tr);
     }
 
@@ -159,7 +179,12 @@ export default async function mount(ctx) {
             const asgRaw = (asgEl?.value || '').trim();
             const assigned = /^\d+$/.test(asgRaw) ? Number(asgRaw) : '';
             if (room_no !== '' || capRaw !== '' || asgRaw !== '') {
-                rows.push({ room_no, capacity, assigned, ...(tr.dataset.gl ? { gl: true } : {}) });
+                const row = { room_no, capacity, assigned, ...(tr.dataset.gl ? { gl: true } : {}) };
+                if (delayOn()) { // every row of a delayed slip carries its own check-out (blank = the slip's)
+                    row.out = { date: tr.querySelector('.out-date')?.value || $('checkout_date').value || '', time: tr.querySelector('.out-time')?.value || $('checkout_time').value || '' };
+                    row.out_status = tr.querySelector('.out-status')?.value || 'confirmed';
+                }
+                rows.push(row);
             }
         });
         return rows;
@@ -189,14 +214,80 @@ export default async function mount(ctx) {
     for (const id of ['gents-tbody', 'ladies-tbody']) $(id).addEventListener('input', showAllocSum);
     for (const id of ['gents', 'ladies', 'children']) $(id).addEventListener('input', showAllocSum);
 
+    /* ------------------------- Delayed departure ------------------------- */
+    let DELAY_ORIG = null; // the booked check-out, kept while delayed
+    const delayOn = () => !!$('delayOn')?.checked;
+    const pad2 = (n) => String(n).padStart(2, '0');
+    function holdUntil() { // today + the Setup hold, at the slip's check-out time
+        const d = new Date(); d.setDate(d.getDate() + HOLD_DAYS);
+        return { date: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`, time: $('checkout_time').value || '10:00' };
+    }
+    function showDelay() {
+        const on = delayOn();
+        $('delayCtl').hidden = !on;
+        document.querySelector('.subtables')?.classList.toggle('delayed', on);
+        $('delayBox').classList.toggle('on', on);
+        $('delayInfo').textContent = on
+            ? `Booked check-out ${DELAY_ORIG ? `${DELAY_ORIG.date} ${DELAY_ORIG.time}` : '—'} · set each room's own check-out below (✂ splits a room's beds). Unknown holds the beds ${HOLD_DAYS} days.`
+            : 'Tick when the group cannot leave on its booked date — each room row then gets its own check-out.';
+    }
+    function fillOuts(date, time, status, onlyBlank) {
+        document.querySelectorAll('#gents-tbody tr, #ladies-tbody tr').forEach(tr => {
+            const d = tr.querySelector('.out-date'), t2 = tr.querySelector('.out-time'), s = tr.querySelector('.out-status');
+            if (!d || (onlyBlank && d.value)) return;
+            if (date) d.value = date;
+            if (time) t2.value = time;
+            if (status) s.value = status;
+        });
+    }
+    $('delayOn').addEventListener('change', () => {
+        if (delayOn()) {
+            DELAY_ORIG = DELAY_ORIG || { date: $('checkout_date').value, time: $('checkout_time').value };
+            fillOuts($('checkout_date').value, $('checkout_time').value, 'tentative', true);
+            $('delayStatus').value = $('delayStatus').value || 'tentative';
+        } else if (!confirm('Remove the delayed departure? Every room goes back to one check-out for the whole slip (the check-out above).')) {
+            $('delayOn').checked = true; return;
+        }
+        showDelay();
+    });
+    $('delayApplyAll').addEventListener('click', () => {
+        let date = $('delayAllDate').value, time = $('delayAllTime').value;
+        const status = $('delayAllStatus').value;
+        if (status === 'unknown' && !date) ({ date, time } = holdUntil());
+        if (!date) { alert('Choose the date for all rows (or status "unknown" to hold them).'); return; }
+        fillOuts(date, time || $('checkout_time').value, status, false);
+    });
+    // ✂ split: n of this row's beds leave at another time — the row becomes two rows of the same room
+    function splitRow(group, tr) {
+        const [roomEl, capEl, asgEl] = tr.querySelectorAll('input');
+        const beds = Number(asgEl.value) || Number(capEl.value) || 0;
+        if (beds < 2) { alert('A row needs at least 2 beds to split.'); return; }
+        const n = Number(prompt(`Room ${roomEl.value}: ${beds} beds. How many of them leave at a DIFFERENT time (they get a new row)?`, '1'));
+        if (!Number.isInteger(n) || n < 1 || n >= beds) return;
+        asgEl.value = String(beds - n);
+        asgEl.dispatchEvent(new Event('input', { bubbles: true }));
+        addRow(group, { room_no: roomEl.value, capacity: capEl.value, assigned: n,
+            out: { date: tr.querySelector('.out-date').value, time: tr.querySelector('.out-time').value }, out_status: tr.querySelector('.out-status').value });
+        tr.after($(group + '-tbody').lastElementChild);
+        showAllocSum();
+    }
+
     function getFormData() {
+        const rooms = { gents: collectRows('gents'), ladies: collectRows('ladies') };
+        let checkout_date = $('checkout_date').value || '', checkout_time = $('checkout_time').value || '';
+        let delayed = null;
+        if (delayOn()) {
+            // the slip's check-out = the last room to leave (pages that read one check-out stay right)
+            const ends = [...rooms.gents, ...rooms.ladies].filter(r => r.out?.date).map(r => `${r.out.date}T${r.out.time || '00:00'}`).sort();
+            if (ends.length) [checkout_date, checkout_time] = ends.at(-1).split('T');
+            delayed = { on: true, status: $('delayStatus').value, note: $('delayNote').value.trim(), original_checkout: DELAY_ORIG || { date: checkout_date, time: checkout_time }, updated_at: new Date().toISOString() };
+        }
         return {
             tour_name: $('tour_name').value.trim(),
             group_leader: $('group_leader').value.trim(),
             checkin_date: $('checkin_date').value || '',
             checkin_time: $('checkin_time').value || '',
-            checkout_date: $('checkout_date').value || '',
-            checkout_time: $('checkout_time').value || '',
+            checkout_date, checkout_time,
             building: $('building').value || '',
             sh_no: shValue($('sh_no').value),
             total: $('total').value === '' ? '' : Number($('total').value),
@@ -204,10 +295,8 @@ export default async function mount(ctx) {
             ladies: $('ladies').value === '' ? '' : Number($('ladies').value),
             infants: $('infants').value === '' ? '' : Number($('infants').value),
             children: $('children').value === '' ? '' : Number($('children').value),
-            rooms: {
-                gents: collectRows('gents'),
-                ladies: collectRows('ladies')
-            },
+            rooms,
+            delayed,
             createdAt: new Date().toISOString()
         };
     }
@@ -227,8 +316,14 @@ export default async function mount(ctx) {
         $('ladies').value = data.ladies ?? '';
         $('infants').value = data.infants ?? '';
         $('children').value = data.children ?? '';
+        const d = data.delayed && data.delayed.on ? data.delayed : null;
+        $('delayOn').checked = !!d;
+        $('delayStatus').value = d?.status || 'tentative';
+        $('delayNote').value = d?.note || '';
+        DELAY_ORIG = d?.original_checkout || null;
         setRows('gents', data.rooms?.gents || []);
         setRows('ladies', data.rooms?.ladies || []);
+        showDelay();
     }
 
     function clearForm() {
@@ -335,62 +430,43 @@ export default async function mount(ctx) {
             return false;
         }
 
-        // Current rows with per-room wanted assignment and local capacity
-        const rowsAll = [...collectRows('gents'), ...collectRows('ladies')];
-        const roomInfo = new Map(); // room -> { want, capLocal }
-        for (const r of rowsAll) {
+        // This slip's rows: each row is a window (delayed departures give rows their own check-out)
+        const own = [];
+        const capLocalOf = new Map();
+        for (const side of ['gents', 'ladies']) for (const r of collectRows(side)) {
             const room = cleanRoom(r.room_no);
             if (!room) continue;
-            const want = Number.isFinite(+r.assigned) ? +r.assigned : 0;
-            const capLocal = Number.isFinite(+r.capacity) ? +r.capacity : 0;
-            const prev = roomInfo.get(room) || { want: 0, capLocal: 0 };
-            roomInfo.set(room, { want: prev.want + want, capLocal: prev.capLocal || capLocal });
+            const beds = Number.isFinite(+r.assigned) ? +r.assigned : 0;
+            const end = (r.out && parseDT(r.out.date, r.out.time)) || co;
+            if (end <= ci) { alert(`Room ${room}: its check-out is before the check-in.`); return false; }
+            own.push({ room, start: +ci, end: +end, beds });
+            if (!capLocalOf.get(room) && Number.isFinite(+r.capacity) && +r.capacity > 0) capLocalOf.set(room, +r.capacity);
         }
-        const uniqRooms = Array.from(roomInfo.keys());
+        const uniqRooms = [...new Set(own.map(o => o.room))];
+        const lastEnd = Math.max(+co, ...own.map(o => o.end));
 
-        // Per-room use by OTHER slips during this stay: the busiest moment counts, not the sum of every stay that
-        // overlaps somewhere (two groups one after the other in a 2-bed room never fill it together).
-        const stays = new Map(); // room -> [{ start, end, beds }]
-        for (const room of uniqRooms) stays.set(room, []);
-
+        // Other slips' windows in the same rooms (their own per-row check-outs count too)
+        const others = new Map(uniqRooms.map(r => [r, []]));
         for (const r of DB_CACHE) {
             if (CURRENT_ID && r.id === CURRENT_ID) continue; // ignore self
-            const rb = (r.building || '').trim();
-            if (rb !== bld) continue;
-            const rci = parseDT(r.checkin_date, r.checkin_time);
-            const rco = parseDT(r.checkout_date, r.checkout_time);
-            if (!rci || !rco) continue;
-            if (!overlaps(ci, co, rci, rco)) continue;
-            const used = [...(r.rooms?.gents || []), ...(r.rooms?.ladies || [])];
-            for (const x of used) {
-                const room = cleanRoom(x.room_no);
-                if (!room || !roomInfo.has(room)) continue;
-                const a = Number.isFinite(+x.assigned) ? +x.assigned : 0;
-                if (a > 0) stays.get(room).push({ start: Math.max(+rci, +ci), end: Math.min(+rco, +co), beds: a, out: rco });
+            if ((r.building || '').trim() !== bld) continue;
+            for (const w of rowsOf(r)) {
+                const room = cleanRoom(w.room_no);
+                if (!others.has(room) || !w.start || !w.end || w.beds <= 0) continue;
+                if (!(w.start < lastEnd && w.end > +ci)) continue;
+                others.get(room).push({ start: w.start, end: w.end, beds: w.beds, sh: r.sh_no });
             }
-        }
-        // existing = beds taken at the busiest moment of the stay; freeAt = when the stays at that moment have left
-        const stats = new Map(); // room -> { existing: number, freeAt: Date|null }
-        for (const [room, list] of stays) {
-            let existing = 0, freeAt = null;
-            for (const t of new Set(list.map(e => e.start))) {
-                const here = list.filter(e => e.start <= t && t < e.end);
-                const n = here.reduce((s, e) => s + e.beds, 0);
-                if (n > existing) { existing = n; freeAt = here.reduce((m, e) => (!m || m < e.out ? e.out : m), null); }
-            }
-            stats.set(room, { existing, freeAt });
         }
 
         // Capacity from the current row first, then Rooms & Buildings, then last-known from history
         function resolveCapacity(room) {
-            const local = roomInfo.get(room)?.capLocal || 0;
+            const local = capLocalOf.get(room) || 0;
             if (local > 0) return local;
             const fromBuilder = builderCapacity(BUILDINGS, bld, room);
             if (fromBuilder > 0) return fromBuilder;
             for (let i = DB_CACHE.length - 1; i >= 0; i--) {
                 const rec = DB_CACHE[i];
-                const rb = (rec.building || '').trim();
-                if (rb !== bld) continue;
+                if ((rec.building || '').trim() !== bld) continue;
                 const arr = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])];
                 const hit = arr.find(z => cleanRoom(z.room_no) === room);
                 const histCap = Number.isFinite(+hit?.capacity) ? +hit.capacity : 0;
@@ -399,29 +475,29 @@ export default async function mount(ctx) {
             return 0; // unknown
         }
 
-        // Per room: allowed when (existing + want) <= capacity
+        // Per room: the busiest moment while this group is in it — other groups there then + this group's beds then
         const blocked = new Set();
         const lines = [];
         for (const room of uniqRooms) {
-            const { want } = roomInfo.get(room);
-            const existing = stats.get(room)?.existing || 0;
-            const freeAt = stats.get(room)?.freeAt || null;
             const cap = resolveCapacity(room);
-
-            if (!cap) {
-                blocked.add(room);
-                lines.push(`${room}: capacity unknown. Enter capacity for this slip.`);
-                continue;
+            if (!cap) { blocked.add(room); lines.push(`${room}: capacity unknown. Enter capacity for this slip.`); continue; }
+            const mine = own.filter(o => o.room === room), theirs = others.get(room);
+            const times = new Set([...mine.map(o => o.start), ...theirs.map(e => e.start)]);
+            let worst = { total: -1, existing: 0, want: 0, t: null, who: [] };
+            for (const t of times) {
+                const want = mine.filter(o => o.start <= t && t < o.end).reduce((s, o) => s + o.beds, 0);
+                if (!want) continue;
+                const here = theirs.filter(e => e.start <= t && t < e.end);
+                const existing = here.reduce((s, e) => s + e.beds, 0);
+                if (existing + want > worst.total) worst = { total: existing + want, existing, want, t, who: here };
             }
-
-            const after = existing + (Number.isFinite(+want) ? +want : 0);
-            if (after < cap + 1) {
-                const remainingNow = Math.max(0, cap - after);
-                lines.push(`${room}: OK. Before Assigned: ${existing}/${cap}. After Assignment: ${after}/${cap}. Remaining now ${remainingNow}.`);
+            if (worst.total < 0) continue;
+            if (worst.total <= cap) {
+                lines.push(`${room}: OK. Before Assigned: ${worst.existing}/${cap}. After Assignment: ${worst.total}/${cap}. Remaining now ${Math.max(0, cap - worst.total)}.`);
             } else {
                 blocked.add(room);
-                const freeStr = freeAt ? fmt(freeAt) : '(checkout unknown)';
-                lines.push(`${room}: BLOCKED. Existing ${existing}/${cap}, assigning ${want || 0} would be ${after}/${cap}. Expected chechout after ${freeStr}.`);
+                const who = worst.who.map(e => `SH ${e.sh} (${e.beds}, ${fmt(new Date(e.start))} → ${fmt(new Date(e.end))})`).join(', ');
+                lines.push(`${room}: BLOCKED on ${fmt(new Date(worst.t))}. ${who || 'Other groups'} use ${worst.existing}/${cap}; this group's ${worst.want} would make ${worst.total}/${cap}.`);
             }
         }
 

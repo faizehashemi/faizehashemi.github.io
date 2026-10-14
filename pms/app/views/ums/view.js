@@ -94,7 +94,7 @@ export default async function mount(ctx) {
             thead.innerHTML = '<tr><th>SH</th><th>Group</th><th>Stay</th><th>Kept (yours → UMS says)</th></tr>';
             tbody.innerHTML = rows.map(({ slip, kept }) => `<tr>
                 <td>${esc(slip.sh_no)}</td><td>${esc(slip.tour_name)}</td><td class="nowrap">${stay(slip)}</td>
-                <td>${Object.entries(kept).map(([f, k]) => `<span class="chg"><b>${f}</b>: ${esc(k.yours)} <span class="muted">(UMS: ${esc(k.ums)})</span></span>`).join('')}</td></tr>`).join('');
+                <td>${Object.entries(kept).map(([f, k]) => `<span class="chg"><b>${f}</b>: ${esc(k.yours)} <span class="muted">(UMS: ${esc(k.ums)}${k.delayed ? ' — kept: delayed departure' : ''})</span></span>`).join('')}</td></tr>`).join('');
         } else if (tab === 'missing') {
             thead.innerHTML = '<tr><th>SH</th><th>Group</th><th>Stay</th><th>Building</th><th>Last imported</th></tr>';
             tbody.innerHTML = rows.map(s => `<tr>

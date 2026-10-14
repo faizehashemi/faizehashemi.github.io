@@ -11,6 +11,7 @@
 // (gents unless changed), counted inside that side's number. The row is saved with gl: true.
 
 import { findBuilding, normRoom, floorOf } from '../../core/rooms.js';
+import { rowsOf } from '../../core/stay.js';
 
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -57,21 +58,18 @@ export function openRoomPicker(o) {
     const usage = new Map(); // norm → [events]
     for (const s of o.slips) {
         if (s.id === o.excludeId || String(s.building || '').trim().toUpperCase() !== bld) continue;
-        const rci = parseDT(s.checkin_date, s.checkin_time), rco = parseDT(s.checkout_date, s.checkout_time);
-        const stays = rci && rco && rci < co && rco > ci;
-        for (const side of ['gents', 'ladies']) {
-            for (const x of s.rooms?.[side] || []) {
-                const k = normRoom(x.room_no);
-                if (!k) continue;
-                if (!rooms.has(k) && !useBuilder) { // a room only known from slips
-                    const cap = o.historyCap(x.room_no);
-                    rooms.set(k, { room_no: String(x.room_no).trim(), cap: cap ?? (Number(x.capacity) || 0), type: '', floor: floorOf(x.room_no), known: 'slips' });
-                }
-                const beds = Number(x.assigned) || 0;
-                if (!stays || beds <= 0) continue;
-                if (!usage.has(k)) usage.set(k, []);
-                usage.get(k).push({ start: new Date(Math.max(+rci, +ci)), end: new Date(Math.min(+rco, +co)), fullStart: rci, fullEnd: rco, beds, side, sh: s.sh_no, tour: s.tour_name || '' });
+        // each room row's own window (a delayed departure gives rows their own check-out — core/stay.js)
+        for (const w of rowsOf(s)) {
+            const k = normRoom(w.room_no);
+            if (!k) continue;
+            if (!rooms.has(k) && !useBuilder) { // a room only known from slips
+                const cap = o.historyCap(w.room_no);
+                rooms.set(k, { room_no: String(w.room_no).trim(), cap: cap ?? (Number(w.row.capacity) || 0), type: '', floor: floorOf(w.room_no), known: 'slips' });
             }
+            const beds = Number(w.row.assigned) || 0;
+            if (!w.start || !w.end || !(w.start < +co && w.end > +ci) || beds <= 0) continue;
+            if (!usage.has(k)) usage.set(k, []);
+            usage.get(k).push({ start: new Date(Math.max(w.start, +ci)), end: new Date(Math.min(w.end, +co)), fullStart: new Date(w.start), fullEnd: new Date(w.end), beds, side: w.side, sh: s.sh_no, tour: s.tour_name || '', delayed: w.status !== 'booked' });
         }
     }
     for (const side of ['gents', 'ladies']) for (const x of o.current[side] || []) {

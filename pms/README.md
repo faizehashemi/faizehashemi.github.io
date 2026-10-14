@@ -161,6 +161,29 @@ Mumineen Calendar project's (github.com/mygulamali/mumineen_calendar_js, MIT lic
 `app/data/miqaats.json` with its licence in `app/data/miqaats.LICENSE.txt`; refresh that file from the project
 to pick up new entries.
 
+## Delayed departures (airspace closures)
+
+A group that cannot leave on its booked date is marked **delayed** (Slip page tick, or *Mark delayed* on the Delayed
+departures page). Its slip then keeps `delayed: { on, status, note, original_checkout }` and **each room row has its own
+check-out**: `rooms.gents[i].out = { date, time }`, `out_status` = `confirmed` | `tentative` | `unknown`. A room can be
+split into several rows (✂ on the Slip page: 2 of 4 beds leave on the 14th, 2 stay), so windows go down to the pax.
+*Unknown* holds the beds until today + **Setup → Delayed departures** days (`delay_hold_days`, default 30). The slip's
+own check-out is the last room's. Nothing rolls forward by itself — dates change only when a desk sets them.
+
+`app/core/stay.js` is the one place that answers "who is here when": `rowsOf`, `slipEnd`, `presentAt`, `paxAt`,
+`departuresOf`, `roomConflicts`. Every reader uses it: Slip room check and Pick rooms, Grid, Timeline, Forecast (vacancy,
+planner, day allocation), Occupancy details, Home (in house, check-outs, thaals, occupancy), Mawaid (`core/meals.js`:
+a meal counts the guests still in house when it starts), Check-ins and Movement (one check-out row per partial
+departure with the guests leaving), Laundry (room in house). The UMS import never changes a delayed slip's check-out.
+
+**Delayed departures page** (Front desk, `app/views/departures/`): totals (groups, unknown / tentative / confirmed beds,
+leaving today / tomorrow, rooms clashing / tight); every delayed group with its rooms, each room's next incoming group,
+red when the room would overflow, amber when the next group arrives within 2 days, and a *review* mark on rooms leaving
+soon that are not confirmed. Tick rooms to set their check-out and status, hold them (unknown), or mark them left —
+every change is checked against incoming bookings first (only the rooms being changed), written at once and logged
+in **Bulk changes** with Undo (`alloc_log` kind `delay`). Also: guests leaving per day (for transport) and groups booked
+to leave today / tomorrow with *Mark delayed*. Home shows a Delayed departures card while any group is delayed.
+
 ## Occupancy details (Rooms)
 
 `app/views/occupancy/`: beds in use each night of a chosen period (counted at 22:00: check-in ≤ 22:00 < check-out),

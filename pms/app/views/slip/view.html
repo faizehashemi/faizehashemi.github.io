@@ -50,6 +50,21 @@
             </tbody>
         </table>
 
+        <!-- Delayed departure: each room row gets its own check-out (core/stay.js) -->
+        <div class="delay-box" id="delayBox">
+            <label class="delay-on"><input type="checkbox" id="delayOn"> <b>Delayed departure</b></label>
+            <span class="muted" id="delayInfo">Tick when the group cannot leave on its booked date — each room row then gets its own check-out.</span>
+            <div class="delay-ctl" id="delayCtl" hidden>
+                <label>Status <select id="delayStatus"><option value="tentative">Tentative (ticket not confirmed)</option><option value="unknown">Unknown date (held)</option><option value="confirmed">Confirmed new date</option></select></label>
+                <label class="delay-note">Note <input id="delayNote" maxlength="300" placeholder="e.g. waiting for Saudia tickets, call GL on…"></label>
+                <span class="delay-all">All rows:
+                    <input type="date" id="delayAllDate" aria-label="Check-out date for all rows">
+                    <input type="time" id="delayAllTime" aria-label="Check-out time for all rows">
+                    <select id="delayAllStatus" aria-label="Status for all rows"><option value="tentative">tentative</option><option value="unknown">unknown</option><option value="confirmed">confirmed</option></select>
+                    <button type="button" id="delayApplyAll" class="row-btn">Apply</button></span>
+            </div>
+        </div>
+
         <!-- Bulk room import -->
         <div class="bulk-row">
 
@@ -70,6 +85,7 @@
                         <th style="width:50%">Room No</th>
                         <th style="width:22%">Capacity</th>
                         <th style="width:18%">Assigned</th>
+                        <th class="out-cell">Leaves <span class="muted">(date · time · status)</span></th>
                         <th style="width:10%"></th>
                     </tr>
                 </thead>
@@ -88,6 +104,7 @@
                         <th style="width:50%">Room No</th>
                         <th style="width:22%">Capacity</th>
                         <th style="width:18%">Assigned</th>
+                        <th class="out-cell">Leaves <span class="muted">(date · time · status)</span></th>
                         <th style="width:10%"></th>
                     </tr>
                 </thead>

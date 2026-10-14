@@ -130,6 +130,23 @@ export default async function mount(ctx) {
     });
     await renderFe();
 
+    /* --------------------------- Delayed departures hold --------------------------- */
+    async function renderDly() {
+        const s = await ctx.guard(loadSettings());
+        $('dlyDays').value = s.settings.delay_hold_days ?? DEFAULTS.delay_hold_days;
+        $('dlyDays').disabled = !isAdmin; $('dlySave').hidden = !isAdmin;
+        if (!isAdmin) $('dlyMsg').textContent = 'Only an admin can change this.';
+    }
+    $('dlySave').addEventListener('click', async () => {
+        const n = Number($('dlyDays').value);
+        if (!Number.isInteger(n) || n < 1 || n > 120) { $('dlyMsg').textContent = 'Enter 1–120 days.'; return; }
+        $('dlySave').disabled = true;
+        try { await ctx.guard(saveSettings({ delay_hold_days: n })); await renderDly(); $('dlyMsg').textContent = `Saved — unknown departures hold their rooms ${n} days.`; }
+        catch (err) { $('dlyMsg').textContent = err.status === 400 ? err.message : (err.message || String(err)); }
+        finally { $('dlySave').disabled = false; }
+    });
+    await renderDly();
+
     /* ------------------------------- SH prefixes ------------------------------- */
     let shp = [];
     function drawShp() {

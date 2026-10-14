@@ -3,6 +3,7 @@
 // Capacity: the bed total from Rooms & Buildings; a building not set up there can be given a number here
 // (kept in this browser, as before).
 
+import { isDelayed, paxAt } from '../../core/stay.js';
 import { loadBuildings, buildingsOfSite, totalBeds } from '../../core/rooms.js';
 import { canOpen } from '../../core/cloud.js';
 
@@ -28,7 +29,8 @@ export async function renderOccupancy(ctx, root, slips, day = ymd(new Date())) {
     for (const s of slips) {
         if (!s.checkin_date || !s.checkout_date || s.checkin_date > today || s.checkout_date < today) continue;
         const b = String(s.building || '').trim();
-        used[b] = (used[b] || 0) + num(s.total);
+        // a delayed group: the guests still here at noon of the day (core/stay.js)
+        used[b] = (used[b] || 0) + (isDelayed(s) ? paxAt(s, new Date(`${today}T12:00`).getTime()).total : num(s.total));
     }
     // guests by check-in date and building (the chart)
     const byDate = {};

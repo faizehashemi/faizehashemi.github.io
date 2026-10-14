@@ -56,6 +56,18 @@
         </div>
     </section>
 
+    <section class="card" id="dlyCard">
+        <h3>Delayed departures <span class="muted small">— every desk</span></h3>
+        <p class="muted small">When a room's departure is marked <b>unknown</b> (Slip page or Delayed departures), its beds are held from today for this many days. The desk can change any room's date; holds that run into an incoming booking are flagged.</p>
+        <div class="fe-rows">
+            <label>Hold unknown stays for <span class="muted small">days</span><input type="number" id="dlyDays" min="1" max="120" step="1"></label>
+        </div>
+        <div class="actions">
+            <button type="button" class="primary" id="dlySave">Save</button>
+            <span class="muted small" id="dlyMsg"></span>
+        </div>
+    </section>
+
     <section class="card" id="shpCard">
         <h3>SH prefixes <span class="muted small">— letters allowed before an SH number on the Slip page, every desk</span></h3>
         <p class="muted small">An SH No. is digits, or digits after one of these (S44030 is a group's second check-in here). 1–4 letters each.</p>
