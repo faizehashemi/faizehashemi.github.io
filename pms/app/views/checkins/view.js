@@ -8,7 +8,7 @@ import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
 import { baseSh } from '../../core/ums.js';
 import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
-import { legOf as flightLeg, loadFlightStatus, describe as describeFlight, delayText } from '../../core/flights.js';
+import { legOf as flightLeg, loadFlightStatus, describe as describeFlight } from '../../core/flights.js';
 
 export default async function mount(ctx) {
     const { db } = ctx;
@@ -240,8 +240,8 @@ export default async function mount(ctx) {
         if (f.kind === 'city') return `<td class="fl"><span class="fl-none">${key === 'checkin' ? 'from' : 'to'} ${otherLabel}</span></td>`;
         if (f.kind === 'road') return `<td class="fl"><span class="fl-none">by ${escapeHTML((f.mode || 'road').toLowerCase())}</span></td>`;
         if (f.kind !== 'flight') return '<td class="fl"><span class="fl-none">—</span></td>';
-        const d = FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)) : { text: '…', cls: 'wait', title: '' };
-        return `<td class="fl"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}" title="${escapeHTML(d.title)}">${escapeHTML(d.text)}</span></td>`;
+        const d = FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)) : { label: '…', sentence: '', cls: 'wait', title: '' };
+        return `<td class="fl" title="${escapeHTML(d.title)}"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}">${escapeHTML(d.label)}</span><small class="fl-say">${escapeHTML(d.sentence)}</small></td>`;
     }
     function flightText(r, key) {
         const f = flightOf(r, key);
@@ -272,12 +272,12 @@ export default async function mount(ctx) {
             }
         }
         const badCount = rows.filter(r => r.flag === 'no_sign' || r.status === 'diverted' || r.status === 'elsewhere').length;
-        const lateCount = rows.filter(r => r.delay_min >= 30 || r.flag === 'late').length;
+        const lateCount = rows.filter(r => r.delay_min >= 30 || r.flag === 'late').length; // 30 min+ counts as late
         $('sumFlights').textContent = `${rows.length} flight${rows.length === 1 ? '' : 's'}${lateCount ? ` · ${lateCount} late` : ''}${badCount ? ` · ${badCount} to check` : ''}`;
         if (!rows.length) { $('flightsList').innerHTML = '<p class="muted">No guest flights in this window.</p>'; return; }
         const day = (r) => new Date(at(r)).toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh', weekday: 'short', day: '2-digit', month: 'short' });
         $('flightsList').innerHTML = `<table class="fl-board">
-          <thead><tr><th>UMS time</th><th>Flight</th><th>In / out</th><th>Airport</th><th>Groups</th><th>Status</th><th>Delay</th><th>Details</th></tr></thead>
+          <thead><tr><th>UMS time</th><th>Flight</th><th>In / out</th><th>Airport</th><th>Groups</th><th>Status</th><th>Details</th></tr></thead>
           <tbody>${rows.map(r => {
               const d = describeFlight(r.dir, r);
               const g = (groups.get(r.key) || []);
@@ -289,8 +289,7 @@ export default async function mount(ctx) {
                 <td>${r.dir === 'arr' ? 'Arrival' : 'Departure'}</td>
                 <td>${r.airport === 'MED' ? 'Madina' : 'Jeddah'}</td>
                 <td>${g.length ? `${escapeHTML(g.map(x => x.sh_no).filter(Boolean).join(', '))}<small>${g.length} group${g.length === 1 ? '' : 's'} · ${pax} guests</small>` : '<span class="fl-none">—</span>'}</td>
-                <td><span class="fl-st ${d.cls}" title="${escapeHTML(d.title)}">${escapeHTML(d.text)}</span></td>
-                <td class="nowrap">${escapeHTML(delayText(r.delay_min) || '—')}</td>
+                <td title="${escapeHTML(d.title)}"><span class="fl-st big ${d.cls}">${escapeHTML(d.label)}</span><small class="fl-say">${escapeHTML(d.sentence)}</small></td>
                 <td class="fl-det">${escapeHTML([det.type, det.reg].filter(Boolean).join(' · ') || '')}${r.origin || r.destination ? `<small>${escapeHTML([r.origin, r.destination_actual || r.destination].filter(Boolean).join(' → '))}</small>` : ''}</td>
               </tr>`;
           }).join('')}</tbody></table>`;

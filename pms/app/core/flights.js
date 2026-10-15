@@ -59,35 +59,54 @@ export function detailsOf(row) {
     ].filter(Boolean);
 }
 
-/** { text, cls, title } for a stored status row (or none yet) */
+/**
+ * The status as a traveller reads it (like an airline / Trip.com page): one word and one plain sentence.
+ * { label, sentence, text, cls, title } — text = "label — sentence" (CSV, tooltips).
+ * Only says what Flightradar24 confirmed: before take-off it cannot know "on time", so it says "no delay reported yet".
+ */
 export function describe(dirKey, row) {
-    if (!row) return { text: 'Not checked yet', cls: 'wait', title: 'Looked up from 8 h before an arrival / 1 h before a departure' };
+    const out = (label, sentence, cls, title = '') => ({ label, sentence, text: `${label} — ${sentence}`, cls, title });
+    const dep = dirKey === 'dep';
+    if (!row) return out('Scheduled', 'Not checked yet — looked up from 8 h before an arrival and 1 h before a departure.', 'wait');
     const title = detailsOf(row).join('\n');
-    const late = delayText(row.delay_min);
+    const at = UMS_AT(row);
+    const from = place(row.origin);
+    const by = (min) => {               // ", 40 min late" / " on time" / ", 15 min early"
+        const t = delayText(min);
+        return !t ? '' : t === 'on time' ? ' on time' : `, ${t}`;
+    };
     const lateCls = (base) => row.delay_min >= 30 ? 'warn' : base;
-    const plus = late ? ` · ${late}` : '';
-    if (row.flag === 'no_sign') return { text: 'No sign of this flight · possibly cancelled — check with the airline', cls: 'bad', title };
-    if (row.flag === 'unchecked') return { text: 'Not checked (its time passed before tracking began)', cls: 'wait', title };
+    if (row.flag === 'no_sign') return out('Possibly cancelled', `No sign of this flight more than ${Math.max(1, Math.floor((Number(row.delay_min) || 0) / 60))} h after its time. Check with the airline.`, 'bad', title);
+    if (row.flag === 'unchecked') return out('No data', 'Its time passed before flight tracking began.', 'wait', title);
     switch (row.status) {
         case 'airborne': {
-            if (row.eta) return { text: `In the air · ETA ${riyadh(row.eta)}${plus}`, cls: lateCls('air'), title };
-            // out of Flightradar24's sight for a while (patchy coverage over central Saudi Arabia): say when last seen
-            const last = row.detail?.last_seen, stale = last && Date.now() - Date.parse(last) > 20 * 60e3;
-            return { text: `In the air · took off ${riyadh(row.takeoff)}${stale ? ` · last seen ${riyadh(last)}` : ''}`, cls: 'air', title };
+            if (row.eta) return out('In flight', `Expected to land at ${riyadh(row.eta)}${by(row.delay_min)}.`, lateCls('air'), title);
+            return out('In flight', `Took off${row.origin ? ` from ${from}` : ''} at ${riyadh(row.takeoff)}. Due to land at ${at}.`, 'air', title);
         }
-        case 'landed': return { text: `Landed ${riyadh(row.landed)}${plus}`, cls: lateCls('ok'), title };
-        case 'diverted': return { text: `Diverted to ${place(row.destination_actual)}`, cls: 'bad', title };
-        case 'boarding': return { text: `At the gate / taxiing${row.flag === 'late' ? plus : ''}`, cls: 'warn', title };
-        case 'departed': return { text: `Departed ${riyadh(row.takeoff)}${plus}`, cls: lateCls('ok'), title };
-        case 'arrived': return { text: `Departed ${riyadh(row.takeoff)}${plus} · landed ${riyadh(row.landed)}`, cls: lateCls('ok'), title };
+        case 'landed': {
+            const t = delayText(row.delay_min);
+            return out('Landed', t === 'on time' ? `Landed on time at ${riyadh(row.landed)}.` : `Landed at ${riyadh(row.landed)}${by(row.delay_min)}.`, lateCls('ok'), title);
+        }
+        case 'diverted': return out('Diverted', `Landed in ${place(row.destination_actual)} instead of ${row.airport === 'MED' ? 'Madina' : 'Jeddah'}.`, 'bad', title);
+        case 'boarding': return out('Boarding', 'The plane is at the gate or taxiing.', 'warn', title);
+        case 'departed':
+        case 'arrived': {
+            const t = delayText(row.delay_min);
+            return out('Departed', t === 'on time' ? `Took off on time at ${riyadh(row.takeoff)}.` : `Took off at ${riyadh(row.takeoff)}${by(row.delay_min)}.`, lateCls('ok'), title);
+        }
         // the same flight number at another airport than UMS gives (e.g. the group really flies from Taif)
-        case 'elsewhere': return dirKey === 'dep'
-            ? { text: `Flies from ${place(row.origin)}${row.takeoff ? ` · departed ${riyadh(row.takeoff)}` : ''}`, cls: 'bad', title: `UMS says ${row.airport === 'MED' ? 'Madina' : 'Jeddah'}, Flightradar24 shows this flight leaving ${place(row.origin)}.\n${title}` }
-            : { text: `Lands at ${place(row.destination_actual || row.destination)}${row.landed ? ` · ${riyadh(row.landed)}` : ''}`, cls: 'bad', title: `UMS says ${row.airport === 'MED' ? 'Madina' : 'Jeddah'}, Flightradar24 shows this flight going to ${place(row.destination_actual || row.destination)}.\n${title}` };
+        case 'elsewhere': {
+            const ums = row.airport === 'MED' ? 'Madina' : 'Jeddah';
+            return dep
+                ? out('Other airport', `This flight leaves from ${from}, not ${ums}. Check the booking.`, 'bad', title)
+                : out('Other airport', `This flight goes to ${place(row.destination_actual || row.destination)}, not ${ums}. Check the booking.`, 'bad', title);
+        }
         default:
-            if (row.flag === 'late') return dirKey === 'dep'
-                ? { text: `Not departed yet · ${late}`, cls: 'warn', title }
-                : { text: `Not seen yet · ${late.replace(' late', '')} past its time`, cls: 'warn', title };
-            return { text: dirKey === 'dep' ? `Not departed yet · due ${UMS_AT(row)}` : `Not in the air yet · due ${UMS_AT(row)}`, cls: 'wait', title };
+            if (row.flag === 'late') return dep
+                ? out('Delayed', `Not departed yet — ${delayText(row.delay_min).replace(' late', '')} past its time (${at}).`, 'warn', title)
+                : out('Delayed', `Not in the air yet — ${delayText(row.delay_min).replace(' late', '')} past its landing time (${at}).`, 'warn', title);
+            return dep
+                ? out('Scheduled', `Departs at ${at}. No delay reported yet.`, 'wait', title)
+                : out('Scheduled', `Lands at ${at}. No delay reported yet.`, 'wait', title);
     }
 }
