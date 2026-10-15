@@ -314,3 +314,33 @@ CREATE TABLE IF NOT EXISTS tosha_days (
     updated_by  INTEGER,
     PRIMARY KEY (site, day)
 );
+
+-- Live flight status of our guests' flights (Flightradar24 Flight summary). FR24 rules: kept at most 30 days.
+CREATE TABLE IF NOT EXISTS flight_status (
+    key                 TEXT PRIMARY KEY,            -- 'arr|2026-10-15|SV701' (direction | UMS date | flight number)
+    dir                 TEXT NOT NULL,               -- arr | dep
+    airport             TEXT NOT NULL,               -- JED | MED
+    code                TEXT NOT NULL,
+    sched               TEXT NOT NULL,               -- UMS date and time (Riyadh) 'YYYY-MM-DDTHH:MM'
+    status              TEXT NOT NULL,               -- scheduled | airborne | landed | diverted | boarding | departed | arrived
+    fr24_id             TEXT,
+    callsign            TEXT,
+    origin              TEXT,
+    destination         TEXT,
+    destination_actual  TEXT,
+    takeoff             TEXT,                        -- UTC ISO
+    landed              TEXT,                        -- UTC ISO
+    ended               INTEGER NOT NULL DEFAULT 0,
+    checked_at          TEXT,
+    updated_at          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS flight_status_sched ON flight_status(sched);
+CREATE TABLE IF NOT EXISTS flight_meta (
+    id            TEXT PRIMARY KEY,                 -- 'fr24'
+    month         TEXT,                             -- 'YYYY-MM' the credit count belongs to
+    credits_used  INTEGER NOT NULL DEFAULT 0,
+    last_run      TEXT,
+    next_run      TEXT,
+    last_credits  INTEGER NOT NULL DEFAULT 0,
+    last_error    TEXT
+);

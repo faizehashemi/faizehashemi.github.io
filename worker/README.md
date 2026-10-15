@@ -73,7 +73,11 @@ Transport (one document per site and day): `GET /api/transport?site=&day=YYYY-MM
 (any login) · `PUT /api/transport` `{ site, day, rows, version, note }` (desk of the site / admin; `version` 0 = new day,
 an older version → 409) · `DELETE /api/transport?site=&day=&version=`.
 
-Flights (Airlabs) removed 2026-10-03: no `/api/flights` routes, no cron (`crons = []` in `wrangler.toml`), secret deleted.
+Live flight status (Flightradar24, since 2026-10-15): `GET /api/flights/status` (any login) — the stored status of our
+guests' flights (UMS arrival/departure legs at JED/MED; car, bus, train skipped); `POST /api/flights/refresh` (admin) looks
+up now. The cron (`*/5 * * * *`) looks up only when due. Secret `FR24_API_KEY` (`npx wrangler secret put FR24_API_KEY`);
+vars `FR24_MONTHLY_CREDITS` (plan size) and `FR24_RESERVE` (share never used, default 0.25) in `wrangler.toml`.
+FR24 rule: data kept at most 30 days — rows are deleted after 25. (Airlabs was removed 2026-10-03.)
 
 `GET /api/me/prefs` · `PUT /api/me/prefs` `{ prefs }` (any login, own row only) — the login's Settings as
 one JSON object (max 16 KB).

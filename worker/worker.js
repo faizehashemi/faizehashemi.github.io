@@ -43,6 +43,10 @@ export default {
         for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
         return res;
     },
+    // Cloudflare cron (wrangler.toml [triggers], every 5 minutes): live flight status when it is due
+    async scheduled(event, env, ctx) {
+        ctx.waitUntil(refreshFlightStatus(env, false).catch(e => console.error('flights', e && e.stack || e)));
+    },
 };
 
 /* --------------------------------- plumbing --------------------------------- */
@@ -167,6 +171,8 @@ async function route(req, env) {
     if (p === '/api/transport' && m === 'GET') return getTransport(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
     if (p === '/api/tosha' && m === 'GET') return getTosha(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
     if (p === '/api/tosha' && m === 'PUT') return putTosha(req, env, me);
+    if (p === '/api/flights/status' && m === 'GET') return getFlightStatus(env);
+    if (p === '/api/flights/refresh' && m === 'POST') { requireAdmin(me); await refreshFlightStatus(env, true); return getFlightStatus(env); }
     if (p === '/api/transport/types' && m === 'GET') return transportTypes(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage' && m === 'GET') return getSignage(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage/config' && m === 'PUT') return putSignageConfig(req, env, me);
@@ -1677,6 +1683,207 @@ async function putTosha(req, env, me) {
     await env.DB.prepare('INSERT INTO tosha_days (site, day, data, updated_at, updated_by) VALUES (?, ?, ?, ?, ?) ON CONFLICT(site, day) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by')
         .bind(site, d, text, now(), me.id).run();
     return getTosha(env, site, d);
+}
+
+/* ----------------------------- live flight status ----------------------------- */
+// Our guests' flights into/out of Jeddah (JED) and Madina (MED), from Flightradar24's API (Flight summary — light):
+// take-off, landing, diversion. Only flights still in progress are looked up (an arrival from 8 h before it is due
+// until it lands, a departure from 1 h before until it takes off), by flight number, 15 to a request.
+// Credits: 1 per live flight returned, 2 per ended flight, 1 per empty answer. A reserve (FR24_RESERVE, default
+// 25 %) of the monthly credits (FR24_MONTHLY_CREDITS) is never touched; the rest is spread evenly over the days
+// left in the month, so the look-up interval grows when credits run lower (never more often than every 5 minutes).
+// FR24's rules: data may be kept at most 30 days — rows are deleted after FLIGHT_KEEP_DAYS.
+// Secret: FR24_API_KEY (npx wrangler secret put FR24_API_KEY). Cron: every 5 minutes (wrangler.toml).
+
+const FR24_API = 'https://fr24api.flightradar24.com/api/flight-summary/light';
+const FR24_AIRPORTS = { JED: 'OEJN', MED: 'OEMA' };
+const FLIGHT_KEEP_DAYS = 25;
+const FLIGHT_MIN_GAP = 5;     // minutes between look-ups, at the most
+const FLIGHT_MAX_GAP = 60;    // … and at the least, while credits last
+
+const fr24Budget = (env) => {
+    const monthly = Math.max(0, Number(env.FR24_MONTHLY_CREDITS) || 60000);
+    const reserve = Math.min(0.9, Math.max(0, Number(env.FR24_RESERVE ?? 0.25)));
+    return { monthly, reserve, usable: Math.floor(monthly * (1 - reserve)) };
+};
+const ymKey = (d = new Date()) => d.toISOString().slice(0, 7);
+const daysLeftInMonth = (d = new Date()) => Math.max(1 / 24, (Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - d.getTime()) / 864e5);
+
+// "SAUDIA -SV701", "INDIGO AIRLINES -6E-61" → SV701 / 6E61 (last airline code + number, leading zeros dropped)
+function flightNo(text) {
+    const all = [...String(text || '').toUpperCase().matchAll(/\b([A-Z0-9]{2})\s*-?\s*(\d{1,4})\b/g)].filter(m => /[A-Z]/.test(m[1]));
+    const m = all[all.length - 1];
+    return m && Number(m[2]) ? m[1] + Number(m[2]) : '';
+}
+const byRoadLeg = (leg) => /^(CAR|BUS|TRAIN)\b/i.test(String(leg?.flight || '').trim());
+const airportOf = (port) => /JEDDAH|\bJED\b/i.test(port || '') ? 'JED' : /MADINA|MEDINA|\bMED\b/i.test(port || '') ? 'MED' : null;
+const riyadhMs = (date, time) => Date.parse(`${date}T${time || '00:00'}:00+03:00`);
+
+// Every flight leg of our guests around now: [{ key, dir, airport, code, sched }]
+async function guestFlights(env, nowMs) {
+    const day = (ms) => new Date(ms + 3 * 3600e3).toISOString().slice(0, 10);
+    const days = [...new Set([day(nowMs - 864e5), day(nowMs), day(nowMs + 864e5)])];
+    const q = days.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(
+        `SELECT data FROM slips WHERE deleted = 0 AND ums_key IS NOT NULL
+         AND (json_extract(data, '$.ums.arrival.date') IN (${q}) OR json_extract(data, '$.ums.departure.date') IN (${q}))`
+    ).bind(...days, ...days).all();
+    const out = new Map();
+    for (const r of results) {
+        const u = (JSON.parse(r.data) || {}).ums || {};
+        for (const [dir, leg] of [['arr', u.arrival], ['dep', u.departure]]) {
+            if (!leg || !leg.date || byRoadLeg(leg)) continue;          // car, bus, train: no flight
+            const airport = airportOf(leg.port), code = flightNo(leg.flight);
+            if (!airport || !code) continue;
+            const key = `${dir}|${leg.date}|${code}`;
+            if (!out.has(key)) out.set(key, { key, dir, airport, code, sched: `${leg.date}T${leg.time || '00:00'}` });
+        }
+    }
+    return [...out.values()];
+}
+
+// still worth a look-up? (finished flights are not looked up again)
+function inPlay(f, row, nowMs) {
+    const t = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    if (f.dir === 'arr') return !(row && row.landed) && nowMs >= t - 8 * 3600e3 && nowMs <= t + 8 * 3600e3;
+    return !(row && row.takeoff) && nowMs >= t - 1 * 3600e3 && nowMs <= t + 8 * 3600e3;
+}
+
+async function fr24Fetch(env, flights, fromIso, toIso) {
+    const qs = new URLSearchParams({ flight_datetime_from: fromIso, flight_datetime_to: toIso, flights: flights.join(','), limit: '100' });
+    const r = await fetch(`${FR24_API}?${qs}`, { headers: { Accept: 'application/json', 'Accept-Version': 'v1', Authorization: `Bearer ${env.FR24_API_KEY}` } });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) {
+        const e = new Error((body && (body.message || body.error || body.details)) || `Flightradar24 ${r.status}`);
+        e.status = r.status;
+        throw e;
+    }
+    return Array.isArray(body.data) ? body.data : [];
+}
+
+// The record that is this flight: the right airport on the right side, first seen closest to the expected time
+function pickRecord(f, list) {
+    const icao = FR24_AIRPORTS[f.airport];
+    const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    const mine = list.filter(x => String(x.flight || '').toUpperCase().replace(/^([A-Z0-9]{2})0+/, '$1') === f.code
+        && (f.dir === 'arr' ? (x.destination_icao === icao || x.destination_icao_actual === icao) : x.origin_icao === icao));
+    const at = (x) => Date.parse(`${(f.dir === 'arr' ? (x.datetime_landed || x.last_seen) : (x.datetime_takeoff || x.first_seen)) || x.first_seen}Z`);
+    return mine.sort((a, b) => Math.abs(at(a) - due) - Math.abs(at(b) - due))[0] || null;
+}
+
+function statusOf(f, rec) {
+    if (!rec) return 'scheduled';
+    const icao = FR24_AIRPORTS[f.airport];
+    if (f.dir === 'arr') {
+        if (rec.destination_icao_actual && rec.destination_icao_actual !== icao && rec.datetime_landed) return 'diverted';
+        if (rec.datetime_landed) return 'landed';
+        if (rec.datetime_takeoff) return 'airborne';
+        return 'scheduled';
+    }
+    if (rec.datetime_landed) return 'arrived';     // reached its destination
+    if (rec.datetime_takeoff) return 'departed';
+    return 'boarding';                             // seen at the gate / taxiing, not yet airborne
+}
+
+async function refreshFlightStatus(env, force = false) {
+    const now = new Date(), nowMs = now.getTime();
+    // FR24 storage rule: nothing older than 30 days
+    await env.DB.prepare('DELETE FROM flight_status WHERE updated_at < ?').bind(new Date(nowMs - FLIGHT_KEEP_DAYS * 864e5).toISOString()).run();
+    const meta = await env.DB.prepare('SELECT * FROM flight_meta WHERE id = ?').bind('fr24').first();
+    const month = ymKey(now);
+    let used = meta && meta.month === month ? meta.credits_used : 0;
+    const saveMeta = (fields) => env.DB.prepare(`INSERT INTO flight_meta (id, month, credits_used, last_run, next_run, last_credits, last_error)
+        VALUES ('fr24', ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET month = excluded.month, credits_used = excluded.credits_used,
+        last_run = excluded.last_run, next_run = excluded.next_run, last_credits = excluded.last_credits, last_error = excluded.last_error`)
+        .bind(month, used, now.toISOString(), fields.next_run, fields.last_credits || 0, fields.error || null).run();
+    const later = (min) => new Date(nowMs + min * 60e3).toISOString();
+
+    if (!force && meta && meta.next_run && now.toISOString() < meta.next_run) return;
+    if (!env.FR24_API_KEY) return saveMeta({ next_run: later(FLIGHT_MAX_GAP), error: 'No Flightradar24 key on the server (FR24_API_KEY).' });
+
+    const flights = await guestFlights(env, nowMs);
+    const keys = flights.map(f => f.key);
+    const rows = new Map();
+    if (keys.length) {
+        const { results } = await env.DB.prepare(`SELECT * FROM flight_status WHERE key IN (${keys.map(() => '?').join(',')})`).bind(...keys).all();
+        for (const r of results) rows.set(r.key, r);
+    }
+    const todo = flights.filter(f => inPlay(f, rows.get(f.key), nowMs));
+    if (!todo.length) return saveMeta({ next_run: later(FLIGHT_MIN_GAP), error: null }); // nothing in the air for us: no credits
+
+    const { usable } = fr24Budget(env);
+    const left = usable - used;
+    if (left < todo.length + 2) return saveMeta({ next_run: later(FLIGHT_MAX_GAP), error: 'This month\'s Flightradar24 credits (outside the reserve) are used up; status updates pause until next month.' });
+
+    // requests of up to 15 flight numbers, arrivals and departures apart, in order of the expected time; each one's
+    // window (on first_seen = when FR24 first saw the aircraft) as tight as its flights allow, so the same flight
+    // number's run of the day before is not paid for again on every look-up
+    const due = (f) => riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    const iso = (ms) => new Date(ms).toISOString().slice(0, 19);
+    const batches = [];
+    for (const dir of ['arr', 'dep']) {
+        const list = todo.filter(f => f.dir === dir).sort((a, b) => due(a) - due(b));
+        let cur = null;
+        for (const f of list) {
+            if (!cur || (!cur.codes.has(f.code) && cur.codes.size >= 15)) batches.push(cur = { dir, codes: new Set(), flights: [] });
+            cur.codes.add(f.code); cur.flights.push(f);
+        }
+    }
+    let credits = 0, records = [], error = null;
+    try {
+        for (const b of batches) {
+            const dues = b.flights.map(due);
+            // an arrival can have taken off up to ~14 h before landing here; a departure shows up ~1–3 h before take-off
+            const from = Math.min(...dues) - (b.dir === 'arr' ? 14 : 3) * 3600e3;
+            const to = Math.max(from + 60e3, Math.min(nowMs, Math.max(...dues) + 8 * 3600e3));
+            const part = await fr24Fetch(env, [...b.codes], iso(from), iso(to));
+            credits += part.length ? part.reduce((s, x) => s + (String(x.flight_ended) === 'true' || x.flight_ended === true ? 2 : 1), 0) : 1;
+            records.push(...part);
+        }
+    } catch (e) {
+        error = String(e.message || e).slice(0, 300);
+        if (e.status === 401 || e.status === 403) error = `Flightradar24 refused the key (${e.status}). Check FR24_API_KEY.`;
+        if (e.status === 402) error = 'Flightradar24 says the credits are used up.';
+    }
+    used += credits;
+
+    const stamp = now.toISOString();
+    const stmts = [];
+    for (const f of todo) {
+        const rec = pickRecord(f, records);
+        const prev = rows.get(f.key);
+        if (!rec && prev) { stmts.push(env.DB.prepare('UPDATE flight_status SET checked_at = ? WHERE key = ?').bind(stamp, f.key)); continue; }
+        stmts.push(env.DB.prepare(`INSERT INTO flight_status (key, dir, airport, code, sched, status, fr24_id, callsign, origin, destination, destination_actual,
+                takeoff, landed, ended, checked_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET status = excluded.status, fr24_id = excluded.fr24_id, callsign = excluded.callsign, origin = excluded.origin,
+                destination = excluded.destination, destination_actual = excluded.destination_actual, takeoff = excluded.takeoff, landed = excluded.landed,
+                ended = excluded.ended, checked_at = excluded.checked_at, updated_at = excluded.updated_at`)
+            .bind(f.key, f.dir, f.airport, f.code, f.sched, statusOf(f, rec), rec?.fr24_id || null, rec?.callsign || null, rec?.origin_icao || null,
+                rec?.destination_icao || null, rec?.destination_icao_actual || null,
+                rec?.datetime_takeoff ? rec.datetime_takeoff + 'Z' : null, rec?.datetime_landed ? rec.datetime_landed + 'Z' : null,
+                rec ? (String(rec.flight_ended) === 'true' || rec.flight_ended === true ? 1 : 0) : 0, stamp, stamp));
+    }
+    for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
+
+    // next look-up: what is left (outside the reserve), spread over the rest of the month, at this pace
+    const perRun = Math.max(1, credits || todo.length);
+    const runsLeft = Math.max(0, usable - used) / perRun;
+    const gap = runsLeft < 1 ? FLIGHT_MAX_GAP * 6 : Math.min(FLIGHT_MAX_GAP, Math.max(FLIGHT_MIN_GAP, Math.ceil(daysLeftInMonth(now) * 1440 / runsLeft)));
+    await saveMeta({ next_run: later(error ? Math.max(gap, 15) : gap), last_credits: credits, error });
+}
+
+// GET /api/flights/status — what desks read (any login): the stored statuses around today, and the budget
+async function getFlightStatus(env) {
+    const nowMs = Date.now();
+    const from = new Date(nowMs + 3 * 3600e3 - 3 * 864e5).toISOString().slice(0, 10);
+    const { results } = await env.DB.prepare('SELECT key, dir, airport, code, sched, status, callsign, origin, destination, destination_actual, takeoff, landed, ended, checked_at, updated_at FROM flight_status WHERE sched >= ? ORDER BY sched').bind(from).all();
+    const meta = await env.DB.prepare('SELECT * FROM flight_meta WHERE id = ?').bind('fr24').first();
+    const b = fr24Budget(env);
+    return json({
+        configured: !!env.FR24_API_KEY, flights: results,
+        meta: meta ? { last_run: meta.last_run, next_run: meta.next_run, error: meta.last_error, credits_used: meta.month === ymKey() ? meta.credits_used : 0, last_credits: meta.last_credits } : null,
+        budget: { monthly: b.monthly, reserve: b.reserve, usable: b.usable },
+    });
 }
 
 async function deleteTransport(url, env, me) {

@@ -31,6 +31,7 @@
                 <div class="col col-2">
                     <label class="muted">View</label>
                     <label class="split-tick" title="Check-ins: from the airport / from the other city · Check-outs: to the airport / to the other city"><input type="checkbox" id="splitView"> Split by from / to</label>
+                    <label class="split-tick" title="Live status of each group's flight (Flightradar24) — flights only, not car, bus or train"><input type="checkbox" id="showFlights" checked> Flight status</label>
                 </div>
                 <div class="col col-4">
                     <label class="muted">Quick</label>
@@ -68,6 +69,7 @@
                     <thead>
                         <tr>
                             <th class="nowrap">Check-in</th>
+                            <th class="fl">Flight</th>
                             <th>SH No</th>
                             <th>Group</th>
                             <th>Group Leader</th>
@@ -103,6 +105,7 @@
                     <thead>
                         <tr>
                             <th class="nowrap">Check-out</th>
+                            <th class="fl">Flight</th>
                             <th>SH No</th>
                             <th>Group</th>
                             <th>Group Leader</th>
@@ -124,4 +127,5 @@
         </section>
 
         <p class="status" id="status">Loading DB…</p>
+        <p class="flight-note" id="flightNote"></p>
     </div>

@@ -8,6 +8,7 @@ import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
 import { baseSh } from '../../core/ums.js';
 import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
+import { legOf as flightLeg, loadFlightStatus, describe as describeFlight } from '../../core/flights.js';
 
 export default async function mount(ctx) {
     const { db } = ctx;
@@ -184,8 +185,8 @@ export default async function mount(ctx) {
             const tbody = document.createElement('tbody');
             if (title) {
                 tbody.className = 'split-part';
-                tbody.innerHTML = `<tr class="split-title"><td colspan="14">${escapeHTML(title)}<small>${partSum(list)}</small></td></tr>${cols}`
-                    + (list.length ? '' : '<tr class="split-empty"><td colspan="14">None in this range.</td></tr>');
+                tbody.innerHTML = `<tr class="split-title"><td colspan="15">${escapeHTML(title)}<small>${partSum(list)}</small></td></tr>${cols}`
+                    + (list.length ? '' : '<tr class="split-empty"><td colspan="15">None in this range.</td></tr>');
             }
             table.appendChild(tbody);
             fillRows(tbody, list, key);
@@ -206,6 +207,7 @@ export default async function mount(ctx) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
       <td class="nowrap">${t}</td>
+      ${flightCell(r, key)}
       <td>${escapeHTML(r.sh_no || '')}</td>
       <td>${escapeHTML(r.tour_name || '')}${isDelayed(r) ? ` <span class="badge-delay" title="${escapeHTML(r.delayed.note || '')}">Delayed · ${escapeHTML(r._dep ? r._dep.status : (r.delayed.status || ''))}${r._dep && !r._dep.last ? ' · part' : ''}</span>` : ''}</td>
       <td>${escapeHTML(gl)}</td>
@@ -224,11 +226,45 @@ export default async function mount(ctx) {
         }
     }
 
+    /* ===== Live flight status (Flightradar24, kept by the server) ===== */
+    // Check-ins: the arrival flight of a stay that comes from the airport; check-outs: the departure flight of a stay
+    // that goes to the airport. Stays from / to the other city and car, bus or train legs have no flight.
+    let FLIGHTS = null; // { byKey, meta, configured }
+    function flightOf(r, key) {
+        const dir = key === 'checkin' ? 'arr' : 'dep';
+        if (legOf(r)[key === 'checkin' ? 'from' : 'to'] !== 'airport') return { kind: 'city' };
+        return { ...flightLeg(r, dir), dir };
+    }
+    function flightCell(r, key) {
+        const f = flightOf(r, key);
+        if (f.kind === 'city') return `<td class="fl"><span class="fl-none">${key === 'checkin' ? 'from' : 'to'} ${otherLabel}</span></td>`;
+        if (f.kind === 'road') return `<td class="fl"><span class="fl-none">by ${escapeHTML((f.mode || 'road').toLowerCase())}</span></td>`;
+        if (f.kind !== 'flight') return '<td class="fl"><span class="fl-none">—</span></td>';
+        const d = FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)) : { text: '…', cls: 'wait', title: '' };
+        return `<td class="fl"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}" title="${escapeHTML(d.title)}">${escapeHTML(d.text)}</span></td>`;
+    }
+    function flightText(r, key) {
+        const f = flightOf(r, key);
+        if (f.kind !== 'flight') return f.kind === 'road' ? `by ${(f.mode || 'road').toLowerCase()}` : '';
+        return `${f.code} ${FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)).text : ''}`.trim();
+    }
+    const flightsShown = () => $('showFlights').checked;
+    function applyFlightToggle() { ['tblIn', 'tblOut'].forEach(id => $(id).classList.toggle('no-flight', !flightsShown())); }
+    async function loadFlights(force = false) {
+        try {
+            FLIGHTS = await loadFlightStatus({ force });
+            const m = FLIGHTS.meta;
+            $('flightNote').textContent = !FLIGHTS.configured ? 'Flight status: not set up on the server yet.'
+                : m && m.error ? `Flight status: ${m.error}`
+                : m && m.last_run ? `Flight status updated ${new Date(m.last_run).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' })} (Riyadh time) · Flightradar24` : '';
+        } catch { /* offline: keep what is shown */ }
+    }
+
     /* ===== CSV export ===== */
     function toCSV(rows, kind) {
         const head = kind === 'in'
-            ? ['Check-in', 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
-            : ['Check-out', 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
+            ? ['Check-in', ...(flightsShown() ? ['Flight'] : []), 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
+            : ['Check-out', ...(flightsShown() ? ['Flight'] : []), 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
         const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
         const lines = [];
         for (const [title, list] of partsOf(rows, kind === 'in' ? 'checkin' : 'checkout')) {
@@ -241,7 +277,8 @@ export default async function mount(ctx) {
                 const mid = [r.sh_no || '', r.tour_name || '', gl, (r.building || '').trim(),
                     roomsFromSlip(r).join(' '), assignedCount(r), guests(r),
                     num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant)];
-                const row = kind === 'in' ? [fmtDT(ci), ...mid, fmtDT(co)] : [fmtDT(co), ...mid, fmtDT(ci)];
+                const fl = flightsShown() ? [flightText(r, kind === 'in' ? 'checkin' : 'checkout')] : [];
+                const row = kind === 'in' ? [fmtDT(ci), ...fl, ...mid, fmtDT(co)] : [fmtDT(co), ...fl, ...mid, fmtDT(ci)];
                 lines.push(row.map(esc).join(','));
             }
         }
@@ -349,6 +386,10 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     // split view: this login's default from Settings → Check-ins page; the tick switches it for now
     $('splitView').checked = !!getPrefs().checkinsSplit;
     $('splitView').addEventListener('change', run);
+    // flight status column: shown unless unticked (remembered in this browser)
+    try { $('showFlights').checked = localStorage.getItem('pms_checkins_flights') !== '0'; } catch { }
+    $('showFlights').addEventListener('change', () => { try { localStorage.setItem('pms_checkins_flights', flightsShown() ? '1' : '0'); } catch { } applyFlightToggle(); });
+    applyFlightToggle();
     $('csvIn').addEventListener('click', () => exportRows('in'));
     $('csvOut').addEventListener('click', () => exportRows('out'));
     $('printIn').addEventListener('click', () => printTable('in'));
@@ -376,4 +417,9 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     }
 
     await refresh();
+    await loadFlights();
+    run();
+    // flight statuses change while the page is open: every 2 minutes (the server keeps them fresh)
+    const flTimer = setInterval(async () => { if (document.visibilityState !== 'visible') return; await loadFlights(); if (CACHE.length) run(); }, 120e3);
+    return () => clearInterval(flTimer);
 }
