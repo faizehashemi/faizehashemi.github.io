@@ -91,7 +91,7 @@ export default async function mount(ctx) {
             return `<div class="kg-row${isTicked(name) ? ' on' : ''}" data-person="${esc(name)}"${hide}>
                 <span class="kg-sr">${i + 1}</span>
                 <div class="kg-name"><b>${esc(name)}</b>
-                    <span class="kg-stats"><i title="Fakkul Ehraam 1">FE1 ${s.FE1}</i><i title="Fakkul Ehraam 2">FE2 ${s.FE2}</i><i title="Atraaf">AT ${s.Atraaf}</i><i class="kg-last" title="Last activity">${shortDate(s.last)}</i></span></div>
+                    <span class="kg-stats"><i title="Fakkul Ehraam 1">FE1 ${s.FE1}</i><i title="Fakkul Ehraam 2">FE2 ${s.FE2}</i><i class="kg-fet" title="Fakkul Ehraam total (FE1 + FE2)">FE total ${s.FE1 + s.FE2}</i><i title="Atraaf">AT ${s.Atraaf}</i><i class="kg-last" title="Last activity">${shortDate(s.last)}</i></span></div>
                 <label class="kg-tick fe1"><input type="checkbox" data-type="FE1" ${on('FE1')}><span>FE1</span></label>
                 <label class="kg-tick fe2"><input type="checkbox" data-type="FE2" ${on('FE2')}><span>FE2</span></label>
                 <div class="kg-at">
