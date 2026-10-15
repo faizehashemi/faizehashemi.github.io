@@ -54,12 +54,19 @@
 
         <section class="panel flights-panel" id="panelFlights" hidden>
             <h3>
-                <span>Guest flights · last 12 h and next 24 h</span>
+                <button type="button" class="fl-fold" id="flFold" aria-expanded="true" aria-controls="flightsBody" title="Fold / unfold">
+                    <span class="fl-arrow" aria-hidden="true">▾</span> Guest flights · last 12 h and next 24 h</button>
                 <span class="toolbar"><span class="muted" id="sumFlights"></span></span>
             </h3>
+            <div id="flightsBody">
+            <p class="fl-disclaimer" role="note">⚠️ Flight information comes from Flightradar24 and may be late, incomplete or wrong.
+                Always confirm on the official airport website before acting on it:
+                <a href="https://www.kaia.sa" target="_blank" rel="noopener">Jeddah — King Abdulaziz International (kaia.sa)</a> ·
+                <a href="https://www.tibahairports.com" target="_blank" rel="noopener">Madina — Prince Mohammad bin Abdulaziz (tibahairports.com)</a>.</p>
             <p class="muted small-note">Live from Flightradar24 against the UMS times. Delays are worked out from take-off, landing or the ETA;
                 Flightradar24 does not publish cancellations — a flight never seen hours after its time is shown as “No sign”.</p>
             <div id="flightsList"></div>
+            </div>
         </section>
 
         <section class="grid">

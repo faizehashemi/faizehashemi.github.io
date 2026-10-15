@@ -303,3 +303,12 @@ table.fl-board td small { display: block; color: #6b5e4a; font-size: 11.5px; }
 table.fl-board tr.row-warn td { background: #fffaf0; }
 table.fl-board tr.row-bad td { background: #fff4f4; }
 table.fl-board .fl-st { white-space: normal; }
+
+.fl-fold { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; font: inherit; font-weight: inherit; color: inherit; cursor: pointer; text-align: left; }
+.fl-fold:focus-visible { outline: 2px solid #d4af37; outline-offset: 3px; border-radius: 6px; }
+.fl-arrow { display: inline-block; transition: transform .15s ease; font-size: .9em; }
+.flights-panel.folded .fl-arrow { transform: rotate(-90deg); }
+.flights-panel.folded h3 { margin-bottom: 0; }
+
+.fl-disclaimer { margin: 0 0 8px; padding: 8px 10px; border: 1px solid #f3d984; border-radius: 10px; background: #fff8e1; color: #6b4e00; font-size: 12.5px; line-height: 1.45; }
+.fl-disclaimer a { color: #7a5410; font-weight: 700; text-decoration: underline; }

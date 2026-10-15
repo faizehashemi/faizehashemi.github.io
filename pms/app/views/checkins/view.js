@@ -301,7 +301,7 @@ export default async function mount(ctx) {
             const m = FLIGHTS.meta;
             $('flightNote').textContent = !FLIGHTS.configured ? 'Flight status: not set up on the server yet.'
                 : m && m.error ? `Flight status: ${m.error}`
-                : m && m.last_run ? `Flight status updated ${new Date(m.last_run).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' })} (Riyadh time) · Flightradar24` : '';
+                : m && m.last_run ? `Flight status updated ${new Date(m.last_run).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' })} (Riyadh time) · Flightradar24 — verify on the official airport website (kaia.sa · tibahairports.com)` : '';
         } catch { /* offline: keep what is shown */ }
         renderFlightsPanel();
     }
@@ -436,6 +436,13 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     try { $('showFlights').checked = localStorage.getItem('pms_checkins_flights') !== '0'; } catch { }
     $('showFlights').addEventListener('change', () => { try { localStorage.setItem('pms_checkins_flights', flightsShown() ? '1' : '0'); } catch { } applyFlightToggle(); });
     applyFlightToggle();
+    // the Guest flights panel: open on every visit; the arrow folds it away
+    $('flFold').addEventListener('click', () => {
+        const open = $('flFold').getAttribute('aria-expanded') !== 'true';
+        $('flFold').setAttribute('aria-expanded', String(open));
+        $('flightsBody').hidden = !open;
+        $('panelFlights').classList.toggle('folded', !open);
+    });
     $('csvIn').addEventListener('click', () => exportRows('in'));
     $('csvOut').addEventListener('click', () => exportRows('out'));
     $('printIn').addEventListener('click', () => printTable('in'));
