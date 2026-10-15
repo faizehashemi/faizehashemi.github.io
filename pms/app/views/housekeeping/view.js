@@ -18,7 +18,7 @@ const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeri
 const hm = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 const dayTime = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 const gapTxt = (ms) => { const m = Math.round(ms / 60000); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`; };
-const PRIO = { 1: 'Turnover', 2: 'Get ready', 3: 'Check-out', 4: 'Stay-over' };
+const PRIO = { 1: 'Urgent', 2: 'Check Required', 3: 'Checkout House keeping', 4: 'Daily Housekeeping' };
 
 export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
@@ -28,18 +28,22 @@ export default async function mount(ctx) {
     const getDone = () => { try { return new Set(JSON.parse(localStorage.getItem(doneKey()) || '[]')); } catch { return new Set(); } };
     const setDone = (s) => { try { localStorage.setItem(doneKey(), JSON.stringify([...s])); } catch { } };
 
+    // nothing is loaded until a building is chosen (only the list of buildings)
+    async function loadBuildingsList() {
+        BLD = buildingsOfSite(await ctx.guard(loadBuildings({ force: true })), ctx.siteId).filter(b => b.rooms.some(r => r.active !== false));
+        $('hkBld').innerHTML = '<option value="">Choose a building…</option>' + BLD.map(b => `<option>${esc(b.name)}</option>`).join('') + '<option value="*">All buildings</option>';
+        render();
+    }
     async function load() {
-        [SLIPS, BLD] = await Promise.all([ctx.db.all(), ctx.guard(loadBuildings({ force: true }))]);
-        BLD = buildingsOfSite(BLD, ctx.siteId).filter(b => b.rooms.some(r => r.active !== false));
-        const keep = $('hkBld').value;
-        $('hkBld').innerHTML = '<option value="">All buildings</option>' + BLD.map(b => `<option ${b.name === keep ? 'selected' : ''}>${esc(b.name)}</option>`).join('');
+        if (!$('hkBld').value) { render(); return; }
+        SLIPS = await ctx.db.all();
         render();
     }
 
     function compute() {
         const day = $('hkDay').value || ymd(new Date());
         const from = new Date(`${day}T03:00`).getTime(), to = from + 864e5;
-        const only = $('hkBld').value;
+        const only = $('hkBld').value === '*' ? '' : $('hkBld').value;
         // every room row window by building|room
         const win = new Map();
         for (const s of SLIPS) {
@@ -81,6 +85,11 @@ export default async function mount(ctx) {
     }
 
     function render() {
+        if (!$('hkBld').value) {
+            $('hkKpis').innerHTML = '';
+            $('hkList').innerHTML = '<p class="hk-note">Choose a building to see which rooms to do first.</p>';
+            return;
+        }
         const { day, rows } = compute();
         const done = getDone();
         const count = (p) => rows.filter(r => r.p === p);
@@ -109,13 +118,14 @@ export default async function mount(ctx) {
         const d = getDone(); e.target.checked ? d.add(k) : d.delete(k); setDone(d);
         render();
     });
-    ['hkDay', 'hkBld', 'hkHideDone'].forEach(id => $(id).addEventListener('change', render));
+    ['hkDay', 'hkHideDone'].forEach(id => $(id).addEventListener('change', render));
+    $('hkBld').addEventListener('change', () => load().catch(e => console.warn(e)));
     ctx.root.querySelector('.hk-chips').addEventListener('click', (e) => {
         const b = e.target.closest('[data-day]');
         if (b) { $('hkDay').value = shift(ymd(new Date()), Number(b.dataset.day)); render(); }
     });
     $('hkPrint').addEventListener('click', () => window.print());
-    await load();
+    await loadBuildingsList();
     // other desks' check-ins: refresh every 2 minutes while open
     const t = setInterval(() => { if (document.visibilityState === 'visible') load().catch(() => { }); }, 120e3);
     return () => clearInterval(t);
