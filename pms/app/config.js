@@ -43,6 +43,7 @@ export const VIEWS = [
     { id: 'menu-card',    label: 'Menu Card',          title: 'Menu Card',             hint: 'Lunch & dinner menu image to download or copy' },
     { id: 'movement',     label: 'Movement',           title: 'Check-ins & Check-outs — Mobile', hint: 'Phone-friendly arrivals and departures' },
     { id: 'group-export', label: 'Group export',       title: 'Groups Export',         hint: 'Group signs as PDF or Word' },
+    { id: 'housekeeping', label: 'Room cleaning',      title: 'Room Cleaning',         hint: 'Which rooms housekeeping does first today, from check-ins and check-outs' },
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
@@ -62,7 +63,7 @@ export const VIEWS = [
 // Menu categories (top bar on laptops, drawer sections on phones)
 export const NAV = [
     { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'movement', 'print'] },
-    { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'builder'] },
+    { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },

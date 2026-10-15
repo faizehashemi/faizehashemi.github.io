@@ -1,0 +1,50 @@
+/* Room cleaning (cream • gold • brown; priority colours) */
+:root { --hk-bg: #f7efe1; --hk-panel: #fffaf1; --hk-ink: #2b1e15; --hk-muted: #6b5e4a; --hk-gold: #d4af37; --hk-gold-deep: #9a7414; --hk-edge: #e3d2b1; --hk-shade: 0 8px 24px rgba(92, 64, 28, .10); }
+body { background: var(--hk-bg) url("../../../assets/pattern_gold_2x.png") repeat; background-size: 150px auto; margin: 0; color: var(--hk-ink); }
+.hk { max-width: 1280px; margin: 0 auto; padding: 16px 16px 28px; display: grid; gap: 14px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.hk * { box-sizing: border-box; }
+.hk-head { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; justify-content: space-between; padding: 18px 20px; border-radius: 16px; color: #fffaf0;
+    background: radial-gradient(120% 140% at 0% 0%, rgba(255, 236, 170, .35), transparent 55%), linear-gradient(135deg, #7a5410 0%, #b8871d 45%, #d4af37 100%); box-shadow: 0 12px 30px rgba(122, 84, 16, .25); }
+.hk-head h1 { margin: 0; font-size: clamp(19px, 2.4vw, 24px); }
+.hk-head p { margin: 4px 0 0; font-size: 13px; opacity: .92; max-width: 70ch; }
+.hk-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.hk-controls label { display: grid; gap: 3px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.hk-controls input, .hk-controls select { font: inherit; font-size: 14px; text-transform: none; letter-spacing: 0; padding: 7px 9px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .7); background: #fff; color: var(--hk-ink); }
+.hk-chips { display: flex; gap: 4px; }
+.hk-chips button, .hk-btn { font: inherit; font-size: 12px; font-weight: 700; padding: 7px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .18); color: #fff; cursor: pointer; }
+.hk-chips button:hover, .hk-btn:hover { background: rgba(255, 255, 255, .32); }
+
+.hk-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.hk-kpi { display: grid; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--hk-panel); border: 1px solid var(--hk-edge); box-shadow: var(--hk-shade); border-top: 5px solid var(--c, var(--hk-gold)); }
+.hk-kpi span { font-size: 12px; font-weight: 700; color: var(--hk-muted); }
+.hk-kpi b { font-size: 28px; line-height: 1.1; color: var(--c, var(--hk-gold-deep)); }
+.hk-kpi small { font-size: 12px; color: var(--hk-muted); }
+.p1 { --c: #c0392b; } .p2 { --c: #d9480f; } .p3 { --c: #2a7fc0; } .p4 { --c: #2f7d32; }
+
+.hk-card { background: var(--hk-panel); border: 1px solid var(--hk-edge); border-radius: 16px; padding: 14px; box-shadow: var(--hk-shade); }
+.hk-card-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.hk-card-head h2 { margin: 0; font-size: 16px; color: var(--hk-gold-deep); }
+.hk-hide { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+.hk-legend { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12px; color: var(--hk-muted); margin-bottom: 10px; }
+.hk-p { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--c); color: #fff; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.hk-scroll { overflow-x: auto; border: 1px solid var(--hk-edge); border-radius: 12px; background: #fff; }
+.hk-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hk-tbl th { background: #f6ecd2; text-align: left; padding: 7px 8px; font-size: 12px; position: sticky; top: 0; }
+.hk-tbl td { padding: 7px 8px; border-top: 1px solid #f0e6d2; vertical-align: top; }
+.hk-tbl td small { display: block; color: var(--hk-muted); font-size: 11px; }
+.hk-tbl .n { text-align: right; color: var(--hk-muted); }
+.hk-tbl input[type=checkbox] { width: 20px; height: 20px; }
+.hk-tbl tr.done td { opacity: .45; }
+.hk-tbl tr.done td:first-child { opacity: 1; }
+.hk-who { display: block; white-space: nowrap; }
+.hk-who em { font-style: normal; font-size: 11px; font-weight: 800; color: #a12a2a; }
+.hk-noteCell { color: var(--hk-muted); font-size: 12px; }
+.hk-note { font-size: 12px; color: var(--hk-muted); margin: 8px 0 0; }
+@media (max-width: 640px) { .hk { padding: 10px 10px 24px; } }
+@media print {
+    body { background: #fff; }
+    .hk-controls, .hk-hide { display: none; }
+    .hk-head { color: #000; background: none; box-shadow: none; padding: 0; }
+    .hk-card, .hk-kpi { box-shadow: none; }
+    .hk-p, .hk-kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

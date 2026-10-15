@@ -1,0 +1,31 @@
+<div class="hk">
+    <header class="hk-head">
+        <div>
+            <h1>Room cleaning</h1>
+            <p>Which rooms housekeeping should do first, from the day's check-ins and check-outs (03:00 to 03:00, like the Check-ins page). Each room counts its own check-out, so delayed groups are included.</p>
+        </div>
+        <div class="hk-controls">
+            <label>Day<input type="date" id="hkDay"></label>
+            <label>Building<select id="hkBld"><option value="">All buildings</option></select></label>
+            <div class="hk-chips"><button type="button" data-day="-1">Yesterday</button><button type="button" data-day="0">Today</button><button type="button" data-day="1">Tomorrow</button></div>
+            <button type="button" class="hk-btn" id="hkPrint">🖨 Print</button>
+        </div>
+    </header>
+
+    <section class="hk-kpis" id="hkKpis"></section>
+
+    <section class="hk-card">
+        <div class="hk-card-head">
+            <h2>Priority list</h2>
+            <label class="hk-hide"><input type="checkbox" id="hkHideDone"> hide rooms marked done</label>
+        </div>
+        <div class="hk-legend">
+            <span class="hk-p p1">1 Turnover</span> a group leaves and another arrives the same day — clean in the gap, tightest first
+            <span class="hk-p p2">2 Get ready</span> a group arrives into a room nobody leaves today — ready before arrival
+            <span class="hk-p p3">3 Check-out</span> a group leaves, no one arrives today — clean after they leave
+            <span class="hk-p p4">4 Stay-over</span> guests stay on — light service
+        </div>
+        <div class="hk-scroll" id="hkList"></div>
+        <p class="hk-note">“Done” ticks are kept on this device for the day.</p>
+    </section>
+</div>
