@@ -251,7 +251,7 @@ export default async function mount(ctx) {
     const flightsShown = () => $('showFlights').checked;
     function applyFlightToggle() {
         ['tblIn', 'tblOut'].forEach(id => $(id).classList.toggle('no-flight', !flightsShown()));
-        $('panelFlights').hidden = !flightsShown();
+        $('panelFlights').hidden = false; // the Guest flights panel stays (folded); the tick is for the column
     }
 
     // every guest flight from 12 h ago to 24 h ahead (both sites' groups), latest status, delay and details
@@ -431,9 +431,9 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     // split view: this login's default from Settings → Check-ins page; the tick switches it for now
     $('splitView').checked = !!getPrefs().checkinsSplit;
     $('splitView').addEventListener('change', run);
-    // flight status column: shown unless unticked (remembered in this browser)
-    try { $('showFlights').checked = localStorage.getItem('pms_checkins_flights') !== '0'; } catch { }
-    $('showFlights').addEventListener('change', () => { try { localStorage.setItem('pms_checkins_flights', flightsShown() ? '1' : '0'); } catch { } applyFlightToggle(); });
+    // flight status column: hidden unless ticked (remembered in this browser)
+    try { $('showFlights').checked = localStorage.getItem('pms_checkins_flight_col') === '1'; } catch { }
+    $('showFlights').addEventListener('change', () => { try { localStorage.setItem('pms_checkins_flight_col', flightsShown() ? '1' : '0'); } catch { } applyFlightToggle(); });
     applyFlightToggle();
     // the Guest flights panel: folded on every visit; the arrow opens / folds it
     $('flFold').addEventListener('click', () => {
