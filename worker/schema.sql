@@ -331,6 +331,11 @@ CREATE TABLE IF NOT EXISTS flight_status (
     takeoff             TEXT,                        -- UTC ISO
     landed              TEXT,                        -- UTC ISO
     ended               INTEGER NOT NULL DEFAULT 0,
+    eta                 TEXT,                        -- UTC ISO, arrivals in the air (Live flight positions)
+    eta_checked         TEXT,
+    delay_min           INTEGER,                     -- vs the UMS time: + late / − early (worked out, FR24 has no schedules)
+    flag                TEXT,                        -- late | no_sign (looked up, never seen long past its time: possibly cancelled) | unchecked
+    detail              TEXT,                        -- JSON: type, reg, hex, first/last seen, alt, speed, position …
     checked_at          TEXT,
     updated_at          TEXT NOT NULL
 );

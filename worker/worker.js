@@ -1811,6 +1811,46 @@ function statusOf(f, rec) {
     return 'boarding';                             // seen at the gate / taxiing, not yet airborne
 }
 
+// Delays and "no sign" are worked out here (FR24 has no schedules or cancellations): against the UMS time,
+// departures from the take-off (or still on the ground past their time), arrivals from the landing, or while in
+// the air from the ETA (Live flight positions full: 8 credits a flight, so fetched when first seen airborne, then
+// every 45 min, every 15 min in the last 90 min before the UMS time). Never seen 3 h (arrival) / 4 h (departure)
+// past the UMS time: "no sign" — possibly cancelled.
+const FR24_LIVE = 'https://fr24api.flightradar24.com/api/live/flight-positions/full';
+const ETA_GAP_FAR = 45, ETA_GAP_NEAR = 15;
+const LATE_DEP_MIN = 15, LATE_ARR_MIN = 30, NO_SIGN_ARR_H = 3, NO_SIGN_DEP_H = 4;
+const FLIGHT_SHOW_BEFORE_H = 12, FLIGHT_SHOW_AHEAD_H = 24; // listed (free) from 12 h ago to 24 h ahead
+
+async function fr24Live(env, flights) {
+    const qs = new URLSearchParams({ flights: flights.join(','), limit: '50' });
+    const r = await fetch(`${FR24_LIVE}?${qs}`, { headers: { Accept: 'application/json', 'Accept-Version': 'v1', Authorization: `Bearer ${env.FR24_API_KEY}` } });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error((body && (body.message || body.error || body.details)) || `Flightradar24 ${r.status}`); e.status = r.status; throw e; }
+    return Array.isArray(body.data) ? body.data : [];
+}
+
+// delay (minutes, + late / − early) and flag ('late' | 'no_sign' | null) of one flight at `nowMs`
+function delayOf(f, s, nowMs) {
+    const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    const mins = (ms) => Math.round((ms - due) / 60e3);
+    const seen = s.status && s.status !== 'scheduled';
+    // its time passed before we ever looked it up (e.g. before tracking began): nothing can be said
+    if (!seen && !s.checked_at && nowMs > due + LATE_DEP_MIN * 60e3) return { delay: null, flag: 'unchecked' };
+    // "no sign" only when we did look, after its time + the grace, and never saw it
+    const lookedLate = (h) => s.checked_at && Date.parse(s.checked_at) >= due + h * 3600e3;
+    if (f.dir === 'dep') {
+        if (s.takeoff) return { delay: mins(Date.parse(s.takeoff)), flag: null };
+        if (!seen && lookedLate(NO_SIGN_DEP_H)) return { delay: mins(nowMs), flag: 'no_sign' };
+        if (nowMs > due + LATE_DEP_MIN * 60e3) return { delay: mins(nowMs), flag: 'late' };
+        return { delay: null, flag: null };
+    }
+    if (s.landed) return { delay: mins(Date.parse(s.landed)), flag: null };
+    if (s.eta) return { delay: mins(Date.parse(s.eta)), flag: null };
+    if (!seen && lookedLate(NO_SIGN_ARR_H)) return { delay: mins(nowMs), flag: 'no_sign' };
+    if (nowMs > due + LATE_ARR_MIN * 60e3) return { delay: mins(nowMs), flag: 'late' };
+    return { delay: null, flag: null };
+}
+
 async function refreshFlightStatus(env, force = false) {
     const now = new Date(), nowMs = now.getTime();
     // FR24 storage rule: nothing older than 30 days
@@ -1835,64 +1875,124 @@ async function refreshFlightStatus(env, force = false) {
         const { results } = await env.DB.prepare(`SELECT * FROM flight_status WHERE key IN (${part.map(() => '?').join(',')})`).bind(...part).all();
         for (const r of results) rows.set(r.key, r);
     }
-    const todo = flights.filter(f => inPlay(f, rows.get(f.key), nowMs));
-    if (!todo.length) return saveMeta({ next_run: later(FLIGHT_MIN_GAP), error: null }); // nothing in the air for us: no credits
-
-    const { usable } = fr24Budget(env);
-    const left = usable - used;
-    if (left < todo.length + 2) return saveMeta({ next_run: later(FLIGHT_MAX_GAP), error: 'This month\'s Flightradar24 credits (outside the reserve) are used up; status updates pause until next month.' });
-
-    // requests of up to 15 flight numbers, arrivals and departures apart, in order of the expected time; each one's
-    // window (on first_seen = when FR24 first saw the aircraft) as tight as its flights allow, so the same flight
-    // number's run of the day before is not paid for again on every look-up
     const due = (f) => riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
     const iso = (ms) => new Date(ms).toISOString().slice(0, 19);
-    const batches = [];
-    for (const dir of ['arr', 'dep']) {
-        const list = todo.filter(f => f.dir === dir).sort((a, b) => due(a) - due(b));
-        let cur = null;
-        for (const f of list) {
-            if (!cur || (!cur.codes.has(f.code) && cur.codes.size >= 15)) batches.push(cur = { dir, codes: new Set(), flights: [] });
-            cur.codes.add(f.code); cur.flights.push(f);
-        }
+    const stamp = now.toISOString();
+    // the working copy of every flight shown (12 h ago … 24 h ahead) or still being followed
+    const shown = flights.filter(f => due(f) >= nowMs - FLIGHT_SHOW_BEFORE_H * 3600e3 && due(f) <= nowMs + FLIGHT_SHOW_AHEAD_H * 3600e3);
+    const todo = flights.filter(f => inPlay(f, rows.get(f.key), nowMs));
+    const state = new Map();
+    for (const f of [...shown, ...todo]) {
+        const p = rows.get(f.key);
+        state.set(f.key, p ? { ...p, detail: p.detail ? JSON.parse(p.detail) : {} }
+            : { key: f.key, dir: f.dir, airport: f.airport, code: f.code, sched: f.sched, status: 'scheduled', detail: {} });
+        Object.assign(state.get(f.key), { airport: f.airport, sched: f.sched }); // UMS may have moved it
     }
-    let credits = 0, records = [], error = null;
-    try {
-        for (const b of batches) {
-            const dues = b.flights.map(due);
-            // an arrival can have taken off up to ~14 h before landing here; a departure shows up ~1–3 h before take-off
-            const from = Math.min(...dues) - (b.dir === 'arr' ? 14 : 3) * 3600e3;
-            const to = Math.max(from + 60e3, Math.min(nowMs, Math.max(...dues) + 8 * 3600e3));
-            const part = await fr24Fetch(env, [...b.codes], iso(from), iso(to));
-            credits += part.length ? part.reduce((s, x) => s + (String(x.flight_ended) === 'true' || x.flight_ended === true ? 2 : 1), 0) : 1;
-            records.push(...part);
-        }
-    } catch (e) {
+
+    const { usable } = fr24Budget(env);
+    let credits = 0, error = null;
+    const fail = (e) => {
         error = String(e.message || e).slice(0, 300);
         if (e.status === 401 || e.status === 403) error = `Flightradar24 refused the key (${e.status}). Check FR24_API_KEY.`;
         if (e.status === 402) error = 'Flightradar24 says the credits are used up.';
+    };
+    const out = () => usable - used - credits;
+
+    // 1) Flight summary: take-off, landing, diversion — requests of up to 15 flight numbers, arrivals and departures
+    //    apart, each window (on first_seen) as tight as its flights allow
+    if (todo.length && out() < todo.length + 2) error = 'This month\'s Flightradar24 credits (outside the reserve) are used up; status updates pause until next month.';
+    else if (todo.length) {
+        const batches = [];
+        for (const dir of ['arr', 'dep']) {
+            const list = todo.filter(f => f.dir === dir).sort((a, b) => due(a) - due(b));
+            let cur = null;
+            for (const f of list) {
+                if (!cur || (!cur.codes.has(f.code) && cur.codes.size >= 15)) batches.push(cur = { dir, codes: new Set(), flights: [] });
+                cur.codes.add(f.code); cur.flights.push(f);
+            }
+        }
+        const records = [];
+        try {
+            for (const b of batches) {
+                const dues = b.flights.map(due);
+                const from = Math.min(...dues) - (b.dir === 'arr' ? 14 : 3) * 3600e3;
+                const to = Math.max(from + 60e3, Math.min(nowMs, Math.max(...dues) + 8 * 3600e3));
+                const part = await fr24Fetch(env, [...b.codes], iso(from), iso(to));
+                credits += part.length ? part.reduce((s, x) => s + (String(x.flight_ended) === 'true' || x.flight_ended === true ? 2 : 1), 0) : 1;
+                records.push(...part);
+            }
+        } catch (e) { fail(e); }
+        for (const f of todo) {
+            const s = state.get(f.key);
+            s.checked_at = stamp;
+            const rec = pickRecord(f, records);
+            if (!rec) continue;
+            Object.assign(s, {
+                status: statusOf(f, rec), fr24_id: rec.fr24_id || null, callsign: rec.callsign || null, origin: fOrig(rec),
+                destination: fDest(rec), destination_actual: fDestActual(rec), takeoff: fTime(rec.datetime_takeoff), landed: fTime(rec.datetime_landed),
+                ended: String(rec.flight_ended) === 'true' || rec.flight_ended === true ? 1 : 0,
+            });
+            Object.assign(s.detail, { type: rec.type || null, reg: rec.reg || null, hex: rec.hex || null, operating_as: rec.operating_as || rec.operated_as || null,
+                first_seen: fTime(rec.first_seen), last_seen: fTime(rec.last_seen) });
+        }
+    }
+
+    // 2) ETA of our arrivals in the air (Live flight positions full, 8 credits each)
+    const etaDue = todo.filter(f => {
+        const s = state.get(f.key);
+        if (f.dir !== 'arr' || s.status !== 'airborne') return false;
+        const gap = nowMs >= due(f) - 90 * 60e3 ? ETA_GAP_NEAR : ETA_GAP_FAR;
+        return !s.eta_checked || nowMs - Date.parse(s.eta_checked) >= gap * 60e3;
+    });
+    if (!error && etaDue.length && out() >= etaDue.length * 8 + 2) {
+        try {
+            const codes = [...new Set(etaDue.map(f => f.code))];
+            for (let i = 0; i < codes.length; i += 15) {
+                const part = await fr24Live(env, codes.slice(i, i + 15));
+                credits += part.length ? part.length * 8 : 1;
+                for (const f of etaDue) {
+                    const icao = FR24_AIRPORTS[f.airport];
+                    const p = part.find(x => String(x.flight || '').toUpperCase().replace(/^([A-Z0-9]{2})0+/, '$1') === f.code
+                        && (!x.dest_icao || x.dest_icao === icao) && x.orig_icao !== icao);
+                    const s = state.get(f.key);
+                    if (!codes.slice(i, i + 15).includes(f.code)) continue;
+                    s.eta_checked = stamp;
+                    if (!p) continue;
+                    s.eta = p.eta ? fTime(p.eta) : s.eta || null;
+                    Object.assign(s.detail, { type: p.type || s.detail.type || null, reg: p.reg || s.detail.reg || null, alt: p.alt ?? null, gspeed: p.gspeed ?? null,
+                        vspeed: p.vspeed ?? null, lat: p.lat ?? null, lon: p.lon ?? null, pos_at: fTime(p.timestamp), dest: p.dest_icao || null });
+                    if (p.dest_icao && !s.destination) s.destination = p.dest_icao;
+                }
+            }
+        } catch (e) { fail(e); }
     }
     used += credits;
 
-    const stamp = now.toISOString();
+    // 3) delays / late / no sign for everything shown, and write back what changed
     const stmts = [];
-    for (const f of todo) {
-        const rec = pickRecord(f, records);
-        const prev = rows.get(f.key);
-        if (!rec && prev) { stmts.push(env.DB.prepare('UPDATE flight_status SET checked_at = ? WHERE key = ?').bind(stamp, f.key)); continue; }
+    for (const f of state.values()) {
+        const fl = flights.find(x => x.key === f.key);
+        const { delay, flag } = delayOf(fl, f, nowMs);
+        f.delay_min = delay; f.flag = flag;
+        const p = rows.get(f.key);
+        const detail = JSON.stringify(f.detail || {});
+        const same = p && ['status', 'fr24_id', 'callsign', 'origin', 'destination', 'destination_actual', 'takeoff', 'landed', 'ended', 'checked_at', 'eta', 'eta_checked', 'delay_min', 'flag', 'sched', 'airport']
+            .every(k => (p[k] ?? null) === (f[k] ?? null)) && (p.detail || '{}') === detail;
+        if (same) continue;
         stmts.push(env.DB.prepare(`INSERT INTO flight_status (key, dir, airport, code, sched, status, fr24_id, callsign, origin, destination, destination_actual,
-                takeoff, landed, ended, checked_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(key) DO UPDATE SET status = excluded.status, fr24_id = excluded.fr24_id, callsign = excluded.callsign, origin = excluded.origin,
-                destination = excluded.destination, destination_actual = excluded.destination_actual, takeoff = excluded.takeoff, landed = excluded.landed,
-                ended = excluded.ended, checked_at = excluded.checked_at, updated_at = excluded.updated_at`)
-            .bind(f.key, f.dir, f.airport, f.code, f.sched, statusOf(f, rec), rec?.fr24_id || null, rec?.callsign || null, rec ? fOrig(rec) : null,
-                rec ? fDest(rec) : null, rec ? fDestActual(rec) : null,
-                rec ? fTime(rec.datetime_takeoff) : null, rec ? fTime(rec.datetime_landed) : null,
-                rec ? (String(rec.flight_ended) === 'true' || rec.flight_ended === true ? 1 : 0) : 0, stamp, stamp));
+                takeoff, landed, ended, eta, eta_checked, delay_min, flag, detail, checked_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET airport = excluded.airport, sched = excluded.sched, status = excluded.status, fr24_id = excluded.fr24_id,
+                callsign = excluded.callsign, origin = excluded.origin, destination = excluded.destination, destination_actual = excluded.destination_actual,
+                takeoff = excluded.takeoff, landed = excluded.landed, ended = excluded.ended, eta = excluded.eta, eta_checked = excluded.eta_checked,
+                delay_min = excluded.delay_min, flag = excluded.flag, detail = excluded.detail, checked_at = excluded.checked_at, updated_at = excluded.updated_at`)
+            .bind(f.key, f.dir, f.airport, f.code, f.sched, f.status || 'scheduled', f.fr24_id || null, f.callsign || null, f.origin || null, f.destination || null,
+                f.destination_actual || null, f.takeoff || null, f.landed || null, f.ended || 0, f.eta || null, f.eta_checked || null,
+                f.delay_min ?? null, f.flag || null, detail, f.checked_at || null, stamp));
     }
     for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
 
     // next look-up: what is left (outside the reserve), spread over the rest of the month, at this pace
+    if (!todo.length) return saveMeta({ next_run: later(FLIGHT_MIN_GAP), last_credits: 0, error });
     const perRun = Math.max(1, credits || todo.length);
     const runsLeft = Math.max(0, usable - used) / perRun;
     const gap = runsLeft < 1 ? FLIGHT_MAX_GAP * 6 : Math.min(FLIGHT_MAX_GAP, Math.max(FLIGHT_MIN_GAP, Math.ceil(daysLeftInMonth(now) * 1440 / runsLeft)));
@@ -1903,11 +2003,11 @@ async function refreshFlightStatus(env, force = false) {
 async function getFlightStatus(env) {
     const nowMs = Date.now();
     const from = new Date(nowMs + 3 * 3600e3 - 3 * 864e5).toISOString().slice(0, 10);
-    const { results } = await env.DB.prepare('SELECT key, dir, airport, code, sched, status, callsign, origin, destination, destination_actual, takeoff, landed, ended, checked_at, updated_at FROM flight_status WHERE sched >= ? ORDER BY sched').bind(from).all();
+    const { results } = await env.DB.prepare('SELECT key, dir, airport, code, sched, status, callsign, origin, destination, destination_actual, takeoff, landed, ended, eta, delay_min, flag, detail, checked_at, updated_at FROM flight_status WHERE sched >= ? ORDER BY sched').bind(from).all();
     const meta = await env.DB.prepare('SELECT * FROM flight_meta WHERE id = ?').bind('fr24').first();
     const b = fr24Budget(env);
     return json({
-        configured: !!env.FR24_API_KEY, flights: results,
+        configured: !!env.FR24_API_KEY, flights: results.map(r => ({ ...r, detail: r.detail ? JSON.parse(r.detail) : {} })), now: new Date().toISOString(),
         meta: meta ? { last_run: meta.last_run, next_run: meta.next_run, error: meta.last_error, credits_used: meta.month === ymKey() ? meta.credits_used : 0, last_credits: meta.last_credits } : null,
         budget: { monthly: b.monthly, reserve: b.reserve, usable: b.usable },
     });

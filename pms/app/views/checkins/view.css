@@ -292,3 +292,14 @@ td.fl .fl-code { display: block; font-size: 12px; letter-spacing: .02em; }
 .fl-none { color: #8a7d68; font-size: 12px; }
 table.no-flight th.fl, table.no-flight td.fl { display: none; }
 .flight-note { font-size: 12px; color: #6b5e4a; }
+
+/* guest flights panel (next 24 h) */
+.flights-panel { margin-bottom: 14px; }
+.flights-panel .small-note { margin: 0 0 8px; font-size: 12px; }
+table.fl-board { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.fl-board th { text-align: left; font-size: 12px; padding: 6px 8px; background: #f6ecd2; border-bottom: 1px solid #e3d2b1; white-space: nowrap; }
+table.fl-board td { padding: 6px 8px; border-bottom: 1px solid #efe3cb; vertical-align: top; }
+table.fl-board td small { display: block; color: #6b5e4a; font-size: 11.5px; }
+table.fl-board tr.row-warn td { background: #fffaf0; }
+table.fl-board tr.row-bad td { background: #fff4f4; }
+table.fl-board .fl-st { white-space: normal; }

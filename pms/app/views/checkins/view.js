@@ -8,7 +8,7 @@ import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
 import { baseSh } from '../../core/ums.js';
 import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
-import { legOf as flightLeg, loadFlightStatus, describe as describeFlight } from '../../core/flights.js';
+import { legOf as flightLeg, loadFlightStatus, describe as describeFlight, delayText } from '../../core/flights.js';
 
 export default async function mount(ctx) {
     const { db } = ctx;
@@ -249,7 +249,52 @@ export default async function mount(ctx) {
         return `${f.code} ${FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)).text : ''}`.trim();
     }
     const flightsShown = () => $('showFlights').checked;
-    function applyFlightToggle() { ['tblIn', 'tblOut'].forEach(id => $(id).classList.toggle('no-flight', !flightsShown())); }
+    function applyFlightToggle() {
+        ['tblIn', 'tblOut'].forEach(id => $(id).classList.toggle('no-flight', !flightsShown()));
+        $('panelFlights').hidden = !flightsShown();
+    }
+
+    // every guest flight from 12 h ago to 24 h ahead (both sites' groups), latest status, delay and details
+    function renderFlightsPanel() {
+        if (!FLIGHTS) return;
+        const nowMs = Date.now();
+        const at = (row) => Date.parse(`${row.sched}:00+03:00`);
+        const rows = [...FLIGHTS.byKey.values()].filter(r => at(r) >= nowMs - 12 * 3600e3 && at(r) <= nowMs + 24 * 3600e3).sort((a, b) => at(a) - at(b));
+        // which groups are on each flight (this site's slips and the other site's)
+        const groups = new Map();
+        for (const s of [...CACHE, ...OTHER]) {
+            if (s.deleted) continue;
+            for (const dir of ['arr', 'dep']) {
+                const f = flightLeg(s, dir);
+                if (f.kind !== 'flight') continue;
+                if (!groups.has(f.key)) groups.set(f.key, []);
+                groups.get(f.key).push(s);
+            }
+        }
+        const badCount = rows.filter(r => r.flag === 'no_sign' || r.status === 'diverted' || r.status === 'elsewhere').length;
+        const lateCount = rows.filter(r => r.delay_min >= 30 || r.flag === 'late').length;
+        $('sumFlights').textContent = `${rows.length} flight${rows.length === 1 ? '' : 's'}${lateCount ? ` · ${lateCount} late` : ''}${badCount ? ` · ${badCount} to check` : ''}`;
+        if (!rows.length) { $('flightsList').innerHTML = '<p class="muted">No guest flights in this window.</p>'; return; }
+        const day = (r) => new Date(at(r)).toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh', weekday: 'short', day: '2-digit', month: 'short' });
+        $('flightsList').innerHTML = `<table class="fl-board">
+          <thead><tr><th>UMS time</th><th>Flight</th><th>In / out</th><th>Airport</th><th>Groups</th><th>Status</th><th>Delay</th><th>Details</th></tr></thead>
+          <tbody>${rows.map(r => {
+              const d = describeFlight(r.dir, r);
+              const g = (groups.get(r.key) || []);
+              const pax = g.reduce((s, x) => s + guests(x), 0);
+              const det = (r.detail || {});
+              return `<tr class="${d.cls === 'bad' ? 'row-bad' : d.cls === 'warn' ? 'row-warn' : ''}">
+                <td class="nowrap"><b>${escapeHTML(r.sched.slice(11, 16))}</b><small>${escapeHTML(day(r))}</small></td>
+                <td><b>${escapeHTML(r.code)}</b>${r.callsign ? `<small>${escapeHTML(r.callsign)}</small>` : ''}</td>
+                <td>${r.dir === 'arr' ? 'Arrival' : 'Departure'}</td>
+                <td>${r.airport === 'MED' ? 'Madina' : 'Jeddah'}</td>
+                <td>${g.length ? `${escapeHTML(g.map(x => x.sh_no).filter(Boolean).join(', '))}<small>${g.length} group${g.length === 1 ? '' : 's'} · ${pax} guests</small>` : '<span class="fl-none">—</span>'}</td>
+                <td><span class="fl-st ${d.cls}" title="${escapeHTML(d.title)}">${escapeHTML(d.text)}</span></td>
+                <td class="nowrap">${escapeHTML(delayText(r.delay_min) || '—')}</td>
+                <td class="fl-det">${escapeHTML([det.type, det.reg].filter(Boolean).join(' · ') || '')}${r.origin || r.destination ? `<small>${escapeHTML([r.origin, r.destination_actual || r.destination].filter(Boolean).join(' → '))}</small>` : ''}</td>
+              </tr>`;
+          }).join('')}</tbody></table>`;
+    }
     async function loadFlights(force = false) {
         try {
             FLIGHTS = await loadFlightStatus({ force });
@@ -258,6 +303,7 @@ export default async function mount(ctx) {
                 : m && m.error ? `Flight status: ${m.error}`
                 : m && m.last_run ? `Flight status updated ${new Date(m.last_run).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' })} (Riyadh time) · Flightradar24` : '';
         } catch { /* offline: keep what is shown */ }
+        renderFlightsPanel();
     }
 
     /* ===== CSV export ===== */
