@@ -322,7 +322,7 @@ CREATE TABLE IF NOT EXISTS flight_status (
     airport             TEXT NOT NULL,               -- JED | MED
     code                TEXT NOT NULL,
     sched               TEXT NOT NULL,               -- UMS date and time (Riyadh) 'YYYY-MM-DDTHH:MM'
-    status              TEXT NOT NULL,               -- scheduled | airborne | landed | diverted | boarding | departed | arrived
+    status              TEXT NOT NULL,               -- scheduled | airborne | landed | diverted | boarding | departed | arrived | elsewhere
     fr24_id             TEXT,
     callsign            TEXT,
     origin              TEXT,

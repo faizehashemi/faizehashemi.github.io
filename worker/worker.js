@@ -1743,10 +1743,18 @@ async function guestFlights(env, nowMs) {
 }
 
 // still worth a look-up? (finished flights are not looked up again)
+// Pacing per flight (each look-up of a flight costs a credit): far from its time — more than 1 h before it is due,
+// or not yet in the air 3 h+ before an arrival — at most every 30 minutes; near its time, at every run.
+const FLIGHT_FAR_GAP = 30;
 function inPlay(f, row, nowMs) {
     const t = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
-    if (f.dir === 'arr') return !(row && row.landed) && nowMs >= t - 8 * 3600e3 && nowMs <= t + 8 * 3600e3;
-    return !(row && row.takeoff) && nowMs >= t - 1 * 3600e3 && nowMs <= t + 8 * 3600e3;
+    const live = f.dir === 'arr'
+        ? !(row && row.landed) && nowMs >= t - 8 * 3600e3 && nowMs <= t + 8 * 3600e3
+        : !(row && row.takeoff) && nowMs >= t - 1 * 3600e3 && nowMs <= t + 8 * 3600e3;
+    if (!live) return false;
+    const near = nowMs >= t - 3600e3; // within the last hour before it is due, or late
+    if (near || !row || !row.checked_at) return true;
+    return nowMs - Date.parse(row.checked_at) >= FLIGHT_FAR_GAP * 60e3;
 }
 
 async function fr24Fetch(env, flights, fromIso, toIso) {
@@ -1761,21 +1769,39 @@ async function fr24Fetch(env, flights, fromIso, toIso) {
     return Array.isArray(body.data) ? body.data : [];
 }
 
+// FR24's live answers use orig_icao / dest_icao / dest_icao_actual (the docs say origin_icao / destination_icao …) and
+// put a Z on the times (the docs show none): read both
+const fOrig = (x) => x.orig_icao || x.origin_icao || null;
+const fDest = (x) => x.dest_icao || x.destination_icao || null;
+const fDestActual = (x) => x.dest_icao_actual || x.destination_icao_actual || null;
+const fTime = (v) => v ? (/[zZ]$|[+-]\d\d:?\d\d$/.test(v) ? v : v + 'Z') : null;
+
 // The record that is this flight: the right airport on the right side, first seen closest to the expected time
 function pickRecord(f, list) {
     const icao = FR24_AIRPORTS[f.airport];
     const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
-    const mine = list.filter(x => String(x.flight || '').toUpperCase().replace(/^([A-Z0-9]{2})0+/, '$1') === f.code
-        && (f.dir === 'arr' ? (x.destination_icao === icao || x.destination_icao_actual === icao) : x.origin_icao === icao));
-    const at = (x) => Date.parse(`${(f.dir === 'arr' ? (x.datetime_landed || x.last_seen) : (x.datetime_takeoff || x.first_seen)) || x.first_seen}Z`);
-    return mine.sort((a, b) => Math.abs(at(a) - due) - Math.abs(at(b) - due))[0] || null;
+    const same = list.filter(x => String(x.flight || '').toUpperCase().replace(/^([A-Z0-9]{2})0+/, '$1') === f.code);
+    // ours: an arrival bound for our airport — or still in the air with no destination yet (FR24 fills it in on
+    // landing) and not leaving from here; a departure leaving from our airport
+    const ours = (x) => f.dir === 'arr'
+        ? (fDest(x) === icao || fDestActual(x) === icao || (!fDest(x) && !fDestActual(x) && fOrig(x) !== icao))
+        : fOrig(x) === icao;
+    const at = (x) => Date.parse(fTime((f.dir === 'arr' ? (x.datetime_landed || x.last_seen) : (x.datetime_takeoff || x.first_seen)) || x.first_seen));
+    const nearest = (arr) => arr.sort((a, b) => Math.abs(at(a) - due) - Math.abs(at(b) - due))[0] || null;
+    const mine = nearest(same.filter(ours));
+    if (mine) return mine;
+    // the same flight number at another airport around that time (e.g. UMS says Jeddah, the group flies from Taif):
+    // shown as such, so the desk sees it
+    const other = nearest(same.filter(x => f.dir === 'arr' ? (fDestActual(x) || fDest(x)) : fOrig(x)));
+    return other && Math.abs(at(other) - due) < 12 * 3600e3 ? { ...other, _elsewhere: true } : null;
 }
 
 function statusOf(f, rec) {
     if (!rec) return 'scheduled';
+    if (rec._elsewhere) return 'elsewhere';
     const icao = FR24_AIRPORTS[f.airport];
     if (f.dir === 'arr') {
-        if (rec.destination_icao_actual && rec.destination_icao_actual !== icao && rec.datetime_landed) return 'diverted';
+        if (fDestActual(rec) && fDestActual(rec) !== icao && rec.datetime_landed) return 'diverted';
         if (rec.datetime_landed) return 'landed';
         if (rec.datetime_takeoff) return 'airborne';
         return 'scheduled';
@@ -1804,8 +1830,9 @@ async function refreshFlightStatus(env, force = false) {
     const flights = await guestFlights(env, nowMs);
     const keys = flights.map(f => f.key);
     const rows = new Map();
-    if (keys.length) {
-        const { results } = await env.DB.prepare(`SELECT * FROM flight_status WHERE key IN (${keys.map(() => '?').join(',')})`).bind(...keys).all();
+    for (let i = 0; i < keys.length; i += 90) { // D1: at most 100 values in one statement
+        const part = keys.slice(i, i + 90);
+        const { results } = await env.DB.prepare(`SELECT * FROM flight_status WHERE key IN (${part.map(() => '?').join(',')})`).bind(...part).all();
         for (const r of results) rows.set(r.key, r);
     }
     const todo = flights.filter(f => inPlay(f, rows.get(f.key), nowMs));
@@ -1858,9 +1885,9 @@ async function refreshFlightStatus(env, force = false) {
             ON CONFLICT(key) DO UPDATE SET status = excluded.status, fr24_id = excluded.fr24_id, callsign = excluded.callsign, origin = excluded.origin,
                 destination = excluded.destination, destination_actual = excluded.destination_actual, takeoff = excluded.takeoff, landed = excluded.landed,
                 ended = excluded.ended, checked_at = excluded.checked_at, updated_at = excluded.updated_at`)
-            .bind(f.key, f.dir, f.airport, f.code, f.sched, statusOf(f, rec), rec?.fr24_id || null, rec?.callsign || null, rec?.origin_icao || null,
-                rec?.destination_icao || null, rec?.destination_icao_actual || null,
-                rec?.datetime_takeoff ? rec.datetime_takeoff + 'Z' : null, rec?.datetime_landed ? rec.datetime_landed + 'Z' : null,
+            .bind(f.key, f.dir, f.airport, f.code, f.sched, statusOf(f, rec), rec?.fr24_id || null, rec?.callsign || null, rec ? fOrig(rec) : null,
+                rec ? fDest(rec) : null, rec ? fDestActual(rec) : null,
+                rec ? fTime(rec.datetime_takeoff) : null, rec ? fTime(rec.datetime_landed) : null,
                 rec ? (String(rec.flight_ended) === 'true' || rec.flight_ended === true ? 1 : 0) : 0, stamp, stamp));
     }
     for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));

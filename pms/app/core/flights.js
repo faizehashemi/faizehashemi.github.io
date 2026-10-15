@@ -32,20 +32,25 @@ export async function loadFlightStatus({ force = false } = {}) {
 }
 
 const riyadh = (iso) => iso ? new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' }) : '';
-const AIRPORT_NAMES = { OEJN: 'Jeddah', OEMA: 'Madina', OERK: 'Riyadh', OEDF: 'Dammam', OETF: 'Taif', OEYN: 'Yanbu' };
+const AIRPORT_NAMES = { OEJN: 'Jeddah', OEMA: 'Madina', OERK: 'Riyadh', OEDF: 'Dammam', OETF: 'Taif', OEYN: 'Yanbu', OEGS: 'Qassim', OEAB: 'Abha', OETB: 'Tabuk' };
+const place = (icao) => AIRPORT_NAMES[icao] || icao || '?';
 
 /** { text, cls, title } for a stored status row (or none yet) */
 export function describe(dirKey, row) {
     if (!row) return { text: 'Not checked yet', cls: 'wait', title: 'Looked up from 8 h before an arrival / 1 h before a departure' };
     const checked = row.checked_at ? `Checked ${riyadh(row.checked_at)} (Riyadh)` : '';
-    const tip = [row.callsign && `Callsign ${row.callsign}`, row.origin && `From ${AIRPORT_NAMES[row.origin] || row.origin}`, checked].filter(Boolean).join(' · ');
+    const tip = [row.callsign && `Callsign ${row.callsign}`, row.origin && `From ${place(row.origin)}`, checked].filter(Boolean).join(' · ');
     switch (row.status) {
         case 'airborne': return { text: `In the air · took off ${riyadh(row.takeoff)}`, cls: 'air', title: tip };
         case 'landed': return { text: `Landed ${riyadh(row.landed)}`, cls: 'ok', title: tip };
-        case 'diverted': return { text: `Diverted to ${AIRPORT_NAMES[row.destination_actual] || row.destination_actual}`, cls: 'bad', title: tip };
+        case 'diverted': return { text: `Diverted to ${place(row.destination_actual)}`, cls: 'bad', title: tip };
         case 'boarding': return { text: 'At the gate / taxiing', cls: 'warn', title: tip };
         case 'departed': return { text: `Departed ${riyadh(row.takeoff)}`, cls: 'ok', title: tip };
         case 'arrived': return { text: `Departed ${riyadh(row.takeoff)} · landed ${riyadh(row.landed)}`, cls: 'ok', title: tip };
+        // the same flight number at another airport than UMS gives (e.g. the group really flies from Taif)
+        case 'elsewhere': return dirKey === 'dep'
+            ? { text: `Flies from ${place(row.origin)}${row.takeoff ? ` · departed ${riyadh(row.takeoff)}` : ''}`, cls: 'bad', title: `UMS says ${row.airport === 'MED' ? 'Madina' : 'Jeddah'}, Flightradar24 shows this flight leaving ${place(row.origin)}. ${tip}` }
+            : { text: `Lands at ${place(row.destination_actual || row.destination)}${row.landed ? ` · ${riyadh(row.landed)}` : ''}`, cls: 'bad', title: `UMS says ${row.airport === 'MED' ? 'Madina' : 'Jeddah'}, Flightradar24 shows this flight going to ${place(row.destination_actual || row.destination)}. ${tip}` };
         default: return { text: dirKey === 'dep' ? 'Not departed yet' : 'Not in the air yet', cls: 'wait', title: tip };
     }
 }
