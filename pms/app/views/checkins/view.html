@@ -52,13 +52,13 @@
             </div>
         </header>
 
-        <section class="panel flights-panel" id="panelFlights" hidden>
+        <section class="panel flights-panel folded" id="panelFlights" hidden>
             <h3>
-                <button type="button" class="fl-fold" id="flFold" aria-expanded="true" aria-controls="flightsBody" title="Fold / unfold">
+                <button type="button" class="fl-fold" id="flFold" aria-expanded="false" aria-controls="flightsBody" title="Fold / unfold">
                     <span class="fl-arrow" aria-hidden="true">▾</span> Guest flights · last 12 h and next 24 h</button>
                 <span class="toolbar"><span class="muted" id="sumFlights"></span></span>
             </h3>
-            <div id="flightsBody">
+            <div id="flightsBody" hidden>
             <p class="fl-disclaimer" role="note">⚠️ Flight information comes from Flightradar24 and may be late, incomplete or wrong.
                 Always confirm on the official airport website before acting on it:
                 <a href="https://www.kaia.sa" target="_blank" rel="noopener">Jeddah — King Abdulaziz International (kaia.sa)</a> ·

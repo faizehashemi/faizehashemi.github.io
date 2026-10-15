@@ -436,7 +436,7 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     try { $('showFlights').checked = localStorage.getItem('pms_checkins_flights') !== '0'; } catch { }
     $('showFlights').addEventListener('change', () => { try { localStorage.setItem('pms_checkins_flights', flightsShown() ? '1' : '0'); } catch { } applyFlightToggle(); });
     applyFlightToggle();
-    // the Guest flights panel: open on every visit; the arrow folds it away
+    // the Guest flights panel: folded on every visit; the arrow opens / folds it
     $('flFold').addEventListener('click', () => {
         const open = $('flFold').getAttribute('aria-expanded') !== 'true';
         $('flFold').setAttribute('aria-expanded', String(open));
