@@ -94,7 +94,7 @@ export default async function mount(ctx) {
         const done = getDone();
         const count = (p) => rows.filter(r => r.p === p);
         const left = (p) => count(p).filter(r => !done.has(`${r.bld}|${r.room}`)).length;
-        $('hkKpis').innerHTML = [1, 2, 3, 4].map(p => `<div class="hk-kpi p${p}"><span>${p} ${PRIO[p]}</span><b>${count(p).length}</b><small>${left(p)} still to do</small></div>`).join('')
+        $('hkKpis').innerHTML = [1, 2, 3, 4].map(p => `<div class="hk-kpi p${p}"><span>${PRIO[p]}</span><b>${count(p).length}</b><small>${left(p)} still to do</small></div>`).join('')
             + `<div class="hk-kpi"><span>Guests arriving</span><b>${rows.reduce((n, r) => n + r.ins.reduce((m, w) => m + w.beds, 0), 0)}</b><small>beds to make ready · ${new Date(`${day}T12:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' })}</small></div>`;
         const hide = $('hkHideDone').checked;
         const who = (ws, at) => ws.map(w => `<span class="hk-who">${at === 'out' ? hm(w.end) : at === 'stay' ? `until ${dayTime(w.end)}` : hm(w.start)} · SH ${esc(w.sh)} · ${w.beds} bed${w.beds === 1 ? '' : 's'}${w.delayed ? ' <em>delayed</em>' : ''}</span>`).join('');
@@ -104,7 +104,7 @@ export default async function mount(ctx) {
             <tbody>${shown.map((r, i) => { const k = `${r.bld}|${r.room}`; return `<tr class="${done.has(k) ? 'done' : ''}">
                 <td><input type="checkbox" data-done="${esc(k)}" ${done.has(k) ? 'checked' : ''} aria-label="Room ${esc(r.room)} done"></td>
                 <td class="n">${i + 1}</td>
-                <td><span class="hk-p p${r.p}">${r.p} ${PRIO[r.p]}</span></td>
+                <td><span class="hk-p p${r.p}">${PRIO[r.p]}</span></td>
                 <td><b>${esc(r.room)}</b><small>${esc(r.bld)} · floor ${esc(r.floor)} · ${r.cap} beds</small></td>
                 <td>${who(r.outs, 'out') || (r.p === 4 ? who(r.stays, 'stay') : '—')}</td>
                 <td>${who(r.ins, 'in') || '—'}</td>
@@ -124,7 +124,24 @@ export default async function mount(ctx) {
         const b = e.target.closest('[data-day]');
         if (b) { $('hkDay').value = shift(ymd(new Date()), Number(b.dataset.day)); render(); }
     });
-    $('hkPrint').addEventListener('click', () => window.print());
+    // Print: just each category and its room numbers, in a tab of its own
+    $('hkPrint').addEventListener('click', () => {
+        if (!$('hkBld').value) { alert('Choose a building first.'); return; }
+        const { rows } = compute();
+        const all = $('hkBld').value === '*';
+        const w = window.open('', '_blank');
+        if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print again.'); return; }
+        const body = [1, 2, 3, 4].map(p => {
+            const rooms = rows.filter(r => r.p === p).map(r => all ? `${r.bld} ${r.room}` : r.room);
+            return rooms.length ? `<h2>${esc(PRIO[p])}</h2><p>${rooms.map(esc).join(', ')}</p>` : '';
+        }).join('') || '<p>—</p>';
+        w.document.open();
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Room cleaning</title><style>
+            @page { margin: 12mm; } body { font: 16px/1.5 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
+            h2 { font-size: 18px; margin: 14px 0 4px; } p { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+            </style></head><body>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
+        w.document.close();
+    });
     await loadBuildingsList();
     // other desks' check-ins: refresh every 2 minutes while open
     const t = setInterval(() => { if (document.visibilityState === 'visible') load().catch(() => { }); }, 120e3);
