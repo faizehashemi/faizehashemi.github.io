@@ -242,7 +242,7 @@ export default async function mount(ctx) {
         if (e.type === 'text') {
             html += `<div class="sb-props">
               <label>Text<textarea data-k="text">${esc(e.text)}</textarea></label>
-              <p class="sb-empty">{type} trip type · {date} · {sdate} dd/mm/yyyy · {time} clock · {page} / {pages} · {trips} · {pax}</p>
+              <p class="sb-empty">{type} trip type · {date} · {sdate} dd/mm/yyyy · {rdate} the rows' date(s) · {time} clock · {page} / {pages} · {trips} · {pax}</p>
               ${sel1('font', 'Font', e.font, fonts)}${num('size', 'Size (px)', e.size, 8, 400)}
               ${color('color', 'Colour', e.color)}${color('bg', 'Box colour', e.bg, true)}
               ${sel1('align', 'Align', e.align, [['left', 'Left'], ['center', 'Centre'], ['right', 'Right']])}
