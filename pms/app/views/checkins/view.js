@@ -8,7 +8,7 @@ import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
 import { baseSh } from '../../core/ums.js';
 import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
-import { legOf as flightLeg, loadFlightStatus, describe as describeFlight } from '../../core/flights.js';
+import { legOf as flightLeg, loadFlightStatus, describe as describeFlight, checkLinks } from '../../core/flights.js';
 
 export default async function mount(ctx) {
     const { db } = ctx;
@@ -241,7 +241,13 @@ export default async function mount(ctx) {
         if (f.kind === 'road') return `<td class="fl"><span class="fl-none">by ${escapeHTML((f.mode || 'road').toLowerCase())}</span></td>`;
         if (f.kind !== 'flight') return '<td class="fl"><span class="fl-none">—</span></td>';
         const d = FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)) : { label: '…', sentence: '', cls: 'wait', title: '' };
-        return `<td class="fl" title="${escapeHTML(d.title)}"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}">${escapeHTML(d.label)}</span><small class="fl-say">${escapeHTML(d.sentence)}</small></td>`;
+        const row = FLIGHTS?.byKey.get(f.key);
+        return `<td class="fl" title="${escapeHTML(d.title)}"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}">${escapeHTML(d.label)}</span><small class="fl-say">${escapeHTML(d.sentence)}</small>${checkHtml(f.code, row?.callsign)}</td>`;
+    }
+    // "Check 1 · Check 2": the flight on Trip.com and FlightAware, to confirm by hand
+    function checkHtml(code, callsign) {
+        const l = checkLinks(code, callsign);
+        return l ? `<span class="fl-links"><a href="${escapeHTML(l.trip)}" target="_blank" rel="noopener" title="${escapeHTML(code)} on Trip.com">Check 1</a> · <a href="${escapeHTML(l.fa)}" target="_blank" rel="noopener" title="${escapeHTML(callsign || code)} on FlightAware">Check 2</a></span>` : '';
     }
     function flightText(r, key) {
         const f = flightOf(r, key);
@@ -285,7 +291,7 @@ export default async function mount(ctx) {
               const det = (r.detail || {});
               return `<tr class="${d.cls === 'bad' ? 'row-bad' : d.cls === 'warn' ? 'row-warn' : ''}">
                 <td class="nowrap"><b>${escapeHTML(r.sched.slice(11, 16))}</b><small>${escapeHTML(day(r))}</small></td>
-                <td><b>${escapeHTML(r.code)}</b>${r.callsign ? `<small>${escapeHTML(r.callsign)}</small>` : ''}</td>
+                <td><b>${escapeHTML(r.code)}</b>${r.callsign ? `<small>${escapeHTML(r.callsign)}</small>` : ''}${checkHtml(r.code, r.callsign)}</td>
                 <td>${r.dir === 'arr' ? 'Arrival' : 'Departure'}</td>
                 <td>${r.airport === 'MED' ? 'Madina' : 'Jeddah'}</td>
                 <td>${g.length ? `${escapeHTML(g.map(x => x.sh_no).filter(Boolean).join(', '))}<small>${g.length} group${g.length === 1 ? '' : 's'} · ${pax} guests</small>` : '<span class="fl-none">—</span>'}</td>

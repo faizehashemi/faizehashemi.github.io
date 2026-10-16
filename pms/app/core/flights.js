@@ -21,6 +21,20 @@ export function legOf(slip, dir) {
     return { kind: 'flight', leg, code, key: `${dir}|${leg.date}|${code}` };
 }
 
+/**
+ * Links to check a flight by hand on other sites (opened by a person, in a new tab):
+ * trip — Trip.com status page (flight number padded to 3 digits: 6E61 → 6e061);
+ * fa — FlightAware (the callsign when Flightradar24 gave one, e.g. SVA770, else the flight number).
+ */
+export function checkLinks(code, callsign) {
+    const m = String(code || '').toUpperCase().match(/^([A-Z0-9]{2})(\d+)$/);
+    if (!m) return null;
+    return {
+        trip: `https://in.trip.com/flights/status-${m[1].toLowerCase()}${m[2].padStart(3, '0')}/`,
+        fa: `https://www.flightaware.com/live/flight/${encodeURIComponent(String(callsign || code).toUpperCase().replace(/\s+/g, ''))}`,
+    };
+}
+
 let cache = null, cachedAt = 0;
 /** { byKey: Map, meta, configured } — fetched at most every 60 s */
 export async function loadFlightStatus({ force = false } = {}) {
