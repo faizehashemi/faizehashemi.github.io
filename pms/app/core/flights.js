@@ -98,6 +98,7 @@ export function describe(dirKey, row) {
             return out('In flight', `Took off${row.origin ? ` from ${from}` : ''} at ${riyadh(row.takeoff)}. Due to land at ${at}.`, 'air', title);
         }
         case 'landed': {
+            if (row.delay_min <= -120 || row.delay_min >= 360) return out('Landed', `Landed at ${riyadh(row.landed)} — far from the UMS time (${at}). Check the UMS flight time.`, 'warn', title);
             const t = delayText(row.delay_min);
             return out('Landed', t === 'on time' ? `Landed on time at ${riyadh(row.landed)}.` : `Landed at ${riyadh(row.landed)}${by(row.delay_min)}.`, lateCls('ok'), title);
         }
@@ -105,6 +106,7 @@ export function describe(dirKey, row) {
         case 'boarding': return out('Boarding', 'The plane is at the gate or taxiing.', 'warn', title);
         case 'departed':
         case 'arrived': {
+            if (row.delay_min <= -120 || row.delay_min >= 360) return out('Departed', `Took off at ${riyadh(row.takeoff)} — far from the UMS time (${at}). Check the UMS flight time.`, 'warn', title);
             const t = delayText(row.delay_min);
             return out('Departed', t === 'on time' ? `Took off on time at ${riyadh(row.takeoff)}.` : `Took off at ${riyadh(row.takeoff)}${by(row.delay_min)}.`, lateCls('ok'), title);
         }

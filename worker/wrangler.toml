@@ -9,10 +9,10 @@ keep_vars = true
 workers_dev = true
 preview_urls = false
 
-# Live flight status (Flightradar24): OFF while the first look-ups are checked by hand. To switch it on:
-#   crons = ["*/5 * * * *"]   (every 5 minutes; the Worker looks up only when due, see worker.js)
+# Live flight status (Flightradar24): every 30 minutes (the user's choice, 2026-10-16); the Worker looks up only
+# when due and within the credit budget (see worker.js)
 [triggers]
-crons = []
+crons = ["*/30 * * * *"]
 
 [vars]
 # Sites allowed to call the API (localhost is always allowed, for testing)

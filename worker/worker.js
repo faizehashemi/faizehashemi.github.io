@@ -1693,12 +1693,12 @@ async function putTosha(req, env, me) {
 // 25 %) of the monthly credits (FR24_MONTHLY_CREDITS) is never touched; the rest is spread evenly over the days
 // left in the month, so the look-up interval grows when credits run lower (never more often than every 5 minutes).
 // FR24's rules: data may be kept at most 30 days — rows are deleted after FLIGHT_KEEP_DAYS.
-// Secret: FR24_API_KEY (npx wrangler secret put FR24_API_KEY). Cron: every 5 minutes (wrangler.toml).
+// Secret: FR24_API_KEY (npx wrangler secret put FR24_API_KEY). Cron: every 30 minutes (wrangler.toml).
 
 const FR24_API = 'https://fr24api.flightradar24.com/api/flight-summary/light';
 const FR24_AIRPORTS = { JED: 'OEJN', MED: 'OEMA' };
 const FLIGHT_KEEP_DAYS = 25;
-const FLIGHT_MIN_GAP = 5;     // minutes between look-ups, at the most
+const FLIGHT_MIN_GAP = 25;    // minutes between look-ups, at the most (the cron runs every 30 min)
 const FLIGHT_MAX_GAP = 60;    // … and at the least, while credits last
 
 const fr24Budget = (env) => {
@@ -1745,7 +1745,7 @@ async function guestFlights(env, nowMs) {
 // still worth a look-up? (finished flights are not looked up again)
 // Pacing per flight (each look-up of a flight costs a credit): far from its time — more than 1 h before it is due,
 // or not yet in the air 3 h+ before an arrival — at most every 30 minutes; near its time, at every run.
-const FLIGHT_FAR_GAP = 30;
+const FLIGHT_FAR_GAP = 25;    // < the 30-min cron, so a far-off flight is looked up every run
 function inPlay(f, row, nowMs) {
     const t = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
     const live = f.dir === 'arr'
@@ -1817,7 +1817,7 @@ function statusOf(f, rec) {
 // every 45 min, every 15 min in the last 90 min before the UMS time). Never seen 3 h (arrival) / 4 h (departure)
 // past the UMS time: "no sign" — possibly cancelled.
 const FR24_LIVE = 'https://fr24api.flightradar24.com/api/live/flight-positions/full';
-const ETA_GAP_FAR = 45, ETA_GAP_NEAR = 15;
+const ETA_GAP_FAR = 55, ETA_GAP_NEAR = 25;   // with the 30-min cron: about hourly, then every run
 const LATE_DEP_MIN = 15, LATE_ARR_MIN = 30, NO_SIGN_ARR_H = 3, NO_SIGN_DEP_H = 4;
 const FLIGHT_SHOW_BEFORE_H = 12, FLIGHT_SHOW_AHEAD_H = 24; // listed (free) from 12 h ago to 24 h ahead
 
@@ -1838,6 +1838,9 @@ function delayOf(f, s, nowMs) {
     if (!seen && !s.checked_at && nowMs > due + LATE_DEP_MIN * 60e3) return { delay: null, flag: 'unchecked' };
     // "no sign" only when we did look, after its time + the grace, and never saw it
     const lookedLate = (h) => s.checked_at && Date.parse(s.checked_at) >= due + h * 3600e3;
+    // past the look-up window (8 h after its time) and never seen: settle it instead of counting "late" for ever
+    if (!seen && nowMs > due + 8 * 3600e3) return lookedLate(f.dir === 'dep' ? NO_SIGN_DEP_H : NO_SIGN_ARR_H)
+        ? { delay: mins(Date.parse(s.checked_at)), flag: 'no_sign' } : { delay: null, flag: 'unchecked' };
     if (f.dir === 'dep') {
         if (s.takeoff) return { delay: mins(Date.parse(s.takeoff)), flag: null };
         if (!seen && lookedLate(NO_SIGN_DEP_H)) return { delay: mins(nowMs), flag: 'no_sign' };
