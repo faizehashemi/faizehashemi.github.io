@@ -1,0 +1,30 @@
+/* Pax Counts Chart — layout after the UMS yearly charts, in the PMS palette */
+body { background: #f7efe1 url("../../../assets/pattern_gold_2x.png") repeat; background-size: 150px auto; margin: 0; color: #2b1e15; }
+.px { max-width: 1240px; margin: 0 auto; padding: 16px 16px 28px; display: grid; gap: 14px; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+.px * { box-sizing: border-box; }
+.px-top { justify-self: center; display: grid; gap: 8px; justify-items: center; padding: 14px; background: #fffaf1; border: 1px solid #e3d2b1; border-radius: 12px; width: min(100%, 980px); }
+.px-controls { display: grid; grid-template-columns: repeat(3, minmax(140px, 1fr)) auto; border: 1px solid #e3d2b1; border-radius: 6px; background: #fff; width: 100%; }
+.px-controls label { display: grid; gap: 2px; padding: 6px 10px; font-size: 11px; color: #6b5e4a; border-right: 1px solid #e3d2b1; }
+.px-controls select { font: inherit; font-size: 14px; border: 0; padding: 2px 0; background: transparent; color: #2b1e15; }
+.px-act input { width: 20px; height: 20px; margin: 2px 0 0; }
+.px-btn { align-self: center; margin: 0 10px; font: inherit; padding: 6px 10px; border: 1px solid #c0392b; color: #c0392b; background: #fff; border-radius: 4px; cursor: pointer; }
+.px-btn:hover { background: #fff4f2; }
+.px-legend { display: grid; grid-template-columns: auto repeat(3, minmax(110px, 1fr)); width: 100%; border: 1px solid #e3d2b1; border-radius: 6px; overflow: hidden; }
+.px-legend span { padding: 7px 10px; font-size: 13px; }
+.px-lg-t { background: #fff; border-right: 1px solid #e3d2b1; }
+.px-lg.invalid { background: #ffb6c1; } .px-lg.arr { background: #90ee90; } .px-lg.today { background: #add8e6; }
+.px-note { margin: 0; font-size: 11px; color: #2b1e15; text-align: center; }
+.px-card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 0 0 12px; }
+.px-card h2 { margin: 0 0 12px; padding: 10px 14px; font-size: 14px; font-weight: 500; background: #f6f6f6; border-bottom: 1px solid #ddd; border-radius: 6px 6px 0 0; }
+.px-scroll { overflow-x: auto; padding: 0 14px; }
+.px-tbl { border-collapse: collapse; width: 100%; min-width: 980px; font-size: 11px; font-weight: 700; }
+.px-tbl th, .px-tbl td { border: 1px solid #e3e3e3; padding: 7px 3px; text-align: center; white-space: nowrap; }
+.px-tbl thead th { font-weight: 800; }
+.px-tbl .px-m { text-align: left; padding-left: 8px; font-weight: 500; min-width: 90px; }
+.px-tbl thead .px-m { text-align: center; font-weight: 800; }
+.px-tbl td.invalid { background: #fad4da; }
+.px-tbl td.arr { background: #d4e9dd; }
+.px-tbl td.today { background: #c9dcf5; color: #d6336c; }
+.px-cap { margin: 8px 14px 0; font-size: 11px; color: #6b5e4a; }
+@media (max-width: 760px) { .px-controls { grid-template-columns: 1fr 1fr; } .px-legend { grid-template-columns: 1fr 1fr; } }
+@media print { body { background: #fff; } .px-top .px-controls { display: none; } .px-tbl td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }

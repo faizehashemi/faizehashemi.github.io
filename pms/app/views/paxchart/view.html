@@ -1,0 +1,29 @@
+<div class="px">
+    <section class="px-top">
+        <div class="px-controls">
+            <label>Select Year<select id="pxYear"></select></label>
+            <label>Select Location<select id="pxSite"><option value="makkah">Makkah</option><option value="medina">Madina</option></select></label>
+            <label class="px-act">Show Actuals<input type="checkbox" id="pxActual"></label>
+            <button type="button" id="pxGo" class="px-btn">Update Chart</button>
+        </div>
+        <div class="px-legend">
+            <span class="px-lg-t">Color Indicators</span>
+            <span class="px-lg invalid">Invalid Date</span>
+            <span class="px-lg arr">Arrivals</span>
+            <span class="px-lg today">Today</span>
+        </div>
+        <p class="px-note" id="pxNote"></p>
+    </section>
+
+    <section class="px-card">
+        <h2>Yearly Pax Count Chart</h2>
+        <div class="px-scroll" id="pxCount"></div>
+        <p class="px-cap" id="pxCountCap"></p>
+    </section>
+
+    <section class="px-card">
+        <h2>Yearly Pax Arrival Chart</h2>
+        <div class="px-scroll" id="pxArr"></div>
+        <p class="px-cap" id="pxArrCap"></p>
+    </section>
+</div>

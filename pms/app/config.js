@@ -33,6 +33,7 @@ export const VIEWS = [
     { id: 'timeline',     label: 'Timeline',           title: 'Room Timeline',         key: '4', hint: 'Who stays in a room over time' },
     { id: 'occupancy',    label: 'Occupancy details',  title: 'Occupancy Details',     hint: 'Beds in use per night — totals, buildings, rooms and beds for a period' },
     { id: 'checkins',     label: 'Check-ins',          title: 'Checkins',              key: '5', hint: 'Arrivals and departures for a period' },
+    { id: 'paxchart',     label: 'Pax Counts Chart',   title: 'Pax Counts Chart',      hint: 'Guests in house and arrivals per day for a year' },
     { id: 'departures',   label: 'Delayed departures', title: 'Delayed Departures',    hint: 'Groups that could not leave: rooms, dates, clashes with incoming groups' },
     { id: 'grouping',     label: 'Grouping',           title: 'Groups',                key: '6', hint: 'Bundle arrivals and print stickers' },
     { id: 'kg',           label: 'KG',                 title: 'FEA',                   key: '7', hint: 'Fakkul Ehraam & Atraaf duty roster' },
@@ -62,7 +63,7 @@ export const VIEWS = [
 
 // Menu categories (top bar on laptops, drawer sections on phones)
 export const NAV = [
-    { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'movement', 'print'] },
+    { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'movement', 'print'] },
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'signage-builder'] },
