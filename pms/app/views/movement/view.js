@@ -56,25 +56,26 @@ export default async function mount(ctx) {
     function download(name, text) { const blob = new Blob([text], { type: 'text/plain' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 500); }
 
     /* ===== Luggage column helpers ===== */
-    let SH_INDEX = new Map();
+    // A group's second stay here has the SH with prefix S (S44030); its luggage stays in the building of its
+    // first stay (44030) — the earliest stay of that SH without the S that has a building.
+    const LUGGAGE_PREFIX = 'S';
+    let SH_INDEX = new Map(); // plain SH → its stays, earliest first
     function indexBySh(rows) {
         SH_INDEX = new Map();
         for (const r of rows) {
-            const key = String(r.sh_no ?? '').trim();
-            if (key && !SH_INDEX.has(key)) SH_INDEX.set(key, r);
+            const key = String(r.sh_no ?? '').trim().toUpperCase();
+            if (!key || r.deleted) continue;
+            if (!SH_INDEX.has(key)) SH_INDEX.set(key, []);
+            SH_INDEX.get(key).push(r);
         }
-    }
-    // A 6-digit SH starting with '33' has its luggage with SH minus the first '3' (5 digits)
-    function normalizeLuggageSH(sh) {
-        const s = String(sh ?? '').replace(/\D/g, '');
-        if (/^33\d{4}$/.test(s)) return s.slice(1);
-        return null;
+        for (const list of SH_INDEX.values()) list.sort((a, b) => `${a.checkin_date}T${a.checkin_time}`.localeCompare(`${b.checkin_date}T${b.checkin_time}`));
     }
     function luggageAt(sh) {
-        const key = normalizeLuggageSH(sh);
-        if (!key) return '';
-        const rec = SH_INDEX.get(key);
-        return rec?.building ? String(rec.building).trim() : '';
+        const s = String(sh ?? '').trim().toUpperCase();
+        const m = s.startsWith(LUGGAGE_PREFIX) && /^\d+$/.test(s.slice(LUGGAGE_PREFIX.length)) ? [s, s.slice(LUGGAGE_PREFIX.length)] : null;
+        if (!m) return '';
+        const first = (SH_INDEX.get(m[1]) || []).find(r => String(r.building || '').trim());
+        return first ? String(first.building).trim() : '';
     }
 
     // ===== column visibility (the style tag is removed by the shell on navigation) =====
