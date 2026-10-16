@@ -131,14 +131,22 @@ export default async function mount(ctx) {
         const all = $('hkBld').value === '*';
         const w = window.open('', '_blank');
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print again.'); return; }
-        const body = [1, 2, 3, 4].map(p => {
-            const rooms = rows.filter(r => r.p === p).map(r => all ? `${r.bld} ${r.room}` : r.room);
-            return rooms.length ? `<h2>${esc(PRIO[p])}</h2><p>${rooms.map(esc).join(', ')}</p>` : '';
+        // floor by floor (building first when all buildings), then each category's rooms on that floor
+        const floors = [...new Set(rows.map(r => `${r.bld}|${r.floor}`))].sort((x, y) => natural(x.split('|')[0], y.split('|')[0]) || natural(x.split('|')[1], y.split('|')[1]));
+        const body = floors.map(f => {
+            const [bld, floor] = f.split('|');
+            const here = rows.filter(r => r.bld === bld && r.floor === floor);
+            const cats = [1, 2, 3, 4].map(p => {
+                const rooms = here.filter(r => r.p === p).map(r => r.room).sort(natural);
+                return rooms.length ? `<div class="cat"><b>${esc(PRIO[p])}</b> ${rooms.map(esc).join(', ')}</div>` : '';
+            }).join('');
+            return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}</h2>${cats}</section>`;
         }).join('') || '<p>—</p>';
         w.document.open();
         w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Room cleaning</title><style>
             @page { margin: 12mm; } body { font: 16px/1.5 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
-            h2 { font-size: 18px; margin: 14px 0 4px; } p { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+            section { break-inside: avoid; padding: 6px 0 8px; border-bottom: 1px solid #999; }
+            h2 { font-size: 18px; margin: 8px 0 4px; } .cat { font-size: 18px; margin: 2px 0; } .cat b { display: inline-block; min-width: 230px; font-size: 15px; }
             </style></head><body>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
         w.document.close();
     });
