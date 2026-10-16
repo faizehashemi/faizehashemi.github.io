@@ -1811,6 +1811,165 @@ function statusOf(f, rec) {
     return 'boarding';                             // seen at the gate / taxiing, not yet airborne
 }
 
+/* --------------------- airline schedule and status (VariFlight) --------------------- */
+// VariFlight's AI Open Platform (ai.variflight.com — the data behind Trip.com): the airline's scheduled, estimated and
+// actual times, cancellations, gates, check-in counters and baggage belts. Licensed for "display in your own products
+// or business" — staff pages only; never on the public signage (their terms forbid public publishing).
+// One look-up (searchFlightsByNumber) costs 50 credits (¥0.50). A flight is looked up once in the 6 h before its time,
+// then hourly from 2 h before until it is done (arrivals: arrived / cancelled / diverted; departures: departed too).
+// Credits: VF_MONTHLY_CREDITS (default 5000 = the ¥50 trial) less VF_RESERVE (default 20 %), spread evenly over the
+// month through a small bank refilled at every run; when short, the flights nearest their time go first.
+// Secret: VARIFLIGHT_API_KEY.
+const VF_ENDPOINT = 'https://ai.variflight.com/servers/aviation/mcp';
+const VF_CALL = 50;
+const VF_STATES = { '计划': 'scheduled', '起飞': 'departed', '到达': 'arrived', '延误': 'delayed', '取消': 'cancelled', '提前取消': 'cancelled',
+    '备降': 'diverted', '返航': 'returned', '备降起飞': 'departed', '备降到达': 'diverted', '返航起飞': 'departed', '返航到达': 'returned' };
+const vfBudget = (env) => {
+    const monthly = Math.max(0, Number(env.VF_MONTHLY_CREDITS) || 5000);
+    const reserve = Math.min(0.9, Math.max(0, Number(env.VF_RESERVE ?? 0.2)));
+    return { monthly, reserve, usable: Math.floor(monthly * (1 - reserve)) };
+};
+
+// VariFlight answers with a Python-style literal ("Flight details: {'code': 200, …}"): a small parser for it
+function pyLiteral(s) {
+    let i = 0;
+    const ws = () => { while (i < s.length && /\s/.test(s[i])) i++; };
+    const val = () => {
+        ws();
+        const c = s[i];
+        if (c === '{') {
+            i++; const o = {}; ws();
+            if (s[i] === '}') { i++; return o; }
+            for (;;) {
+                const k = val(); ws(); if (s[i] !== ':') throw new Error('expected :'); i++;
+                o[k] = val(); ws();
+                if (s[i] === ',') { i++; ws(); if (s[i] === '}') { i++; return o; } continue; }
+                if (s[i] === '}') { i++; return o; }
+                throw new Error('bad dict');
+            }
+        }
+        if (c === '[' || c === '(') {
+            const close = c === '[' ? ']' : ')'; i++; const a = []; ws();
+            if (s[i] === close) { i++; return a; }
+            for (;;) {
+                a.push(val()); ws();
+                if (s[i] === ',') { i++; ws(); if (s[i] === close) { i++; return a; } continue; }
+                if (s[i] === close) { i++; return a; }
+                throw new Error('bad list');
+            }
+        }
+        if (c === "'" || c === '"') {
+            const q = c; i++; let out = '';
+            while (i < s.length && s[i] !== q) {
+                if (s[i] === '\\') {
+                    const n = s[i + 1];
+                    if (n === 'x') { out += String.fromCharCode(parseInt(s.substr(i + 2, 2), 16)); i += 4; continue; }
+                    if (n === 'u') { out += String.fromCharCode(parseInt(s.substr(i + 2, 4), 16)); i += 6; continue; }
+                    out += ({ n: '\n', t: '\t', r: '\r' })[n] ?? n; i += 2; continue;
+                }
+                out += s[i++];
+            }
+            i++; return out;
+        }
+        const m = s.slice(i).match(/^(True|False|None|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/);
+        if (m) { i += m[0].length; return m[0] === 'True' ? true : m[0] === 'False' ? false : m[0] === 'None' ? null : Number(m[0]); }
+        throw new Error(`unexpected "${s.slice(i, i + 15)}"`);
+    };
+    return val();
+}
+
+async function vfSearch(env, args) {
+    const r = await fetch(VF_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'X-API-Key': env.VARIFLIGHT_API_KEY },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'searchFlightsByNumber', arguments: args } }),
+    });
+    let body = await r.text();
+    if (!r.ok) { const e = new Error(`VariFlight ${r.status}: ${body.slice(0, 200)}`); e.status = r.status; throw e; }
+    if (!body.trim().startsWith('{')) body = body.split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5)).join('');
+    const j = JSON.parse(body);
+    if (j.error) throw new Error(`VariFlight: ${j.error.message || JSON.stringify(j.error)}`);
+    const text = (j.result?.content || []).map(c => c.text || '').join('');
+    if (j.result?.isError) throw new Error(`VariFlight: ${text.slice(0, 200)}`);
+    const at = text.indexOf('{');
+    if (at < 0) return { list: [], note: text.slice(0, 200) };
+    let obj; try { obj = JSON.parse(text.slice(at)); } catch { obj = pyLiteral(text.slice(at)); }
+    if (String(obj.code) !== '200') return { list: [], note: String(obj.message || obj.code).slice(0, 200) };
+    return { list: Array.isArray(obj.data) ? obj.data : [] };
+}
+
+// 'YYYY-MM-DD HH:MM:SS' at the airport (offset in seconds) → UTC ISO
+const vfUtc = (local, tz) => {
+    if (!local) return null;
+    const ms = Date.parse(String(local).replace(' ', 'T') + 'Z');
+    return Number.isFinite(ms) ? new Date(ms - (Number(tz) || 0) * 1000).toISOString() : null;
+};
+function vfRecord(x) {
+    const ot = x.org_timezone, dt = x.dst_timezone;
+    return {
+        state: VF_STATES[x.FlightState] || (x.FlightState ? 'other' : 'scheduled'), state_raw: x.FlightState || '',
+        from: x.FlightDepcode || null, to: x.FlightArrcode || null,
+        sched_dep: vfUtc(x.FlightDeptimePlanDate, ot), sched_arr: vfUtc(x.FlightArrtimePlanDate, dt),
+        est_dep: vfUtc(x.FlightDeptimeReadyDate, ot), est_arr: vfUtc(x.FlightArrtimeReadyDate, dt),
+        act_dep: vfUtc(x.FlightDeptimeDate, ot), act_arr: vfUtc(x.FlightArrtimeDate, dt),
+        gate: x.BoardGate || null, checkin: x.CheckinTable || null, baggage: x.BaggageID || null,
+        dep_terminal: x.FlightHTerminal || null, arr_terminal: x.FlightTerminal || null,
+        aircraft: x.ftype || null, reg: x.AircraftNumber || null, delay_reason: x.DelayReason || null, ontime: x.OntimeRate || null,
+    };
+}
+const VF_DONE = { arr: ['arrived', 'cancelled', 'diverted', 'returned'], dep: ['departed', 'arrived', 'cancelled', 'diverted', 'returned'] };
+
+// due for a VariFlight look-up? once in the 6 h before its time; hourly from 2 h before until done (to 4 h after)
+function vfDue(f, s, nowMs) {
+    const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    if (s.vf && VF_DONE[f.dir].includes(s.vf.state)) return false;
+    if (nowMs < due - 6 * 3600e3 || nowMs > due + 4 * 3600e3) return false;
+    if (!s.vf_checked) return true;
+    const gap = nowMs >= due - 2 * 3600e3 ? 55 : 6 * 60;
+    return nowMs - Date.parse(s.vf_checked) >= gap * 60e3;
+}
+
+async function refreshVariFlight(env, flights, state, nowMs, stamp) {
+    if (!env.VARIFLIGHT_API_KEY) return;
+    const month = ymKey(new Date(nowMs));
+    const meta = await env.DB.prepare('SELECT * FROM flight_meta WHERE id = ?').bind('vf').first();
+    let used = meta && meta.month === month ? meta.credits_used : 0;
+    let bank = meta && meta.month === month ? Number(meta.bank) || 0 : 0;
+    const { usable } = vfBudget(env);
+    // refill: what is left of the month's allowance, spread over the cron runs left (every 30 min); at most 10 look-ups saved up
+    const runsLeft = Math.max(1, daysLeftInMonth(new Date(nowMs)) * 48);
+    bank = Math.min(Math.max(0, usable - used), bank + Math.max(0, usable - used) / runsLeft, VF_CALL * 10);
+    const due = (f) => riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    const want = flights.filter(f => state.has(f.key) && vfDue(f, state.get(f.key), nowMs)).sort((a, b) => Math.abs(due(a) - nowMs) - Math.abs(due(b) - nowMs));
+    let calls = 0, error = null;
+    for (const f of want) {
+        if (bank < VF_CALL || usable - used < VF_CALL) break;
+        const s = state.get(f.key);
+        const date = f.sched.slice(0, 10);
+        try {
+            const side = f.dir === 'arr' ? { arr: f.airport } : { dep: f.airport };
+            let res = await vfSearch(env, { fnum: f.code, date, ...side });
+            calls++; used += VF_CALL; bank -= VF_CALL;
+            // an early-morning arrival may be listed under the day it took off
+            if (!res.list.length && f.dir === 'arr' && f.sched.slice(11) < '12:00' && bank >= VF_CALL && usable - used >= VF_CALL) {
+                const prev = new Date(Date.parse(date + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10);
+                res = await vfSearch(env, { fnum: f.code, date: prev, ...side });
+                calls++; used += VF_CALL; bank -= VF_CALL;
+            }
+            s.vf_checked = stamp;
+            const ums = due(f);
+            const mine = res.list.filter(x => (f.dir === 'arr' ? x.FlightArrcode : x.FlightDepcode) === f.airport).map(vfRecord)
+                .sort((a, b) => Math.abs(Date.parse(f.dir === 'arr' ? a.sched_arr : a.sched_dep) - ums) - Math.abs(Date.parse(f.dir === 'arr' ? b.sched_arr : b.sched_dep) - ums));
+            if (mine[0]) s.vf = mine[0];
+            else if (!s.vf) s.vf = { state: 'unknown', note: res.note || 'not found' };
+        } catch (e) { error = String(e.message || e).slice(0, 300); break; }
+    }
+    await env.DB.prepare(`INSERT INTO flight_meta (id, month, credits_used, last_run, next_run, last_credits, last_error, bank)
+        VALUES ('vf', ?, ?, ?, NULL, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET month = excluded.month, credits_used = excluded.credits_used,
+        last_run = excluded.last_run, last_credits = excluded.last_credits, last_error = excluded.last_error, bank = excluded.bank`)
+        .bind(month, used, stamp, calls * VF_CALL, error, bank).run();
+}
+
 // Delays and "no sign" are worked out here (FR24 has no schedules or cancellations): against the UMS time,
 // departures from the take-off (or still on the ground past their time), arrivals from the landing, or while in
 // the air from the ETA (Live flight positions full: 8 credits a flight, so fetched when first seen airborne, then
@@ -1887,7 +2046,7 @@ async function refreshFlightStatus(env, force = false) {
     const state = new Map();
     for (const f of [...shown, ...todo]) {
         const p = rows.get(f.key);
-        state.set(f.key, p ? { ...p, detail: p.detail ? JSON.parse(p.detail) : {} }
+        state.set(f.key, p ? { ...p, detail: p.detail ? JSON.parse(p.detail) : {}, vf: p.vf ? JSON.parse(p.vf) : null }
             : { key: f.key, dir: f.dir, airport: f.airport, code: f.code, sched: f.sched, status: 'scheduled', detail: {} });
         Object.assign(state.get(f.key), { airport: f.airport, sched: f.sched }); // UMS may have moved it
     }
@@ -1971,6 +2130,9 @@ async function refreshFlightStatus(env, force = false) {
     }
     used += credits;
 
+    // 2b) the airline's schedule and status (VariFlight), within its own credit budget
+    try { await refreshVariFlight(env, flights, state, nowMs, stamp); } catch (e) { console.error('variflight', e && e.stack || e); }
+
     // 3) delays / late / no sign for everything shown, and write back what changed
     const stmts = [];
     for (const f of state.values()) {
@@ -1979,18 +2141,20 @@ async function refreshFlightStatus(env, force = false) {
         f.delay_min = delay; f.flag = flag;
         const p = rows.get(f.key);
         const detail = JSON.stringify(f.detail || {});
-        const same = p && ['status', 'fr24_id', 'callsign', 'origin', 'destination', 'destination_actual', 'takeoff', 'landed', 'ended', 'checked_at', 'eta', 'eta_checked', 'delay_min', 'flag', 'sched', 'airport']
-            .every(k => (p[k] ?? null) === (f[k] ?? null)) && (p.detail || '{}') === detail;
+        const vfText = f.vf ? JSON.stringify(f.vf) : null;
+        const same = p && ['status', 'fr24_id', 'callsign', 'origin', 'destination', 'destination_actual', 'takeoff', 'landed', 'ended', 'checked_at', 'eta', 'eta_checked', 'delay_min', 'flag', 'sched', 'airport', 'vf_checked']
+            .every(k => (p[k] ?? null) === (f[k] ?? null)) && (p.detail || '{}') === detail && (p.vf ?? null) === vfText;
         if (same) continue;
         stmts.push(env.DB.prepare(`INSERT INTO flight_status (key, dir, airport, code, sched, status, fr24_id, callsign, origin, destination, destination_actual,
-                takeoff, landed, ended, eta, eta_checked, delay_min, flag, detail, checked_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                takeoff, landed, ended, eta, eta_checked, delay_min, flag, detail, vf, vf_checked, checked_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(key) DO UPDATE SET airport = excluded.airport, sched = excluded.sched, status = excluded.status, fr24_id = excluded.fr24_id,
                 callsign = excluded.callsign, origin = excluded.origin, destination = excluded.destination, destination_actual = excluded.destination_actual,
                 takeoff = excluded.takeoff, landed = excluded.landed, ended = excluded.ended, eta = excluded.eta, eta_checked = excluded.eta_checked,
-                delay_min = excluded.delay_min, flag = excluded.flag, detail = excluded.detail, checked_at = excluded.checked_at, updated_at = excluded.updated_at`)
+                delay_min = excluded.delay_min, flag = excluded.flag, detail = excluded.detail, vf = excluded.vf, vf_checked = excluded.vf_checked,
+                checked_at = excluded.checked_at, updated_at = excluded.updated_at`)
             .bind(f.key, f.dir, f.airport, f.code, f.sched, f.status || 'scheduled', f.fr24_id || null, f.callsign || null, f.origin || null, f.destination || null,
                 f.destination_actual || null, f.takeoff || null, f.landed || null, f.ended || 0, f.eta || null, f.eta_checked || null,
-                f.delay_min ?? null, f.flag || null, detail, f.checked_at || null, stamp));
+                f.delay_min ?? null, f.flag || null, detail, vfText, f.vf_checked || null, f.checked_at || null, stamp));
     }
     for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
 
@@ -2006,11 +2170,15 @@ async function refreshFlightStatus(env, force = false) {
 async function getFlightStatus(env) {
     const nowMs = Date.now();
     const from = new Date(nowMs + 3 * 3600e3 - 3 * 864e5).toISOString().slice(0, 10);
-    const { results } = await env.DB.prepare('SELECT key, dir, airport, code, sched, status, callsign, origin, destination, destination_actual, takeoff, landed, ended, eta, delay_min, flag, detail, checked_at, updated_at FROM flight_status WHERE sched >= ? ORDER BY sched').bind(from).all();
+    const { results } = await env.DB.prepare('SELECT key, dir, airport, code, sched, status, callsign, origin, destination, destination_actual, takeoff, landed, ended, eta, delay_min, flag, detail, vf, vf_checked, checked_at, updated_at FROM flight_status WHERE sched >= ? ORDER BY sched').bind(from).all();
     const meta = await env.DB.prepare('SELECT * FROM flight_meta WHERE id = ?').bind('fr24').first();
     const b = fr24Budget(env);
     return json({
-        configured: !!env.FR24_API_KEY, flights: results.map(r => ({ ...r, detail: r.detail ? JSON.parse(r.detail) : {} })), now: new Date().toISOString(),
+        configured: !!env.FR24_API_KEY, flights: results.map(r => ({ ...r, detail: r.detail ? JSON.parse(r.detail) : {}, vf: r.vf ? JSON.parse(r.vf) : null })), now: new Date().toISOString(),
+        variflight: await (async () => {
+            const m = await env.DB.prepare('SELECT * FROM flight_meta WHERE id = ?').bind('vf').first();
+            return { configured: !!env.VARIFLIGHT_API_KEY, budget: vfBudget(env), credits_used: m && m.month === ymKey() ? m.credits_used : 0, last_run: m?.last_run || null, error: m?.last_error || null };
+        })(),
         meta: meta ? { last_run: meta.last_run, next_run: meta.next_run, error: meta.last_error, credits_used: meta.month === ymKey() ? meta.credits_used : 0, last_credits: meta.last_credits } : null,
         budget: { monthly: b.monthly, reserve: b.reserve, usable: b.usable },
     });

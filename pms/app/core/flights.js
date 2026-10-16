@@ -1,5 +1,5 @@
-// Live flight status of our guests' flights (GET /api/flights/status; the server looks them up on Flightradar24 and
-// keeps them). A slip's flight = its UMS arrival or departure leg — only real flights: legs by car, bus or train,
+// Live flight status of our guests' flights (GET /api/flights/status; the server looks them up on Flightradar24 —
+// take-off, landing, ETA — and VariFlight — the airline's schedule, estimates, cancellations, gates — and keeps them). A slip's flight = its UMS arrival or departure leg — only real flights: legs by car, bus or train,
 // and stays coming from or going to the other city, have none.
 import { request } from './cloud.js';
 import { byRoad } from './ums.js';
@@ -78,7 +78,7 @@ export function detailsOf(row) {
  * { label, sentence, text, cls, title } — text = "label — sentence" (CSV, tooltips).
  * Only says what Flightradar24 confirmed: before take-off it cannot know "on time", so it says "no delay reported yet".
  */
-export function describe(dirKey, row) {
+function describeTracked(dirKey, row) {
     const out = (label, sentence, cls, title = '') => ({ label, sentence, text: `${label} — ${sentence}`, cls, title });
     const dep = dirKey === 'dep';
     if (!row) return out('Scheduled', 'Not checked yet — looked up from 8 h before an arrival and 1 h before a departure.', 'wait');
@@ -125,4 +125,68 @@ export function describe(dirKey, row) {
                 ? out('Scheduled', `Departs at ${at}. No delay reported yet.`, 'wait', title)
                 : out('Scheduled', `Lands at ${at}. No delay reported yet.`, 'wait', title);
     }
+}
+
+// The airline's own schedule and status (VariFlight) when we have it; otherwise what Flightradar24 saw.
+// Whichever source has seen the flight further along wins (e.g. FR24 sees the landing before VariFlight's next check).
+export function describe(dirKey, row) {
+    if (row && row.vf && row.vf.state && !['unknown', 'other'].includes(row.vf.state)) return describeAirline(dirKey, row);
+    return describeTracked(dirKey, row);
+}
+
+const mins = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 60e3);
+const AIRLINE = (v) => [
+    v.from && v.to && `${v.from} → ${v.to} · airline schedule ${riyadh(v.sched_dep)} → ${riyadh(v.sched_arr)} (Riyadh time)`,
+    [v.gate && `Gate ${v.gate}`, v.dep_terminal && `Terminal ${v.dep_terminal}`, v.checkin && `Check-in ${v.checkin}`, v.baggage && `Belt ${v.baggage}`].filter(Boolean).join(' · '),
+    [v.aircraft && `Aircraft ${v.aircraft}`, v.reg && `Reg. ${v.reg}`, v.ontime && `On-time record ${v.ontime}`].filter(Boolean).join(' · '),
+    v.delay_reason && `Delay reason: ${v.delay_reason}`,
+].filter(Boolean);
+
+function describeAirline(dirKey, row) {
+    const v = row.vf, dep = dirKey === 'dep';
+    const out = (label, sentence, cls) => ({ label, sentence, text: `${label} — ${sentence}`, cls,
+        title: [...AIRLINE(v), row.vf_checked && `Airline data (VariFlight) checked ${riyadh(row.vf_checked)}`, ...detailsOf(row)].filter(Boolean).join('\n') });
+    const sched = dep ? v.sched_dep : v.sched_arr;
+    const est = dep ? v.est_dep : v.est_arr;
+    const by = (iso) => {                         // " on time" / ", 25 min late" vs the airline's schedule
+        if (!iso || !sched) return '';
+        const t = delayText(mins(iso, sched));
+        return !t ? '' : t === 'on time' ? ' on time' : `, ${t}`;
+    };
+    const late = (iso) => iso && sched ? mins(iso, sched) : 0;
+    // UMS time far from the airline's: say so (UMS times are sometimes wrong)
+    const umsAt = row.sched ? Date.parse(`${row.sched}:00+03:00`) : NaN;
+    const umsNote = sched && Number.isFinite(umsAt) && Math.abs(umsAt - Date.parse(sched)) > 60 * 60e3 ? ` UMS has ${UMS_AT(row)}.` : '';
+    const extra = dep ? [v.gate && `Gate ${v.gate}`, v.checkin && `check-in ${v.checkin}`].filter(Boolean).join(', ') : (v.baggage ? `Belt ${v.baggage}` : '');
+    const tail = (extra ? ` ${extra}.` : '') + umsNote;
+    const warnIf = (base, iso) => late(iso) >= 30 || umsNote ? 'warn' : base;
+
+    if (v.state === 'cancelled') return out('Cancelled', `The airline has cancelled this flight.${umsNote}`, 'bad');
+    if (v.state === 'returned') return out('Returned', `The flight turned back to ${v.from || 'its departure airport'}. Check with the airline.`, 'bad');
+    if (v.state === 'diverted') return out('Diverted', `The flight was diverted${row.destination_actual ? ` to ${place(row.destination_actual)}` : ''}. Check with the airline.`, 'bad');
+
+    const tookOff = v.act_dep || (row.takeoff ? row.takeoff : null);
+    const landed = v.act_arr || (row.landed ? row.landed : null);
+    if (dep) {
+        if (tookOff || ['departed', 'arrived'].includes(v.state) || ['departed', 'arrived'].includes(row.status)) {
+            const t = delayText(late(tookOff));
+            return out('Departed', t === 'on time' ? `Took off on time at ${riyadh(tookOff)}.${umsNote}` : `Took off at ${riyadh(tookOff)}${by(tookOff)}.${umsNote}`, warnIf('ok', tookOff));
+        }
+        if (row.status === 'boarding') return out('Boarding', `The plane is at the gate or taxiing.${tail}`, 'warn');
+        if (est && late(est) > 10) return out('Delayed', `Now expected to depart at ${riyadh(est)}${by(est)}.${tail}`, 'warn');
+        return out('Scheduled', `Your flight will depart on time at ${riyadh(sched)}.${tail}`, umsNote ? 'warn' : 'wait');
+    }
+    if (landed || v.state === 'arrived' || row.status === 'landed') {
+        const at = landed || row.landed;
+        const t = delayText(late(at));
+        return out('Landed', t === 'on time' ? `Landed on time at ${riyadh(at)}.${tail}` : `Landed at ${riyadh(at)}${by(at)}.${tail}`, warnIf('ok', at));
+    }
+    if (tookOff || v.state === 'departed' || row.status === 'airborne') {
+        const eta = est || row.eta;
+        return eta
+            ? out('In flight', `Took off from ${v.from || place(row.origin)}; expected to land at ${riyadh(eta)}${by(eta)}.${umsNote}`, warnIf('air', eta))
+            : out('In flight', `Took off from ${v.from || place(row.origin)}${tookOff ? ` at ${riyadh(tookOff)}` : ''}.${umsNote}`, 'air');
+    }
+    if (est && late(est) > 10) return out('Delayed', `Now expected to land at ${riyadh(est)}${by(est)}.${umsNote}`, 'warn');
+    return out('Scheduled', `Your flight will arrive on time at ${riyadh(sched)}.${umsNote}`, umsNote ? 'warn' : 'wait');
 }

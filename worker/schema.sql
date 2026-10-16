@@ -336,6 +336,8 @@ CREATE TABLE IF NOT EXISTS flight_status (
     delay_min           INTEGER,                     -- vs the UMS time: + late / − early (worked out, FR24 has no schedules)
     flag                TEXT,                        -- late | no_sign (looked up, never seen long past its time: possibly cancelled) | unchecked
     detail              TEXT,                        -- JSON: type, reg, hex, first/last seen, alt, speed, position …
+    vf                  TEXT,                        -- JSON: airline schedule / status from VariFlight (state, sched/est/act times, gate, belt …)
+    vf_checked          TEXT,
     checked_at          TEXT,
     updated_at          TEXT NOT NULL
 );
@@ -347,5 +349,6 @@ CREATE TABLE IF NOT EXISTS flight_meta (
     last_run      TEXT,
     next_run      TEXT,
     last_credits  INTEGER NOT NULL DEFAULT 0,
-    last_error    TEXT
+    last_error    TEXT,
+    bank          REAL NOT NULL DEFAULT 0            -- VariFlight: credits saved up for look-ups (spread over the month)
 );

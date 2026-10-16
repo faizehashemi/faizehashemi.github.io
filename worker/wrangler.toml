@@ -20,6 +20,10 @@ ALLOWED_ORIGINS = "https://pms.raajsoftware.com,https://faizehashemi.github.io"
 # Flightradar24 API: credits in the plan each month, and the share kept in reserve (never used by the PMS)
 FR24_MONTHLY_CREDITS = "60000"
 FR24_RESERVE = "0.25"
+# VariFlight (airline schedule / status): credits a month the PMS may use (1 credit = ¥0.01; a look-up = 50) and the
+# share never used. 5000 = the ¥50 trial — raise it after topping up.
+VF_MONTHLY_CREDITS = "5000"
+VF_RESERVE = "0.2"
 
 [[d1_databases]]
 binding = "DB"
