@@ -322,3 +322,5 @@ td.fl .fl-say { max-width: 220px; }
 .fl-links { display: block; margin-top: 3px; font-size: 11px; white-space: nowrap; color: #8a7d68; }
 .fl-links a { color: #1d5f8a; font-weight: 700; text-decoration: underline; }
 .fl-links a:hover { color: #0b3d5c; }
+.fl-links .fl-na { color: #a99f8c; text-decoration: line-through; cursor: help; }
+.fl-links .fl-for { display: block; white-space: normal; font-size: 10.5px; color: #8a7d68; line-height: 1.3; }

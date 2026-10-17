@@ -242,12 +242,19 @@ export default async function mount(ctx) {
         if (f.kind !== 'flight') return '<td class="fl"><span class="fl-none">—</span></td>';
         const d = FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)) : { label: '…', sentence: '', cls: 'wait', title: '' };
         const row = FLIGHTS?.byKey.get(f.key);
-        return `<td class="fl" title="${escapeHTML(d.title)}"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}">${escapeHTML(d.label)}</span><small class="fl-say">${escapeHTML(d.sentence)}</small>${checkHtml(f.code, row?.callsign)}</td>`;
+        return `<td class="fl" title="${escapeHTML(d.title)}"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}">${escapeHTML(d.label)}</span><small class="fl-say">${escapeHTML(d.sentence)}</small>${checkHtml(f.code, { callsign: row?.callsign, row, dir: f.dir, date: f.leg?.date })}</td>`;
     }
-    // "Check 1 · Check 2": the flight on Trip.com and FlightAware, to confirm by hand
-    function checkHtml(code, callsign) {
-        const l = checkLinks(code, callsign);
-        return l ? `<span class="fl-links"><a href="${escapeHTML(l.trip)}" target="_blank" rel="noopener" title="${escapeHTML(code)} on Trip.com">Check 1</a> · <a href="${escapeHTML(l.fa)}" target="_blank" rel="noopener" title="${escapeHTML(callsign || code)} on FlightAware">Check 2</a></span>` : '';
+    // "Check 1 · Check 2": the flight on Trip.com and FlightAware, to confirm by hand — for the flight's own date
+    // (Trip.com cannot be opened on a date: the tab to tap is named; FlightAware opens the flight or that day's list)
+    function checkHtml(code, o) {
+        const l = checkLinks(code, o);
+        if (!l) return '';
+        const trip = l.tripTab || !l.date
+            ? `<a href="${escapeHTML(l.trip)}" target="_blank" rel="noopener" title="${escapeHTML(code)} on Trip.com${l.tripTab ? ` — it opens on today: tap the “${escapeHTML(l.tripTab)}” tab` : ''}">Check 1</a>`
+            : `<span class="fl-na" title="Trip.com only shows yesterday, today and tomorrow">Check 1 n/a</span>`;
+        const fa = `<a href="${escapeHTML(l.fa)}" target="_blank" rel="noopener" title="${escapeHTML(l.ident)} on FlightAware — ${l.faExact ? `the flight of ${escapeHTML(l.dateLabel)}` : `its list by day: find ${escapeHTML(l.dateLabel || 'the date')}`}">Check 2</a>`;
+        const hint = l.dateLabel ? `<small class="fl-for">${l.tripTab ? `for ${escapeHTML(l.dateLabel)} — on Trip.com tap “${escapeHTML(l.tripTab)}”` : `for ${escapeHTML(l.dateLabel)}`}${l.faExact ? '' : ' · FlightAware: find that day'}</small>` : '';
+        return `<span class="fl-links">${trip} · ${fa}${hint}</span>`;
     }
     function flightText(r, key) {
         const f = flightOf(r, key);
@@ -291,7 +298,7 @@ export default async function mount(ctx) {
               const det = (r.detail || {});
               return `<tr class="${d.cls === 'bad' ? 'row-bad' : d.cls === 'warn' ? 'row-warn' : ''}">
                 <td class="nowrap"><b>${escapeHTML(r.sched.slice(11, 16))}</b><small>${escapeHTML(day(r))}</small></td>
-                <td><b>${escapeHTML(r.code)}</b>${r.callsign ? `<small>${escapeHTML(r.callsign)}</small>` : ''}${checkHtml(r.code, r.callsign)}</td>
+                <td><b>${escapeHTML(r.code)}</b>${r.callsign ? `<small>${escapeHTML(r.callsign)}</small>` : ''}${checkHtml(r.code, { callsign: r.callsign, row: r, dir: r.dir })}</td>
                 <td>${r.dir === 'arr' ? 'Arrival' : 'Departure'}</td>
                 <td>${r.airport === 'MED' ? 'Madina' : 'Jeddah'}</td>
                 <td>${g.length ? `${escapeHTML(g.map(x => x.sh_no).filter(Boolean).join(', '))}<small>${g.length} group${g.length === 1 ? '' : 's'} · ${pax} guests</small>` : '<span class="fl-none">—</span>'}</td>

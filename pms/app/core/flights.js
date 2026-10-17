@@ -33,20 +33,46 @@ const ICAO_AIRLINE = {
     VS: 'VIR', A3: 'AEE', FD: 'AIQ', XQ: 'SXS', QF: 'QFA', TG: 'THA', CX: 'CPA', '8M': 'MMA', PR: 'PAL', '5J': 'CEB',
 };
 
+const FA_ICAO = { JED: 'OEJN', MED: 'OEMA' };
+const riyadhDate = (iso) => new Date(Date.parse(iso) + 3 * 3600e3).toISOString().slice(0, 10);
+const tabLabel = (ymd) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+
 /**
- * Links to check a flight by hand on other sites (opened by a person, in a new tab):
- * trip — Trip.com status page (flight number padded to 3 digits: 6E61 → 6e061);
- * fa — FlightAware, by the ICAO form: the callsign Flightradar24 gave (SVA770), else the airline's ICAO code + the
- * number (XY565 → KNE565, QP562 → AKJ562), else the flight number as it is.
+ * Links to check a flight by hand on other sites (opened by a person, in a new tab), for the flight's own date:
+ * trip — Trip.com status page (flight number padded to 3 digits: 6E61 → 6e061). Its page cannot be opened on a date:
+ *   it shows yesterday, today and tomorrow as tabs — `tripTab` names the tab to tap ('' when the date is outside them).
+ * fa — FlightAware, by the ICAO form (the callsign Flightradar24 gave, else the airline's ICAO code + number): the exact
+ *   flight when the airline's scheduled departure (VariFlight) and both airports are known
+ *   (…/KNE565/history/20261018/0335Z/OEJN/HECA), else that day's list of the flight (…/KNE565/history/20261018).
+ * The date is the departure date: the airline's schedule or the take-off when known, else the UMS date.
+ * @param {string} code  @param {object} [o] { callsign, row (stored status), dir: 'arr'|'dep', date: 'YYYY-MM-DD' (UMS) }
  */
-export function checkLinks(code, callsign) {
+export function checkLinks(code, o = {}) {
+    if (typeof o === 'string' || o == null) o = { callsign: o };      // old form: checkLinks(code, callsign)
     const m = String(code || '').toUpperCase().match(/^([A-Z0-9]{2})(\d+)$/);
     if (!m) return null;
-    const cs = String(callsign || '').toUpperCase().replace(/\s+/g, '');
-    const fa = /^[A-Z]{3}\d/.test(cs) ? cs : ICAO_AIRLINE[m[1]] ? ICAO_AIRLINE[m[1]] + m[2] : m[1] + m[2];
+    const row = o.row || null, v = row && row.vf, d = (row && row.detail) || {};
+    const cs = String(o.callsign || row?.callsign || '').toUpperCase().replace(/\s+/g, '');
+    const ident = /^[A-Z]{3}\d/.test(cs) ? cs : ICAO_AIRLINE[m[1]] ? ICAO_AIRLINE[m[1]] + m[2] : m[1] + m[2];
+    const depAt = (v && v.sched_dep) || row?.takeoff || d.first_seen || null;
+    const date = depAt ? riyadhDate(depAt) : (o.date || row?.sched?.slice(0, 10) || '');
+    // Trip.com's tabs: yesterday … tomorrow (Riyadh)
+    const today = riyadhDate(new Date().toISOString());
+    const off = date ? Math.round((Date.parse(date) - Date.parse(today)) / 864e5) : null;
+    const tripTab = off != null && off >= -1 && off <= 1 ? tabLabel(date) : '';
+    // FlightAware: exact flight (scheduled departure in UTC + both airports, ICAO), else the day's list
+    const dir = o.dir || row?.dir, here = FA_ICAO[row?.airport] || '';
+    const there = dir === 'arr' ? (row?.origin || d.hist?.route?.orig) : (row?.destination_actual || row?.destination || d.hist?.route?.dest);
+    const [orig, dest] = dir === 'arr' ? [there, here] : [here, there];
+    let fa = `https://www.flightaware.com/live/flight/${encodeURIComponent(ident)}`, faExact = false;
+    if (v && v.sched_dep && /^[A-Z]{4}$/.test(orig || '') && /^[A-Z]{4}$/.test(dest || '')) {
+        const t = new Date(v.sched_dep).toISOString();
+        fa += `/history/${t.slice(0, 10).replace(/-/g, '')}/${t.slice(11, 13)}${t.slice(14, 16)}Z/${orig}/${dest}`;
+        faExact = true;
+    } else if (date) fa += `/history/${date.replace(/-/g, '')}`;
     return {
         trip: `https://in.trip.com/flights/status-${m[1].toLowerCase()}${m[2].padStart(3, '0')}/`,
-        fa: `https://www.flightaware.com/live/flight/${encodeURIComponent(fa)}`,
+        fa, faExact, ident, date, dateLabel: date ? tabLabel(date) : '', tripTab,
     };
 }
 
