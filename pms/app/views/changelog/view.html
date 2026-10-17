@@ -1,0 +1,24 @@
+<div class="cl">
+    <header class="cl-head">
+        <div>
+            <h1>Change log</h1>
+            <p>Every change deployed to the PMS since the first page, by feature or day by day.</p>
+        </div>
+        <div class="cl-controls">
+            <label>Search<input type="search" id="clQ" placeholder="e.g. laundry, print, KG" autocomplete="off"></label>
+            <div class="cl-seg" role="group" aria-label="View">
+                <button type="button" data-mode="feature" class="on">By feature</button>
+                <button type="button" data-mode="time">Day by day</button>
+            </div>
+        </div>
+    </header>
+
+    <section class="cl-kpis" id="clKpis"></section>
+    <section id="clBody"></section>
+
+    <section class="cl-card">
+        <h2>Latest Cloudflare deploys</h2>
+        <p class="cl-muted">Site = pages and screens (pms-web) · API = server and database (pms-api). Cloudflare keeps only the last few; the list above is the full history.</p>
+        <div class="cl-scroll"><table class="cl-tbl"><thead><tr><th>When</th><th>What</th></tr></thead><tbody id="clDeploys"></tbody></table></div>
+    </section>
+</div>

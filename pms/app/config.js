@@ -47,6 +47,7 @@ export const VIEWS = [
     { id: 'housekeeping', label: 'Room cleaning',      title: 'Room Cleaning',         hint: 'Which rooms housekeeping does first today, from check-ins and check-outs' },
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
+    { id: 'changelog',    label: 'Change log',         title: 'Change Log',            hint: 'Every deployed change, by feature or day by day' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
     { id: 'laundry',      label: 'Laundry POS',        title: 'Laundry POS',           hint: 'New bill, staff only, building linen, logs, pending cash' },
     { id: 'laundry-admin', label: 'Laundry admin',     title: 'Laundry admin',         hint: 'Sales, reports, bills, prices, staff' },
@@ -69,7 +70,7 @@ export const NAV = [
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
     { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts'] },
-    { id: 'data',   label: 'Data',           views: ['ums', 'admin', 'setup'] },
+    { id: 'data',   label: 'Data',           views: ['ums', 'admin', 'setup', 'changelog'] },
     { id: 'settings', label: 'Settings',     views: ['settings'] },
 ];
 

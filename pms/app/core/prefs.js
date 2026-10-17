@@ -56,6 +56,9 @@ export const DEFAULT_PREFS = {
     pickerOnlyFree: true,      // Pick rooms…: hide full rooms at first
     // check-ins page
     checkinsSplit: false,      // split the tables by where groups come from / go to (airport or the other city)
+    // room cleaning page: housekeeping staff names, and who is on which floor ({ 'site|BUILDING': { floor: [names] } })
+    hkStaff: [],
+    hkFloors: {},
     // data + privacy
     syncSeconds: 30,           // 0 = only on page change / when back online
     analytics: true,           // anonymous usage statistics (PostHog)

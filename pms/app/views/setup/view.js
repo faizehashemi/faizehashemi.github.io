@@ -384,6 +384,7 @@ To stop it only for now, use Disable instead.`)) return;
     let accessDesks = [];            // non-admin desks shown as columns
     let access = new Map();          // desk id -> Set of page ids (edited copy)
     let saved = new Map();           // desk id -> Set as on the server
+    let who = null;                  // login picked in the dropdown (id), or 'all' for the whole table
     const sameSet = (a, b) => [...a].sort().join() === [...b].sort().join();
     const dirtyIds = () => accessDesks.filter(d => !sameSet(access.get(d.id), saved.get(d.id))).map(d => d.id);
 
@@ -392,24 +393,37 @@ To stop it only for now, use Disable instead.`)) return;
         accessDesks = desks.filter(d => d.role !== 'admin');
         saved = new Map(accessDesks.map(d => [d.id, new Set(Array.isArray(d.pages) ? d.pages.filter(p => ALL_PAGES.includes(p)) : ALL_PAGES)]));
         access = new Map([...saved].map(([id, set]) => [id, new Set(set)]));
+        if (who !== 'all' && !accessDesks.some(d => d.id === who)) who = accessDesks[0]?.id ?? null;
         drawAccess();
+    }
+
+    // the dropdown of logins (a * marks unsaved ticks) and "copy pages from" another login
+    function drawWho() {
+        const dirty = new Set(dirtyIds());
+        const opt = (d) => `<option value="${d.id}" ${d.id === who ? 'selected' : ''}>${esc(d.name)} — ${esc(label(d.site))} · ${esc(d.role)}${d.disabled ? ' (disabled)' : ''}${dirty.has(d.id) ? ' *' : ''}</option>`;
+        $('accessWho').innerHTML = accessDesks.map(opt).join('') + `<option value="all" ${who === 'all' ? 'selected' : ''}>All logins (table)</option>`;
+        $('accessCopyWrap').hidden = who === 'all' || accessDesks.length < 2;
+        $('accessCopy').innerHTML = '<option value="">—</option>' + accessDesks.filter(d => d.id !== who).map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
     }
 
     function drawAccess() {
         const tbl = $('accessTbl');
+        drawWho();
+        $('accessWho').disabled = !accessDesks.length;
         if (!accessDesks.length) {
             tbl.querySelector('thead').innerHTML = '';
             tbl.querySelector('tbody').innerHTML = '<tr class="empty"><td>No desk or viewer logins yet. Admins always see every page.</td></tr>';
             updateAccessButtons();
             return;
         }
-        tbl.querySelector('thead').innerHTML = `<tr><th class="pg">Page</th>${accessDesks.map(d => `
+        const shown = who === 'all' ? accessDesks : accessDesks.filter(d => d.id === who);
+        tbl.querySelector('thead').innerHTML = `<tr><th class="pg">Page</th>${shown.map(d => `
             <th class="dk ${d.disabled ? 'off' : ''}" data-id="${d.id}"><span class="dk-n">${esc(d.name)}</span>
                 <span class="dk-s">${esc(label(d.site))} · ${esc(d.role)}</span>
                 <span class="dk-b"><button type="button" data-all="${d.id}">All</button><button type="button" data-none="${d.id}">None</button></span></th>`).join('')}</tr>`;
         tbl.querySelector('tbody').innerHTML = ACCESS_GROUPS.map(g => `
-            <tr class="grp"><th>${esc(g.label)}</th>${accessDesks.map(d => `<td><button type="button" class="linkish" data-grp="${esc(g.label)}" data-id="${d.id}">${g.views.every(v => access.get(d.id).has(v)) ? 'none' : 'all'}</button></td>`).join('')}</tr>
-            ${g.views.map(v => `<tr><th class="pg">${esc(pageLabel(v))}</th>${accessDesks.map(d => {
+            <tr class="grp"><th>${esc(g.label)}</th>${shown.map(d => `<td><button type="button" class="linkish" data-grp="${esc(g.label)}" data-id="${d.id}">${g.views.every(v => access.get(d.id).has(v)) ? 'none' : 'all'}</button></td>`).join('')}</tr>
+            ${g.views.map(v => `<tr><th class="pg">${esc(pageLabel(v))}</th>${shown.map(d => {
                 const on = access.get(d.id).has(v), was = saved.get(d.id).has(v);
                 return `<td class="${on !== was ? 'chg' : ''}"><input type="checkbox" data-id="${d.id}" data-page="${v}" ${on ? 'checked' : ''} aria-label="${esc(d.name)}: ${esc(pageLabel(v))}"></td>`;
             }).join('')}</tr>`).join('')}`).join('');
@@ -423,6 +437,13 @@ To stop it only for now, use Disable instead.`)) return;
         $('btnAccess').textContent = n ? `Save page access (${n} login${n === 1 ? '' : 's'})` : 'Save page access';
     }
 
+    $('accessWho').addEventListener('change', () => { const v = $('accessWho').value; who = v === 'all' ? 'all' : Number(v); drawAccess(); });
+    $('accessCopy').addEventListener('change', () => {
+        const from = Number($('accessCopy').value);
+        if (!from || who === 'all') return;
+        access.set(who, new Set(access.get(from)));
+        drawAccess();
+    });
     $('accessTbl').addEventListener('change', (e) => {
         const cb = e.target.closest('input[data-page]');
         if (!cb) return;

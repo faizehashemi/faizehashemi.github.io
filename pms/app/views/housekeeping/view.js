@@ -9,6 +9,7 @@
 
 import { loadBuildings, buildingsOfSite, normRoom, floorOf } from '../../core/rooms.js';
 import { rowsOf } from '../../core/stay.js';
+import { getPrefs, setPrefs } from '../../core/prefs.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -84,7 +85,74 @@ export default async function mount(ctx) {
         return { day, rows };
     }
 
+    /* staff on floors (kept with the login, on the server): a floor can have several staff, a staff several floors */
+    const fkey = (bld) => `${ctx.siteId}|${bld}`;
+    const staffOn = (bld, floor) => (getPrefs().hkFloors?.[fkey(bld)]?.[floor]) || [];
+    function setStaffOn(bld, floor, names) {
+        const all = { ...(getPrefs().hkFloors || {}) };
+        const b = { ...(all[fkey(bld)] || {}) };
+        if (names.length) b[floor] = names; else delete b[floor];
+        if (Object.keys(b).length) all[fkey(bld)] = b; else delete all[fkey(bld)];
+        setPrefs({ hkFloors: all });
+    }
+    const floorOfRoom = (r) => String(r.floor || '').trim() || floorOf(r.room_no);
+    const floorsOf = (b) => [...new Set(b.rooms.filter(r => r.active !== false).map(floorOfRoom))].sort(natural);
+    function renderStaff() {
+        const sel = $('hkBld').value;
+        $('hkStaffCard').hidden = !sel;
+        if (!sel) return;
+        const staff = getPrefs().hkStaff || [];
+        const blds = BLD.filter(b => sel === '*' || b.name === sel);
+        const opts = '<option value="">+ staff</option>' + staff.map(n => `<option>${esc(n)}</option>`).join('');
+        $('hkFloors').innerHTML = blds.flatMap(b => floorsOf(b).map(f => {
+            const on = staffOn(b.name, f);
+            const n = b.rooms.filter(r => r.active !== false && floorOfRoom(r) === f).length;
+            return `<div class="hk-fl" data-bld="${esc(b.name)}" data-floor="${esc(f)}">
+                <b>${sel === '*' ? `${esc(b.name)} · ` : ''}Floor ${esc(f)} <small>${n} room${n === 1 ? '' : 's'}</small></b>
+                <div class="hk-chipsRow">${on.length ? on.map((x, i) => `<span class="hk-chip">${esc(x)}<button type="button" data-unstaff="${i}" title="Take off this floor" aria-label="Take ${esc(x)} off floor ${esc(f)}">×</button></span>`).join('') : '<span class="hk-none">no staff yet</span>'}</div>
+                <select data-staff aria-label="Add staff to floor ${esc(f)}" ${staff.length ? '' : 'disabled'}>${opts}</select></div>`;
+        })).join('') || '<p class="hk-note">This building has no floors.</p>';
+        $('hkStaffList').innerHTML = staff.length
+            ? `Staff: ${staff.map(x => `<span class="hk-chip">${esc(x)}<button type="button" data-delstaff="${esc(x)}" title="Remove from the staff list" aria-label="Remove ${esc(x)}">×</button></span>`).join('')}`
+            : 'No staff yet — add names above, then put them on floors.';
+    }
+    $('hkAddStaff').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const n = $('hkNewStaff').value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+        if (!n) return;
+        const staff = getPrefs().hkStaff || [];
+        if (!staff.some(x => x.toLowerCase() === n.toLowerCase())) setPrefs({ hkStaff: [...staff, n].sort(natural) });
+        $('hkNewStaff').value = '';
+        renderStaff();
+    });
+    $('hkFloors').addEventListener('change', (e) => {
+        const s = e.target.closest('select[data-staff]');
+        if (!s || !s.value) return;
+        const fl = s.closest('.hk-fl');
+        setStaffOn(fl.dataset.bld, fl.dataset.floor, [...staffOn(fl.dataset.bld, fl.dataset.floor), s.value]);
+        renderStaff();
+    });
+    $('hkStaffCard').addEventListener('click', (e) => {
+        const un = e.target.closest('[data-unstaff]'), del = e.target.closest('[data-delstaff]');
+        if (un) {
+            const fl = un.closest('.hk-fl');
+            const names = [...staffOn(fl.dataset.bld, fl.dataset.floor)]; names.splice(Number(un.dataset.unstaff), 1);
+            setStaffOn(fl.dataset.bld, fl.dataset.floor, names);
+        } else if (del) {
+            const n = del.dataset.delstaff;
+            if (!confirm(`Remove ${n} from the staff list and from every floor?`)) return;
+            const floors = {};
+            for (const [k, b] of Object.entries(getPrefs().hkFloors || {})) {
+                const kept = Object.fromEntries(Object.entries(b).map(([f, ns]) => [f, ns.filter(x => x !== n)]).filter(([, ns]) => ns.length));
+                if (Object.keys(kept).length) floors[k] = kept;
+            }
+            setPrefs({ hkStaff: (getPrefs().hkStaff || []).filter(x => x !== n), hkFloors: floors });
+        } else return;
+        renderStaff();
+    });
+
     function render() {
+        renderStaff();
         if (!$('hkBld').value) {
             $('hkKpis').innerHTML = '';
             $('hkList').innerHTML = '<p class="hk-note">Choose a building to see which rooms to do first.</p>';
@@ -140,13 +208,14 @@ export default async function mount(ctx) {
                 const rooms = here.filter(r => r.p === p).map(r => r.room).sort(natural);
                 return rooms.length ? `<div class="cat"><b>${esc(PRIO[p])}</b> ${rooms.map(esc).join(', ')}</div>` : '';
             }).join('');
-            return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}</h2>${cats}</section>`;
+            const staff = staffOn(bld, floor);
+            return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}${staff.length ? ` <span class="staff">— ${staff.map(esc).join(', ')}</span>` : ''}</h2>${cats}</section>`;
         }).join('') || '<p>—</p>';
         w.document.open();
         w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Room cleaning</title><style>
             @page { margin: 12mm; } body { font: 16px/1.5 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
             section { break-inside: avoid; padding: 6px 0 8px; border-bottom: 1px solid #999; }
-            h2 { font-size: 18px; margin: 8px 0 4px; } .cat { font-size: 18px; margin: 2px 0; } .cat b { display: inline-block; min-width: 230px; font-size: 15px; }
+            h2 { font-size: 18px; margin: 8px 0 4px; } h2 .staff { font-weight: 600; } .cat { font-size: 18px; margin: 2px 0; } .cat b { display: inline-block; min-width: 230px; font-size: 15px; }
             </style></head><body>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
         w.document.close();
     });

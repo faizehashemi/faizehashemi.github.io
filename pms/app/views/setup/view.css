@@ -146,6 +146,9 @@ tr.off td { color: var(--muted) }
 .example b { color: #7a5b13 }
 
 /* page access matrix */
+.access-who { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin: 6px 0 10px }
+.access-who label { display: inline-flex; gap: 8px; align-items: center; font-weight: 600 }
+.access-who select { min-width: 220px }
 .access-wrap { max-height: 70vh }
 #accessTbl th, #accessTbl td { text-align: center; padding: 5px 8px; border-bottom: 1px solid #f1e7d3 }
 #accessTbl th.pg { text-align: left; font-weight: 600; white-space: nowrap; position: sticky; left: 0; background: #fff; z-index: 1 }

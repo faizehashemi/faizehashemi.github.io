@@ -40,6 +40,19 @@ body { background: var(--hk-bg) url("../../../assets/pattern_gold_2x.png") repea
 .hk-who em { font-style: normal; font-size: 11px; font-weight: 800; color: #a12a2a; }
 .hk-noteCell { color: var(--hk-muted); font-size: 12px; }
 .hk-note { font-size: 12px; color: var(--hk-muted); margin: 8px 0 0; }
+/* staff on floors */
+.hk-addstaff { display: flex; gap: 6px; }
+.hk-addstaff input { font: inherit; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--hk-edge); min-width: 180px; }
+.hk-addstaff button, .hk-fl select { font: inherit; font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--hk-gold-deep); background: #fff; color: var(--hk-gold-deep); cursor: pointer; }
+.hk-floors { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.hk-fl { border: 1px solid var(--hk-edge); border-radius: 12px; background: #fff; padding: 8px 10px; display: grid; gap: 6px; }
+.hk-fl > b { font-size: 13px; }
+.hk-fl > b small { color: var(--hk-muted); font-weight: 500; }
+.hk-chipsRow { display: flex; flex-wrap: wrap; gap: 4px; min-height: 24px; }
+.hk-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 9px; border-radius: 999px; background: #f6ecd2; font-size: 12px; font-weight: 700; color: var(--hk-ink); }
+.hk-chip button { border: 0; background: none; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 3px; color: var(--hk-muted); }
+.hk-none { font-size: 12px; color: var(--hk-muted); }
+.hk-staffList { margin-top: 10px; font-size: 12px; color: var(--hk-muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 @media (max-width: 640px) { .hk { padding: 10px 10px 24px; } }
 @media print {
     body { background: #fff; }
