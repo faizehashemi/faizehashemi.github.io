@@ -134,6 +134,10 @@ export const CHANGES = [
     {"d":"2026-10-17","h":"","f":"nav","m":"Change log page (Data): every deployed change since the first page, by feature or day by day, with search"},
     {"d":"2026-10-17","h":"","f":"housekeeping","m":"Room cleaning: staff on floors — several staff per floor, a staff on several floors, add / remove staff; names printed with each floor"},
     {"d":"2026-10-17","h":"","f":"access","m":"Setup → Page access: pick a login from a dropdown (or all logins as a table), copy pages from another login"},
+    {"d":"2026-10-17","h":"b2f1431","f":"mawaid","m":"Tosha: Madina Airport card (Jeddah Airport rules), custom vehicles +2; Copy all 4 in one image"},
+    {"d":"2026-10-17","h":"b2f1431","f":"flights","m":"flight status: no wrong-day matches (MS663 showed yesterday's landing), pacing on live tracking only, \"Check UMS time\" when UMS is far from the usual time"},
+    {"d":"2026-10-17","h":"","f":"flights","m":"flight status: one-off clean-up of all stored flights (57 looked up again, 29 corrected)"},
+    {"d":"2026-10-17","h":"","f":"flights","m":"Check 2 (FlightAware) uses the airline's ICAO code: XY565 → KNE565, QP562 → AKJ562"},
 ];
 // the latest Cloudflare deploys (site = pms-web, api = pms-api); Cloudflare keeps only the last few
 export const DEPLOYS = [{"w":"site","at":"2026-10-17T13:53:25Z"},{"w":"site","at":"2026-10-17T13:44:15Z"},{"w":"api","at":"2026-10-17T13:43:54Z"},{"w":"site","at":"2026-10-17T13:24:45Z"},{"w":"site","at":"2026-10-16T09:24:57Z"},{"w":"site","at":"2026-10-16T05:56:05Z"},{"w":"api","at":"2026-10-16T05:55:31Z"},{"w":"api","at":"2026-10-16T05:48:04Z"},{"w":"site","at":"2026-10-16T05:20:44Z"},{"w":"api","at":"2026-10-16T05:20:24Z"},{"w":"site","at":"2026-10-16T05:03:52Z"},{"w":"site","at":"2026-10-16T04:59:01Z"},{"w":"site","at":"2026-10-16T04:49:18Z"},{"w":"site","at":"2026-10-16T04:40:06Z"},{"w":"api","at":"2026-10-15T15:07:22Z"},{"w":"api","at":"2026-10-15T15:03:54Z"},{"w":"api","at":"2026-10-15T14:57:14Z"},{"w":"api","at":"2026-10-15T14:24:43Z"},{"w":"api","at":"2026-10-15T14:24:10Z"},{"w":"api","at":"2026-10-15T14:18:52Z"}];

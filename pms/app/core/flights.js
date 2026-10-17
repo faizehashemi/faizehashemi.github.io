@@ -21,17 +21,32 @@ export function legOf(slip, dir) {
     return { kind: 'flight', leg, code, key: `${dir}|${leg.date}|${code}` };
 }
 
+// Airline codes: IATA (on tickets / in UMS: XY565) → ICAO (what FlightAware finds: KNE565). The airlines our guests
+// fly — Gulf, Saudi, Egypt, South Asia, South-East Asia, Africa, Europe. FlightAware does not find most IATA forms.
+const ICAO_AIRLINE = {
+    SV: 'SVA', XY: 'KNE', F3: 'FAD', NE: 'NMA', MS: 'MSR', SM: 'MSC', NP: 'NIA', E5: 'RBG', QR: 'QTR', EK: 'UAE', EY: 'ETD',
+    FZ: 'FDB', G9: 'ABY', '3L': 'ADY', '5W': 'WAZ', GF: 'GFA', WY: 'OMA', OV: 'OMS', KU: 'KAC', J9: 'JZR', RJ: 'RJA', ME: 'MEA',
+    TK: 'THY', PC: 'PGT', PK: 'PIA', PA: 'ABQ', ER: 'SEP', '9P': 'FJL', AI: 'AIC', IX: 'AXB', '6E': 'IGO', QP: 'AKJ', SG: 'SEJ',
+    UK: 'VTI', BG: 'BBC', BS: 'UBG', UL: 'ALK', MH: 'MAS', OD: 'MXD', AK: 'AXM', D7: 'XAX', GA: 'GIA', ID: 'BTK', JT: 'LNI',
+    QZ: 'AWQ', TR: 'TGW', SQ: 'SIA', ET: 'ETH', KQ: 'KQA', AT: 'RAM', AH: 'DAH', TU: 'TAR', BJ: 'LBT', HY: 'UZB', KC: 'KZR',
+    J2: 'AHY', IR: 'IRA', W5: 'IRM', SU: 'AFL', LH: 'DLH', BA: 'BAW', AF: 'AFR', KL: 'KLM', LX: 'SWR', OS: 'AUA', W6: 'WZZ',
+    VS: 'VIR', A3: 'AEE', FD: 'AIQ', XQ: 'SXS', QF: 'QFA', TG: 'THA', CX: 'CPA', '8M': 'MMA', PR: 'PAL', '5J': 'CEB',
+};
+
 /**
  * Links to check a flight by hand on other sites (opened by a person, in a new tab):
  * trip — Trip.com status page (flight number padded to 3 digits: 6E61 → 6e061);
- * fa — FlightAware (the callsign when Flightradar24 gave one, e.g. SVA770, else the flight number).
+ * fa — FlightAware, by the ICAO form: the callsign Flightradar24 gave (SVA770), else the airline's ICAO code + the
+ * number (XY565 → KNE565, QP562 → AKJ562), else the flight number as it is.
  */
 export function checkLinks(code, callsign) {
     const m = String(code || '').toUpperCase().match(/^([A-Z0-9]{2})(\d+)$/);
     if (!m) return null;
+    const cs = String(callsign || '').toUpperCase().replace(/\s+/g, '');
+    const fa = /^[A-Z]{3}\d/.test(cs) ? cs : ICAO_AIRLINE[m[1]] ? ICAO_AIRLINE[m[1]] + m[2] : m[1] + m[2];
     return {
         trip: `https://in.trip.com/flights/status-${m[1].toLowerCase()}${m[2].padStart(3, '0')}/`,
-        fa: `https://www.flightaware.com/live/flight/${encodeURIComponent(String(callsign || code).toUpperCase().replace(/\s+/g, ''))}`,
+        fa: `https://www.flightaware.com/live/flight/${encodeURIComponent(fa)}`,
     };
 }
 
