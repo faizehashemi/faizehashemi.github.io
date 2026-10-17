@@ -124,3 +124,24 @@ button.linkish { border: 0; background: none; padding: 4px; color: var(--muted);
 .ql-pick fieldset { border: 1px solid #efe3cb; border-radius: 10px; padding: 6px 10px 8px; margin: 0; background: #fffdf7 }
 .ql-pick legend { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 4px }
 .ql-pick .chk { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 13px; cursor: pointer }
+
+/* menu builder */
+.mb { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 8px 0 }
+.mb-g { border: 1px solid var(--edge); border-radius: 12px; background: #fffdf7; overflow: hidden }
+.mb-gh { display: flex; gap: 4px; align-items: center; padding: 6px; background: #f6ecd2; border-bottom: 1px solid var(--edge) }
+.mb-gh input { flex: 1; min-width: 0; font: inherit; font-weight: 800; padding: 6px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #7a5b13 }
+.mb-gh input:hover, .mb-gh input:focus { border-color: var(--edge); background: #fff }
+.mb button { border: 1px solid var(--edge); background: #fff; border-radius: 6px; padding: 3px 7px; font-size: 11px; cursor: pointer }
+.mb button:disabled { opacity: .3; cursor: default }
+.mb ul { list-style: none; margin: 0; padding: 6px; display: grid; gap: 4px }
+.mb li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 92px auto; gap: 4px; align-items: center; padding: 4px 6px; border-radius: 8px; background: #fff; border: 1px solid #f0e6d2 }
+.mb-pl { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.mb-pl small { color: var(--muted); font-weight: 500 }
+.mb li select { font: inherit; font-size: 11px; padding: 2px; border: 1px solid var(--edge); border-radius: 6px; background: #fff; min-width: 0 }
+.mb li.mb-empty { display: block; color: var(--muted); font-size: 12px; background: none; border-style: dashed }
+.mb-add { display: flex; gap: 8px; margin: 4px 0 10px }
+.mb-add input { flex: 1; max-width: 320px; font: inherit; padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px }
+.mb-pool h3 { margin: 6px 0; font-size: 13px; color: var(--muted) }
+.mb-pool > div { display: flex; flex-wrap: wrap; gap: 6px }
+.mb-chip { display: inline-flex; gap: 6px; align-items: center; padding: 3px 4px 3px 10px; border: 1px dashed var(--gold); border-radius: 999px; background: #fff; font-size: 13px; font-weight: 600 }
+.mb-chip select { font: inherit; font-size: 11px; border: 1px solid var(--edge); border-radius: 999px; padding: 2px 4px; background: #fffdf7 }

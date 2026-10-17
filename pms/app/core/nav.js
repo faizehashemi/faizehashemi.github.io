@@ -1,7 +1,10 @@
 // <site-nav> — the app's navigation.
-//   Laptop (> 900px): one bar — brand · category menus · desk menu · sync status, then the quick links.
-//   Phone/tablet (≤ 900px): compact bar with ☰; the menu opens as a side drawer.
-// Categories and pages come from NAV / VIEWS in config.js. Alt+<key> shortcuts are kept.
+//   Laptop (> 900px): Settings → Menu → layout "top" (one bar — brand · category menus · desk menu · sync) or "side"
+//   (a left sidebar; categories cascade one at a time), then the quick links.
+//   Phone/tablet (≤ 900px): compact bar with ☰; the menu opens as a side drawer (same one-at-a-time cascade).
+// Categories: NAV / VIEWS in config.js, or the login's own menu (Settings → Menu: prefs navMenu / navHidden; two
+// levels only — categories and their pages; pages added to the PMS later land in "New pages"). Alt+<key> shortcuts
+// are kept; Ctrl+K (or 🔍) opens a quick search for any page.
 // API used by the shell: setRoute(siteId, viewId, desk), setBadge(text, warn);
 // events: 'site-change' (detail = siteId; admins only — other logins stay on their own site), 'logout'.
 // Only pages the login may open are listed (canOpen); quick links come from Settings.
@@ -12,6 +15,24 @@ import { canOpen } from './cloud.js';
 
 const viewById = Object.fromEntries(VIEWS.map(v => [v.id, v]));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Pages never offered in a menu group of their own
+const NOT_IN_MENU = new Set(['home', 'login', 'blank']);
+
+/** The menu to show: the login's own groups (Settings → Menu) or the standard NAV; unplaced new pages at the end. */
+export function menuFor(p = getPrefs()) {
+    if (!Array.isArray(p.navMenu)) return NAV.map((c, i) => ({ id: `g${i}`, label: c.label, views: c.views.filter(id => viewById[id]) }));
+    const used = new Set(), groups = [];
+    for (const g of p.navMenu) {
+        const views = (Array.isArray(g?.views) ? g.views : []).filter(id => viewById[id] && !NOT_IN_MENU.has(id) && !used.has(id));
+        views.forEach(v => used.add(v));
+        groups.push({ id: `g${groups.length}`, label: String(g?.label || '').trim() || 'Untitled', views });
+    }
+    const hidden = new Set(Array.isArray(p.navHidden) ? p.navHidden : []);
+    const fresh = VIEWS.filter(v => !v.hidden && !NOT_IN_MENU.has(v.id) && !used.has(v.id) && !hidden.has(v.id)).map(v => v.id);
+    if (fresh.length) groups.push({ id: `g${groups.length}`, label: 'New pages', views: fresh });
+    return groups;
+}
 
 function menuItems(cat) {
     return cat.views.map(id => viewById[id]).filter(Boolean).map(v => `
@@ -35,16 +56,10 @@ class SiteNav extends HTMLElement {
         <a class="brand" href="#" id="brand"><span class="b1">Faiz E Hashemi</span><span class="b2"></span></a>
         <span class="here" id="here"></span>
 
-        <nav class="cats" id="cats">
-          ${NAV.map(c => c.views.length === 1
-            ? `<a class="cat solo" data-cat="${c.id}" data-view="${c.views[0]}" href="#">${esc(c.label)}</a>`
-            : `<div class="dd" data-cat="${c.id}">
-                 <button type="button" class="cat" aria-haspopup="true" aria-expanded="false">${esc(c.label)}<i class="caret"></i></button>
-                 <div class="menu" role="menu">${menuItems(c)}</div>
-               </div>`).join('')}
-        </nav>
+        <nav class="cats" id="cats"></nav>
 
         <div class="tools">
+          <button type="button" class="srch" data-search title="Find a page (Ctrl+K)" aria-label="Find a page">🔍</button>
           <div class="dd desk-dd">
             <button type="button" class="desk" id="deskBtn" aria-haspopup="true" aria-expanded="false"><span id="deskName"></span><i class="caret"></i></button>
             <div class="menu right" role="menu">
@@ -69,9 +84,7 @@ class SiteNav extends HTMLElement {
           <a class="brand" href="#" id="drBrand"><span class="b1">Faiz E Hashemi</span><span class="b2"></span></a>
           <button type="button" class="close" id="drClose" aria-label="Close menu">✕</button>
         </div>
-        <div class="dr-body">
-          ${NAV.map(c => `<section class="dr-sec"><h4>${esc(c.label)}</h4>${menuItems(c)}</section>`).join('')}
-        </div>
+        <div class="dr-body" id="drBody"></div>
         <div class="dr-foot">
           <div class="dr-desk" id="drDesk"></div>
           <div class="dr-sync" id="drSync"></div>
@@ -80,6 +93,31 @@ class SiteNav extends HTMLElement {
           <button type="button" class="dr-logout" data-logout>Log out</button>
         </div>
       </aside>
+
+      <!-- left sidebar (Settings → Menu → Left side; laptops) -->
+      <aside class="side" id="side" aria-label="Menu">
+        <a class="brand sd-brand" href="#"><span class="b1">Faiz E Hashemi</span><span class="b2"></span></a>
+        <button type="button" class="sd-search" data-search>🔍 <span>Find a page</span><kbd>Ctrl K</kbd></button>
+        <div class="sd-body" id="sdBody"></div>
+        <div class="sd-foot">
+          <div class="sd-desk" id="sdDesk"></div>
+          <div class="sd-sync" id="sdSync"></div>
+          <div class="sd-links">
+            <a data-view="settings" href="#">Settings</a><a data-view="setup" href="#">Setup</a>
+            <span data-admin-only hidden>${Object.values(SITES).map(s => `<button type="button" data-site="${s.id}">${esc(s.label)}</button>`).join('')}</span>
+            <button type="button" class="sd-logout" data-logout>Log out</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- quick search (Ctrl+K) -->
+      <div class="qs-back" id="qsBack" hidden>
+        <div class="qs" role="dialog" aria-modal="true" aria-label="Find a page">
+          <input id="qsIn" type="search" placeholder="Find a page…" autocomplete="off" spellcheck="false">
+          <div class="qs-list" id="qsList" role="listbox"></div>
+          <div class="qs-hint">↑ ↓ to choose · Enter to open · Esc to close</div>
+        </div>
+      </div>
 
       <style>
         :host{
@@ -181,6 +219,57 @@ class SiteNav extends HTMLElement {
         .dr-admin [aria-pressed="true"]{ display:none }
         .dr-logout{ border:1px solid #e6bcbc; background:#fff; color:#a12a2a; border-radius:10px; padding:9px; font-weight:650 }
 
+        /* drawer groups: one open at a time */
+        .dr-sec > button.dr-h{ display:flex; width:100%; align-items:center; justify-content:space-between; margin:6px 0 0; padding:10px 8px; border:0; background:none;
+          font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:700; border-radius:8px }
+        .dr-sec > button.dr-h:hover{ background:#fbf1d8 }
+        .dr-sec .dr-items{ display:none }
+        .dr-sec.open .dr-items{ display:grid }
+        .dr-sec.open > .dr-h{ color:#8a6512 }
+        .dr-sec.open > .dr-h .caret, .sd-grp.open > .sd-h .caret{ transform:rotate(-135deg) translateY(-2px) }
+        .srch{ border:1px solid var(--edge); background:#fff; border-radius:999px; width:34px; height:34px; display:inline-grid; place-items:center; font-size:14px }
+        .srch:hover{ background:#fbf1d8 }
+
+        /* left sidebar */
+        .side{ display:none }
+        :host([data-layout="side"]) .side{ position:fixed; top:0; bottom:0; left:0; width:252px; z-index:1000; display:flex; flex-direction:column;
+          background:linear-gradient(180deg,#fffefa,#fff6e2); border-right:1px solid var(--edge); box-shadow:6px 0 24px rgba(60,40,10,.08) }
+        :host([data-layout="side"]) .bar{ display:none }
+        .sd-brand{ padding:16px 16px 8px; font-size:13px }
+        .sd-search{ margin:4px 12px 8px; display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--edge); border-radius:10px; background:#fff; color:var(--muted); font-size:13px; text-align:left }
+        .sd-search span{ flex:1 } .sd-search kbd{ margin:0 }
+        .sd-search:hover{ border-color:var(--gold) }
+        .sd-body{ flex:1; overflow:auto; overscroll-behavior:contain; padding:4px 8px 12px }
+        .sd-grp{ margin-bottom:2px }
+        .sd-h{ display:flex; width:100%; align-items:center; justify-content:space-between; gap:8px; padding:9px 10px; border:0; background:none; border-radius:10px; font-weight:750; font-size:13.5px; text-align:left }
+        .sd-h:hover{ background:#fbf1d8 }
+        .sd-grp.active > .sd-h, a.sd-solo.active{ color:#8a6512 }
+        .sd-items{ display:none; padding:2px 0 6px 8px; border-left:2px solid #f0e2c2; margin-left:12px }
+        .sd-grp.open .sd-items{ display:grid; gap:1px }
+        .sd-items .mi{ padding:7px 10px }
+        .sd-items .mi-h{ display:none }
+        a.sd-solo{ display:block; padding:9px 10px; border-radius:10px; font-weight:750; font-size:13.5px }
+        a.sd-solo:hover{ background:#fbf1d8 } a.sd-solo[aria-current="page"]{ background:#f6e7bf }
+        .sd-foot{ border-top:1px solid var(--edge); padding:10px 14px 14px; display:grid; gap:6px; font-size:12.5px }
+        .sd-desk{ font-weight:700 } .sd-desk small{ display:block; font-weight:500; color:var(--muted) }
+        .sd-sync{ color:var(--muted); font-size:12px } .sd-sync.warn{ color:#a12a2a; font-weight:650 }
+        .sd-links{ display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center }
+        .sd-links a, .sd-links button{ border:0; background:none; padding:0; color:#7a5b13; text-decoration:underline; font-size:12.5px }
+        .sd-links [aria-pressed="true"]{ font-weight:800; text-decoration:none }
+        .sd-links .sd-logout{ color:#a12a2a }
+
+        /* quick search */
+        .qs-back{ position:fixed; inset:0; z-index:1100; background:rgba(20,14,8,.4); display:grid; place-items:start center; padding-top:12vh }
+        .qs{ width:min(560px,92vw); background:var(--panel); border:1px solid var(--edge); border-radius:14px; box-shadow:0 24px 60px rgba(20,14,8,.35); overflow:hidden }
+        .qs input{ width:100%; border:0; border-bottom:1px solid var(--edge); padding:14px 16px; font:inherit; font-size:16px; outline:none; background:#fff }
+        .qs-list{ max-height:50vh; overflow:auto; padding:6px }
+        .qs-list a{ display:grid; grid-template-columns:1fr auto; gap:2px 10px; padding:9px 10px; border-radius:8px }
+        .qs-list a small{ grid-column:1 / -1; color:var(--muted); font-size:12px }
+        .qs-list a em{ font-style:normal; font-size:11px; color:var(--muted); align-self:center }
+        .qs-list a.on, .qs-list a:hover{ background:#fbf1d8 }
+        .qs-empty{ padding:14px; color:var(--muted) }
+        .qs-hint{ padding:6px 12px; font-size:11px; color:var(--muted); border-top:1px solid var(--edge) }
+
         @media (max-width:1180px){ .sync #syncText{ display:none } .cat{ padding:8px 9px } }
         @media (max-width:900px){
           .bar{ gap:8px; padding:6px 10px; min-height:52px }
@@ -190,6 +279,8 @@ class SiteNav extends HTMLElement {
           .brand{ font-size:12.5px; letter-spacing:.1em }
           .here{ display:block; font-weight:650; font-size:13px; color:#8a6512; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0 }
           .cats, .desk-dd{ display:none }
+          :host([data-layout="side"]) .bar{ display:flex }
+          :host([data-layout="side"]) .side{ display:none }
           .quick{ padding:6px 10px }
           .tools{ gap:6px }
           .sync #syncText{ display:none }
@@ -202,28 +293,43 @@ class SiteNav extends HTMLElement {
     connectedCallback() {
         const r = this.shadowRoot;
         const $ = (id) => r.getElementById(id);
-        const dds = [...r.querySelectorAll('.bar .dd')];
-        const closeMenus = (except) => dds.forEach(d => { if (d !== except) { d.classList.remove('open'); d.querySelector(':scope > button')?.setAttribute('aria-expanded', 'false'); } });
+        this.renderMenus();
+        const dds = () => [...r.querySelectorAll('.bar .dd')];
+        const closeMenus = (except) => dds().forEach(d => { if (d !== except) { d.classList.remove('open'); d.querySelector(':scope > button')?.setAttribute('aria-expanded', 'false'); } });
+        this._closeMenus = closeMenus;
 
-        // dropdowns: click to toggle, hover to switch between open menus
-        dds.forEach(dd => {
-            const btn = dd.querySelector(':scope > button');
-            btn.addEventListener('click', (e) => {
+        // dropdowns (delegated, so the menu can be rebuilt): click to toggle, hover to switch between open menus
+        r.addEventListener('click', (e) => {
+            const btn = e.target.closest('.bar .dd > button');
+            if (btn) {
                 e.stopPropagation();
-                const open = !dd.classList.contains('open');
+                const dd = btn.parentElement, open = !dd.classList.contains('open');
                 closeMenus(dd);
                 dd.classList.toggle('open', open);
                 btn.setAttribute('aria-expanded', String(open));
                 if (open && e.detail === 0) dd.querySelector('.mi:not(.static)')?.focus(); // opened by keyboard
-            });
-            dd.addEventListener('mouseenter', () => {
-                if (dds.some(d => d !== dd && d.classList.contains('open'))) { closeMenus(dd); dd.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); }
-            });
+                return;
+            }
+            // sidebar / drawer groups: open one, close the others
+            const h = e.target.closest('.sd-h, .dr-h');
+            if (h) {
+                const grp = h.parentElement, open = !grp.classList.contains('open');
+                grp.parentElement.querySelectorAll(':scope > .open').forEach(g => g.classList.remove('open'));
+                grp.classList.toggle('open', open);
+                h.setAttribute('aria-expanded', String(open));
+                return;
+            }
+            if (e.target.closest('[data-search]')) { closeMenus(); this.closeDrawer(); this.openSearch(); }
+        });
+        r.addEventListener('mouseover', (e) => {
+            const dd = e.target.closest('.bar .dd');
+            if (!dd || dd.classList.contains('open') || !dds().some(d => d.classList.contains('open'))) return;
+            closeMenus(dd); dd.classList.add('open'); dd.querySelector(':scope > button')?.setAttribute('aria-expanded', 'true');
         });
         const onDocClick = (e) => { if (!e.composedPath().includes(this)) closeMenus(); };
         document.addEventListener('click', onDocClick);
         r.addEventListener('click', (e) => {
-            if (e.target.closest('.menu a, .dr-body a, .dr-foot a, a.cat, .brand')) { closeMenus(); this.closeDrawer(); }
+            if (e.target.closest('.menu a, .dr-body a, .dr-foot a, a.cat, .brand, .sd-body a, .sd-links a')) { closeMenus(); this.closeDrawer(); }
             if (e.target.closest('.menu [data-site]')) closeMenus();
             if (e.target.closest('[data-logout]')) { closeMenus(); this.closeDrawer(); this.dispatchEvent(new CustomEvent('logout')); }
             const s = e.target.closest('[data-site]');
@@ -238,7 +344,8 @@ class SiteNav extends HTMLElement {
         // keyboard: Esc closes; Alt+<key> jumps (not while typing)
         const isEditable = (el) => !!el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable);
         const onKey = (e) => {
-            if (e.key === 'Escape') { closeMenus(); this.closeDrawer(); return; }
+            if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K') && this._desk) { e.preventDefault(); closeMenus(); this.closeDrawer(); this.openSearch(); return; }
+            if (e.key === 'Escape') { closeMenus(); this.closeDrawer(); this.closeSearch(); return; }
             if (!e.altKey || isEditable(document.activeElement)) return;
             const id = matchesShortcut(e); // keys and modifier from Settings
             if (!id || !this._site) return;
@@ -246,10 +353,25 @@ class SiteNav extends HTMLElement {
             location.hash = `#/${this._site}/${id}`;
         };
         window.addEventListener('keydown', onKey);
-        const onPrefs = () => this.applyPrefs();
+        // Settings changed: the menu or its layout may have changed too
+        const onPrefs = () => { this.renderMenus(); this.applyPrefs(); if (this._site) this.setRoute(this._site, this._view, this._desk); };
         window.addEventListener('pms:prefs', onPrefs);
         this.applyPrefs();
         r.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeMenus(); this.closeDrawer(); } });
+
+        // quick search: type, ↑↓, Enter
+        $('qsIn').addEventListener('input', () => this.renderSearch());
+        $('qsIn').addEventListener('keydown', (e) => {
+            const items = [...r.querySelectorAll('#qsList a')];
+            const i = items.findIndex(a => a.classList.contains('on'));
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const n = items.length ? (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length : -1;
+                items.forEach((a, k) => a.classList.toggle('on', k === n));
+                items[n]?.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') { e.preventDefault(); const a = items[Math.max(0, i)]; if (a) { location.hash = a.getAttribute('href'); this.closeSearch(); } }
+        });
+        $('qsBack').addEventListener('click', (e) => { if (e.target === $('qsBack') || e.target.closest('#qsList a')) this.closeSearch(); });
 
         // scroll progress
         const prog = r.querySelector('.progress');
@@ -261,7 +383,7 @@ class SiteNav extends HTMLElement {
         window.addEventListener('scroll', onScroll, { passive: true });
         // leaving phone width with the drawer open
         const mq = window.matchMedia('(min-width: 901px)');
-        const onMq = () => { if (mq.matches) this.closeDrawer(); };
+        const onMq = () => { if (mq.matches) this.closeDrawer(); this.applyLayout(); };
         mq.addEventListener('change', onMq);
 
         this._cleanup = () => {
@@ -274,6 +396,58 @@ class SiteNav extends HTMLElement {
     }
 
     disconnectedCallback() { this._cleanup?.(); }
+
+    // The menu (standard or the login's own) into the top bar, the sidebar and the phone drawer
+    renderMenus() {
+        const r = this.shadowRoot;
+        const menu = menuFor();
+        this._menu = menu;
+        r.getElementById('cats').innerHTML = menu.map(c => c.views.length === 1
+            ? `<a class="cat solo" data-cat="${c.id}" data-view="${c.views[0]}" href="#">${esc(c.label)}</a>`
+            : `<div class="dd" data-cat="${c.id}">
+                 <button type="button" class="cat" aria-haspopup="true" aria-expanded="false">${esc(c.label)}<i class="caret"></i></button>
+                 <div class="menu" role="menu">${menuItems(c)}</div>
+               </div>`).join('');
+        r.getElementById('sdBody').innerHTML = menu.map(c => c.views.length === 1
+            ? `<a class="sd-solo" data-cat="${c.id}" data-view="${c.views[0]}" href="#">${esc(c.label)}</a>`
+            : `<section class="sd-grp" data-cat="${c.id}"><button type="button" class="sd-h" aria-expanded="false">${esc(c.label)}<i class="caret"></i></button>
+                 <div class="sd-items">${menuItems(c)}</div></section>`).join('');
+        r.getElementById('drBody').innerHTML = menu.map(c => `<section class="dr-sec" data-cat="${c.id}"><button type="button" class="dr-h" aria-expanded="false">${esc(c.label)}<i class="caret"></i></button>
+                 <div class="dr-items">${menuItems(c)}</div></section>`).join('');
+        this.applyLayout();
+    }
+
+    // top bar or left sidebar (laptops only; phones always use the bar + drawer)
+    applyLayout() {
+        const side = getPrefs().navLayout === 'side' && window.matchMedia('(min-width: 901px)').matches && !!this._desk;
+        this.toggleAttribute('data-layout', false);
+        if (side) this.setAttribute('data-layout', 'side');
+        // the page moves right of the sidebar (core/responsive.css: html[data-nav="side"])
+        if (side) document.documentElement.dataset.nav = 'side'; else delete document.documentElement.dataset.nav;
+    }
+
+    openSearch() {
+        if (!this._desk) return;
+        const r = this.shadowRoot;
+        r.getElementById('qsBack').hidden = false;
+        r.getElementById('qsIn').value = '';
+        this.renderSearch();
+        setTimeout(() => r.getElementById('qsIn').focus(), 0);
+    }
+    closeSearch() { const b = this.shadowRoot.getElementById('qsBack'); if (b) b.hidden = true; }
+    renderSearch() {
+        const r = this.shadowRoot;
+        const q = r.getElementById('qsIn').value.trim().toLowerCase();
+        const groupOf = Object.fromEntries((this._menu || []).flatMap(g => g.views.map(v => [v, g.label])));
+        const list = VIEWS.filter(v => !v.hidden && !NOT_IN_MENU.has(v.id) && canOpen(v.id, this._desk))
+            .map(v => ({ v, hay: `${v.label} ${v.title} ${v.hint || ''} ${groupOf[v.id] || ''}`.toLowerCase() }))
+            .filter(x => !q || q.split(/\s+/).every(w => x.hay.includes(w)))
+            .sort((a, b) => (q && b.v.label.toLowerCase().startsWith(q)) - (q && a.v.label.toLowerCase().startsWith(q)) || a.v.label.localeCompare(b.v.label))
+            .slice(0, 30);
+        r.getElementById('qsList').innerHTML = list.length ? list.map((x, i) => `<a href="#/${this._site}/${x.v.id}" class="${i === 0 ? 'on' : ''}" role="option">
+            <b>${esc(x.v.label)}</b><em>${esc(groupOf[x.v.id] || 'not in menu')}</em><small>${esc(x.v.hint || '')}</small></a>`).join('')
+            : '<div class="qs-empty">No page matches.</div>';
+    }
 
     // Settings → shortcut labels in the menus, sync text
     applyPrefs() {
@@ -332,16 +506,23 @@ class SiteNav extends HTMLElement {
         this._view = viewId;
         this._desk = desk;
         // pages this login may not open disappear from the menus (and empty categories with them)
-        r.querySelectorAll('.cats .mi[data-view], .dr-body .mi[data-view], .desk-dd .mi[data-view], a.cat[data-view]').forEach(a => { a.hidden = !canOpen(a.dataset.view, desk); });
-        r.querySelectorAll('.bar .dd[data-cat], .dr-sec').forEach(el => { el.hidden = !el.querySelector('.mi[data-view]:not([hidden])'); });
+        this.applyLayout();
+        r.querySelectorAll('.cats .mi[data-view], .dr-body .mi[data-view], .sd-body .mi[data-view], .desk-dd .mi[data-view], a.cat[data-view], a.sd-solo[data-view], .sd-links a[data-view]').forEach(a => { a.hidden = !canOpen(a.dataset.view, desk); });
+        r.querySelectorAll('.bar .dd[data-cat], .dr-sec, .sd-grp').forEach(el => { el.hidden = !el.querySelector('.mi[data-view]:not([hidden])'); });
         r.querySelectorAll('[data-admin-only]').forEach(el => { el.hidden = desk?.role !== 'admin'; });
         r.querySelectorAll('.brand').forEach(b => { b.setAttribute('href', `#/${siteId}/home`); b.querySelector('.b2').textContent = SITES[siteId].brand; });
         r.querySelectorAll('[data-view]').forEach(a => {
             a.setAttribute('href', `#/${siteId}/${a.dataset.view}${a.dataset.anchor ? '?section=' + a.dataset.anchor : ''}`);
             if (a.dataset.view === viewId && !a.dataset.anchor) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
-        const cat = NAV.find(c => c.views.includes(viewId));
-        r.querySelectorAll('.bar [data-cat]').forEach(el => el.classList.toggle('active', !!cat && el.dataset.cat === cat.id));
+        const cat = (this._menu || []).find(c => c.views.includes(viewId));
+        r.querySelectorAll('.bar [data-cat], .sd-body [data-cat]').forEach(el => el.classList.toggle('active', !!cat && el.dataset.cat === cat.id));
+        // sidebar and drawer: the group of the open page is the one shown open
+        r.querySelectorAll('.sd-grp, .dr-sec').forEach(el => {
+            const on = !!cat && el.dataset.cat === cat.id;
+            el.classList.toggle('open', on);
+            el.querySelector(':scope > button')?.setAttribute('aria-expanded', String(on));
+        });
         r.getElementById('here').textContent = viewById[viewId]?.hidden ? '' : (viewById[viewId]?.label || '');
         r.querySelectorAll('[data-site]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.site === siteId)));
         this.renderQuick();
@@ -351,6 +532,7 @@ class SiteNav extends HTMLElement {
             r.getElementById('deskName').textContent = `${desk.name} · ${SITES[siteId]?.label || ''}`;
             r.getElementById('deskInfo').innerHTML = `<span class="mi-l">${esc(desk.name)}</span><span class="mi-h">${esc(SITES[desk.site]?.label)} · ${esc(role)}</span>`;
             r.getElementById('drDesk').innerHTML = `${esc(desk.name)}<small>${esc(SITES[desk.site]?.label)} · ${esc(role)}</small>`;
+            r.getElementById('sdDesk').innerHTML = `${esc(desk.name)} · ${esc(SITES[siteId]?.label || '')}<small>${esc(role)}</small>`;
         }
     }
 
@@ -362,6 +544,8 @@ class SiteNav extends HTMLElement {
         r.getElementById('syncText').textContent = short;
         r.getElementById('drSync').textContent = text || '';
         r.getElementById('drSync').classList.toggle('warn', !!warn);
+        r.getElementById('sdSync').textContent = text || '';
+        r.getElementById('sdSync').classList.toggle('warn', !!warn);
     }
 }
 

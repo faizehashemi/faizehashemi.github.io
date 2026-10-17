@@ -9,6 +9,7 @@
             <a href="#" data-sec="password">Password</a>
             <a href="#" data-sec="look">Appearance</a>
             <a href="#" data-sec="layout">Menu &amp; layout</a>
+            <a href="#" data-sec="menu">Menu builder</a>
             <a href="#" data-sec="quick">Quick links</a>
             <a href="#" data-sec="keys">Shortcuts</a>
             <a href="#" data-sec="start">Start page</a>
@@ -67,6 +68,23 @@
                 <div class="row"><div><b>Show sync time next to the green dot</b><span class="muted small">Hover the dot to see it anyway.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="showSyncText"><i></i></label></div></div>
                 <div class="row"><div><b>Show the support footer</b></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="showFooter"><i></i></label></div></div>
                 <div class="row"><div><b>Tables as cards on phones</b><span class="muted small">Off: tables keep their columns and scroll sideways. Takes effect when you open a page.</span></div><div class="ctl"><label class="sw"><input type="checkbox" data-pref="phoneCards"><i></i></label></div></div>
+            </section>
+
+            <section class="st-card" id="sec-menu">
+                <h2>Menu builder</h2>
+                <div class="row"><div><b>Menu position</b><span class="muted small">On laptops. Phones always open the menu from ☰.</span></div>
+                    <div class="ctl seg" data-seg="navLayout"><button type="button" data-val="top">Top (legacy)</button><button type="button" data-val="side">Left side</button></div></div>
+                <p class="muted small">Your own groups and pages — rename, reorder, move pages between groups, or take pages out of the menu. Groups hold pages; pages cannot hold more pages. Saved to your login on every device. Ctrl+K finds any page, even one not in the menu.</p>
+                <div class="mb" id="mbGroups"></div>
+                <div class="mb-add"><input id="mbNew" maxlength="40" placeholder="New group name, e.g. My pages"><button type="button" id="mbAdd">➕ Add group</button></div>
+                <div class="mb-pool"><h3>Not in the menu</h3><div id="mbPool"></div></div>
+                <div class="actions">
+                    <button type="button" id="mbReset">Back to the standard menu</button>
+                    <button type="button" id="mbExport">⬇ Export menu</button>
+                    <button type="button" id="mbImport">⬆ Import menu</button>
+                    <input type="file" id="mbFile" accept="application/json,.json" hidden>
+                    <span id="mbMsg" class="small" role="status"></span>
+                </div>
             </section>
 
             <section class="st-card" id="sec-quick">

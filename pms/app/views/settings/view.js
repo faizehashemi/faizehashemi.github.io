@@ -6,6 +6,7 @@ import { SITES, VIEWS, NAV } from '../../config.js';
 import { currentDesk, request, UserError, canOpen } from '../../core/cloud.js';
 import { getPrefs, setPrefs, resetPrefs, exportPrefs, importPrefs, modLabel } from '../../core/prefs.js';
 import { loadBuildings, buildingNames } from '../../core/rooms.js';
+import { menuFor } from '../../core/nav.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Alt+<these> open the browser's own menus in some browsers — allowed, but worth a warning
@@ -52,7 +53,86 @@ export default async function mount(ctx) {
         $('scaleOut').textContent = `${p.textScale}%`;
         renderKeys();
         renderQuick();
+        renderMenu();
     }
+
+    /* ------------------------------ menu builder ------------------------------ */
+    // The editable menu = what the menu shows now (standard, or this login's own, plus "New pages"); every change
+    // saves navMenu (groups) + navHidden (pages taken out). Two levels only: groups → pages.
+    const NOT_IN_MENU = new Set(['home', 'login', 'blank']);
+    const viewLabel = (id) => VIEWS.find(v => v.id === id)?.label || id;
+    const draft = () => menuFor().map(g => ({ label: g.label, views: [...g.views] }));
+    const poolOf = (groups) => { const used = new Set(groups.flatMap(g => g.views)); return VIEWS.filter(v => !v.hidden && !NOT_IN_MENU.has(v.id) && !used.has(v.id)).map(v => v.id); };
+    const saveMenu = (groups, text = 'Menu saved') => save({ navMenu: groups.map(g => ({ label: g.label, views: g.views })), navHidden: poolOf(groups) }, text);
+    function renderMenu() {
+        const groups = draft(), pool = poolOf(groups);
+        const opts = (cur) => groups.map((g, i) => `<option value="${i}" ${i === cur ? 'selected' : ''}>${esc(g.label)}</option>`).join('');
+        $('mbGroups').innerHTML = groups.map((g, gi) => `<div class="mb-g" data-g="${gi}">
+            <div class="mb-gh"><input data-mb-rename value="${esc(g.label)}" maxlength="40" aria-label="Group name">
+                <button type="button" data-mb-gmove="-1" ${gi === 0 ? 'disabled' : ''} aria-label="Move group up">▲</button>
+                <button type="button" data-mb-gmove="1" ${gi === groups.length - 1 ? 'disabled' : ''} aria-label="Move group down">▼</button>
+                <button type="button" data-mb-gdel aria-label="Delete group ${esc(g.label)}" title="Delete the group (its pages go to “Not in the menu”)">✕</button></div>
+            <ul>${g.views.map((id, pi) => `<li data-p="${pi}"><span class="mb-pl">${esc(viewLabel(id))}${canOpen(id, me) ? '' : ' <small>(no access)</small>'}</span>
+                <button type="button" data-mb-pmove="-1" ${pi === 0 ? 'disabled' : ''} aria-label="Up">▲</button>
+                <button type="button" data-mb-pmove="1" ${pi === g.views.length - 1 ? 'disabled' : ''} aria-label="Down">▼</button>
+                <select data-mb-to aria-label="Move ${esc(viewLabel(id))} to">${opts(gi)}</select>
+                <button type="button" data-mb-out aria-label="Take ${esc(viewLabel(id))} out of the menu">✕</button></li>`).join('') || '<li class="mb-empty">No pages — move some here, or delete the group.</li>'}</ul></div>`).join('');
+        $('mbPool').innerHTML = pool.length ? pool.map(id => `<span class="mb-chip">${esc(viewLabel(id))}
+            <select data-mb-in="${id}" aria-label="Add ${esc(viewLabel(id))} to a group"><option value="">Add to…</option>${opts(-1)}</select></span>`).join('')
+            : '<span class="muted small">Every page is in the menu.</span>';
+    }
+    $('mbGroups').addEventListener('change', (e) => {
+        const g = e.target.closest('[data-g]'); if (!g) return;
+        const groups = draft(), gi = Number(g.dataset.g);
+        if (e.target.matches('[data-mb-rename]')) { groups[gi].label = e.target.value.trim() || 'Untitled'; saveMenu(groups, 'Group renamed'); }
+        if (e.target.matches('[data-mb-to]')) {
+            const pi = Number(e.target.closest('[data-p]').dataset.p), to = Number(e.target.value);
+            if (to === gi) return;
+            const [id] = groups[gi].views.splice(pi, 1); groups[to].views.push(id);
+            saveMenu(groups, `Moved to ${groups[to].label}`);
+        }
+    });
+    $('mbGroups').addEventListener('click', (e) => {
+        const b = e.target.closest('button'); const g = e.target.closest('[data-g]'); if (!b || !g) return;
+        const groups = draft(), gi = Number(g.dataset.g);
+        if (b.dataset.mbGmove) { const j = gi + Number(b.dataset.mbGmove); [groups[gi], groups[j]] = [groups[j], groups[gi]]; saveMenu(groups, 'Order saved'); }
+        else if ('mbGdel' in b.dataset) { if (!confirm(`Delete the group “${groups[gi].label}”? Its pages go to “Not in the menu”.`)) return; groups.splice(gi, 1); saveMenu(groups, 'Group deleted'); }
+        else {
+            const pi = Number(e.target.closest('[data-p]')?.dataset.p);
+            if (b.dataset.mbPmove) { const v = groups[gi].views, j = pi + Number(b.dataset.mbPmove); [v[pi], v[j]] = [v[j], v[pi]]; saveMenu(groups, 'Order saved'); }
+            else if ('mbOut' in b.dataset) { groups[gi].views.splice(pi, 1); saveMenu(groups, 'Taken out of the menu'); }
+        }
+    });
+    $('mbPool').addEventListener('change', (e) => {
+        const s = e.target.closest('[data-mb-in]'); if (!s || s.value === '') return;
+        const groups = draft(); groups[Number(s.value)].views.push(s.dataset.mbIn); saveMenu(groups, `Added to ${groups[Number(s.value)].label}`);
+    });
+    $('mbAdd').addEventListener('click', () => {
+        const name = $('mbNew').value.trim();
+        if (!name) { $('mbNew').focus(); return; }
+        const groups = draft(); groups.push({ label: name, views: [] }); $('mbNew').value = '';
+        saveMenu(groups, `Group “${name}” added — move pages into it`);
+    });
+    $('mbNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('mbAdd').click(); } });
+    $('mbReset').addEventListener('click', () => { if (confirm('Go back to the standard menu? Your groups are removed (the layout stays).')) save({ navMenu: null, navHidden: [] }, 'Standard menu back'); });
+    $('mbExport').addEventListener('click', () => {
+        const p = getPrefs();
+        const blob = new Blob([JSON.stringify({ pmsMenu: 1, navLayout: p.navLayout, navMenu: p.navMenu, navHidden: p.navHidden }, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pms-menu-${(me?.name || 'login').replace(/\W+/g, '-')}.json`; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    });
+    $('mbImport').addEventListener('click', () => $('mbFile').click());
+    $('mbFile').addEventListener('change', async (e) => {
+        const f = e.target.files[0]; e.target.value = '';
+        if (!f) return;
+        try {
+            const m = JSON.parse(await f.text());
+            if (!m || m.pmsMenu !== 1 || (m.navMenu !== null && !Array.isArray(m.navMenu))) throw new Error('not a PMS menu file');
+            const navMenu = m.navMenu && m.navMenu.map(g => ({ label: String(g?.label || 'Untitled').slice(0, 40), views: (Array.isArray(g?.views) ? g.views : []).filter(id => VIEWS.some(v => v.id === id)) }));
+            save({ navLayout: m.navLayout === 'side' ? 'side' : 'top', navMenu, navHidden: Array.isArray(m.navHidden) ? m.navHidden.filter(id => VIEWS.some(v => v.id === id)) : [] }, 'Menu imported');
+            $('mbMsg').textContent = 'Menu imported.'; $('mbMsg').className = 'small ok';
+        } catch (err) { $('mbMsg').textContent = `Could not import: ${err.message}`; $('mbMsg').className = 'small bad'; }
+    });
 
     function renderQuick() {
         const ql = (getPrefs().quickLinks || []).filter(id => pages.some(v => v.id === id));

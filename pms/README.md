@@ -366,6 +366,14 @@ Code: `app/core/prefs.js` (defaults, apply) and `app/views/settings/`.
 **Change password** (Settings, or the desk menu) works for every login: it needs the current password,
 logs the desk out on other computers and keeps this one logged in (`POST /api/me/password`).
 
+**Menu builder** (Settings → Menu builder): menu position **Top (legacy)** or **Left side** on laptops (phones keep
+the ☰ drawer); the login's own groups — rename, reorder, move pages between groups, take pages out of the menu — two
+levels only (groups → pages). In the sidebar and the phone drawer a group opens on click and the others close; the
+open page's group opens by itself. Pages added to the PMS later appear in a **New pages** group. Prefs `navLayout`,
+`navMenu` (`[{ label, views }]`, null = standard NAV), `navHidden`; saved to the login like every setting. **Export /
+Import menu** (JSON). **Ctrl+K** (or 🔍) finds any page the login may open, including pages not in the menu.
+Code: `menuFor()` and `<site-nav>` in `app/core/nav.js`.
+
 ## Analytics (PostHog)
 
 **Disconnected on 2026-10-03.** `POSTHOG.key` in `app/config.js` is empty, so `app/core/analytics.js` never loads

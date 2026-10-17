@@ -39,6 +39,11 @@ export const DEFAULT_PREFS = {
     startSite: 'last',         // 'last' or a site id
     // quick links: pages shown as a strip under the menu bar, in this order
     quickLinks: [],
+    // menu (Settings → Menu): 'top' bar or 'side' bar on laptops; the login's own groups (null = standard menu)
+    // [{ label, views: [page ids] }] — two levels only; pages taken out of the menu
+    navLayout: 'top',
+    navMenu: null,
+    navHidden: [],
     // shortcuts
     shortcutsOn: true,
     shortcutMod: 'alt',        // alt | alt+shift | ctrl+alt

@@ -125,3 +125,6 @@
     #view[data-view="slip"] .controls { justify-content: stretch; }
     #view[data-view="slip"] .controls button { flex: 1; }
 }
+
+/* Settings → Menu → Left side (core/nav.js sets html[data-nav=side] on laptops): pages sit right of the sidebar */
+@media (min-width: 901px) { html[data-nav="side"] body { padding-left: 252px; } }
