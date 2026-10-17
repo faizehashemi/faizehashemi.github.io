@@ -125,6 +125,11 @@ number; it is saved on the row as `gl: true` and shows a **GL** tag in the room 
 an ordinary one. Beside *Pick rooms…* the slip shows, in large red type, the beds on its room tables against the
 counts: *Gents x / gents* and *Ladies y / ladies + children*, marked *incl. GL* on the group leader's side.
 
+**Not in this UMS file** (review tab): slips of this site checking in within the dates the file covers (its first to
+last check-in) that the file does not have — from an earlier UMS list (stay gone: cancelled or postponed?) or made in
+the PMS with an SH the file lacks. **Keep** (sets `ums_absent_kept`, not listed again), **Edit** (opens the slip) or
+**Delete**.
+
 ## Home
 
 The start page greets the desk by name and shows: **today at a glance** (check-ins and check-outs from

@@ -98,3 +98,8 @@ td .note { display: block; color: var(--warn); font-size: 12px }
 tr.empty td { text-align: center; color: var(--muted); padding: 18px }
 
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 12px }
+
+/* Not in this UMS file */
+.plan-note { margin: 8px 0; padding: 8px 12px; border-radius: 10px; background: #fff4de; border: 1px solid #f3d984; font-size: 13px; }
+#planCard [data-miss-act], #planCard .btn-link { font: inherit; font-size: 12px; padding: 4px 10px; border: 1px solid #d4af37; border-radius: 8px; background: #fff; color: #7a5b13; cursor: pointer; text-decoration: none; display: inline-block; margin-right: 4px; }
+#planCard [data-miss-act].danger { border-color: #c0392b; color: #a12a2a; }

@@ -69,7 +69,7 @@ export default async function mount(ctx) {
         ['attention', 'Needs attention', () => plan.update.filter(u => u.notes.length)],
         ['kept', 'Your edits kept', () => plan.kept],
         ['relink', 'Linked, no change', () => plan.update.filter(u => u.relinkOnly)],
-        ['missing', 'Not in this export', () => plan.missing],
+        ['missing', 'Not in this UMS file', () => plan.missing],
     ];
 
     function renderPlan() {
@@ -96,10 +96,20 @@ export default async function mount(ctx) {
                 <td>${esc(slip.sh_no)}</td><td>${esc(slip.tour_name)}</td><td class="nowrap">${stay(slip)}</td>
                 <td>${Object.entries(kept).map(([f, k]) => `<span class="chg"><b>${f}</b>: ${esc(k.yours)} <span class="muted">(UMS: ${esc(k.ums)}${k.delayed ? ' — kept: delayed departure' : ''})</span></span>`).join('')}</td></tr>`).join('');
         } else if (tab === 'missing') {
-            thead.innerHTML = '<tr><th>SH</th><th>Group</th><th>Stay</th><th>Building</th><th>Last imported</th></tr>';
-            tbody.innerHTML = rows.map(s => `<tr>
-                <td>${esc(s.sh_no)}</td><td>${esc(s.tour_name)}</td><td class="nowrap">${stay(s)}</td>
-                <td>${esc(s.building || '—')}</td><td class="nowrap">${when(s.ums?.importedAt)}</td></tr>`).join('');
+            // in the PMS, checking in within this file's dates, but not in the file: cancelled / postponed in UMS?
+            const r = plan.missingRange;
+            $('planNote').hidden = false;
+            $('planNote').innerHTML = r ? `Slips in the PMS checking in <b>${dmy(r.from)} – ${dmy(r.to)}</b> (the dates this file covers) that the file does not have —
+                the SH may have been <b>cancelled or postponed</b> in UMS. Keep, edit or delete each. Kept slips are not listed again.` : 'This file has no stays for this site.';
+            const rooms = (s) => ['gents', 'ladies'].flatMap(k => (s.rooms?.[k] || []).map(x => String(x.room_no || '').trim()).filter(Boolean));
+            thead.innerHTML = '<tr><th>SH</th><th>Group</th><th>Stay</th><th>Building · rooms</th><th>From</th><th>Action</th></tr>';
+            tbody.innerHTML = rows.map(({ slip: s, why }) => `<tr data-miss="${s.id}">
+                <td>${esc(s.sh_no)}</td><td>${esc(s.tour_name)}<br><span class="muted">${esc(String(s.group_leader || '').trim() || '-')}</span></td><td class="nowrap">${stay(s)}</td>
+                <td>${esc(s.building || '—')}${rooms(s).length ? `<br><span class="muted">${esc(rooms(s).join(', '))}</span>` : ''}</td>
+                <td>${why === 'ums' ? `UMS, last imported ${when(s.ums?.importedAt)}` : 'made in the PMS'}</td>
+                <td class="nowrap">${db.readonly ? '' : `<button type="button" data-miss-act="keep">Keep</button>
+                    <a class="btn-link" href="${esc(ctx.href('slip', { sh_no: s.sh_no }))}" target="_blank" rel="noopener">Edit</a>
+                    <button type="button" data-miss-act="delete" class="danger">Delete</button>`}</td></tr>`).join('');
         } else {
             thead.innerHTML = '<tr><th>SH</th><th>Group</th><th>Building</th><th>Stay (new)</th><th>Changes</th></tr>';
             tbody.innerHTML = rows.map(u => `<tr>
@@ -109,6 +119,7 @@ export default async function mount(ctx) {
                     || '<span class="muted">linked to UMS stay ' + esc(u.key) + '</span>'}
                     ${u.notes.map(n => `<span class="note">⚠ ${esc(n)}</span>`).join('')}</td></tr>`).join('');
         }
+        if (tab !== 'missing') $('planNote').hidden = true;
         if (!rows.length) tbody.innerHTML = `<tr class="empty"><td colspan="7">Nothing here.</td></tr>`;
 
         const s = summarize(plan);
@@ -117,6 +128,28 @@ export default async function mount(ctx) {
         $('btnApply').textContent = nothing ? 'Nothing to apply' : `Apply: ${s.created} new, ${s.updated} updated${s.relinked ? `, ${s.relinked} linked` : ''}`;
         if (db.readonly) $('applyStatus').textContent = db.readonlyReason;
     }
+
+    // Not in this UMS file: keep (not listed again) or delete; Edit opens the slip
+    $('planCard').addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-miss-act]');
+        if (!b || !plan) return;
+        const id = Number(b.closest('[data-miss]').dataset.miss);
+        const item = plan.missing.find(m => m.slip.id === id);
+        if (!item) return;
+        const s = item.slip;
+        b.disabled = true;
+        try {
+            if (b.dataset.missAct === 'delete') {
+                if (!confirm(`Delete slip SH ${s.sh_no} (${s.tour_name || ''}, ${stay(s)})? It is not in the UMS file — cancelled or postponed?`)) { b.disabled = false; return; }
+                await ctx.guard(db.remove(id));
+            } else {
+                await ctx.guard(db.update(id, { ums_absent_kept: { at: new Date().toISOString(), file: loaded?.fileName || '' } }));
+            }
+            plan.missing = plan.missing.filter(m => m.slip.id !== id);
+            renderPlan();
+            $('applyStatus').textContent = b.dataset.missAct === 'delete' ? `SH ${s.sh_no} deleted.` : `SH ${s.sh_no} kept.`;
+        } catch (err) { alert(err.message || String(err)); b.disabled = false; }
+    });
 
     $('btnApply').addEventListener('click', async () => {
         if (!plan || !loaded) return;

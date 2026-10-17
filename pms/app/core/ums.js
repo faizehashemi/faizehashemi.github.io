@@ -273,8 +273,11 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
     }
     const claimed = new Set();
     const seenKeys = new Set();
+    const fileShs = new Set();   // every SH in the file (any site)
+    let fromDay = null, toDay = null; // check-in dates this file covers for this site
 
     for (const g of parsed.groups) {
+        fileShs.add(String(g.sh));
         const { stays, warnings } = staysOf(g, cfg);
         plan.warnings.push(...warnings);
         const mine = stays.filter(st => st.site === siteId);
@@ -286,6 +289,8 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
             const vals = umsValues(g, stay);
             const meta = umsMeta(g, stay, now);
             seenKeys.add(meta.key);
+            if (!fromDay || vals.checkin_date < fromDay) fromDay = vals.checkin_date;
+            if (!toDay || vals.checkin_date > toDay) toDay = vals.checkin_date;
 
             // 1) slip already linked to this stay; 2) adopt an unlinked slip with the same SH and a
             //    close check-in (hand-typed or from an older list); 3) otherwise create a new one.
@@ -340,8 +345,15 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
         }
     }
 
+    // Slips in the PMS checking in within the dates this file covers but not in it — the SH may have been cancelled or
+    // postponed in UMS. From UMS before (its stay is gone now), or made in the PMS with an SH the file doesn't have.
+    // A slip the admin chose to keep for this reason (ums_absent_kept) is not listed again.
+    plan.missingRange = fromDay ? { from: fromDay, to: toDay } : null;
     for (const s of existing) {
-        if (s.ums?.key && !seenKeys.has(s.ums.key) && s.site === siteId) plan.missing.push(s);
+        if (s.deleted || s.site !== siteId || !fromDay || s.ums_absent_kept) continue;
+        if (!s.checkin_date || s.checkin_date < fromDay || s.checkin_date > toDay) continue;
+        if (s.ums?.key) { if (!seenKeys.has(s.ums.key)) plan.missing.push({ slip: s, why: 'ums' }); }
+        else if (!claimed.has(s.id) && String(s.sh_no ?? '').trim() && !fileShs.has(baseSh(s.sh_no))) plan.missing.push({ slip: s, why: 'pms' });
     }
     return plan;
 }
