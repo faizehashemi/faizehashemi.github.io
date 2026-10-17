@@ -1771,7 +1771,9 @@ const fTime = (v) => v ? (/[zZ]$|[+-]\d\d:?\d\d$/.test(v) ? v : v + 'Z') : null;
 function pickRecord(f, list) {
     const icao = FR24_AIRPORTS[f.airport];
     const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
-    const same = list.filter(x => String(x.flight || '').toUpperCase().replace(/^([A-Z0-9]{2})0+/, '$1') === f.code);
+    // the same number on another day is another flight: first seen 18 h (arrival) / 6 h (departure) before its time at
+    // the most, 10 h after at the most (a look-up before today's flight exists must not take yesterday's)
+    const same = list.filter(x => String(x.flight || '').toUpperCase().replace(/^([A-Z0-9]{2})0+/, '$1') === f.code && plausible(f, x));
     // ours: an arrival bound for our airport — or still in the air with no destination yet (FR24 fills it in on
     // landing) and not leaving from here; a departure leaving from our airport
     const ours = (x) => f.dir === 'arr'
@@ -1785,6 +1787,13 @@ function pickRecord(f, list) {
     // shown as such, so the desk sees it
     const other = nearest(same.filter(x => f.dir === 'arr' ? (fDestActual(x) || fDest(x)) : fOrig(x)));
     return other && Math.abs(at(other) - due) < 12 * 3600e3 ? { ...other, _elsewhere: true } : null;
+}
+
+function plausible(f, x) {
+    const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    const seen = Date.parse(fTime(x.first_seen || x.datetime_takeoff) || '');
+    if (!Number.isFinite(seen)) return true;
+    return seen >= due - (f.dir === 'arr' ? 18 : 6) * 3600e3 && seen <= due + 10 * 3600e3;
 }
 
 function statusOf(f, rec) {
@@ -2248,9 +2257,19 @@ async function refreshFlightStatus(env, force = false) {
     const due = (f) => riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
     const iso = (ms) => new Date(ms).toISOString().slice(0, 19);
     const stamp = now.toISOString();
+    const recheck = new Set();
+    for (const f of flights) {
+        const p = rows.get(f.key);
+        const d = p && p.detail ? JSON.parse(p.detail) : {};
+        if (!p || !p.fr24_id || plausible(f, { first_seen: d.first_seen, datetime_takeoff: p.takeoff })) continue;
+        Object.assign(p, { status: 'scheduled', fr24_id: null, callsign: null, origin: null, destination: null, destination_actual: null,
+            takeoff: null, landed: null, ended: 0, eta: null, eta_checked: null, checked_at: null, delay_min: null, flag: null,
+            detail: JSON.stringify({ hist: d.hist, inbound_today: d.inbound_today }), _was: 'reset' });
+        if (nowMs <= due(f) + 24 * 3600e3) recheck.add(f.key);
+    }
     // the working copy of every flight shown (12 h ago … 24 h ahead) or still being followed
     const shown = flights.filter(f => due(f) >= nowMs - FLIGHT_SHOW_BEFORE_H * 3600e3 && due(f) <= nowMs + FLIGHT_SHOW_AHEAD_H * 3600e3);
-    const todo = flights.filter(f => inPlay(f, rows.get(f.key), nowMs));
+    const todo = flights.filter(f => inPlay(f, rows.get(f.key), nowMs) || recheck.has(f.key));
     const state = new Map();
     for (const f of [...shown, ...todo]) {
         const p = rows.get(f.key);
@@ -2337,6 +2356,8 @@ async function refreshFlightStatus(env, force = false) {
         } catch (e) { fail(e); }
     }
     // 2c–2e) the past days of each flight number, the plane of each departure, gates (see "what the past days say")
+    // — paced on their own (daily top-ups, capped per run), so they do not slow the take-off / landing look-ups below
+    const trackCredits = credits;
     try {
         const h = await refreshHistory(env, shown, nowMs, out);
         credits += h.credits; if (h.error) fail(h.error);
@@ -2360,7 +2381,7 @@ async function refreshFlightStatus(env, force = false) {
         const p = rows.get(f.key);
         const detail = JSON.stringify(f.detail || {});
         const vfText = f.vf ? JSON.stringify(f.vf) : null;
-        const same = p && ['status', 'fr24_id', 'callsign', 'origin', 'destination', 'destination_actual', 'takeoff', 'landed', 'ended', 'checked_at', 'eta', 'eta_checked', 'delay_min', 'flag', 'sched', 'airport', 'vf_checked']
+        const same = p && p._was !== 'reset' && ['status', 'fr24_id', 'callsign', 'origin', 'destination', 'destination_actual', 'takeoff', 'landed', 'ended', 'checked_at', 'eta', 'eta_checked', 'delay_min', 'flag', 'sched', 'airport', 'vf_checked']
             .every(k => (p[k] ?? null) === (f[k] ?? null)) && (p.detail || '{}') === detail && (p.vf ?? null) === vfText;
         if (same) continue;
         stmts.push(env.DB.prepare(`INSERT INTO flight_status (key, dir, airport, code, sched, status, fr24_id, callsign, origin, destination, destination_actual,
@@ -2378,7 +2399,7 @@ async function refreshFlightStatus(env, force = false) {
 
     // next look-up: what is left (outside the reserve), spread over the rest of the month, at this pace
     if (!todo.length) return saveMeta({ next_run: later(FLIGHT_MIN_GAP), last_credits: credits, error });
-    const perRun = Math.max(1, credits || todo.length);
+    const perRun = Math.max(1, trackCredits || todo.length);
     const runsLeft = Math.max(0, usable - used) / perRun;
     const gap = runsLeft < 1 ? FLIGHT_MAX_GAP * 6 : Math.min(FLIGHT_MAX_GAP, Math.max(FLIGHT_MIN_GAP, Math.ceil(daysLeftInMonth(now) * 1440 / runsLeft)));
     await saveMeta({ next_run: later(error ? Math.max(gap, 15) : gap), last_credits: credits, error });

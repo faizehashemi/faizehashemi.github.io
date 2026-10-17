@@ -173,8 +173,11 @@ export default async function mount(ctx) {
           <div class="ts-counts">${st.models.get('madina').chips.map(t => `<span>${esc(t)}</span>`).join('')}</div>`);
     }
 
-    function airportCard(d, st) {
-        const g = st.groups.find(x => x.dest.id === 'airport');
+    // Jeddah Airport and Madina Airport: the same rules (pax + 2 a vehicle, by departure time, packet / burger per bus)
+    const AIRPORTS = { airport: { title: 'JEDDAH AIRPORT', icon: '✈️', name: 'Jeddah Airport' }, madair: { title: 'MADINA AIRPORT', icon: '🛫', name: 'Madina Airport' } };
+    function airportCard(d, st, id = 'airport') {
+        const A = AIRPORTS[id];
+        const g = st.groups.find(x => x.dest.id === id);
         const buses = [...g.buses].sort((a, b) => a.at.localeCompare(b.at) || (a.bus ?? 0) - (b.bus ?? 0));
         const slots = new Map();
         for (const b of buses) { const k = b.at.slice(11, 16); if (!slots.has(k)) slots.set(k, []); slots.get(k).push(b); }
@@ -195,20 +198,20 @@ export default async function mount(ctx) {
                   <td class="c"><input type="checkbox" data-b="${esc(busKey(b))}.burger"${ch.burger ? ' checked' : ''} aria-label="Burger for ${esc(vno(b))}"></td></tr>`);
             }
         }
-        st.models.set('airport', {
-            title: 'JEDDAH AIRPORT · TOSHA', sub: `${sheetDate(d.day)} · ${fleet(buses)}`, notes: [],
+        st.models.set(id, {
+            title: `${A.title} · TOSHA`, sub: `${sheetDate(d.day)} · ${fleet(buses)}`, notes: [],
             head: ['Time / Bus', 'From', 'Groups', 'Pax', '+', 'Total', 'Tosha', 'Burger'], widths: [20, 12, 30, 8, 6, 9, 7, 8],
             align: [, , , 'right', 'right', 'right', 'center', 'center'],
             rows: rowsM,
             foot: ['Total', '', plural(g.groups, 'group'), pax, extra ? `+${extra}` : '', total, packets, burgers || ''],
             chips: [`Tosha packets: ${packets}`, burgers && `Burgers: ${burgers}`].filter(Boolean),
         });
-        return card(d, 'airport', '✈️ JEDDAH AIRPORT', `${fleet(buses)} · ${total} pax with staff`, `
+        return card(d, id, `${A.icon} ${A.title}`, `${fleet(buses)} · ${total} pax with staff`, `
           <div class="ts-big"><b>${total}</b><span>${pax} pax + ${extra} for the buses · ${slots.size} departure time${slots.size === 1 ? '' : 's'}</span></div>
           ${buses.length ? `<div class="ts-scroll"><table class="ts-tbl" data-no-cards><thead><tr><th>Bus</th><th>From</th><th>Groups</th><th class="n">Pax</th><th class="n">+</th><th class="n">Total</th><th>Tosha packet</th><th>Burger</th></tr></thead>
             <tbody>${rowsH.join('')}</tbody>
-            <tfoot><tr><td colspan="3">${plural(g.groups, 'group')}</td><td class="n">${pax}</td><td class="n">+${extra}</td><td class="n">${total}</td><td class="c">${packets}</td><td class="c">${burgers}</td></tr></tfoot></table></div>` : '<p class="ts-none">No Jeddah Airport buses.</p>'}
-          <div class="ts-counts">${st.models.get('airport').chips.map(t => `<span>${esc(t)}</span>`).join('')}</div>`);
+            <tfoot><tr><td colspan="3">${plural(g.groups, 'group')}</td><td class="n">${pax}</td><td class="n">+${extra}</td><td class="n">${total}</td><td class="c">${packets}</td><td class="c">${burgers}</td></tr></tfoot></table></div>` : `<p class="ts-none">No ${A.name} buses.</p>`}
+          <div class="ts-counts">${st.models.get(id).chips.map(t => `<span>${esc(t)}</span>`).join('')}</div>`);
     }
 
     function atraafCard(d, st) {
@@ -247,12 +250,16 @@ export default async function mount(ctx) {
         const el = $(d.el);
         if (!st) { el.innerHTML = `<h2>${d.label}<small>${esc(longDate(d.day))}</small></h2><p class="tp-empty">Could not load.</p>`; return; }
         const any = st.groups.some(g => g.buses.length);
+        st.models.delete('madair');
+        // Madina Airport only on days that have trips there
+        const madair = st.groups.find(x => x.dest.id === 'madair')?.buses.length ? airportCard(d, st, 'madair') : '';
+        const n = madair ? 4 : 3;
         el.innerHTML = `<h2>${d.label} <small>${esc(longDate(d.day))}${st.updated_at ? ` · choices saved ${new Date(st.updated_at).toLocaleString()}${st.updated_by ? ' by ' + esc(st.updated_by) : ''}` : ''}</small></h2>
           ${any ? `<div class="ts-act ts-all" data-day="${d.day}">
-              <button type="button" class="tp-btn gold" data-copy-all>📋 Copy all 3 in one image</button>
-              ${canShare ? '<button type="button" class="tp-btn" data-share-all>📤 Share all 3</button>' : ''}
+              <button type="button" class="tp-btn gold" data-copy-all>📋 Copy all ${n} in one image</button>
+              ${canShare ? `<button type="button" class="tp-btn" data-share-all>📤 Share all ${n}</button>` : ''}
               <span class="tp-muted" data-note></span></div>
-            <div class="ts-cards">${madinaCard(d, st)}${airportCard(d, st)}${atraafCard(d, st)}</div>`
+            <div class="ts-cards">${madinaCard(d, st)}${airportCard(d, st)}${madair}${atraafCard(d, st)}</div>`
                 : `<p class="tp-empty">No transport list saved for ${esc(longDate(d.day))} yet.</p>`}`;
         if (!writable) el.querySelectorAll('input').forEach(i => { i.disabled = true; });
     }
@@ -305,7 +312,7 @@ export default async function mount(ctx) {
         const share = btn.hasAttribute('data-share') || btn.hasAttribute('data-share-all');
         let canvas, name, title;
         if (all) {
-            const models = ['madina', 'airport', 'atraaf'].map(k => st.models.get(k)).filter(m => m && m.rows.length);
+            const models = ['madina', 'airport', 'madair', 'atraaf'].map(k => st.models.get(k)).filter(m => m && m.rows.length);
             if (!models.length) return;
             canvas = drawAll(models, `TOSHA SUMMARY · ${sheetDate(box.dataset.day)}`);
             name = `tosha-${box.dataset.day}.png`; title = 'Tosha summary';

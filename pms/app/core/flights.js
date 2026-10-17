@@ -153,6 +153,10 @@ function describeTracked(dirKey, row) {
                 : out('Other airport', `This flight goes to ${place(row.destination_actual || row.destination)}, not ${ums}. Check the booking.`, 'bad', title);
         }
         default:
+            // not seen past the UMS time, but it usually flies much later: the UMS time is the likely problem
+            if (row.flag === 'late' && usualNote) return out('Check UMS time', dep
+                ? `Not departed yet at ${at} (UMS). It usually takes off around ${h.usual} — check the UMS time.`
+                : `Not in the air at ${at} (UMS). It usually lands around ${h.usual} — check the UMS time.`, 'warn', title);
             if (row.flag === 'late') return dep
                 ? out('Delayed', `Not departed yet — ${delayText(row.delay_min).replace(' late', '')} past its time (${at}).`, 'warn', title)
                 : out('Delayed', `Not in the air yet — ${delayText(row.delay_min).replace(' late', '')} past its landing time (${at}).`, 'warn', title);
