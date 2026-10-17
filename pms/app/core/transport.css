@@ -102,6 +102,9 @@ body {
 .tp-veh { display: inline-flex; align-items: center; gap: 4px; }
 .tp-vt { font: inherit; font-size: 16px; line-height: 1; width: 32px; height: 30px; border: 1px solid #c9a227; border-radius: 8px; background: #fff; cursor: pointer; padding: 0; }
 .tp-vt.car { background: #e7f0ff; border-color: #364fc7; }
+select.tp-vt { width: auto; max-width: 112px; padding: 0 2px; font-size: 13px; }
+.tp-vt.other { background: #f3e8ff; border-color: #7048e8; }
+.tp-vname { display: block; font-size: 11px; color: #5f3dc4; font-weight: 600; margin-top: 2px; }
 .tp-vt:hover { box-shadow: 0 0 0 2px rgba(201, 162, 39, .35); }
 .tp-tbl .bus { width: 110px; }
 .tp-time { font: inherit; font-weight: 650; white-space: nowrap; padding: 3px 8px; border: 1px dashed transparent; border-radius: 8px; background: none; color: inherit; cursor: pointer; }

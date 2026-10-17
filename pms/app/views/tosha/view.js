@@ -6,7 +6,7 @@
 // The choices are kept in the cloud per site and day (GET/PUT /api/tosha). "Copy image" draws the card as a picture
 // and puts it on the clipboard for the Mawaid WhatsApp group (phones: Share).
 import { request, canWrite, UserError } from '../../core/cloud.js';
-import { loadDay, signage, today, addDays, longDate, sheetDate, time12, vehicleNo, VEHICLES } from '../../core/transport.js';
+import { loadDay, signage, today, addDays, longDate, sheetDate, time12, vehicleNo, VEHICLES, fleetText } from '../../core/transport.js';
 import { esc } from '../../core/transport-ui.js';
 
 const EXTRA = 2;  // + per bus (driver and helper)
@@ -15,11 +15,9 @@ const DEF_MADINA = { time: '06:30', biryani: false, burger: false, packet: true 
 const DEF_BUS = { packet: true, burger: false };
 const busKey = (b) => b.rows[0].key;
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-const fleet = (buses) => {
-    const n = (v) => buses.filter(b => b.vehicle === v).length;
-    return [n('bus') && plural(n('bus'), 'bus', 'buses'), n('car') && plural(n('car'), 'car')].filter(Boolean).join(' · ') || 'no buses';
-};
-const vlabel = (b) => `${VEHICLES[b.vehicle].icon} ${vehicleNo(b.bus, b.vehicle) || '—'}`;
+const fleet = (buses) => fleetText(buses, 'no buses');
+const vno = (b) => vehicleNo(b.bus, b.vehicle, b.vlabel);
+const vlabel = (b) => `${VEHICLES[b.vehicle].icon} ${vno(b) || '—'}`;
 const leaders = (b) => b.rows.map(r => r.leader).filter(Boolean);
 
 /* ------------------------------ image (canvas) ------------------------------ */
@@ -155,7 +153,7 @@ export default async function mount(ctx) {
             title: 'MADINA · TOSHA', sub: `${sheetDate(d.day)} · ${fleet(buses)}`,
             notes: [`Preparation time: ${time12(`2000-01-01T${c.time || '06:30'}`)}`, `Prepare: ${[c.packet && 'Tosha packet', meal].filter(Boolean).join(' + ') || '—'}`],
             head: ['Bus', 'Time', 'From', 'Groups', 'Pax', '+', 'Total'], widths: [12, 12, 15, 33, 9, 7, 12], align: [, , , , 'right', 'right', 'right'],
-            rows: buses.map(b => ({ cells: [vehicleNo(b.bus, b.vehicle) || '—', time12(b.at), b.building || '', leaders(b).join(', '), b.pax, extraOf(b) ? `+${extraOf(b)}` : '', b.pax + extraOf(b)] })),
+            rows: buses.map(b => ({ cells: [vno(b) || '—', time12(b.at), b.building || '', leaders(b).join(', '), b.pax, extraOf(b) ? `+${extraOf(b)}` : '', b.pax + extraOf(b)] })),
             foot: ['Total', '', '', plural(g.groups, 'group'), pax, extra ? `+${extra}` : '', total],
             chips: [c.packet && `Tosha packets: ${total}`, meal && `${meal}: ${total}`].filter(Boolean),
         });
@@ -190,11 +188,11 @@ export default async function mount(ctx) {
             rowsH.push(`<tr class="slot"><td colspan="3">${esc(time12(`2000-01-01T${hm}`))} · ${esc(fleet(list))}</td><td class="n">${sp}</td><td class="n">${se ? `+${se}` : ''}</td><td class="n">${sp + se}</td><td></td><td></td></tr>`);
             for (const b of list) {
                 const ch = busChoice(st, b);
-                rowsM.push({ cells: [`   ${vehicleNo(b.bus, b.vehicle) || '—'}`, b.building || '', leaders(b).join(', '), b.pax, extraOf(b) ? `+${extraOf(b)}` : '', b.pax + extraOf(b), ch.packet ? '✓' : '', ch.burger ? '✓' : ''] });
+                rowsM.push({ cells: [`   ${vno(b) || '—'}`, b.building || '', leaders(b).join(', '), b.pax, extraOf(b) ? `+${extraOf(b)}` : '', b.pax + extraOf(b), ch.packet ? '✓' : '', ch.burger ? '✓' : ''] });
                 rowsH.push(`<tr><td>${vlabel(b)}</td><td>${esc(b.building || '—')}</td><td>${esc(leaders(b)[0] || '')}${b.rows.length > 1 ? `<small>+ ${plural(b.rows.length - 1, 'more group')}</small>` : ''}</td>
                   <td class="n">${b.pax}</td><td class="n">${extraOf(b) ? `+${extraOf(b)}` : ''}</td><td class="n tot">${b.pax + extraOf(b)}</td>
-                  <td class="c"><input type="checkbox" data-b="${esc(busKey(b))}.packet"${ch.packet ? ' checked' : ''} aria-label="Tosha packet for ${esc(vehicleNo(b.bus, b.vehicle))}"></td>
-                  <td class="c"><input type="checkbox" data-b="${esc(busKey(b))}.burger"${ch.burger ? ' checked' : ''} aria-label="Burger for ${esc(vehicleNo(b.bus, b.vehicle))}"></td></tr>`);
+                  <td class="c"><input type="checkbox" data-b="${esc(busKey(b))}.packet"${ch.packet ? ' checked' : ''} aria-label="Tosha packet for ${esc(vno(b))}"></td>
+                  <td class="c"><input type="checkbox" data-b="${esc(busKey(b))}.burger"${ch.burger ? ' checked' : ''} aria-label="Burger for ${esc(vno(b))}"></td></tr>`);
             }
         }
         st.models.set('airport', {
@@ -219,7 +217,7 @@ export default async function mount(ctx) {
         st.models.set('atraaf', {
             title: 'ATRAAF', sub: `${sheetDate(d.day)} · ${fleet(buses)}`, notes: [],
             head: ['Bus', 'Time', 'From', 'Groups', 'Pax'], widths: [12, 13, 15, 48, 12], align: [, , , , 'right'],
-            rows: buses.map(b => ({ cells: [vehicleNo(b.bus, b.vehicle) || '—', time12(b.at), b.building || '', leaders(b).join(', '), b.pax] })),
+            rows: buses.map(b => ({ cells: [vno(b) || '—', time12(b.at), b.building || '', leaders(b).join(', '), b.pax] })),
             foot: ['Total', '', '', plural(g.groups, 'group'), g.pax], chips: [],
         });
         return card(d, 'atraaf', '🕋 ATRAAF', `${fleet(buses)} · ${g.pax} pax`, `

@@ -22,6 +22,7 @@ export const DESTS = [
     { id: 'atraaf', route: 'MAKKAH-MAKKAH ATRAAF', label: 'ATRAAF', title: 'Atraaf', icon: '🕋' },
     { id: 'madina', route: 'MAKKAH-MADINA', label: 'MADINA', title: 'Madina', icon: '🕌' },
     { id: 'airport', route: 'MAKKAH-JEDDAH AIRPORT', label: 'JEDDAH AIRPORT', title: 'Jeddah Airport', icon: '✈️' },
+    { id: 'madair', route: 'MAKKAH-MADINA AIRPORT', label: 'MADINA AIRPORT', title: 'Madina Airport', icon: '🛫' },
 ];
 export const destById = Object.fromEntries(DESTS.map(d => [d.id, d]));
 
@@ -112,11 +113,29 @@ export function byDay(rows) {
 /* ------------------------------ buses and signage ------------------------------ */
 
 const byTime = (a, b) => a.at.localeCompare(b.at);
-/** 'bus' (default) or 'car' */
-export const vehicleOf = (r) => r && r.vehicle === 'car' ? 'car' : 'bus';
-export const VEHICLES = { bus: { label: 'BUS', title: 'Bus', icon: '🚌' }, car: { label: 'CAR', title: 'Car', icon: '🚗' } };
-/** "3" for a bus, "Car 1" for a car (tables, signage) */
-export const vehicleNo = (n, vehicle) => n == null || n === '' ? '' : vehicle === 'car' ? `Car ${n}` : String(n);
+const VORDER = { bus: 0, other: 1, car: 2 };
+const kindOf = (r) => vehicleOf(r) === 'other' ? `other:${String(r.vehicle_label || '').toUpperCase()}` : vehicleOf(r);
+/** 'bus' (default), 'car', or 'other' — a vehicle named by hand (r.vehicle_label, e.g. "Self- Bus") */
+export const vehicleOf = (r) => r && (r.vehicle === 'car' || r.vehicle === 'other') ? r.vehicle : 'bus';
+export const VEHICLES = { bus: { label: 'BUS', title: 'Bus', icon: '🚌' }, car: { label: 'CAR', title: 'Car', icon: '🚗' }, other: { label: 'OTHER', title: 'Custom', icon: '🚐' } };
+/** The word on a sheet: BUS / CAR / the custom name ("SELF- BUS") */
+export const vehicleWord = (vehicle, label) => vehicle === 'other' && label ? String(label).toUpperCase() : (VEHICLES[vehicle] || VEHICLES.bus).label;
+/** "3" for a bus, "Car 1" for a car, "Self- Bus 1" for a custom one (tables, signage) */
+export const vehicleNo = (n, vehicle, label) => {
+    if (vehicle === 'other') return [label || 'Other', n ?? ''].join(' ').trim();
+    return n == null || n === '' ? '' : vehicle === 'car' ? `Car ${n}` : String(n);
+};
+/** "3 buses · 1 car · 1 Self- Bus" */
+export function fleetText(list, none = '') {
+    const n = (v) => list.filter(b => b.vehicle === v).length;
+    const other = new Map();
+    for (const b of list.filter(b => b.vehicle === 'other')) {
+        const k = (b.vlabel || 'Other').toUpperCase();
+        other.set(k, { name: other.get(k)?.name || b.vlabel || 'Other', n: (other.get(k)?.n || 0) + 1 });
+    }
+    return [n('bus') && `${n('bus')} bus${n('bus') === 1 ? '' : 'es'}`, n('car') && `${n('car')} car${n('car') === 1 ? '' : 's'}`,
+        ...[...other.values()].map(o => `${o.n} ${o.name}`)].filter(Boolean).join(' · ') || none;
+}
 
 /**
  * Who rides where. Grouped trips (adj) take their vehicle's route and bus.
@@ -132,7 +151,7 @@ export function resolve(rows) {
         const parent = r.route ? null : (r.adj && byVch.get(r.adj)) || (r.dora && byDora.get(r.dora)) || null;
         const route = parent ? parent.route : r.route;
         const dest = DEST_OF_ROUTE[normRoute(route)] || null;
-        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r), building: r.building || parent?.building || '' });
+        out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r), vlabel: (parent || r).vehicle_label || '', building: r.building || parent?.building || '' });
     }
     return out;
 }
@@ -147,13 +166,15 @@ export function assignBuses(rows, prev = []) {
     const prevInfo = resolve(prev);
     const info = resolve(rows);
     for (const r of rows) { if (!(info.get(r.key).dest && !info.get(r.key).parent)) { r.bus = null; r.bus_manual = false; } }
-    for (const d of DESTS) for (const v of Object.keys(VEHICLES)) {
-        const list = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent && vehicleOf(r) === v; }).sort(byTime);
+    // buses, cars and each custom name ("Self- Bus") count apart
+    const kinds = [...new Set(['bus', 'car', ...rows.map(kindOf)])];
+    for (const d of DESTS) for (const v of kinds) {
+        const list = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent && kindOf(r) === v; }).sort(byTime);
         const used = new Set();
         const fresh = [];
         for (const r of list) {
             const old = before.get(r.key);
-            const n = old && prevInfo.get(old.key)?.dest === d.id && vehicleOf(old) === v ? Number(old.bus) : NaN;
+            const n = old && prevInfo.get(old.key)?.dest === d.id && kindOf(old) === v ? Number(old.bus) : NaN;
             if (Number.isInteger(n) && n > 0 && !used.has(n)) { r.bus = n; r.bus_manual = !!old.bus_manual; used.add(n); }
             else fresh.push(r);
         }
@@ -175,10 +196,10 @@ export function signage(rows) {
     const info = resolve(rows);
     return DESTS.map(d => {
         const mains = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent; })
-            .sort((a, b) => (vehicleOf(a) === vehicleOf(b) ? 0 : vehicleOf(a) === 'bus' ? -1 : 1) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || byTime(a, b));
+            .sort((a, b) => VORDER[vehicleOf(a)] - VORDER[vehicleOf(b)] || (a.bus ?? 1e9) - (b.bus ?? 1e9) || byTime(a, b));
         const buses = mains.map(r => {
             const riders = [r, ...rows.filter(x => info.get(x.key).parent === r)];
-            return { bus: r.bus, vehicle: vehicleOf(r), building: r.building || '', at: r.at, rows: riders, pax: riders.reduce((s, x) => s + (Number(x.pax) || 0), 0), transporter: r.transporter, vch: r.vch };
+            return { bus: r.bus, vehicle: vehicleOf(r), vlabel: r.vehicle_label || '', building: r.building || '', at: r.at, rows: riders, pax: riders.reduce((s, x) => s + (Number(x.pax) || 0), 0), transporter: r.transporter, vch: r.vch };
         });
         return { dest: d, buses, pax: buses.reduce((s, b) => s + b.pax, 0), groups: buses.reduce((s, b) => s + b.rows.length, 0) };
     });
@@ -234,7 +255,7 @@ export function diffDay(saved, incoming) {
 export function applyChanges(saved, diff, pick) {
     const map = new Map(saved.map(r => [r.key, { ...r }]));
     for (const r of diff.added) if (pick.has('add:' + r.key)) map.set(r.key, { ...r });
-    for (const c of diff.changed) if (pick.has('chg:' + c.now.key)) map.set(c.now.key, { ...c.now, bus: c.old.bus, bus_manual: c.old.bus_manual, ...(c.old.vehicle ? { vehicle: c.old.vehicle } : {}), ...(c.old.building ? { building: c.old.building } : {}) });
+    for (const c of diff.changed) if (pick.has('chg:' + c.now.key)) map.set(c.now.key, { ...c.now, bus: c.old.bus, bus_manual: c.old.bus_manual, ...(c.old.vehicle ? { vehicle: c.old.vehicle } : {}), ...(c.old.vehicle_label ? { vehicle_label: c.old.vehicle_label } : {}), ...(c.old.building ? { building: c.old.building } : {}) });
     for (const r of diff.removed) if (pick.has('del:' + r.key)) map.delete(r.key);
     const rows = [...map.values()].sort(byTime);
     return assignBuses(rows, saved);

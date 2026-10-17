@@ -75,7 +75,11 @@ an older version → 409) · `DELETE /api/transport?site=&day=&version=`.
 
 Live flight status (Flightradar24, since 2026-10-15): `GET /api/flights/status` (any login) — the stored status of our
 guests' flights (UMS arrival/departure legs at JED/MED; car, bus, train skipped); `POST /api/flights/refresh` (admin) looks
-up now. The cron (`*/5 * * * *`) looks up only when due. Secret `FR24_API_KEY` (`npx wrangler secret put FR24_API_KEY`);
+up now. The cron (`*/30 * * * *`) looks up only when due. Since 2026-10-16 it also keeps the last 10 days of each
+flight number (`flight_history`: real route, usual time, days flown → "possibly cancelled" / "check UMS"), the
+flight that brings each departure's plane in (→ "likely delayed" before the airline says so) and flight events
+(arrival gate, push-back). VariFlight (`VARIFLIGHT_API_KEY`, `VF_MONTHLY_CREDITS`, `VF_RESERVE`) adds the airline's
+schedule, cancellations, gates and belts — staff pages only, never on the public signage. Secret `FR24_API_KEY` (`npx wrangler secret put FR24_API_KEY`);
 vars `FR24_MONTHLY_CREDITS` (plan size) and `FR24_RESERVE` (share never used, default 0.25) in `wrangler.toml`.
 FR24 rule: data kept at most 30 days — rows are deleted after 25. (Airlabs was removed 2026-10-03.)
 

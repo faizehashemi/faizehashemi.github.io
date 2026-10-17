@@ -1695,7 +1695,6 @@ async function putTosha(req, env, me) {
 // FR24's rules: data may be kept at most 30 days — rows are deleted after FLIGHT_KEEP_DAYS.
 // Secret: FR24_API_KEY (npx wrangler secret put FR24_API_KEY). Cron: every 30 minutes (wrangler.toml).
 
-const FR24_API = 'https://fr24api.flightradar24.com/api/flight-summary/light';
 const FR24_AIRPORTS = { JED: 'OEJN', MED: 'OEMA' };
 const FLIGHT_KEEP_DAYS = 25;
 const FLIGHT_MIN_GAP = 25;    // minutes between look-ups, at the most (the cron runs every 30 min)
@@ -1758,15 +1757,7 @@ function inPlay(f, row, nowMs) {
 }
 
 async function fr24Fetch(env, flights, fromIso, toIso) {
-    const qs = new URLSearchParams({ flight_datetime_from: fromIso, flight_datetime_to: toIso, flights: flights.join(','), limit: '100' });
-    const r = await fetch(`${FR24_API}?${qs}`, { headers: { Accept: 'application/json', 'Accept-Version': 'v1', Authorization: `Bearer ${env.FR24_API_KEY}` } });
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok) {
-        const e = new Error((body && (body.message || body.error || body.details)) || `Flightradar24 ${r.status}`);
-        e.status = r.status;
-        throw e;
-    }
-    return Array.isArray(body.data) ? body.data : [];
+    return fr24Get(env, 'flight-summary/light', { flight_datetime_from: fromIso, flight_datetime_to: toIso, flights: flights.join(','), limit: '20' });
 }
 
 // FR24's live answers use orig_icao / dest_icao / dest_icao_actual (the docs say origin_icao / destination_icao …) and
@@ -1975,17 +1966,12 @@ async function refreshVariFlight(env, flights, state, nowMs, stamp) {
 // the air from the ETA (Live flight positions full: 8 credits a flight, so fetched when first seen airborne, then
 // every 45 min, every 15 min in the last 90 min before the UMS time). Never seen 3 h (arrival) / 4 h (departure)
 // past the UMS time: "no sign" — possibly cancelled.
-const FR24_LIVE = 'https://fr24api.flightradar24.com/api/live/flight-positions/full';
 const ETA_GAP_FAR = 55, ETA_GAP_NEAR = 25;   // with the 30-min cron: about hourly, then every run
 const LATE_DEP_MIN = 15, LATE_ARR_MIN = 30, NO_SIGN_ARR_H = 3, NO_SIGN_DEP_H = 4;
 const FLIGHT_SHOW_BEFORE_H = 12, FLIGHT_SHOW_AHEAD_H = 24; // listed (free) from 12 h ago to 24 h ahead
 
 async function fr24Live(env, flights) {
-    const qs = new URLSearchParams({ flights: flights.join(','), limit: '50' });
-    const r = await fetch(`${FR24_LIVE}?${qs}`, { headers: { Accept: 'application/json', 'Accept-Version': 'v1', Authorization: `Bearer ${env.FR24_API_KEY}` } });
-    const body = await r.json().catch(() => ({}));
-    if (!r.ok) { const e = new Error((body && (body.message || body.error || body.details)) || `Flightradar24 ${r.status}`); e.status = r.status; throw e; }
-    return Array.isArray(body.data) ? body.data : [];
+    return fr24Get(env, 'live/flight-positions/full', { flights: flights.join(','), limit: '20' });
 }
 
 // delay (minutes, + late / − early) and flag ('late' | 'no_sign' | null) of one flight at `nowMs`
@@ -1993,6 +1979,10 @@ function delayOf(f, s, nowMs) {
     const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
     const mins = (ms) => Math.round((ms - due) / 60e3);
     const seen = s.status && s.status !== 'scheduled';
+    // not seen today, and the past days say it does not fly (any more) / flies another route
+    const verdict = s.detail && s.detail.hist && s.detail.hist.verdict;
+    if (!seen && (verdict === 'stopped' || verdict === 'none')) return { delay: null, flag: 'not_operating' };
+    if (!seen && verdict === 'wrong_airport') return { delay: null, flag: 'wrong_airport' };
     // its time passed before we ever looked it up (e.g. before tracking began): nothing can be said
     if (!seen && !s.checked_at && nowMs > due + LATE_DEP_MIN * 60e3) return { delay: null, flag: 'unchecked' };
     // "no sign" only when we did look, after its time + the grace, and never saw it
@@ -2003,6 +1993,9 @@ function delayOf(f, s, nowMs) {
     if (f.dir === 'dep') {
         if (s.takeoff) return { delay: mins(Date.parse(s.takeoff)), flag: null };
         if (!seen && lookedLate(NO_SIGN_DEP_H)) return { delay: mins(nowMs), flag: 'no_sign' };
+        // its plane is not here yet: the earliest it can leave
+        const it = s.detail && s.detail.inbound_today;
+        if (it && it.ready && Date.parse(it.ready) > due + LATE_DEP_MIN * 60e3 && Date.parse(it.ready) > nowMs) return { delay: mins(Date.parse(it.ready)), flag: 'late_plane' };
         if (nowMs > due + LATE_DEP_MIN * 60e3) return { delay: mins(nowMs), flag: 'late' };
         return { delay: null, flag: null };
     }
@@ -2013,10 +2006,225 @@ function delayOf(f, s, nowMs) {
     return { delay: null, flag: null };
 }
 
+/* --------------------- what the past days say (Flightradar24 history, events) --------------------- */
+// FR24 has no timetable and no cancellations, but its last days of flights show them: the route a flight number
+// really flies, its usual time, the days it flew — and when it stopped flying (e.g. Akasa: no Jeddah flight since a
+// date). Kept per flight number in flight_history (the last HIST_DAYS days; topped up once a day with the days since
+// the last check, so about 2 credits a flight number a day) and summed up per guest flight in detail.hist.
+// For a departure: the flight that brings its plane in (same registration, landing here before it leaves) and the
+// usual turn-around — followed today, it tells a departure delay before the airline does.
+// Flight events: the arrival gate and the time at the gate once an arrival is in; the push-back of a departure.
+// Explorer plan: 20 rows a request, 10 requests a minute — requests go out at most every FR24_SPACING ms.
+const HIST_DAYS = 10, HIST_EVERY_H = 20, HIST_REQ_PER_RUN = 6, INBOUND_EVERY_D = 3, INBOUND_REQ_PER_RUN = 2;
+const FR24_BASE = 'https://fr24api.flightradar24.com/api/';
+const FR24_SPACING = 6500;
+let fr24LastCall = 0;
+async function fr24Get(env, path, params) {
+    const wait = fr24LastCall + FR24_SPACING - Date.now();
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    fr24LastCall = Date.now();
+    const r = await fetch(`${FR24_BASE}${path}?${new URLSearchParams(params)}`, { headers: { Accept: 'application/json', 'Accept-Version': 'v1', Authorization: `Bearer ${env.FR24_API_KEY}` } });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error((body && (body.message || body.error || body.details)) || `Flightradar24 ${r.status}`); e.status = r.status; throw e; }
+    return Array.isArray(body.data) ? body.data : [];
+}
+const normCode = (x) => String(x || '').toUpperCase().replace(/^([A-Z0-9]{2})0+/, '$1');
+const histRow = (x) => ({ id: x.fr24_id, code: normCode(x.flight), orig: fOrig(x), dest: fDest(x), dest_actual: fDestActual(x),
+    off: fTime(x.datetime_takeoff), on: fTime(x.datetime_landed), seen: fTime(x.first_seen), ended: String(x.flight_ended) === 'true' || x.flight_ended === true, reg: x.reg || null });
+const riyadhClock = (iso) => new Date(Date.parse(iso) + 3 * 3600e3).toISOString().slice(11, 16);
+const riyadhDay = (iso) => new Date(Date.parse(iso) + 3 * 3600e3).toISOString().slice(0, 10);
+const clockMin = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+// median clock time (circular around midnight: shifted so the times cluster)
+function usualClock(list) {
+    if (!list.length) return null;
+    const m = list.map(clockMin).sort((a, b) => a - b);
+    let best = m, spread = m[m.length - 1] - m[0];
+    for (let i = 1; i < m.length; i++) {                 // try wrapping at each gap
+        const w = [...m.slice(i), ...m.slice(0, i).map(v => v + 1440)];
+        if (w[w.length - 1] - w[0] < spread) { best = w; spread = w[w.length - 1] - w[0]; }
+    }
+    const v = best[Math.floor(best.length / 2)] % 1440;
+    return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+}
+
+// what the history says about one guest flight
+function histSummary(f, h, nowMs) {
+    if (!h) return null;
+    const icao = FR24_AIRPORTS[f.airport];
+    const due = riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    const past = (h.rows || []).filter(r => Date.parse(r.seen) < due - 6 * 3600e3);    // the days before this one
+    const here = past.filter(r => f.dir === 'arr' ? (r.dest === icao || r.dest_actual === icao) : r.orig === icao);
+    const times = here.map(r => f.dir === 'arr' ? r.on : r.off).filter(Boolean);
+    const days = [...new Set(here.map(r => riyadhDay(r.seen)))].sort();
+    const last = here.map(r => r.seen).sort().pop() || null;
+    const out = { checked: h.checked, from: h.from, n: days.length, days, last, usual: usualClock(times.map(riyadhClock)) };
+    if (!here.length) {
+        const other = past.filter(r => r.orig || r.dest);
+        if (other.length) {
+            const o = other[other.length - 1];
+            out.verdict = 'wrong_airport';
+            out.route = { orig: o.orig, dest: o.dest_actual || o.dest, usual_off: usualClock(other.map(r => r.off).filter(Boolean).map(riyadhClock)), usual_on: usualClock(other.map(r => r.on).filter(Boolean).map(riyadhClock)) };
+        } else out.verdict = 'none';
+    } else {
+        // it used to fly and has not for 2+ days before this one
+        const gapDays = (due - Date.parse(last)) / 864e5;
+        if (days.length >= 2 && gapDays > 2.5) out.verdict = 'stopped';
+        const o = here[here.length - 1];
+        out.route = { orig: o.orig, dest: o.dest_actual || o.dest };
+    }
+    if (f.dir === 'dep' && h.inbound) out.inbound = h.inbound;
+    return out;
+}
+
+// 2c) top up the history of the flight numbers shown; find the inbound flight of departures
+async function refreshHistory(env, shown, nowMs, budgetLeft) {
+    const codes = [...new Set(shown.map(f => f.code))];
+    const have = new Map();
+    for (let i = 0; i < codes.length; i += 90) {
+        const part = codes.slice(i, i + 90);
+        const { results } = await env.DB.prepare(`SELECT * FROM flight_history WHERE code IN (${part.map(() => '?').join(',')})`).bind(...part).all();
+        for (const r of results) have.set(r.code, { ...JSON.parse(r.data || '{}'), checked: r.checked });
+    }
+    let credits = 0, error = null;
+    const iso = (ms) => new Date(ms).toISOString().slice(0, 19);
+    const start = nowMs - HIST_DAYS * 864e5;
+    // stale ones first; a request takes codes until its expected rows near the 20-row cap
+    const stale = codes.filter(c => !have.get(c) || nowMs - Date.parse(have.get(c).checked) >= HIST_EVERY_H * 3600e3)
+        .map(c => ({ c, from: have.get(c) && Date.parse(have.get(c).checked) > start ? Date.parse(have.get(c).checked) - 2 * 3600e3 : start }))
+        .sort((a, b) => a.from - b.from);
+    const changed = new Set();
+    let req = 0;
+    while (stale.length && req < HIST_REQ_PER_RUN && budgetLeft() - credits > 60) {
+        const from = stale[0].from;
+        const take = [];
+        let rows = 0;
+        while (stale.length && take.length < 15) {
+            const est = Math.ceil((nowMs - Math.min(from, stale[0].from)) / 864e5) * 0.9;   // most fly once a day
+            if (take.length && rows + est > 18) break;
+            take.push(stale.shift().c); rows += est;
+        }
+        try {
+            const list = await fr24Get(env, 'flight-summary/light', { flights: take.join(','), flight_datetime_from: iso(from), flight_datetime_to: iso(nowMs), limit: '20', sort: 'desc' });
+            req++;
+            credits += list.length ? list.reduce((s, x) => s + (String(x.flight_ended) === 'true' || x.flight_ended === true ? 2 : 1), 0) : 1;
+            const got = list.map(histRow);
+            // a full page may have dropped the oldest rows: those codes keep the earlier rows they had
+            for (const c of take) {
+                const h = have.get(c) || { rows: [] };
+                const byId = new Map((h.rows || []).filter(r => Date.parse(r.seen) >= start).map(r => [r.id, r]));
+                for (const r of got.filter(r => r.code === c)) byId.set(r.id, r);
+                have.set(c, { ...h, rows: [...byId.values()].sort((a, b) => a.seen < b.seen ? -1 : 1), checked: new Date(nowMs).toISOString(), from: h.from && Date.parse(h.from) >= start ? h.from : iso(from) + 'Z' });
+                changed.add(c);
+            }
+        } catch (e) { error = e; break; }
+    }
+    // the plane of a departure: who brought it in last time, and how long it stayed
+    let ib = 0;
+    for (const f of shown.filter(x => x.dir === 'dep')) {
+        if (ib >= INBOUND_REQ_PER_RUN || error || budgetLeft() - credits <= 60) break;
+        const h = have.get(f.code);
+        if (!h || (h.inbound_checked && nowMs - Date.parse(h.inbound_checked) < INBOUND_EVERY_D * 864e5)) continue;
+        const icao = FR24_AIRPORTS[f.airport];
+        const leg = (h.rows || []).filter(r => r.orig === icao && r.off && r.reg).pop();
+        h.inbound_checked = new Date(nowMs).toISOString(); changed.add(f.code);
+        if (!leg) continue;
+        try {
+            const off = Date.parse(leg.off);
+            const list = await fr24Get(env, 'flight-summary/light', { registrations: leg.reg, flight_datetime_from: iso(off - 14 * 3600e3), flight_datetime_to: iso(off - 10 * 60e3), limit: '20' });
+            ib++;
+            credits += list.length ? list.reduce((s, x) => s + (String(x.flight_ended) === 'true' || x.flight_ended === true ? 2 : 1), 0) : 1;
+            const inb = list.map(histRow).filter(r => (r.dest_actual || r.dest) === icao && r.on && Date.parse(r.on) < off).sort((a, b) => a.on < b.on ? -1 : 1).pop();
+            h.inbound = inb ? { code: inb.code, orig: inb.orig, turn_min: Math.round((off - Date.parse(inb.on)) / 60e3), seen: leg.off } : null;
+        } catch (e) { error = e; break; }
+    }
+    const stmts = [...changed].map(c => {
+        const { checked, ...data } = have.get(c);
+        return env.DB.prepare('INSERT INTO flight_history (code, checked, data) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET checked = excluded.checked, data = excluded.data')
+            .bind(c, checked || new Date(nowMs).toISOString(), JSON.stringify(data));
+    });
+    for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
+    return { have, credits, error };
+}
+
+// 2d) today's inbound plane of departures due in the next 8 h (not yet off): where is it, and when can it leave
+async function refreshInbound(env, shown, state, nowMs, budgetLeft) {
+    const icao = (f) => FR24_AIRPORTS[f.airport];
+    const due = (f) => riyadhMs(f.sched.slice(0, 10), f.sched.slice(11));
+    const deps = shown.filter(f => {
+        const s = state.get(f.key), ib = s.detail.hist && s.detail.hist.inbound;
+        if (f.dir !== 'dep' || !ib || s.takeoff || s.detail.cancel) return false;
+        if (s.detail.inbound_today && s.detail.inbound_today.on) return false;   // its plane is in: nothing more to learn
+        return nowMs >= due(f) - 8 * 3600e3 && nowMs <= due(f) + 4 * 3600e3;
+    });
+    if (!deps.length || budgetLeft() < 40) return { credits: 0 };
+    let credits = 0, error = null;
+    const iso = (ms) => new Date(ms).toISOString().slice(0, 19);
+    const codes = [...new Set(deps.map(f => state.get(f.key).detail.hist.inbound.code))];
+    try {
+        const list = (await fr24Get(env, 'flight-summary/light', { flights: codes.slice(0, 15).join(','), flight_datetime_from: iso(nowMs - 16 * 3600e3), flight_datetime_to: iso(nowMs), limit: '20' })).map(histRow);
+        credits += list.length ? list.reduce((s, r) => s + (r.ended ? 2 : 1), 0) : 1;
+        const air = [];
+        for (const f of deps) {
+            const s = state.get(f.key), ib = s.detail.hist.inbound;
+            const cand = list.filter(r => r.code === ib.code && (r.dest_actual || r.dest || icao(f)) === icao(f) && r.orig !== icao(f) && Date.parse(r.seen) <= due(f))
+                .sort((a, b) => a.seen < b.seen ? -1 : 1).pop();
+            s.detail.inbound_today = cand ? { code: ib.code, orig: cand.orig || ib.orig, reg: cand.reg, off: cand.off, on: cand.on, checked: new Date(nowMs).toISOString(), eta: s.detail.inbound_today?.eta || null }
+                : { code: ib.code, orig: ib.orig, checked: new Date(nowMs).toISOString() };
+            if (cand && cand.off && !cand.on) air.push(f);
+        }
+        // airborne: its ETA (8 credits a flight) — what the departure can be predicted from
+        const want = [...new Set(air.map(f => state.get(f.key).detail.inbound_today.code))];
+        if (want.length && budgetLeft() - credits > want.length * 8 + 20) {
+            const live = await fr24Get(env, 'live/flight-positions/full', { flights: want.join(','), limit: '20' });
+            credits += live.length ? live.length * 8 : 1;
+            for (const f of air) {
+                const it = state.get(f.key).detail.inbound_today;
+                const p = live.find(x => normCode(x.flight) === it.code && (!x.dest_icao || x.dest_icao === icao(f)));
+                if (p && p.eta) it.eta = fTime(p.eta);
+            }
+        }
+    } catch (e) { error = e; }
+    // earliest it can leave: plane in (or its ETA) + the usual turn-around (a little less: crews hurry when late)
+    for (const f of deps) {
+        const s = state.get(f.key), ib = s.detail.hist.inbound, it = s.detail.inbound_today;
+        const inAt = it && (it.on || it.eta);
+        const turn = Math.max(35, Math.round((ib.turn_min || 60) * 0.8));
+        it.ready = inAt ? new Date(Date.parse(inAt) + turn * 60e3).toISOString() : null;
+        it.turn_min = turn;
+    }
+    return { credits, error };
+}
+
+// 2e) flight events: arrival gate / at the gate (arrivals in, once or twice), push-back (departures at the gate)
+async function refreshEvents(env, todoAll, state, nowMs, budgetLeft) {
+    const want = todoAll.filter(f => {
+        const s = state.get(f.key);
+        if (!s.fr24_id || (s.detail.ev_tries || 0) >= 2) return false;
+        if (f.dir === 'arr') return s.status === 'landed' && !s.detail.gate_arrival && nowMs - Date.parse(s.landed) >= 8 * 60e3;
+        return s.status === 'boarding' && !s.detail.gate_departure;
+    }).slice(0, 15);
+    if (!want.length || budgetLeft() < 30) return { credits: 0 };
+    let credits = 0, error = null;
+    try {
+        const list = await fr24Get(env, 'historic/flight-events/light', { flight_ids: want.map(f => state.get(f.key).fr24_id).join(','), event_types: 'gate_departure,gate_arrival' });
+        credits += Math.max(1, list.reduce((n, x) => n + (x.events || []).length, 0) * 2);
+        for (const f of want) {
+            const s = state.get(f.key);
+            s.detail.ev_tries = (s.detail.ev_tries || 0) + 1;
+            const ev = (list.find(x => x.fr24_id === s.fr24_id) || {}).events || [];
+            const ga = ev.filter(e => e.type === 'gate_arrival').pop(), gd = ev.filter(e => e.type === 'gate_departure').pop();
+            if (f.dir === 'arr' && ga) s.detail.gate_arrival = { at: fTime(ga.timestamp), gate: ga.details?.gate_ident || null };
+            if (gd) s.detail.gate_departure = { at: fTime(gd.timestamp), gate: gd.details?.gate_ident || null };
+        }
+    } catch (e) { error = e; }
+    return { credits, error };
+}
+
 async function refreshFlightStatus(env, force = false) {
     const now = new Date(), nowMs = now.getTime();
     // FR24 storage rule: nothing older than 30 days
     await env.DB.prepare('DELETE FROM flight_status WHERE updated_at < ?').bind(new Date(nowMs - FLIGHT_KEEP_DAYS * 864e5).toISOString()).run();
+    await env.DB.prepare('DELETE FROM flight_history WHERE checked < ?').bind(new Date(nowMs - FLIGHT_KEEP_DAYS * 864e5).toISOString()).run();
     const meta = await env.DB.prepare('SELECT * FROM flight_meta WHERE id = ?').bind('fr24').first();
     const month = ymKey(now);
     let used = meta && meta.month === month ? meta.credits_used : 0;
@@ -2069,7 +2277,7 @@ async function refreshFlightStatus(env, force = false) {
             const list = todo.filter(f => f.dir === dir).sort((a, b) => due(a) - due(b));
             let cur = null;
             for (const f of list) {
-                if (!cur || (!cur.codes.has(f.code) && cur.codes.size >= 15)) batches.push(cur = { dir, codes: new Set(), flights: [] });
+                if (!cur || (!cur.codes.has(f.code) && cur.codes.size >= 8)) batches.push(cur = { dir, codes: new Set(), flights: [] });
                 cur.codes.add(f.code); cur.flights.push(f);
             }
         }
@@ -2128,6 +2336,16 @@ async function refreshFlightStatus(env, force = false) {
             }
         } catch (e) { fail(e); }
     }
+    // 2c–2e) the past days of each flight number, the plane of each departure, gates (see "what the past days say")
+    try {
+        const h = await refreshHistory(env, shown, nowMs, out);
+        credits += h.credits; if (h.error) fail(h.error);
+        for (const f of shown) state.get(f.key).detail.hist = histSummary(f, h.have.get(f.code), nowMs);
+        const ib = await refreshInbound(env, shown, state, nowMs, out);
+        credits += ib.credits; if (ib.error) fail(ib.error);
+        const ev = await refreshEvents(env, shown, state, nowMs, out);
+        credits += ev.credits; if (ev.error) fail(ev.error);
+    } catch (e) { console.error('history', e && e.stack || e); }
     used += credits;
 
     // 2b) the airline's schedule and status (VariFlight), within its own credit budget
@@ -2159,7 +2377,7 @@ async function refreshFlightStatus(env, force = false) {
     for (let i = 0; i < stmts.length; i += 40) await env.DB.batch(stmts.slice(i, i + 40));
 
     // next look-up: what is left (outside the reserve), spread over the rest of the month, at this pace
-    if (!todo.length) return saveMeta({ next_run: later(FLIGHT_MIN_GAP), last_credits: 0, error });
+    if (!todo.length) return saveMeta({ next_run: later(FLIGHT_MIN_GAP), last_credits: credits, error });
     const perRun = Math.max(1, credits || todo.length);
     const runsLeft = Math.max(0, usable - used) / perRun;
     const gap = runsLeft < 1 ? FLIGHT_MAX_GAP * 6 : Math.min(FLIGHT_MAX_GAP, Math.max(FLIGHT_MIN_GAP, Math.ceil(daysLeftInMonth(now) * 1440 / runsLeft)));

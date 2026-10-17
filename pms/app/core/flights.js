@@ -46,7 +46,10 @@ export async function loadFlightStatus({ force = false } = {}) {
 }
 
 const riyadh = (iso) => iso ? new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' }) : '';
-const AIRPORT_NAMES = { OEJN: 'Jeddah', OEMA: 'Madina', OERK: 'Riyadh', OEDF: 'Dammam', OETF: 'Taif', OEYN: 'Yanbu', OEGS: 'Qassim', OEAB: 'Abha', OETB: 'Tabuk' };
+const AIRPORT_NAMES = { OEJN: 'Jeddah', OEMA: 'Madina', OERK: 'Riyadh', OEDF: 'Dammam', OETF: 'Taif', OEYN: 'Yanbu', OEGS: 'Qassim', OEAB: 'Abha', OETB: 'Tabuk',
+    HECA: 'Cairo', OTHH: 'Doha', OMDB: 'Dubai', OMSJ: 'Sharjah', OMAA: 'Abu Dhabi', OBBI: 'Bahrain', OOMS: 'Muscat', OKKK: 'Kuwait',
+    VABB: 'Mumbai', VIDP: 'Delhi', VOBL: 'Bengaluru', VOCL: 'Kozhikode', VOMM: 'Chennai', VOHS: 'Hyderabad', VAAH: 'Ahmedabad', VOCI: 'Kochi',
+    OPKC: 'Karachi', OPLA: 'Lahore', OPIS: 'Islamabad', LTFM: 'Istanbul', WMKK: 'Kuala Lumpur', WIII: 'Jakarta', VGHS: 'Dhaka' };
 const place = (icao) => AIRPORT_NAMES[icao] || icao || '?';
 
 /** "+1 h 20 min late" / "15 min early" / "on time" (within 10 min) — '' when unknown */
@@ -69,7 +72,25 @@ export function detailsOf(row) {
         `UMS time ${UMS_AT(row)}${d.first_seen ? ` · first seen ${riyadh(d.first_seen)}` : ''}${row.takeoff ? ` · took off ${riyadh(row.takeoff)}` : ''}${row.eta && !row.landed ? ` · ETA ${riyadh(row.eta)}` : ''}${row.landed ? ` · landed ${riyadh(row.landed)}` : ''}`,
         (d.alt != null || d.gspeed != null) && `Last position ${riyadh(d.pos_at)}: ${d.alt != null ? `${Number(d.alt).toLocaleString()} ft` : ''}${d.gspeed != null ? ` · ${d.gspeed} kt` : ''}`,
         d.last_seen && !row.landed && `Last seen by Flightradar24 ${riyadh(d.last_seen)}`,
+        d.gate_arrival && `At gate ${d.gate_arrival.gate || '?'} since ${riyadh(d.gate_arrival.at)}`,
+        d.gate_departure && `Left gate ${d.gate_departure.gate || '?'} at ${riyadh(d.gate_departure.at)}`,
+        ...histLines(row),
         row.checked_at && `Checked ${riyadh(row.checked_at)} (Riyadh time) · Flightradar24`,
+    ].filter(Boolean);
+}
+
+const dayName = (iso) => iso ? new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'short' }) : '';
+const clockGap = (a, b) => { const m = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)); const d = Math.abs(m(a) - m(b)); return Math.min(d, 1440 - d); };
+/** What the past days (Flightradar24 history) say, as lines for the details */
+function histLines(row) {
+    const h = row.detail && row.detail.hist, it = row.detail && row.detail.inbound_today;
+    if (!h) return [];
+    const dep = row.dir === 'dep';
+    return [
+        h.n ? `Past days: flew on ${h.n} day${h.n === 1 ? '' : 's'} (last ${dayName(h.last)})${h.usual ? `, usually ${dep ? 'taking off' : 'landing'} ~${h.usual}` : ''}`
+            : h.verdict === 'wrong_airport' ? `Past days: flies ${place(h.route?.orig)} → ${place(h.route?.dest)} only` : 'Past days: not seen on Flightradar24',
+        h.inbound && `Its plane usually comes in as ${h.inbound.code} from ${place(h.inbound.orig)} (~${Math.round(h.inbound.turn_min / 5) * 5} min on the ground)`,
+        it && (it.on ? `Today's ${it.code} landed ${riyadh(it.on)}` : it.eta ? `Today's ${it.code} due in ${riyadh(it.eta)}` : it.off ? `Today's ${it.code} took off ${riyadh(it.off)}` : `Today's ${it.code} not seen yet`),
     ].filter(Boolean);
 }
 
@@ -92,18 +113,32 @@ function describeTracked(dirKey, row) {
     const lateCls = (base) => row.delay_min >= 30 ? 'warn' : base;
     if (row.flag === 'no_sign') return out('Possibly cancelled', `No sign of this flight more than ${Math.max(1, Math.floor((Number(row.delay_min) || 0) / 60))} h after its time. Check with the airline.`, 'bad', title);
     if (row.flag === 'unchecked') return out('No data', 'Its time passed before flight tracking began.', 'wait', title);
+    const h = (row.detail && row.detail.hist) || {}, it = row.detail && row.detail.inbound_today;
+    const ums = row.airport === 'MED' ? 'Madina' : 'Jeddah';
+    if (row.flag === 'not_operating') return h.verdict === 'stopped'
+        ? out('Possibly cancelled', `This flight hasn't flown since ${dayName(h.last)} — it flew on ${h.n} days before that. Check with the airline.`, 'bad', title)
+        : out('Not flying lately', `Flightradar24 hasn't seen ${row.code} fly in the past 10 days. It may not fly every day, or may be cancelled — check with the airline.`, 'warn', title);
+    if (row.flag === 'wrong_airport') return out('Check UMS', `${row.code} flies ${place(h.route?.orig)} → ${place(h.route?.dest)}${h.route?.[dep ? 'usual_off' : 'usual_on'] ? ` (usually ${dep ? 'taking off' : 'landing'} ~${h.route[dep ? 'usual_off' : 'usual_on']})` : ''}, not ${dep ? 'from' : 'to'} ${ums}. Check the flight in UMS.`, 'bad', title);
+    if (row.flag === 'late_plane' && it) return out('Likely delayed', `Its plane (${it.code} from ${place(it.orig)}) ${it.on ? `landed at ${riyadh(it.on)}` : `is due in at ${riyadh(it.eta)}`}, so it can't leave before about ${riyadh(it.ready)} (UMS time ${at}).`, 'warn', title);
+    // UMS time far from when it usually flies
+    const usualNote = h.usual && at && clockGap(h.usual, at) > 60 ? ` It usually ${dep ? 'takes off' : 'lands'} around ${h.usual} — check the UMS time.` : '';
     switch (row.status) {
         case 'airborne': {
             if (row.eta) return out('In flight', `Expected to land at ${riyadh(row.eta)}${by(row.delay_min)}.`, lateCls('air'), title);
             return out('In flight', `Took off${row.origin ? ` from ${from}` : ''} at ${riyadh(row.takeoff)}. Due to land at ${at}.`, 'air', title);
         }
         case 'landed': {
+            const g = row.detail && row.detail.gate_arrival;
+            const gate = g ? ` At gate ${g.gate || ''} since ${riyadh(g.at)}.`.replace('gate  since', 'the gate since') : '';
             if (row.delay_min <= -120 || row.delay_min >= 360) return out('Landed', `Landed at ${riyadh(row.landed)} — far from the UMS time (${at}). Check the UMS flight time.`, 'warn', title);
             const t = delayText(row.delay_min);
-            return out('Landed', t === 'on time' ? `Landed on time at ${riyadh(row.landed)}.` : `Landed at ${riyadh(row.landed)}${by(row.delay_min)}.`, lateCls('ok'), title);
+            return out('Landed', (t === 'on time' ? `Landed on time at ${riyadh(row.landed)}.` : `Landed at ${riyadh(row.landed)}${by(row.delay_min)}.`) + gate, lateCls('ok'), title);
         }
         case 'diverted': return out('Diverted', `Landed in ${place(row.destination_actual)} instead of ${row.airport === 'MED' ? 'Madina' : 'Jeddah'}.`, 'bad', title);
-        case 'boarding': return out('Boarding', 'The plane is at the gate or taxiing.', 'warn', title);
+        case 'boarding': {
+            const g = row.detail && row.detail.gate_departure;
+            return out('Boarding', g ? `Pushed back from gate ${g.gate || ''} at ${riyadh(g.at)} — taxiing to take off.` : 'The plane is at the gate or taxiing.', 'warn', title);
+        }
         case 'departed':
         case 'arrived': {
             if (row.delay_min <= -120 || row.delay_min >= 360) return out('Departed', `Took off at ${riyadh(row.takeoff)} — far from the UMS time (${at}). Check the UMS flight time.`, 'warn', title);
@@ -121,15 +156,18 @@ function describeTracked(dirKey, row) {
             if (row.flag === 'late') return dep
                 ? out('Delayed', `Not departed yet — ${delayText(row.delay_min).replace(' late', '')} past its time (${at}).`, 'warn', title)
                 : out('Delayed', `Not in the air yet — ${delayText(row.delay_min).replace(' late', '')} past its landing time (${at}).`, 'warn', title);
+            if (dep && it && it.on) return out('Scheduled', `Departs at ${at}. Its plane is here (${it.code} from ${place(it.orig)} landed ${riyadh(it.on)}).${usualNote}`, usualNote ? 'warn' : 'wait', title);
             return dep
-                ? out('Scheduled', `Departs at ${at}. No delay reported yet.`, 'wait', title)
-                : out('Scheduled', `Lands at ${at}. No delay reported yet.`, 'wait', title);
+                ? out('Scheduled', `Departs at ${at}. No delay reported yet.${usualNote}`, usualNote ? 'warn' : 'wait', title)
+                : out('Scheduled', `Lands at ${at}. No delay reported yet.${usualNote}`, usualNote ? 'warn' : 'wait', title);
     }
 }
 
 // The airline's own schedule and status (VariFlight) when we have it; otherwise what Flightradar24 saw.
 // Whichever source has seen the flight further along wins (e.g. FR24 sees the landing before VariFlight's next check).
 export function describe(dirKey, row) {
+    // its plane is late in: say so until the airline itself reports a delay or the flight leaves
+    if (row && row.flag === 'late_plane' && (!row.vf || row.vf.state === 'scheduled')) return describeTracked(dirKey, row);
     if (row && row.vf && row.vf.state && !['unknown', 'other'].includes(row.vf.state)) return describeAirline(dirKey, row);
     return describeTracked(dirKey, row);
 }

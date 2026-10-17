@@ -1,12 +1,13 @@
-// Bus sheets: one A4 landscape page per bus (or car) of the day (Atraaf, Madina, Jeddah Airport), laid out like the
+// Bus sheets: one A4 landscape page per bus (or car) of the day (Atraaf, Madina, Jeddah Airport, Madina Airport), laid out like the
 // printed signs — date and time, BUS + number, destination, then group · leader · SH ref · pax for the trip
 // and the groups adjusted into the same bus. "Print summary" prints the same choice as one list per destination.
 // #/<site>/transport-print?day=YYYY-MM-DD
-import { loadDay, listDays, signage, DESTS, VEHICLES, today, sheetDate, time12 } from '../../core/transport.js';
+import { loadDay, listDays, signage, DESTS, vehicleWord, today, sheetDate, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { UserError, canOpen } from '../../core/cloud.js';
 
-const PICK_KEY = 'pms_transport_print_dests';
+// the destinations a desk unticked (a destination added later starts ticked); the old key kept the ticked ones
+const OFF_KEY = 'pms_transport_print_off', OLD_PICK_KEY = 'pms_transport_print_dests', OLD_DESTS = ['atraaf', 'madina', 'airport'];
 
 // "3, 5-7" → Set {3,5,6,7}; empty → null (all)
 function parseOnly(text) {
@@ -34,7 +35,7 @@ function sheet(day, dest, b) {
       <table>
         <colgroup><col style="width:24%"><col style="width:46%"><col style="width:17%"><col style="width:13%"></colgroup>
         <tr><td class="h date">${esc(sheetDate(day))}</td>
-            <td class="h bus" rowspan="2"><span class="w">${b.vehicle === 'car' ? 'CAR' : 'BUS'}</span><span class="n">${esc(b.bus ?? '')}</span></td>
+            <td class="h bus${vehicleWord(b.vehicle, b.vlabel).length > 5 ? ' long' : ''}" rowspan="2"><span class="w">${esc(vehicleWord(b.vehicle, b.vlabel))}</span><span class="n">${esc(b.bus ?? '')}</span></td>
             <td class="h dest${dest.label.length > 8 ? ' long' : ''}" colspan="2">${esc(dest.label)}</td></tr>
         <tr><td class="h time">${esc(time12(b.at))}</td><td class="h col">SH REF</td><td class="h col">PAX NO</td></tr>
         ${b.rows.map(r => `<tr class="row"><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td>${esc(r.ref)}</td><td>${esc(r.pax)}</td></tr>`).join('')}
@@ -54,10 +55,10 @@ function summary(day, groups) {
             <tr class="band"><th class="d">${esc(sheetDate(day))}</th><th class="t" colspan="7">${esc(dest.label)}</th></tr>
             <tr class="cols"><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>BUILDING</th><th>VEHICLE</th><th>NO</th></tr>
           </thead>
-          <tbody>${[...buses].sort((a, b) => a.at.localeCompare(b.at) || (a.vehicle === b.vehicle ? 0 : a.vehicle === 'car' ? 1 : -1) || (a.bus ?? 1e9) - (b.bus ?? 1e9))
+          <tbody>${[...buses].sort((a, b) => a.at.localeCompare(b.at) || ((a.vehicle === 'car') - (b.vehicle === 'car')) || (a.bus ?? 1e9) - (b.bus ?? 1e9))
               .flatMap(b => b.rows.map((r, i) => `<tr${i ? ' class="rider"' : ''}>
             <td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td>
-            <td class="n">${esc(time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${VEHICLES[b.vehicle].label}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
+            <td class="n">${esc(time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(vehicleWord(b.vehicle, b.vlabel))}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
           <tfoot><tr><td colspan="3">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="4"></td></tr></tfoot>
         </table>`;
     }).join('');
@@ -69,8 +70,14 @@ export default async function mount(ctx) {
     $('tqDay').href = ctx.href('transport', { day });
     $('tqTosha').href = ctx.href('tosha');
     $('tqTosha').hidden = !canOpen('tosha');
-    let picked = DESTS.map(d => d.id);
-    try { const s = JSON.parse(localStorage.getItem(PICK_KEY) || 'null'); if (Array.isArray(s)) picked = s; } catch { }
+    let off = [];
+    try {
+        const s = JSON.parse(localStorage.getItem(OFF_KEY) || 'null');
+        const old = JSON.parse(localStorage.getItem(OLD_PICK_KEY) || 'null');
+        if (Array.isArray(s)) off = s;
+        else if (Array.isArray(old)) off = OLD_DESTS.filter(id => !old.includes(id));
+    } catch { }
+    let picked = DESTS.map(d => d.id).filter(id => !off.includes(id));
 
     let doc = { rows: [] }, days = [];
     try {
@@ -96,14 +103,14 @@ export default async function mount(ctx) {
     }
     $('tqDests').addEventListener('change', () => {
         picked = [...$('tqDests').querySelectorAll('input:checked')].map(x => x.value);
-        try { localStorage.setItem(PICK_KEY, JSON.stringify(picked)); } catch { }
+        try { localStorage.setItem(OFF_KEY, JSON.stringify(DESTS.map(d => d.id).filter(id => !picked.includes(id)))); localStorage.removeItem(OLD_PICK_KEY); } catch { }
         render();
     });
     $('tqOnly').addEventListener('input', render);
     $('tqPrint').addEventListener('click', () => window.print());
     // Print summary: the same choice as one list; the sheets step aside while it prints
     const root = document.documentElement;
-    const endSummary = () => { root.classList.remove('tq-print-summary'); $('tqSum').innerHTML = ''; };
+    const endSummary = () => { root.classList.remove('tq-print-summary'); const el = $('tqSum'); if (el) el.innerHTML = ''; }; // the page may be gone
     $('tqSummary').addEventListener('click', () => {
         $('tqSum').innerHTML = summary(day, chosen());
         root.classList.add('tq-print-summary');

@@ -4,7 +4,7 @@
 // Fakkul Ehraam counts (Makkah arrivals; times from Setup → Fakkul Ehraam windows): Morning = check-ins from 20:00
 // yesterday to 07:00 today, Night = 07:00 to 20:00 today (Madina groups included), Night · from Madina = those whose
 // SH starts with S. Tiles open the groups (groups.js).
-// Transport today: buses to Atraaf, Madina and Jeddah Airport from today's Transport list (cloud); tiles open the trips.
+// Transport today: buses to Atraaf, Madina, Jeddah Airport and Madina Airport from today's Transport list (cloud); tiles open the trips.
 // Look ahead (above Fakkul Ehraam): pick a date and the day cards (check-ins / check-outs / in Makkah, Fakkul Ehraam,
 // thaals, occupancy) show that day with the same rules; or a period, for a day-by-day summary (row → that day).
 
@@ -20,7 +20,7 @@ import { renderDayCounts } from './daycount.js';
 import { presentAt, paxAt, departuresOf, isDelayed, rowsOf, slipEnd, roomConflicts } from '../../core/stay.js';
 import { loadBuildings, builderCapacity } from '../../core/rooms.js';
 import { openTransportList } from './transport.js';
-import { loadDay as loadTransport, signage as transportSignage, today as transportToday, time12 } from '../../core/transport.js';
+import { loadDay as loadTransport, signage as transportSignage, today as transportToday, time12, fleetText as transportFleet } from '../../core/transport.js';
 
 const PRAISE = [
     'The guests of Allah are in wonderful hands today.',
@@ -109,7 +109,7 @@ export default async function mount(ctx) {
     }
 
     /* ------------------------------ transport today ------------------------------ */
-    const TR_TILES = [['trAtraaf', 'atraaf'], ['trMadina', 'madina'], ['trAirport', 'airport']];
+    const TR_TILES = [['trAtraaf', 'atraaf'], ['trMadina', 'madina'], ['trAirport', 'airport'], ['trMadAir', 'madair']];
     let trGroups = null;
     for (const [id, dest] of TR_TILES) {
         $(id).addEventListener('click', () => {
@@ -126,7 +126,7 @@ export default async function mount(ctx) {
             const g = trGroups.find(x => x.dest.id === dest);
             const first = g.buses.length ? g.buses.reduce((a, b) => a.at < b.at ? a : b).at : null;
             setStat(id, g.pax, g.buses.length
-                ? `${[['bus', 'bus', 'buses'], ['car', 'car', 'cars']].map(([v, one, many]) => { const n = g.buses.filter(b => b.vehicle === v).length; return n ? `${n} ${n === 1 ? one : many}` : ''; }).filter(Boolean).join(' · ')} · ${g.groups} group${g.groups === 1 ? '' : 's'} · from ${time12(first)}`
+                ? `${transportFleet(g.buses)} · ${g.groups} group${g.groups === 1 ? '' : 's'} · from ${time12(first)}`
                 : (doc.version ? 'no buses today' : 'no transport list for today'));
         }
     }

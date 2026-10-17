@@ -352,3 +352,11 @@ CREATE TABLE IF NOT EXISTS flight_meta (
     last_error    TEXT,
     bank          REAL NOT NULL DEFAULT 0            -- VariFlight: credits saved up for look-ups (spread over the month)
 );
+
+-- The last days of each flight number on Flightradar24 (route, times, registration of each flight; the flight that
+-- brings a departure's plane in). Deleted 25 days after its last check (FR24: keep data at most 30 days).
+CREATE TABLE IF NOT EXISTS flight_history (
+    code     TEXT PRIMARY KEY,                       -- SV701
+    checked  TEXT NOT NULL,                          -- last top-up (ISO)
+    data     TEXT NOT NULL                           -- JSON: { rows: [{ id, code, orig, dest, dest_actual, off, on, seen, ended, reg }], from, inbound, inbound_checked }
+);

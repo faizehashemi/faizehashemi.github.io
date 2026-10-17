@@ -1,6 +1,6 @@
 // The trips behind a Home "Transport today" tile: bus, time, SH, group and leader, pax — in the same window
 // style as the other Home lists. Grouped trips (adjusted into a bus) sit under their bus.
-import { time12, vehicleNo } from '../../core/transport.js';
+import { time12, vehicleNo, fleetText } from '../../core/transport.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -15,7 +15,7 @@ export function openTransportList(o) {
       <div class="ih-wrap">
         <header class="ih-head">
           <div><h2>${esc(o.title)}</h2>
-            <p>${g.buses.length} bus${g.buses.length === 1 ? '' : 'es'} · ${g.groups} group${g.groups === 1 ? '' : 's'} · ${g.pax} pax${o.sub ? ` · ${esc(o.sub)}` : ''}</p></div>
+            <p>${esc(fleetText(g.buses, 'no buses'))} · ${g.groups} group${g.groups === 1 ? '' : 's'} · ${g.pax} pax${o.sub ? ` · ${esc(o.sub)}` : ''}</p></div>
           <button type="button" class="ih-x" data-close aria-label="Close">✕</button>
         </header>
         <div class="ih-tools">
@@ -34,7 +34,7 @@ export function openTransportList(o) {
           <table class="ih-tbl" data-no-cards>
             <thead><tr><th>Vehicle</th><th>Time</th><th>SH</th><th>Group / leader</th><th class="n">Pax</th><th>Transporter</th></tr></thead>
             <tbody>${rows.map(({ r, b, i }) => `<tr class="${i ? 'rider' : ''}${b.at < nowAt ? ' past' : ''}">
-              <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle))}` : esc(vehicleNo(b.bus, b.vehicle) || '—')}</td>
+              <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle, b.vlabel))}` : esc(vehicleNo(b.bus, b.vehicle, b.vlabel) || '—')}</td>
               <td class="stay">${esc(time12(b.at))}</td>
               <td class="sh">${esc(r.ref)}</td>
               <td><b>${esc(r.operator || '—')}</b><small>${esc(r.leader || 'no leader')}</small></td>

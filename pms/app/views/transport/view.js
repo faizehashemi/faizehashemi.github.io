@@ -3,7 +3,7 @@
 // imports unless the list's own time changes), and links to the import page, bus sheets and signage.
 // Day in the address: #/<site>/transport?day=YYYY-MM-DD (default today).
 import { canWrite, canOpen, currentDesk, UserError } from '../../core/cloud.js';
-import { DESTS, resolve, signage, renumber, assignBuses, vehicleOf, vehicleNo, VEHICLES, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
+import { DESTS, resolve, signage, renumber, assignBuses, vehicleOf, vehicleNo, fleetText, VEHICLES, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { loadSignage, saveSignageConfig } from '../../core/signage-api.js';
 import { loadBuildings, buildingNames } from '../../core/rooms.js';
@@ -22,12 +22,8 @@ export default async function mount(ctx) {
     $('tpPrint').hidden = !canOpen('transport-print', desk);
     $('tpRenumber').hidden = $('tpDelete').hidden = !writable;
 
-    // "3 buses · 1 car"
-    const fleet = (list) => {
-        const n = (v) => list.filter(b => b.vehicle === v).length;
-        const bus = n('bus'), car = n('car');
-        return [`${bus} bus${bus === 1 ? '' : 'es'}`, car ? `${car} car${car === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
-    };
+    // "3 buses · 1 car · 1 Self- Bus"
+    const fleet = (list) => fleetText(list, '0 buses');
     const msg = (text, kind = 'ok') => { $('tpMsg').innerHTML = text ? `<div class="tp-msg ${kind}">${esc(text)}</div>` : ''; };
     const go = (d) => ctx.navigate('transport', { day: d });
 
@@ -58,12 +54,13 @@ export default async function mount(ctx) {
             const html = signage(doc.rows).map(s => {
                 // duplicate numbers in one destination are flagged (typed in by hand)
                 const count = new Map();
-                for (const b of s.buses) if (b.bus != null) count.set(`${b.vehicle}${b.bus}`, (count.get(`${b.vehicle}${b.bus}`) || 0) + 1);
+                const vk = (b) => `${b.vehicle}${b.vehicle === 'other' ? b.vlabel.toUpperCase() : ''}#${b.bus}`;
+                for (const b of s.buses) if (b.bus != null) count.set(vk(b), (count.get(vk(b)) || 0) + 1);
                 const body = s.buses.flatMap(b => b.rows.map((r, i) => ({ r, b, i }))).filter(x => matches(x.r, q)).map(({ r, b, i }) => `
                   <tr class="${i ? 'rider' : ''}${r.at < past ? ' past' : ''}">
-                    <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle))}` : writable
-                        ? `<span class="tp-veh"><button type="button" class="tp-vt ${b.vehicle}" data-veh="${esc(r.key)}" title="${b.vehicle === 'car' ? 'Car — tap to make it a bus' : 'Bus — tap to make it a car'}" aria-label="${VEHICLES[b.vehicle].title}: switch">${VEHICLES[b.vehicle].icon}</button><input type="number" min="1" max="999" inputmode="numeric" value="${esc(b.bus ?? '')}" data-key="${esc(r.key)}" class="${r.bus_manual ? 'manual' : ''}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' dup' : ''}" aria-label="${VEHICLES[b.vehicle].title} number" title="${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(`${b.vehicle}${b.bus}`) > 1 ? ' · used twice' : ''}"></span>`
-                        : `${VEHICLES[b.vehicle].icon} ${esc(b.bus ?? '—')}`}</td>
+                    <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle, b.vlabel))}` : writable
+                        ? `<span class="tp-veh">${vehSelect(r, b)}<input type="number" min="1" max="999" inputmode="numeric" value="${esc(b.bus ?? '')}" data-key="${esc(r.key)}" class="${r.bus_manual ? 'manual' : ''}${count.get(vk(b)) > 1 ? ' dup' : ''}" aria-label="${esc(b.vlabel || VEHICLES[b.vehicle].title)} number" title="${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(vk(b)) > 1 ? ' · used twice' : ''}"></span>${b.vehicle === 'other' ? `<small class="tp-vname">${esc(b.vlabel)}</small>` : ''}`
+                        : `${VEHICLES[b.vehicle].icon} ${esc(vehicleNo(b.bus, b.vehicle, b.vlabel) || b.bus || '—')}`}</td>
                     ${timeCell(r)}
                     ${fromCell(r, i ? b : null)}
                     <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
@@ -89,7 +86,7 @@ export default async function mount(ctx) {
                   ${timeCell(r)}
                   ${fromCell(r, i.parent ? { building: i.building } : null)}
                   <td>${esc(i.route || '—')}${i.parent ? '<small>grouped</small>' : ''}</td>
-                  <td class="bus">${i.dest ? `${VEHICLES[i.vehicle].icon} ${esc(i.bus ?? '—')}` : ''}</td>
+                  <td class="bus">${i.dest ? `${VEHICLES[i.vehicle].icon} ${esc(i.vehicle === 'other' ? vehicleNo(i.bus, i.vehicle, i.vlabel) : i.bus ?? '—')}` : ''}</td>
                   <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
                   <td>${esc(r.operator || '—')}</td>
                   <td>${esc(r.leader || '—')}</td>
@@ -100,6 +97,16 @@ export default async function mount(ctx) {
                   ${delCell(r)}
                 </tr>`; }).join('')}</tbody></table></div>` : '<p class="tp-empty">Nothing matches.</p>';
         }
+    }
+
+    // the vehicle: Bus / Car / a custom name typed in ("Self- Bus"); the names used today are offered again
+    function vehSelect(r, b) {
+        const names = [...new Set(doc.rows.map(x => x.vehicle === 'other' && x.vehicle_label).filter(Boolean))];
+        const opt = (v, text, on) => `<option value="${esc(v)}"${on ? ' selected' : ''}>${esc(text)}</option>`;
+        return `<select class="tp-vt ${b.vehicle}" data-veh="${esc(r.key)}" aria-label="Vehicle" title="Vehicle: ${esc(b.vlabel || VEHICLES[b.vehicle].title)}">
+            ${opt('bus', `${VEHICLES.bus.icon} Bus`, b.vehicle === 'bus')}${opt('car', `${VEHICLES.car.icon} Car`, b.vehicle === 'car')}
+            ${names.map(n => opt(`other:${n}`, `${VEHICLES.other.icon} ${n}`, b.vehicle === 'other' && b.vlabel === n)).join('')}
+            ${opt('custom', '✎ Custom…', false)}</select>`;
     }
 
     // the time: tap to change it (desks that may write); a hand-set time shows the list's time under it
@@ -279,20 +286,31 @@ export default async function mount(ctx) {
         inp.addEventListener('blur', () => finish(true));
     });
 
-    // 🚌 ⇄ 🚗: a car counts from 1 on its own (per destination); buses keep their numbers
-    $('tpList').addEventListener('click', (e) => {
-        const b = e.target.closest('button[data-veh]');
-        if (!b || saving) return;
-        const key = b.dataset.veh, row = doc.rows.find(r => r.key === key);
+    // Bus / Car / custom: cars and custom vehicles count from 1 on their own (per destination, each custom name
+    // apart); buses keep their numbers
+    $('tpList').addEventListener('change', (e) => {
+        const sel = e.target.closest('select[data-veh]');
+        if (!sel || saving) return;
+        const key = sel.dataset.veh, row = doc.rows.find(r => r.key === key);
         if (!row) return;
-        const to = vehicleOf(row) === 'car' ? 'bus' : 'car';
-        const rows = assignBuses(doc.rows.map(r => r.key === key ? { ...r, vehicle: to === 'car' ? 'car' : undefined, bus_manual: false } : { ...r }), doc.rows);
-        // the cars of this destination always run 1, 2, 3… in time order
+        let to = sel.value, label = '';
+        if (to === 'custom') {
+            label = (prompt('Name of the vehicle (shown on the bus sheet and the signage), e.g. Self- Bus', row.vehicle_label || 'Self- Bus') || '').trim().slice(0, 30);
+            if (!label) { list(); return; }
+            to = 'other';
+        } else if (to.startsWith('other:')) { label = to.slice(6); to = 'other'; }
+        if (to === vehicleOf(row) && (to !== 'other' || label === row.vehicle_label)) return;
+        const patch = (r) => {
+            const { vehicle, vehicle_label, ...x } = r;
+            return { ...x, ...(to === 'bus' ? {} : { vehicle: to }), ...(to === 'other' ? { vehicle_label: label } : {}), bus_manual: false };
+        };
+        const rows = assignBuses(doc.rows.map(r => r.key === key ? patch(r) : { ...r }), doc.rows);
+        // the cars (or this custom name) of this destination always run 1, 2, 3… in time order
         const info = resolve(rows), dest = info.get(key)?.dest;
-        rows.filter(r => vehicleOf(r) === 'car' && !info.get(r.key).parent && info.get(r.key).dest === dest)
+        if (to !== 'bus') rows.filter(r => vehicleOf(r) === to && (to !== 'other' || String(r.vehicle_label).toUpperCase() === label.toUpperCase()) && !info.get(r.key).parent && info.get(r.key).dest === dest)
             .sort((a, b) => a.at.localeCompare(b.at)).forEach((r, i) => { r.bus = i + 1; r.bus_manual = false; });
         const n = rows.find(r => r.key === key)?.bus;
-        save(rows, `SH ${key} → ${to} ${n ?? ''}`);
+        save(rows, `SH ${key} → ${to === 'other' ? label : to} ${n ?? ''}`);
     });
 
     $('tpRenumber').addEventListener('click', () => {
