@@ -1,0 +1,28 @@
+<div class="ss">
+    <header class="ss-head">
+        <div>
+            <h1>Search slips</h1>
+            <p>Find a slip and see its details. View only — nothing can be changed here.</p>
+        </div>
+        <div class="ss-controls">
+            <label>Search<input type="search" id="ssQ" placeholder="SH, group, leader, building" autocomplete="off"></label>
+            <label>Room<input type="search" id="ssRoom" placeholder="e.g. 501" autocomplete="off"></label>
+            <label>Building<select id="ssBld"><option value="">All buildings</option></select></label>
+            <label>Staying from<input type="date" id="ssFrom"></label>
+            <label>to<input type="date" id="ssTo"></label>
+        </div>
+    </header>
+
+    <div class="ss-split">
+        <section class="ss-card">
+            <div class="ss-card-head"><h2>Slips</h2><span class="ss-muted" id="ssCount"></span></div>
+            <div class="ss-scroll">
+                <table class="ss-tbl">
+                    <thead><tr><th>SH</th><th>Group · leader</th><th>Building · rooms</th><th>Check-in</th><th>Check-out</th><th>Pax</th></tr></thead>
+                    <tbody id="ssRows"></tbody>
+                </table>
+            </div>
+        </section>
+        <section class="ss-card ss-detail" id="ssDetail"><p class="ss-muted">Tap a slip to see its details.</p></section>
+    </div>
+</div>
