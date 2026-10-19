@@ -23,6 +23,7 @@ export const DESTS = [
     { id: 'madina', route: 'MAKKAH-MADINA', label: 'MADINA', title: 'Madina', icon: '🕌' },
     { id: 'airport', route: 'MAKKAH-JEDDAH AIRPORT', label: 'JEDDAH AIRPORT', title: 'Jeddah Airport', icon: '✈️' },
     { id: 'madair', route: 'MAKKAH-MADINA AIRPORT', label: 'MADINA AIRPORT', title: 'Madina Airport', icon: '🛫' },
+    { id: 'taif', route: 'MAKKAH-TAIF', label: 'TAIF', title: 'Taif', icon: '⛰️' },
 ];
 export const destById = Object.fromEntries(DESTS.map(d => [d.id, d]));
 

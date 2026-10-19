@@ -173,8 +173,9 @@ export default async function mount(ctx) {
           <div class="ts-counts">${st.models.get('madina').chips.map(t => `<span>${esc(t)}</span>`).join('')}</div>`);
     }
 
-    // Jeddah Airport and Madina Airport: the same rules (pax + 2 a vehicle, by departure time, packet / burger per bus)
-    const AIRPORTS = { airport: { title: 'JEDDAH AIRPORT', icon: '✈️', name: 'Jeddah Airport' }, madair: { title: 'MADINA AIRPORT', icon: '🛫', name: 'Madina Airport' } };
+    // Jeddah Airport, Madina Airport and Taif: the same rules (pax + 2 a vehicle, by departure time, packet / burger per bus)
+    const AIRPORTS = { airport: { title: 'JEDDAH AIRPORT', icon: '✈️', name: 'Jeddah Airport' }, madair: { title: 'MADINA AIRPORT', icon: '🛫', name: 'Madina Airport' },
+        taif: { title: 'TAIF', icon: '⛰️', name: 'Taif' } };
     function airportCard(d, st, id = 'airport') {
         const A = AIRPORTS[id];
         const g = st.groups.find(x => x.dest.id === id);
@@ -250,16 +251,17 @@ export default async function mount(ctx) {
         const el = $(d.el);
         if (!st) { el.innerHTML = `<h2>${d.label}<small>${esc(longDate(d.day))}</small></h2><p class="tp-empty">Could not load.</p>`; return; }
         const any = st.groups.some(g => g.buses.length);
-        st.models.delete('madair');
-        // Madina Airport only on days that have trips there
-        const madair = st.groups.find(x => x.dest.id === 'madair')?.buses.length ? airportCard(d, st, 'madair') : '';
-        const n = madair ? 4 : 3;
+        st.models.delete('madair'); st.models.delete('taif');
+        // Madina Airport and Taif only on days that have trips there
+        const extraCard = (id) => st.groups.find(x => x.dest.id === id)?.buses.length ? airportCard(d, st, id) : '';
+        const madair = extraCard('madair'), taif = extraCard('taif');
+        const n = 3 + !!madair + !!taif;
         el.innerHTML = `<h2>${d.label} <small>${esc(longDate(d.day))}${st.updated_at ? ` · choices saved ${new Date(st.updated_at).toLocaleString()}${st.updated_by ? ' by ' + esc(st.updated_by) : ''}` : ''}</small></h2>
           ${any ? `<div class="ts-act ts-all" data-day="${d.day}">
               <button type="button" class="tp-btn gold" data-copy-all>📋 Copy all ${n} in one image</button>
               ${canShare ? `<button type="button" class="tp-btn" data-share-all>📤 Share all ${n}</button>` : ''}
               <span class="tp-muted" data-note></span></div>
-            <div class="ts-cards">${madinaCard(d, st)}${airportCard(d, st)}${madair}${atraafCard(d, st)}</div>`
+            <div class="ts-cards">${madinaCard(d, st)}${airportCard(d, st)}${madair}${taif}${atraafCard(d, st)}</div>`
                 : `<p class="tp-empty">No transport list saved for ${esc(longDate(d.day))} yet.</p>`}`;
         if (!writable) el.querySelectorAll('input').forEach(i => { i.disabled = true; });
     }
@@ -312,7 +314,7 @@ export default async function mount(ctx) {
         const share = btn.hasAttribute('data-share') || btn.hasAttribute('data-share-all');
         let canvas, name, title;
         if (all) {
-            const models = ['madina', 'airport', 'madair', 'atraaf'].map(k => st.models.get(k)).filter(m => m && m.rows.length);
+            const models = ['madina', 'airport', 'madair', 'taif', 'atraaf'].map(k => st.models.get(k)).filter(m => m && m.rows.length);
             if (!models.length) return;
             canvas = drawAll(models, `TOSHA SUMMARY · ${sheetDate(box.dataset.day)}`);
             name = `tosha-${box.dataset.day}.png`; title = 'Tosha summary';

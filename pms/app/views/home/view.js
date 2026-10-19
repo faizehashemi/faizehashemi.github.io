@@ -4,7 +4,7 @@
 // Fakkul Ehraam counts (Makkah arrivals; times from Setup → Fakkul Ehraam windows): Morning = check-ins from 20:00
 // yesterday to 07:00 today, Night = 07:00 to 20:00 today (Madina groups included), Night · from Madina = those whose
 // SH starts with S. Tiles open the groups (groups.js).
-// Transport today: buses to Atraaf, Madina, Jeddah Airport and Madina Airport from today's Transport list (cloud); tiles open the trips.
+// Transport today: buses to Atraaf, Madina, Jeddah Airport, Madina Airport and Taif from today's Transport list (cloud); tiles open the trips.
 // Look ahead (above Fakkul Ehraam): pick a date and the day cards (check-ins / check-outs / in Makkah, Fakkul Ehraam,
 // thaals, occupancy) show that day with the same rules; or a period, for a day-by-day summary (row → that day).
 
@@ -109,7 +109,7 @@ export default async function mount(ctx) {
     }
 
     /* ------------------------------ transport today ------------------------------ */
-    const TR_TILES = [['trAtraaf', 'atraaf'], ['trMadina', 'madina'], ['trAirport', 'airport'], ['trMadAir', 'madair']];
+    const TR_TILES = [['trAtraaf', 'atraaf'], ['trMadina', 'madina'], ['trAirport', 'airport'], ['trMadAir', 'madair'], ['trTaif', 'taif']];
     let trGroups = null;
     for (const [id, dest] of TR_TILES) {
         $(id).addEventListener('click', () => {

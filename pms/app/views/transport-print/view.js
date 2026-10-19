@@ -1,4 +1,4 @@
-// Bus sheets: one A4 landscape page per bus (or car) of the day (Atraaf, Madina, Jeddah Airport, Madina Airport), laid out like the
+// Bus sheets: one A4 landscape page per bus (or car) of the day (Atraaf, Madina, Jeddah Airport, Madina Airport, Taif), laid out like the
 // printed signs — date and time, BUS + number, destination, then group · leader · SH ref · pax for the trip
 // and the groups adjusted into the same bus. "Print summary" prints the same choice as one list per destination.
 // #/<site>/transport-print?day=YYYY-MM-DD
