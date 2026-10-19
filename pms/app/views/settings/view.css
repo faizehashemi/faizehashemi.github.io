@@ -80,6 +80,10 @@ button.linkish { border: 0; background: none; padding: 4px; color: var(--muted);
 .st-grid .pw-meter, .st-grid .actions { grid-column: 1 / -1 }
 .pw-meter { display: grid; gap: 4px }
 .pw-meter i { display: block; height: 6px; width: 0; border-radius: 3px; background: #c0392b; transition: width .2s, background .2s }
+.ci-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 4px 0 8px }
+.ci-cols fieldset { border: 1px solid #efe3cb; border-radius: 10px; padding: 6px 12px 10px; margin: 0; background: #fffdf7; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px }
+.ci-cols legend { font-weight: 700; padding: 0 4px }
+.ci-cols label { display: flex; gap: 6px; align-items: center; font-size: 13px }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px }
 
 /* shortcuts */

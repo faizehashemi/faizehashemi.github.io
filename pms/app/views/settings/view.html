@@ -131,6 +131,9 @@
                 <h2>Check-ins page</h2>
                 <div class="row"><div><b>Split by from / to</b><span class="muted small">Check-ins in two tables, from the airport and from the other city; check-outs in two, departing to the airport and to the other city. The page's own tick can still switch it.</span></div>
                     <div class="ctl"><label class="sw"><input type="checkbox" data-pref="checkinsSplit"><i></i></label></div></div>
+                <div class="row ci-cols-row"><div><b>Columns</b><span class="muted small">Ticked columns show. Each table always shows its own date &amp; time (Check-in in Check-ins, Check-out in Check-outs); “the other date &amp; time” is the check-out in Check-ins and the check-in in Check-outs. Export CSV follows the same columns.</span></div></div>
+                <div class="ci-cols" id="ciCols"></div>
+                <div class="actions"><button type="button" data-reset="checkinsHideIn,checkinsHideOut">Back to standard columns</button></div>
             </section>
 
             <section class="st-card" id="sec-data">

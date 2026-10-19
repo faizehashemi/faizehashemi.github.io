@@ -6,6 +6,7 @@
 import { printSlips, openGlCopies } from '../../core/slip-print.js';
 import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
+import { CHECKINS_COLS } from '../../core/checkins-cols.js';
 import { baseSh } from '../../core/ums.js';
 import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
 import { legOf as flightLeg, loadFlightStatus, describe as describeFlight, checkLinks } from '../../core/flights.js';
@@ -208,19 +209,19 @@ export default async function mount(ctx) {
             tr.innerHTML = `
       <td class="nowrap">${t}</td>
       ${flightCell(r, key)}
-      <td>${escapeHTML(r.sh_no || '')}</td>
-      <td>${escapeHTML(r.tour_name || '')}${isDelayed(r) ? ` <span class="badge-delay" title="${escapeHTML(r.delayed.note || '')}">Delayed · ${escapeHTML(r._dep ? r._dep.status : (r.delayed.status || ''))}${r._dep && !r._dep.last ? ' · part' : ''}</span>` : ''}</td>
-      <td>${escapeHTML(gl)}</td>
-      <td>${escapeHTML((r.building || '').trim())}</td>
-      <td>${escapeHTML(roomsFromSlip(r).join(', '))}</td>
-      <td>${assignedCount(r)}</td>
-      <td>${guests(r)}</td>
-      <td>${num(r.gents)}</td>
-      <td>${num(r.ladies)}</td>
-      <td>${num(r.children ?? r.child)}</td>
-      <td>${num(r.infants ?? r.infant)}</td>
-      <td class="nowrap">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
-      <td class="nowrap">${openCell}</td>
+      <td class="c-sh">${escapeHTML(r.sh_no || '')}</td>
+      <td class="c-group">${escapeHTML(r.tour_name || '')}${isDelayed(r) ? ` <span class="badge-delay" title="${escapeHTML(r.delayed.note || '')}">Delayed · ${escapeHTML(r._dep ? r._dep.status : (r.delayed.status || ''))}${r._dep && !r._dep.last ? ' · part' : ''}</span>` : ''}</td>
+      <td class="c-leader">${escapeHTML(gl)}</td>
+      <td class="c-building">${escapeHTML((r.building || '').trim())}</td>
+      <td class="c-rooms">${escapeHTML(roomsFromSlip(r).join(', '))}</td>
+      <td class="c-as">${assignedCount(r)}</td>
+      <td class="c-t">${guests(r)}</td>
+      <td class="c-g">${num(r.gents)}</td>
+      <td class="c-l">${num(r.ladies)}</td>
+      <td class="c-c">${num(r.children ?? r.child)}</td>
+      <td class="c-i">${num(r.infants ?? r.infant)}</td>
+      <td class="nowrap c-other">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
+      <td class="nowrap c-slip">${openCell}</td>
     `;
             tbody.appendChild(tr);
         }
@@ -324,10 +325,14 @@ export default async function mount(ctx) {
             ? ['Check-in', ...(flightsShown() ? ['Flight'] : []), 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
             : ['Check-out', ...(flightsShown() ? ['Flight'] : []), 'SH No', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
         const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        // the same columns as the table on screen (Settings → Check-ins page)
+        const ids = ['time', ...(flightsShown() ? ['fl'] : []), 'sh', 'group', 'leader', 'building', 'rooms', 'as', 't', 'g', 'l', 'c', 'i', 'other'];
+        const hidden = hiddenCols(kind);
+        const keepCol = (i) => !hidden.includes(ids[i]);
         const lines = [];
         for (const [title, list] of partsOf(rows, kind === 'in' ? 'checkin' : 'checkout')) {
             if (title) { if (lines.length) lines.push(''); lines.push(esc(`${title} — ${partSum(list)}`)); }
-            lines.push(head.join(','));
+            lines.push(head.filter((_, i) => keepCol(i)).join(','));
             for (const r of list) {
                 const ci = parseDT(r.checkin_date, r.checkin_time);
                 const co = parseDT(r.checkout_date, r.checkout_time);
@@ -337,7 +342,7 @@ export default async function mount(ctx) {
                     num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant)];
                 const fl = flightsShown() ? [flightText(r, kind === 'in' ? 'checkin' : 'checkout')] : [];
                 const row = kind === 'in' ? [fmtDT(ci), ...fl, ...mid, fmtDT(co)] : [fmtDT(co), ...fl, ...mid, fmtDT(ci)];
-                lines.push(row.map(esc).join(','));
+                lines.push(row.filter((_, i) => keepCol(i)).map(esc).join(','));
             }
         }
         return lines.join('\r\n');
@@ -439,6 +444,18 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     $('preset7').addEventListener('click', () => { const end = new Date(); const start = new Date(); start.setDate(end.getDate() - 6); setRange(ymd(start), plusOneDay(ymd(end))); });
     $('preset30').addEventListener('click', () => { const end = new Date(); const start = new Date(); start.setDate(end.getDate() - 29); setRange(ymd(start), plusOneDay(ymd(end))); });
 
+    // columns hidden by this login's Settings (each table shows only its own date & time unless chosen otherwise)
+    const KNOWN = CHECKINS_COLS.map(c => c[0]);
+    const hiddenCols = (kind) => (getPrefs()[kind === 'in' ? 'checkinsHideIn' : 'checkinsHideOut'] || []).filter(id => KNOWN.includes(id));
+    function applyCols() {
+        for (const kind of ['in', 'out']) {
+            const tbl = $(kind === 'in' ? 'tblIn' : 'tblOut'), hide = hiddenCols(kind);
+            for (const id of KNOWN) tbl.classList.toggle(`hide-${id}`, hide.includes(id));
+        }
+    }
+    applyCols();
+    window.addEventListener('pms:prefs', applyCols);
+
     $('btnRefresh').addEventListener('click', refresh);
     $('btnRun').addEventListener('click', run);
     // split view: this login's default from Settings → Check-ins page; the tick switches it for now
@@ -486,5 +503,5 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     run();
     // flight statuses change while the page is open: every 2 minutes (the server keeps them fresh)
     const flTimer = setInterval(async () => { if (document.visibilityState !== 'visible') return; await loadFlights(); if (CACHE.length) run(); }, 120e3);
-    return () => clearInterval(flTimer);
+    return () => { clearInterval(flTimer); window.removeEventListener('pms:prefs', applyCols); };
 }

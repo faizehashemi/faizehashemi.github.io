@@ -291,6 +291,20 @@ td.fl .fl-code { display: block; font-size: 12px; letter-spacing: .02em; }
 .fl-st.bad { background: #fde7e7; color: #a12a2a; }
 .fl-none { color: #8a7d68; font-size: 12px; }
 table.no-flight th.fl, table.no-flight td.fl { display: none; }
+/* columns hidden in Settings → Check-ins page */
+table.hide-sh .c-sh { display: none; }
+table.hide-group .c-group { display: none; }
+table.hide-leader .c-leader { display: none; }
+table.hide-building .c-building { display: none; }
+table.hide-rooms .c-rooms { display: none; }
+table.hide-as .c-as { display: none; }
+table.hide-t .c-t { display: none; }
+table.hide-g .c-g { display: none; }
+table.hide-l .c-l { display: none; }
+table.hide-c .c-c { display: none; }
+table.hide-i .c-i { display: none; }
+table.hide-other .c-other { display: none; }
+table.hide-slip .c-slip { display: none; }
 .flight-note { font-size: 12px; color: #6b5e4a; }
 
 /* guest flights panel (next 24 h) */

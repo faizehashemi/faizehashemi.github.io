@@ -7,6 +7,7 @@ import { currentDesk, request, UserError, canOpen } from '../../core/cloud.js';
 import { getPrefs, setPrefs, resetPrefs, exportPrefs, importPrefs, modLabel } from '../../core/prefs.js';
 import { loadBuildings, buildingNames } from '../../core/rooms.js';
 import { menuFor } from '../../core/nav.js';
+import { CHECKINS_COLS } from '../../core/checkins-cols.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Alt+<these> open the browser's own menus in some browsers — allowed, but worth a warning
@@ -54,7 +55,24 @@ export default async function mount(ctx) {
         renderKeys();
         renderQuick();
         renderMenu();
+        renderCiCols();
     }
+
+    /* ------------------------- check-ins page: columns ------------------------- */
+    function renderCiCols() {
+        const p = getPrefs();
+        const col = (kind, key, title) => `<fieldset><legend>${title}</legend>${CHECKINS_COLS.map(([id, label]) =>
+            `<label><input type="checkbox" data-cicol="${key}:${id}"${(p[key] || []).includes(id) ? '' : ' checked'}> ${esc(label)}</label>`).join('')}</fieldset>`;
+        $('ciCols').innerHTML = col('in', 'checkinsHideIn', 'Check-ins table') + col('out', 'checkinsHideOut', 'Check-outs table');
+    }
+    $('ciCols').addEventListener('change', (e) => {
+        const cb = e.target.closest('[data-cicol]');
+        if (!cb) return;
+        const [key, id] = cb.dataset.cicol.split(':');
+        const set = new Set(getPrefs()[key] || []);
+        cb.checked ? set.delete(id) : set.add(id);
+        save({ [key]: CHECKINS_COLS.map(c => c[0]).filter(x => set.has(x)) }, cb.checked ? 'Column shown' : 'Column hidden');
+    });
 
     /* ------------------------------ menu builder ------------------------------ */
     // The editable menu = what the menu shows now (standard, or this login's own, plus "New pages"); every change
@@ -194,7 +212,7 @@ export default async function mount(ctx) {
         const clear = e.target.closest('[data-clear]');
         if (clear) { save({ [clear.dataset.clear]: '' }); return; }
         const reset = e.target.closest('[data-reset]');
-        if (reset) { resetPrefs(reset.dataset.reset.split(',')); render(); $('keysMsg').textContent = ''; toast(reset.dataset.reset === 'quickLinks' ? 'Quick links removed' : 'Default shortcuts back'); return; }
+        if (reset) { resetPrefs(reset.dataset.reset.split(',')); render(); $('keysMsg').textContent = ''; toast(reset.dataset.reset === 'quickLinks' ? 'Quick links removed' : reset.dataset.reset.startsWith('checkinsHide') ? 'Standard columns back' : 'Default shortcuts back'); return; }
         const tab = e.target.closest('.st-tabs a');
         if (tab) { e.preventDefault(); show(tab.dataset.sec); return; }
         const link = e.target.closest('a[data-href]');

@@ -56,6 +56,9 @@ export const DEFAULT_PREFS = {
     pickerOnlyFree: true,      // Pick rooms…: hide full rooms at first
     // check-ins page
     checkinsSplit: false,      // split the tables by where groups come from / go to (airport or the other city)
+    // columns hidden in the Check-ins / Check-outs tables (ids in CHECKINS_COLS); by default each shows only its own time
+    checkinsHideIn: ['other'],
+    checkinsHideOut: ['other'],
     // room cleaning page: housekeeping staff names, and who is on which floor ({ 'site|BUILDING': { floor: [names] } })
     hkStaff: [],
     hkFloors: {},
