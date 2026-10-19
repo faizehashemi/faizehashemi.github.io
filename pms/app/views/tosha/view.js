@@ -6,7 +6,7 @@
 // The choices are kept in the cloud per site and day (GET/PUT /api/tosha). "Copy image" draws the card as a picture
 // and puts it on the clipboard for the Mawaid WhatsApp group (phones: Share).
 import { request, canWrite, UserError } from '../../core/cloud.js';
-import { loadDay, signage, today, addDays, longDate, sheetDate, time12, vehicleNo, VEHICLES, fleetText } from '../../core/transport.js';
+import { loadDay, signage, today, addDays, longDate, sheetDate, time12, vehicleNo, VEHICLES, fleetText, destsFor } from '../../core/transport.js';
 import { esc } from '../../core/transport-ui.js';
 
 const EXTRA = 2;  // + per bus (driver and helper)
@@ -139,25 +139,28 @@ export default async function mount(ctx) {
 
     async function load(d) {
         const [doc, t] = await ctx.guard(Promise.all([loadDay(ctx.siteId, d.day), request('GET', `/api/tosha?site=${encodeURIComponent(ctx.siteId)}&day=${d.day}`)]));
-        state.set(d.day, { groups: signage(doc.rows), choice: choiceOf(t.data), updated_at: t.updated_at, updated_by: t.updated_by, models: new Map() });
+        state.set(d.day, { groups: signage(doc.rows, ctx.siteId), choice: choiceOf(t.data), updated_at: t.updated_at, updated_by: t.updated_by, models: new Map() });
     }
 
     /* -------- cards -------- */
+    const DESTS = destsFor(ctx.siteId);
+    const LONG = DESTS.find(x => x.tosha === 'long');
     function madinaCard(d, st) {
-        const g = st.groups.find(x => x.dest.id === 'madina');
+        const g = st.groups.find(x => x.dest.id === LONG.id);
+        const NAME = LONG.label;
         const buses = [...g.buses].sort((a, b) => a.at.localeCompare(b.at));
         const c = st.choice.madina;
         const pax = buses.reduce((s, b) => s + b.pax, 0), extra = buses.reduce((s, b) => s + extraOf(b), 0), total = pax + extra;
         const meal = c.biryani ? 'Biryani' : c.burger ? 'Burger' : '';
         st.models.set('madina', {
-            title: 'MADINA · TOSHA', sub: `${sheetDate(d.day)} · ${fleet(buses)}`,
+            title: `${NAME} · TOSHA`, sub: `${sheetDate(d.day)} · ${fleet(buses)}`,
             notes: [`Preparation time: ${time12(`2000-01-01T${c.time || '06:30'}`)}`, `Prepare: ${[c.packet && 'Tosha packet', meal].filter(Boolean).join(' + ') || '—'}`],
             head: ['Bus', 'Time', 'From', 'Groups', 'Pax', '+', 'Total'], widths: [12, 12, 15, 33, 9, 7, 12], align: [, , , , 'right', 'right', 'right'],
             rows: buses.map(b => ({ cells: [vno(b) || '—', time12(b.at), b.building || '', leaders(b).join(', '), b.pax, extraOf(b) ? `+${extraOf(b)}` : '', b.pax + extraOf(b)] })),
             foot: ['Total', '', '', plural(g.groups, 'group'), pax, extra ? `+${extra}` : '', total],
             chips: [c.packet && `Tosha packets: ${total}`, meal && `${meal}: ${total}`].filter(Boolean),
         });
-        return card(d, 'madina', '🕌 MADINA', `${fleet(buses)} · ${total} to prepare`, `
+        return card(d, 'madina', `${LONG.icon} ${NAME}`, `${fleet(buses)} · ${total} to prepare`, `
           <div class="ts-big"><b>${total}</b><span>${pax} pax + ${extra} for ${plural(buses.filter(b => b.vehicle !== 'car').length, 'bus', 'buses')}</span></div>
           <div class="ts-opts">
             <label>Preparation <input type="time" data-c="madina.time" value="${esc(c.time || '06:30')}"></label>
@@ -169,15 +172,13 @@ export default async function mount(ctx) {
             <tbody>${buses.map(b => `<tr><td>${vlabel(b)}</td><td>${esc(time12(b.at))}</td><td>${esc(b.building || '—')}</td>
               <td>${esc(leaders(b)[0] || '')}${b.rows.length > 1 ? `<small>+ ${plural(b.rows.length - 1, 'more group')}</small>` : ''}</td>
               <td class="n">${b.pax}</td><td class="n">${extraOf(b) ? `+${extraOf(b)}` : ''}</td><td class="n tot">${b.pax + extraOf(b)}</td></tr>`).join('')}</tbody>
-            <tfoot><tr><td colspan="4">${plural(g.groups, 'group')}</td><td class="n">${pax}</td><td class="n">+${extra}</td><td class="n">${total}</td></tr></tfoot></table></div>` : '<p class="ts-none">No Madina buses.</p>'}
+            <tfoot><tr><td colspan="4">${plural(g.groups, 'group')}</td><td class="n">${pax}</td><td class="n">+${extra}</td><td class="n">${total}</td></tr></tfoot></table></div>` : `<p class="ts-none">No ${esc(LONG.title)} buses.</p>`}
           <div class="ts-counts">${st.models.get('madina').chips.map(t => `<span>${esc(t)}</span>`).join('')}</div>`);
     }
 
     // Jeddah Airport, Madina Airport and Taif: the same rules (pax + 2 a vehicle, by departure time, packet / burger per bus)
-    const AIRPORTS = { airport: { title: 'JEDDAH AIRPORT', icon: '✈️', name: 'Jeddah Airport' }, madair: { title: 'MADINA AIRPORT', icon: '🛫', name: 'Madina Airport' },
-        taif: { title: 'TAIF', icon: '⛰️', name: 'Taif' } };
-    function airportCard(d, st, id = 'airport') {
-        const A = AIRPORTS[id];
+    function airportCard(d, st, id) {
+        const D = DESTS.find(x => x.id === id), A = { title: D.label, icon: D.icon, name: D.title };
         const g = st.groups.find(x => x.dest.id === id);
         const buses = [...g.buses].sort((a, b) => a.at.localeCompare(b.at) || (a.bus ?? 0) - (b.bus ?? 0));
         const slots = new Map();
@@ -215,21 +216,22 @@ export default async function mount(ctx) {
           <div class="ts-counts">${st.models.get(id).chips.map(t => `<span>${esc(t)}</span>`).join('')}</div>`);
     }
 
-    function atraafCard(d, st) {
-        const g = st.groups.find(x => x.dest.id === 'atraaf');
+    function atraafCard(d, st, id) {
+        const D = DESTS.find(x => x.id === id);
+        const g = st.groups.find(x => x.dest.id === id);
         const buses = [...g.buses].sort((a, b) => a.at.localeCompare(b.at) || (a.bus ?? 0) - (b.bus ?? 0));
-        st.models.set('atraaf', {
-            title: 'ATRAAF', sub: `${sheetDate(d.day)} · ${fleet(buses)}`, notes: [],
+        st.models.set(id, {
+            title: D.label, sub: `${sheetDate(d.day)} · ${fleet(buses)}`, notes: [],
             head: ['Bus', 'Time', 'From', 'Groups', 'Pax'], widths: [12, 13, 15, 48, 12], align: [, , , , 'right'],
             rows: buses.map(b => ({ cells: [vno(b) || '—', time12(b.at), b.building || '', leaders(b).join(', '), b.pax] })),
             foot: ['Total', '', '', plural(g.groups, 'group'), g.pax], chips: [],
         });
-        return card(d, 'atraaf', '🕋 ATRAAF', `${fleet(buses)} · ${g.pax} pax`, `
+        return card(d, id, `${D.icon} ${D.label}`, `${fleet(buses)} · ${g.pax} pax`, `
           <div class="ts-big"><b>${g.pax}</b><span>pax · ${plural(g.groups, 'group')}</span></div>
           ${buses.length ? `<div class="ts-scroll"><table class="ts-tbl" data-no-cards><thead><tr><th>Bus</th><th>Time</th><th>From</th><th>Groups</th><th class="n">Pax</th></tr></thead>
             <tbody>${buses.map(b => `<tr><td>${vlabel(b)}</td><td>${esc(time12(b.at))}</td><td>${esc(b.building || '—')}</td>
               <td>${esc(leaders(b)[0] || '')}${b.rows.length > 1 ? `<small>+ ${plural(b.rows.length - 1, 'more group')}</small>` : ''}</td><td class="n tot">${b.pax}</td></tr>`).join('')}</tbody>
-            <tfoot><tr><td colspan="4">Total</td><td class="n">${g.pax}</td></tr></tfoot></table></div>` : '<p class="ts-none">No Atraaf buses.</p>'}`);
+            <tfoot><tr><td colspan="4">Total</td><td class="n">${g.pax}</td></tr></tfoot></table></div>` : `<p class="ts-none">No ${esc(D.title)} buses.</p>`}`);
     }
 
     const canShare = !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] }));
@@ -251,17 +253,21 @@ export default async function mount(ctx) {
         const el = $(d.el);
         if (!st) { el.innerHTML = `<h2>${d.label}<small>${esc(longDate(d.day))}</small></h2><p class="tp-empty">Could not load.</p>`; return; }
         const any = st.groups.some(g => g.buses.length);
-        st.models.delete('madair'); st.models.delete('taif');
-        // Madina Airport and Taif only on days that have trips there
-        const extraCard = (id) => st.groups.find(x => x.dest.id === id)?.buses.length ? airportCard(d, st, id) : '';
-        const madair = extraCard('madair'), taif = extraCard('taif');
-        const n = 3 + !!madair + !!taif;
+        st.models.clear();
+        // the site's destinations: the long trip first, then airports, then the rest (Makkah: Madina, Jeddah Airport,
+        // Madina Airport, Taif, Atraaf); Makkah's Madina Airport and Taif only on days that have trips there
+        const ORDER = { long: 0, airport: 1, summary: 2 };
+        const cards = [...DESTS].sort((a, b) => ORDER[a.tosha] - ORDER[b.tosha]).map(D => {
+            if (D.onlyWhenUsed && !st.groups.find(x => x.dest.id === D.id)?.buses.length) return '';
+            return D.tosha === 'long' ? madinaCard(d, st) : D.tosha === 'airport' ? airportCard(d, st, D.id) : atraafCard(d, st, D.id);
+        }).filter(Boolean);
+        const n = cards.length;
         el.innerHTML = `<h2>${d.label} <small>${esc(longDate(d.day))}${st.updated_at ? ` · choices saved ${new Date(st.updated_at).toLocaleString()}${st.updated_by ? ' by ' + esc(st.updated_by) : ''}` : ''}</small></h2>
           ${any ? `<div class="ts-act ts-all" data-day="${d.day}">
               <button type="button" class="tp-btn gold" data-copy-all>📋 Copy all ${n} in one image</button>
               ${canShare ? `<button type="button" class="tp-btn" data-share-all>📤 Share all ${n}</button>` : ''}
               <span class="tp-muted" data-note></span></div>
-            <div class="ts-cards">${madinaCard(d, st)}${airportCard(d, st)}${madair}${taif}${atraafCard(d, st)}</div>`
+            <div class="ts-cards">${cards.join('')}</div>`
                 : `<p class="tp-empty">No transport list saved for ${esc(longDate(d.day))} yet.</p>`}`;
         if (!writable) el.querySelectorAll('input').forEach(i => { i.disabled = true; });
     }
@@ -314,7 +320,7 @@ export default async function mount(ctx) {
         const share = btn.hasAttribute('data-share') || btn.hasAttribute('data-share-all');
         let canvas, name, title;
         if (all) {
-            const models = ['madina', 'airport', 'madair', 'taif', 'atraaf'].map(k => st.models.get(k)).filter(m => m && m.rows.length);
+            const models = [...st.models.values()].filter(m => m && m.rows.length);
             if (!models.length) return;
             canvas = drawAll(models, `TOSHA SUMMARY · ${sheetDate(box.dataset.day)}`);
             name = `tosha-${box.dataset.day}.png`; title = 'Tosha summary';

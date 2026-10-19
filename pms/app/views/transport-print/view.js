@@ -2,7 +2,7 @@
 // printed signs — date and time, BUS + number, destination, then group · leader · SH ref · pax for the trip
 // and the groups adjusted into the same bus. "Print summary" prints the same choice as one list per destination.
 // #/<site>/transport-print?day=YYYY-MM-DD
-import { loadDay, listDays, signage, DESTS, vehicleWord, today, sheetDate, time12 } from '../../core/transport.js';
+import { loadDay, listDays, signage, destsFor, vehicleWord, today, sheetDate, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { UserError, canOpen } from '../../core/cloud.js';
 
@@ -77,6 +77,7 @@ export default async function mount(ctx) {
         if (Array.isArray(s)) off = s;
         else if (Array.isArray(old)) off = OLD_DESTS.filter(id => !old.includes(id));
     } catch { }
+    const DESTS = destsFor(ctx.siteId);
     let picked = DESTS.map(d => d.id).filter(id => !off.includes(id));
 
     let doc = { rows: [] }, days = [];
@@ -86,7 +87,7 @@ export default async function mount(ctx) {
         $('tqMsg').innerHTML = `<div class="tp-msg bad">${esc(e instanceof UserError ? e.message : 'Could not load the transport list.')}</div>`;
     }
     renderDayNav($('tqNav'), { day, days, onChange: (d) => ctx.navigate('transport-print', { day: d }) });
-    const groups = signage(doc.rows);
+    const groups = signage(doc.rows, ctx.siteId);
     $('tqDests').innerHTML = groups.map(g => `<label><input type="checkbox" value="${g.dest.id}"${picked.includes(g.dest.id) ? ' checked' : ''}> ${esc(g.dest.title)} <span class="tp-muted">(${g.buses.length})</span></label>`).join(' ');
 
     // the chosen destinations, each with only the chosen numbers
@@ -103,7 +104,7 @@ export default async function mount(ctx) {
     }
     $('tqDests').addEventListener('change', () => {
         picked = [...$('tqDests').querySelectorAll('input:checked')].map(x => x.value);
-        try { localStorage.setItem(OFF_KEY, JSON.stringify(DESTS.map(d => d.id).filter(id => !picked.includes(id)))); localStorage.removeItem(OLD_PICK_KEY); } catch { }
+        try { localStorage.setItem(OFF_KEY, JSON.stringify([...off.filter(id => !DESTS.some(d => d.id === id)), ...DESTS.map(d => d.id).filter(id => !picked.includes(id))])); localStorage.removeItem(OLD_PICK_KEY); } catch { }
         render();
     });
     $('tqOnly').addEventListener('input', render);

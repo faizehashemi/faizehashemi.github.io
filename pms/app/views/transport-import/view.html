@@ -2,7 +2,8 @@
     <header class="tp-head">
         <div>
             <h1>Transport import</h1>
-            <p class="tp-sub">Paste the transport list (with or without its heading row). Days that are already saved are compared first — you choose which changes to apply.</p>
+            <p class="tp-sub">Paste the transport list (with or without its heading row). Days that are already saved are compared first — you choose which changes to apply.
+                <span id="tiRoutes"></span></p>
         </div>
         <div class="tp-actions">
             <a class="tp-btn" id="tiDay" href="#">🚌 Transport day</a>
@@ -18,4 +19,28 @@
         </div>
     </section>
     <div id="tiResult"></div>
+
+    <section class="tp-card ti-man">
+        <h2>Add a trip by hand</h2>
+        <p class="tp-muted">For a trip that is not in the pasted list. It goes onto that day's list (a new day is started if none is saved) and stays there when a list is pasted again.</p>
+        <form id="tmForm" class="ti-form" autocomplete="off">
+            <label>Date<input type="date" id="tmDay" required></label>
+            <label>Time<input type="time" id="tmTime" required></label>
+            <label class="w2">Route<select id="tmRoute"></select></label>
+            <label class="w2" id="tmOtherWrap" hidden>Route name<input id="tmOther" placeholder="e.g. MADINA-BADR" maxlength="60"></label>
+            <label>Vehicle<select id="tmVehicle"><option value="">Bus</option><option value="car">Car</option></select></label>
+            <label>SH / booking ref<input id="tmRef" maxlength="30" placeholder="optional"></label>
+            <label class="w2">Tour operator<input id="tmOperator" maxlength="80"></label>
+            <label class="w2">Group leader<input id="tmLeader" maxlength="80"></label>
+            <label>M<input type="number" id="tmM" min="0" value="0"></label>
+            <label>F<input type="number" id="tmF" min="0" value="0"></label>
+            <label>C<input type="number" id="tmC" min="0" value="0"></label>
+            <label>Total pax<input type="number" id="tmPax" min="0" value="0"></label>
+            <label>Transporter<input id="tmTransporter" maxlength="60"></label>
+            <label>Vch No<input id="tmVch" maxlength="20"></label>
+            <label class="w2">Rooms<input id="tmRooms" placeholder="e.g. 101, 102" maxlength="200"></label>
+            <label class="w3">Remarks<input id="tmRemarks" maxlength="200"></label>
+            <div class="ti-actions w4"><button type="submit" class="tp-btn gold" id="tmSave">Add trip</button><span class="tp-muted" id="tmMsg"></span></div>
+        </form>
+    </section>
 </div>

@@ -3,7 +3,7 @@
 //   Day already saved: what changed (new / changed / gone trips), each with a tick → Apply the ticked ones.
 //   Bus numbers already given stay; new signage trips get the next free numbers of their destination.
 import { canWrite, UserError } from '../../core/cloud.js';
-import { parseTransport, byDay, assignBuses, signage, diffDay, applyChanges, loadDay, saveDay, resolve, longDate, time12 } from '../../core/transport.js';
+import { parseTransport, byDay, assignBuses, signage, diffDay, applyChanges, loadDay, saveDay, resolve, longDate, time12, today, destsFor, routesFor, normRoute } from '../../core/transport.js';
 import { esc } from '../../core/transport-ui.js';
 
 const DRAFT_KEY = 'pms_transport_draft';
@@ -17,9 +17,17 @@ export default async function mount(ctx) {
     $('tiText').addEventListener('input', () => { try { sessionStorage.setItem(DRAFT_KEY, $('tiText').value); } catch { } });
 
     let plans = []; // [{ day, rows, saved, diff }]
+    // Medina takes only its own routes from a pasted list (grouped trips follow their vehicle's route)
+    const keep = routesFor(ctx.siteId);
+    if (keep) $('tiRoutes').innerHTML = `<b>${esc(ctx.site.label)} keeps only ${keep.map(esc).join(', ')}</b> — every other route in the list is left out.`;
+    const onlyOurs = (list) => {
+        if (!keep) return list;
+        const info = resolve(list);
+        return list.filter(r => keep.includes(normRoute(info.get(r.key).route)));
+    };
 
     const tripsLine = (rows) => {
-        const s = signage(rows).filter(x => x.buses.length);
+        const s = signage(rows, ctx.siteId).filter(x => x.buses.length);
         return `${rows.length} trips${s.length ? ' · ' + s.map(x => `${x.dest.title} ${x.buses.length} bus${x.buses.length === 1 ? '' : 'es'}`).join(', ') : ' · none for signage'}`;
     };
     const who = (r) => `<b>${esc(r.ref)}</b> · ${esc(r.leader || '—')}<small>${esc(r.operator || '')}${r.route ? ' · ' + esc(r.route) : ''} · ${esc(time12(r.at))} · ${esc(r.pax)} pax</small>`;
@@ -74,7 +82,15 @@ export default async function mount(ctx) {
     }
 
     async function read() {
-        const { rows, skipped } = parseTransport($('tiText').value);
+        const parsed = parseTransport($('tiText').value);
+        let rows = parsed.rows, left = 0;
+        const { skipped } = parsed;
+        if (keep && rows.length) {
+            const ours = [...byDay(rows).values()].flatMap(onlyOurs);
+            left = rows.length - ours.length;
+            rows = ours;
+            if (!rows.length) { $('tiStatus').textContent = `None of the ${left} trips is on ${keep.join(', ')} — nothing to load for ${ctx.site.label}.`; plans = []; render(); return; }
+        }
         if (!rows.length) { $('tiStatus').textContent = 'No trips found. Copy the whole list, including the date column.'; plans = []; render(); return; }
         $('tiStatus').textContent = 'Comparing with the saved days…';
         try {
@@ -83,7 +99,7 @@ export default async function mount(ctx) {
                 const saved = await loadDay(ctx.siteId, day);
                 return { day, rows: list, saved, diff: diffDay(saved.rows, list) };
             })));
-            $('tiStatus').textContent = `${rows.length} trips on ${plans.length} day${plans.length === 1 ? '' : 's'}${skipped ? ` · ${skipped} line${skipped === 1 ? '' : 's'} without a booking ref skipped (hotel shuttles)` : ''}.`;
+            $('tiStatus').textContent = `${rows.length} trips on ${plans.length} day${plans.length === 1 ? '' : 's'}${skipped ? ` · ${skipped} line${skipped === 1 ? '' : 's'} without a booking ref skipped (hotel shuttles)` : ''}${left ? ` · ${left} trip${left === 1 ? '' : 's'} on other routes left out` : ''}.`;
         } catch (e) {
             $('tiStatus').textContent = e instanceof UserError ? e.message : 'Could not reach the server.';
             plans = [];
@@ -103,6 +119,44 @@ export default async function mount(ctx) {
         }
         render();
     }
+
+    /* -------- a trip added by hand (stays on the day when a list is pasted again: manual) -------- */
+    const DESTS = destsFor(ctx.siteId);
+    $('tmRoute').innerHTML = DESTS.map(d => `<option value="${esc(d.route)}">${esc(d.icon)} ${esc(d.title)} — ${esc(d.route)}</option>`).join('') + '<option value="">Other route…</option>';
+    $('tmDay').value = today();
+    $('tmRoute').addEventListener('change', () => { $('tmOtherWrap').hidden = !!$('tmRoute').value; });
+    const n = (id) => Math.max(0, parseInt($(id).value, 10) || 0);
+    ['tmM', 'tmF', 'tmC'].forEach(id => $(id).addEventListener('input', () => { $('tmPax').value = n('tmM') + n('tmF') + n('tmC'); }));
+    if (!writable) { $('tmSave').disabled = true; $('tmMsg').textContent = 'This login cannot save here (read-only).'; }
+    $('tmForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const day = $('tmDay').value, time = $('tmTime').value;
+        const route = normRoute($('tmRoute').value || $('tmOther').value);
+        const val = (id) => $(id).value.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+        if (!day || !time) { $('tmMsg').textContent = 'Give the date and time.'; return; }
+        if (!route) { $('tmMsg').textContent = 'Choose a route or type its name.'; return; }
+        if (!n('tmPax')) { $('tmMsg').textContent = 'Give the pax.'; return; }
+        const key = `M${Date.now().toString(36).toUpperCase()}`;
+        const trip = {
+            key, ref: val('tmRef') || key, dora: '', vch: val('tmVch'), transporter: val('tmTransporter'), day, at: `${day}T${time}`,
+            operator: val('tmOperator'), leader: val('tmLeader'), route, m: n('tmM'), f: n('tmF'), c: n('tmC'), pax: n('tmPax'),
+            rooms: val('tmRooms').split(/[,\s]+/).filter(Boolean), remarks: val('tmRemarks'), adj: '', loc: '', manual: true,
+            ...($('tmVehicle').value ? { vehicle: $('tmVehicle').value } : {}),
+        };
+        $('tmSave').disabled = true;
+        $('tmMsg').textContent = 'Saving…';
+        try {
+            const saved = await ctx.guard(loadDay(ctx.siteId, day));
+            const rows = assignBuses([...saved.rows.map(r => ({ ...r })), trip].sort((a, b) => a.at.localeCompare(b.at)), saved.rows);
+            await ctx.guard(saveDay(ctx.siteId, day, rows, saved.version || 0, `added by hand: ${trip.ref} ${route}`));
+            const got = rows.find(r => r.key === key);
+            $('tmMsg').innerHTML = `Added ✓ ${esc(route)} at ${esc(time12(trip.at))}${got?.bus ? ` · bus ${esc(got.bus)}` : ''} — <a href="${ctx.href('transport', { day })}">open ${esc(day)}</a>`;
+            ['tmRef', 'tmOperator', 'tmLeader', 'tmTransporter', 'tmVch', 'tmRooms', 'tmRemarks'].forEach(id => { $(id).value = ''; });
+            ['tmM', 'tmF', 'tmC', 'tmPax'].forEach(id => { $(id).value = 0; });
+        } catch (err) {
+            $('tmMsg').textContent = err instanceof UserError ? err.message + (err.status === 409 ? ' Try again.' : '') : 'Could not save.';
+        } finally { $('tmSave').disabled = !writable; }
+    });
 
     $('tiRead').addEventListener('click', read);
     $('tiClear').addEventListener('click', () => { $('tiText').value = ''; try { sessionStorage.removeItem(DRAFT_KEY); } catch { } plans = []; $('tiStatus').textContent = ''; render(); });

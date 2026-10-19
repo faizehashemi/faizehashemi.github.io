@@ -20,7 +20,7 @@ import { renderDayCounts } from './daycount.js';
 import { presentAt, paxAt, departuresOf, isDelayed, rowsOf, slipEnd, roomConflicts } from '../../core/stay.js';
 import { loadBuildings, builderCapacity } from '../../core/rooms.js';
 import { openTransportList } from './transport.js';
-import { loadDay as loadTransport, signage as transportSignage, today as transportToday, time12, fleetText as transportFleet } from '../../core/transport.js';
+import { loadDay as loadTransport, signage as transportSignage, today as transportToday, time12, fleetText as transportFleet, destsFor as transportDests } from '../../core/transport.js';
 
 const PRAISE = [
     'The guests of Allah are in wonderful hands today.',
@@ -109,19 +109,22 @@ export default async function mount(ctx) {
     }
 
     /* ------------------------------ transport today ------------------------------ */
-    const TR_TILES = [['trAtraaf', 'atraaf'], ['trMadina', 'madina'], ['trAirport', 'airport'], ['trMadAir', 'madair'], ['trTaif', 'taif']];
+    // one tile per destination of this site (Makkah: Atraaf, Madina, airports, Taif; Medina: Makkah, Ziyarat, Madina Airport)
+    const TILE_CLS = { summary: 'ta', long: 'tm', airport: 'tj' };
+    const TR_TILES = transportDests(ctx.siteId).map(d => [`tr-${d.id}`, d.id]);
+    $('trTiles').innerHTML = transportDests(ctx.siteId).map(d => `<button type="button" class="hm-stat ${TILE_CLS[d.tosha] || 'tj'}" id="tr-${d.id}" data-dest="${d.id}">
+        <span class="hm-ico" aria-hidden="true">${d.icon}</span><b>—</b><span class="hm-lbl">${d.title}</span><small></small></button>`).join('');
     let trGroups = null;
-    for (const [id, dest] of TR_TILES) {
-        $(id).addEventListener('click', () => {
-            const g = trGroups?.find(x => x.dest.id === dest);
-            if (!g) return;
-            openTransportList({ title: `Transport today · ${g.dest.title}`, sub: ctx.site.label, group: g, host: ctx.root,
-                dayHref: canOpen('transport', desk) ? ctx.href('transport') : '' });
-        });
-    }
+    $('trTiles').addEventListener('click', (e) => {
+        const dest = e.target.closest('[data-dest]')?.dataset.dest;
+        const g = dest && trGroups?.find(x => x.dest.id === dest);
+        if (!g) return;
+        openTransportList({ title: `Transport today · ${g.dest.title}`, sub: ctx.site.label, group: g, host: ctx.root,
+            dayHref: canOpen('transport', desk) ? ctx.href('transport') : '' });
+    });
     async function transport() {
         const doc = await ctx.guard(loadTransport(ctx.siteId, transportToday()));
-        trGroups = transportSignage(doc.rows);
+        trGroups = transportSignage(doc.rows, ctx.siteId);
         for (const [id, dest] of TR_TILES) {
             const g = trGroups.find(x => x.dest.id === dest);
             const first = g.buses.length ? g.buses.reduce((a, b) => a.at < b.at ? a : b).at : null;

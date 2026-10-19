@@ -17,18 +17,34 @@
 
 import { request } from './cloud.js';
 
-// The trips that get a bus number, signage and a bus sheet (Makkah departures), in Home's order
-export const DESTS = [
-    { id: 'atraaf', route: 'MAKKAH-MAKKAH ATRAAF', label: 'ATRAAF', title: 'Atraaf', icon: '🕋' },
-    { id: 'madina', route: 'MAKKAH-MADINA', label: 'MADINA', title: 'Madina', icon: '🕌' },
-    { id: 'airport', route: 'MAKKAH-JEDDAH AIRPORT', label: 'JEDDAH AIRPORT', title: 'Jeddah Airport', icon: '✈️' },
-    { id: 'madair', route: 'MAKKAH-MADINA AIRPORT', label: 'MADINA AIRPORT', title: 'Madina Airport', icon: '🛫' },
-    { id: 'taif', route: 'MAKKAH-TAIF', label: 'TAIF', title: 'Taif', icon: '⛰️' },
-];
-export const destById = Object.fromEntries(DESTS.map(d => [d.id, d]));
+// The trips that get a bus number, signage and a bus sheet, per site, in Home's order.
+// tosha: how the Tosha summary treats them — 'long' (preparation time, meal, packet: the inter-city trip),
+// 'airport' (by departure time, packet / burger per bus), 'summary' (pax only).
+// Medina keeps only its own three routes; anything else in a pasted Medina list is left out at import.
+export const DESTS_BY_SITE = {
+    makkah: [
+        { id: 'atraaf', route: 'MAKKAH-MAKKAH ATRAAF', label: 'ATRAAF', title: 'Atraaf', icon: '🕋', tosha: 'summary' },
+        { id: 'madina', route: 'MAKKAH-MADINA', label: 'MADINA', title: 'Madina', icon: '🕌', tosha: 'long' },
+        { id: 'airport', route: 'MAKKAH-JEDDAH AIRPORT', label: 'JEDDAH AIRPORT', title: 'Jeddah Airport', icon: '✈️', tosha: 'airport' },
+        { id: 'madair', route: 'MAKKAH-MADINA AIRPORT', label: 'MADINA AIRPORT', title: 'Madina Airport', icon: '🛫', tosha: 'airport', onlyWhenUsed: true },
+        { id: 'taif', route: 'MAKKAH-TAIF', label: 'TAIF', title: 'Taif', icon: '⛰️', tosha: 'airport', onlyWhenUsed: true },
+    ],
+    medina: [
+        { id: 'mdmakkah', route: 'MADINA-MAKKAH', label: 'MAKKAH', title: 'Makkah', icon: '🕋', tosha: 'long' },
+        { id: 'mdziyarat', route: 'MADINA-MADINA ZIYARAT', label: 'ZIYARAT', title: 'Madina Ziyarat', icon: '🕌', tosha: 'summary' },
+        { id: 'mdairport', route: 'MADINA-MADINA AIRPORT', label: 'MADINA AIRPORT', title: 'Madina Airport', icon: '🛫', tosha: 'airport' },
+    ],
+};
+export const DESTS = DESTS_BY_SITE.makkah;
+/** The destinations of a site (Makkah's when the site is unknown) */
+export const destsFor = (site) => DESTS_BY_SITE[site] || DESTS;
+const ALL_DESTS = Object.values(DESTS_BY_SITE).flat();
+export const destById = Object.fromEntries(ALL_DESTS.map(d => [d.id, d]));
 
-const normRoute = (s) => String(s || '').toUpperCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
-const DEST_OF_ROUTE = Object.fromEntries(DESTS.map(d => [normRoute(d.route), d.id]));
+export const normRoute = (s) => String(s || '').toUpperCase().replace(/\s*-\s*/g, '-').replace(/\s+/g, ' ').trim();
+const DEST_OF_ROUTE = Object.fromEntries(ALL_DESTS.map(d => [normRoute(d.route), d.id]));
+/** The routes a site takes from a pasted list (null = every route) */
+export const routesFor = (site) => site === 'medina' ? destsFor(site).map(d => normRoute(d.route)) : null;
 
 const pad = (n) => String(n).padStart(2, '0');
 export const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -169,7 +185,7 @@ export function assignBuses(rows, prev = []) {
     for (const r of rows) { if (!(info.get(r.key).dest && !info.get(r.key).parent)) { r.bus = null; r.bus_manual = false; } }
     // buses, cars and each custom name ("Self- Bus") count apart
     const kinds = [...new Set(['bus', 'car', ...rows.map(kindOf)])];
-    for (const d of DESTS) for (const v of kinds) {
+    for (const d of ALL_DESTS) for (const v of kinds) {
         const list = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent && kindOf(r) === v; }).sort(byTime);
         const used = new Set();
         const fresh = [];
@@ -193,9 +209,9 @@ export const renumber = (rows) => assignBuses(rows.map(r => ({ ...r, bus: null, 
  * and the groups adjusted into it.
  * @returns {{ dest, buses: { bus, at, rows: object[], pax, transporter, vch }[], pax, groups }[]}
  */
-export function signage(rows) {
+export function signage(rows, site = 'makkah') {
     const info = resolve(rows);
-    return DESTS.map(d => {
+    return destsFor(site).map(d => {
         const mains = rows.filter(r => { const i = info.get(r.key); return i.dest === d.id && !i.parent; })
             .sort((a, b) => VORDER[vehicleOf(a)] - VORDER[vehicleOf(b)] || (a.bus ?? 1e9) - (b.bus ?? 1e9) || byTime(a, b));
         const buses = mains.map(r => {
@@ -245,7 +261,7 @@ export function diffDay(saved, incoming) {
         const fields = FIELDS.filter(f => show(o, f) !== show(r, f)).map(f => [f[1], show(o, f), show(r, f)]);
         if (fields.length) out.changed.push({ old: o, now: r, fields }); else out.same++;
     }
-    for (const o of saved) if (!seen.has(o.key)) out.removed.push(o);
+    for (const o of saved) if (!seen.has(o.key) && !o.manual) out.removed.push(o); // trips made by hand stay
     return out;
 }
 

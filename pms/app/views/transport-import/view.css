@@ -18,3 +18,8 @@
 .ti-chg ul { margin: 0; padding-left: 16px; }
 .ti-chg del { color: #a12a2a; } .ti-chg ins { color: #1f6f43; text-decoration: none; font-weight: 650; }
 .ti-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ti-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 12px; margin-top: 8px; }
+.ti-form label { display: grid; gap: 3px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.ti-form input, .ti-form select { font: inherit; font-size: 14px; font-weight: 400; color: inherit; padding: 7px 9px; border: 1px solid var(--edge); border-radius: 9px; background: #fff; min-width: 0; }
+.ti-form .w2 { grid-column: span 2; } .ti-form .w3 { grid-column: span 3; } .ti-form .w4 { grid-column: 1 / -1; }
+@media (max-width: 520px) { .ti-form .w2, .ti-form .w3 { grid-column: 1 / -1; } }

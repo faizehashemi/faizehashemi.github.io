@@ -30,7 +30,7 @@ export default async function mount(ctx) {
     function nav() { renderDayNav($('tpNav'), { day, days, onChange: go }); }
 
     function tiles() {
-        $('tpTiles').innerHTML = signage(doc.rows).map(s => `
+        $('tpTiles').innerHTML = signage(doc.rows, ctx.siteId).map(s => `
           <div class="tp-tile"><span class="ico" aria-hidden="true">${s.dest.icon}</span>
             <b>${s.pax}</b><span>${esc(s.dest.title)}</span>
             <small>${fleet(s.buses)} · ${s.groups} group${s.groups === 1 ? '' : 's'}${s.buses.length ? ` · ${time12(s.buses.reduce((a, b) => a.at < b.at ? a : b).at)} first` : ''}</small>
@@ -51,7 +51,7 @@ export default async function mount(ctx) {
             return;
         }
         if (filter === 'sign') {
-            const html = signage(doc.rows).map(s => {
+            const html = signage(doc.rows, ctx.siteId).map(s => {
                 // duplicate numbers in one destination are flagged (typed in by hand)
                 const count = new Map();
                 const vk = (b) => `${b.vehicle}${b.vehicle === 'other' ? b.vlabel.toUpperCase() : ''}#${b.bus}`;
