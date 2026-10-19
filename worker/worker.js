@@ -1372,6 +1372,15 @@ async function settleLaundryBills(req, env, me) {
     return json({ bills: rows.map(rowToBill), changed: todo.length });
 }
 
+// The day of the oldest cash bill not yet marked paid (null when all are paid): the default "From" of the laundry
+// screen's Pending cash and of Laundry admin → Bills, so both show every unpaid bill
+async function oldestUnpaid(url, env, me) {
+    const site = laundrySite(me, url.searchParams.get('site'));
+    if (me.role === 'desk' && site !== me.site) throw new HttpError(403, `${me.name} works at ${SITES[me.site]}.`);
+    const r = await env.DB.prepare("SELECT MIN(day) AS day FROM laundry_bills WHERE site = ? AND kind = 'paid' AND voided = 0 AND settled_at IS NULL").bind(site).first();
+    return json({ day: r ? r.day : null });
+}
+
 // The payment log (admin, viewer, desk): every "mark paid" / "mark unpaid" in a date range, newest first
 async function listSettlements(url, env, me) {
     const site = laundrySite(me, url.searchParams.get('site'));
@@ -1427,6 +1436,7 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (p === '/api/laundry/search' && m === 'GET') return searchLaundry(url, env, me);
     if (p === '/api/laundry/settle' && m === 'POST') return settleLaundryBills(req, env, me);
     if (p === '/api/laundry/settlements' && m === 'GET') return listSettlements(url, env, me);
+    if (p === '/api/laundry/oldest-unpaid' && m === 'GET') return oldestUnpaid(url, env, me);
     if (p === '/api/laundry/customers' && m === 'GET') return laundryCustomers(url, env, me);
     mm = p.match(/^\/api\/laundry\/bills\/(\d+)(?:\/(void))?$/);
     if (mm && !mm[2] && m === 'PUT') return editLaundryBill(req, env, me, Number(mm[1]));

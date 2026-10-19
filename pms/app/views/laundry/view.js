@@ -385,15 +385,19 @@ export default async function mount(ctx) {
     $('ldSlogList').addEventListener('click', (e) => { const c = e.target.closest('[data-slog]'); if (c) showReceipt(slog.bills.find(b => b.id === Number(c.dataset.slog)), [], false, '✖ Close'); });
 
     /* ----------------------------- pending cash ----------------------------- */
-    // cash bills from a date (to a date, or up to today); Unpaid until the admin marks them Paid
-    const cashSt = { from: jeddahDay(), to: '', show: 'all', bills: [] };
-    $('ldCashFrom').value = cashSt.from;
+    // the site's cash bills from a date (to a date, or up to today); Unpaid until the admin marks them Paid.
+    // "From" starts at the oldest unpaid bill, so this matches Laundry admin → Bills (same bills, same unpaid total).
+    const cashSt = { from: '', to: '', show: 'all', bills: [], picked: false };
     async function loadCash() {
         drawQueue();
+        if (!cashSt.picked) {
+            try { cashSt.from = (await ctx.guard(request('GET', `/api/laundry/oldest-unpaid?site=${site}`))).day || jeddahDay(); } catch { cashSt.from = cashSt.from || jeddahDay(); }
+            $('ldCashFrom').value = cashSt.from;
+        }
         const from = cashSt.from || jeddahDay(), to = cashSt.to || jeddahDay();
         if (to < from) { $('ldCashList').innerHTML = '<p class="ld-muted">"To" is before "From".</p>'; $('ldCashKpis').innerHTML = ''; return; }
         $('ldCashList').innerHTML = '<p class="ld-muted">Loading…</p>';
-        try { cashSt.bills = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}&kind=paid`))).bills.filter(b => !b.voided); }
+        try { cashSt.bills = (await ctx.guard(request('GET', `/api/laundry/bills?site=${site}&from=${from}&to=${to}&kind=paid&all=1`))).bills.filter(b => !b.voided); }
         catch (e) { $('ldCashList').innerHTML = `<p class="ld-muted">${esc(e.message)}</p>`; $('ldCashKpis').innerHTML = ''; return; }
         drawCash();
     }
@@ -412,7 +416,7 @@ export default async function mount(ctx) {
             <b class="ld-amt">${sar(b.paid)}</b></button>`).join('') || '<p class="ld-muted">No cash bills in these dates.</p>';
     }
     $('ldCashKpis').addEventListener('click', (e) => { const b = e.target.closest('[data-show]'); if (b) { cashSt.show = cashSt.show === b.dataset.show ? 'all' : b.dataset.show; drawCash(); } });
-    $('ldCashFrom').addEventListener('change', () => { cashSt.from = $('ldCashFrom').value || jeddahDay(); loadCash(); });
+    $('ldCashFrom').addEventListener('change', () => { cashSt.picked = true; cashSt.from = $('ldCashFrom').value || jeddahDay(); loadCash(); });
     $('ldCashTo').addEventListener('change', () => { cashSt.to = $('ldCashTo').value; loadCash(); });
     $('ldCashToClear').addEventListener('click', () => { $('ldCashTo').value = ''; cashSt.to = ''; loadCash(); });
     $('ldCashList').addEventListener('click', (e) => { const b = e.target.closest('[data-bill]'); if (b) showReceipt(cashSt.bills.find(x => x.id === Number(b.dataset.bill)), [], false, '✖ Close'); });

@@ -245,9 +245,14 @@ export default async function mount(ctx) {
     /* ------------------------------ bills ------------------------------ */
     // Cash bills only. Unpaid = the worker still holds the cash; the admin marks bills Paid when it is handed over:
     // one bill (✔ button), ticked bills, or "amount collected" (ticks the oldest unpaid bills that fit that amount).
-    const B = { from: addDays(jeddahDay(), -6), to: jeddahDay(), bills: [], sel: new Set() };
+    // "From" starts at the oldest unpaid bill (or the last 7 days when all are paid) — the same as the laundry screen
+    const B = { from: addDays(jeddahDay(), -6), to: jeddahDay(), bills: [], sel: new Set(), picked: false };
     $('bFrom').value = B.from; $('bTo').value = B.to;
     async function drawBills() {
+        if (!B.picked) {
+            B.picked = true;
+            try { const d = (await api('GET', `/api/laundry/oldest-unpaid?site=${site}`)).day; if (d) { B.from = d; $('bFrom').value = d; } } catch { }
+        }
         $('bBody').innerHTML = '<p class="la-muted">Loading…</p>';
         try {
             B.bills = (await api('GET', `/api/laundry/bills?site=${site}&from=${B.from}&to=${B.to}&kind=paid&all=1`)).bills.filter(b => !b.voided)
@@ -289,7 +294,7 @@ export default async function mount(ctx) {
             renderBills();
         } catch (err) { alert(err.message); }
     }
-    $('bFrom').addEventListener('change', () => { B.from = $('bFrom').value || jeddahDay(); if (B.to < B.from) { B.to = B.from; $('bTo').value = B.to; } drawBills(); });
+    $('bFrom').addEventListener('change', () => { B.picked = true; B.from = $('bFrom').value || jeddahDay(); if (B.to < B.from) { B.to = B.from; $('bTo').value = B.to; } drawBills(); });
     $('bTo').addEventListener('change', () => { B.to = $('bTo').value || B.from; if (B.to < B.from) { B.from = B.to; $('bFrom').value = B.from; } drawBills(); });
     $('bBody').addEventListener('click', (e) => {
         const t = e.target;
