@@ -9,6 +9,7 @@ body { background: var(--dp-bg) url("../../../assets/pattern_gold_2x.png") repea
 .dp-head p { margin: 4px 0 0; font-size: 13px; opacity: .93; max-width: 80ch; }
 .dp-btn { font: inherit; font-weight: 700; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--dp-gold); background: #fff; color: #7a5b13; cursor: pointer; white-space: nowrap; }
 .dp-btn:hover { background: #fff6dd; }
+.dp-top-act { display: inline-flex; flex-wrap: wrap; gap: 8px; }
 .dp-btn.primary { background: linear-gradient(#e6c65a, #d4af37); border-color: #b8931f; color: #3b2a06; }
 .dp-btn.ghost { background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .7); color: #fff; }
 .dp-btn.small { padding: 4px 9px; font-size: 12px; }

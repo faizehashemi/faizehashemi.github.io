@@ -218,7 +218,8 @@ export default async function mount(ctx) {
             @page { margin: 12mm; } body { font: 16px/1.5 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
             section { break-inside: avoid; padding: 6px 0 8px; border-bottom: 1px solid #999; }
             h2 { font-size: 18px; margin: 8px 0 4px; } h2 .staff { font-weight: 600; } .cat { font-size: 18px; margin: 2px 0; } .cat b { display: inline-block; min-width: 230px; font-size: 15px; }
-            </style></head><body>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
+            .day { font-size: 20px; font-weight: 700; margin: 0 0 6px; padding-bottom: 6px; border-bottom: 2px solid #000; }
+            </style></head><body><p class="day">${esc(new Date(`${$('hkDay').value || ymd(new Date())}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
         w.document.close();
     });
     await loadBuildingsList();

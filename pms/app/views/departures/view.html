@@ -4,7 +4,10 @@
             <h1>Delayed departures</h1>
             <p>Groups that could not leave on their booked date. Each room has its own check-out: <b>confirmed</b>, <b>tentative</b> (ticket not confirmed) or <b>unknown</b> (beds held). Every change is checked against the groups booked into those rooms next.</p>
         </div>
-        <button type="button" id="dpRefresh" class="dp-btn ghost">↻ Refresh</button>
+        <span class="dp-top-act">
+            <button type="button" id="dpExport" class="dp-btn primary" title="Delayed Departure Report — one row per departure of each delayed group">⬇ Export Excel</button>
+            <button type="button" id="dpRefresh" class="dp-btn ghost">↻ Refresh</button>
+        </span>
     </header>
 
     <!-- the whole first -->

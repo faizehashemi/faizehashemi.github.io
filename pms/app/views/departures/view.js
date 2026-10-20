@@ -10,6 +10,8 @@ import { loadBuildings, builderCapacity } from '../../core/rooms.js';
 import { loadSettings, DEFAULTS } from '../../core/settings.js';
 import { rowsOf, slipEnd, isDelayed, paxAt, departuresOf, roomConflicts } from '../../core/stay.js';
 import { recordApply, mountAllocLog } from '../forecast/alloclog.js';
+import { reportRows, exportReport } from './report.js';
+import { mirrorAll } from '../../core/cloud.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -193,6 +195,19 @@ export default async function mount(ctx) {
             a.delayed = { on: true, status: 'tentative', note: '', original_checkout: { date: a.checkout_date, time: a.checkout_time }, updated_at: new Date().toISOString() };
             for (const side of ['gents', 'ladies']) for (const x of a.rooms?.[side] || []) if (String(x.room_no || '').trim()) { x.out = { date: a.checkout_date, time: a.checkout_time }; x.out_status = 'tentative'; }
         }, [s.id]);
+    });
+    // Delayed Departure Report (Excel): every delayed group of this site, one row per departure
+    $('dpExport').addEventListener('click', async () => {
+        const b = $('dpExport');
+        b.disabled = true;
+        try {
+            const all = await ctx.guard(mirrorAll()).catch(() => SLIPS);
+            const rows = reportRows(SLIPS, all);
+            if (!rows.length) { say('No delayed groups to export.', true); return; }
+            await exportReport(rows, ctx.site.label);
+            say(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'}.`);
+        } catch (e) { say(e.message || String(e), true); }
+        finally { b.disabled = false; }
     });
     $('dpRefresh').addEventListener('click', () => load().catch(e => say(e.message || String(e), true)));
     window.addEventListener('pms:alloc-undone', () => load().catch(() => { }));
