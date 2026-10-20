@@ -1,17 +1,114 @@
-<main class="login">
-    <form class="card" id="loginForm" autocomplete="on">
-        <img src="assets/logo.png" alt="" class="logo">
-        <h1>Faiz E Hashemi <span>PMS</span></h1>
-        <p class="muted">Log in with your desk's name and password.</p>
+<div class="lp">
+    <!-- the login: a panel on the side on big screens, centred first on small ones -->
+    <aside class="lp-login" id="lpLogin">
+        <form class="lp-card" id="loginForm" autocomplete="on">
+            <img src="assets/logo.png" alt="" class="lp-logo">
+            <h1>Faiz E Hashemi <span>PMS</span></h1>
+            <p class="lp-muted">Log in with your desk's name and password.</p>
 
-        <label for="deskName">Desk</label>
-        <input id="deskName" name="username" autocomplete="username" required placeholder="e.g. Makkah Desk 1">
+            <label for="deskName">Desk</label>
+            <input id="deskName" name="username" autocomplete="username" required placeholder="e.g. Makkah Desk 1">
 
-        <label for="deskPass">Password</label>
-        <input id="deskPass" name="password" type="password" autocomplete="current-password" required>
+            <label for="deskPass">Password</label>
+            <input id="deskPass" name="password" type="password" autocomplete="current-password" required>
 
-        <button type="submit" id="btnLogin">Log in</button>
-        <p class="error" id="err" role="alert"></p>
+            <button type="submit" id="btnLogin">Log in</button>
+            <p class="error" id="err" role="alert"></p>
+            <a class="lp-discover" href="#lpStory" data-scroll="lpStory">Discover the PMS ↓</a>
+        </form>
+    </aside>
 
-    </form>
-</main>
+    <main class="lp-show">
+        <!-- 1 · hero: the circle opens as you scroll -->
+        <section class="lp-hero" id="lpHero">
+            <div class="lp-hero-stick">
+                <div class="lp-circle" id="lpCircle">
+                    <img src="assets/showcase/home.jpg" alt="The PMS Home page" class="lp-hero-shot">
+                </div>
+                <div class="lp-hero-text">
+                    <p class="lp-hello">Hello, welcome to</p>
+                    <h2 class="lp-title">Faiz E Hashemi <span>PMS</span></h2>
+                    <p class="lp-sub" id="lpPmsName">Project Management System</p>
+                    <div class="lp-cta">
+                        <a class="lp-btn" href="#lpLogin" data-focus-login>Log in</a>
+                        <a class="lp-btn ghost" href="#lpStory" data-scroll="lpStory">See what it does</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2 · the statement, word by word -->
+        <section class="lp-story" id="lpStory">
+            <p class="lp-words" id="lpWords">Every pilgrim, every room, every bus and every thaal — one system, live in Makkah and Madina, from the booking list to the bus seat. Built at the edge, shipped every day, decided by data.</p>
+        </section>
+
+        <!-- 3 · numbers -->
+        <section class="lp-sec">
+            <p class="lp-kicker">At a glance</p>
+            <h3 class="lp-h">One platform, two cities</h3>
+            <div class="lp-stats" id="lpStats"></div>
+        </section>
+
+        <!-- 4 · features -->
+        <section class="lp-sec">
+            <p class="lp-kicker">Capabilities</p>
+            <h3 class="lp-h">Everything a Miqaat desk runs on</h3>
+            <div class="lp-feats" id="lpFeats"></div>
+        </section>
+
+        <!-- 5 · screens -->
+        <section class="lp-sec">
+            <p class="lp-kicker">The screens</p>
+            <h3 class="lp-h">Built for the desk, the phone and the wall</h3>
+            <p class="lp-p">Demo data shown — real guest data never leaves the logged-in PMS.</p>
+            <div class="lp-shots" id="lpShots"></div>
+        </section>
+
+        <!-- 6 · technology -->
+        <section class="lp-sec">
+            <p class="lp-kicker">Technology</p>
+            <h3 class="lp-h">Three layers. No servers to babysit.</h3>
+            <div class="lp-stack">
+                <div class="lp-layer l1"><b>Browser &amp; Android app</b><span>Plain HTML, CSS and JavaScript modules — no framework, no build step. An offline copy of the data in IndexedDB keeps pages instant. The Android app (TWA) updates itself.</span></div>
+                <div class="lp-arrow">↓ HTTPS · JSON ↓</div>
+                <div class="lp-layer l2"><b>Cloudflare Workers — the edge</b><span>The API runs in Cloudflare's data centre nearest to each desk. Logins with PBKDF2-SHA256 hashed passwords, roles, per-page access, version checks on every write, an audit log.</span></div>
+                <div class="lp-arrow">↓ SQL ↓</div>
+                <div class="lp-layer l3"><b>Cloudflare D1 — SQLite database</b><span>One source of truth for slips, rooms, transport, laundry and settings. Indexed incremental sync, soft deletes and 7-day point-in-time restore (Time Travel).</span></div>
+            </div>
+            <div class="lp-chips">
+                <span>UMS group list import</span><span>Flightradar24</span><span>VariFlight</span><span>Telegram</span><span>GitHub</span><span>Android (TWA)</span><span>Public signage board</span>
+            </div>
+        </section>
+
+        <!-- 7 · speed -->
+        <section class="lp-sec">
+            <p class="lp-kicker">Speed</p>
+            <h3 class="lp-h">Measured, not promised</h3>
+            <div class="lp-metrics" id="lpMetrics"></div>
+            <p class="lp-p small">Live figures are measured by your browser while this page is open; the others come from the production database and deploy logs.</p>
+        </section>
+
+        <!-- 8 · shipping -->
+        <section class="lp-sec">
+            <p class="lp-kicker">Shipping</p>
+            <h3 class="lp-h">From request to live — usually the same day</h3>
+            <div class="lp-ship" id="lpShip"></div>
+            <div class="lp-chart" id="lpChart" aria-label="Changes shipped per week"></div>
+            <h4 class="lp-h4">Simple computer-architecture principles, applied</h4>
+            <div class="lp-principles" id="lpPrinciples"></div>
+        </section>
+
+        <!-- 9 · AI and data -->
+        <section class="lp-sec">
+            <p class="lp-kicker">AI &amp; data</p>
+            <h3 class="lp-h">AI-assisted engineering, data-first decisions</h3>
+            <div class="lp-ai" id="lpAi"></div>
+        </section>
+
+        <section class="lp-end">
+            <h3>Ready when your desk is.</h3>
+            <a class="lp-btn" href="#lpLogin" data-focus-login>Log in to the PMS</a>
+            <p>Made by <a href="https://raajsoftware.com" target="_blank" rel="noopener">Raaj Software</a> for Faiz E Hashemi · Makkah · Madina</p>
+        </section>
+    </main>
+</div>

@@ -1,33 +1,158 @@
-:root { --gold: #d4af37; --edge: #dcc7a4; --text: #2b1e15; --muted: #6b5e4a; --bad: #a12a2a; }
+/* Login + PMS showcase — navy and gold, big rounded headlines, scroll story (circle hero, word reveal, rising cards).
+   Laptops (≥ 1100px): the login is a panel fixed on the right, the story scrolls beside it.
+   Phones / tablets: the login comes first, centred on the screen; the story follows below. */
+@import url("https://fonts.googleapis.com/css2?family=Lilita+One&family=Inter:wght@400;500;600;700&display=swap");
+:root {
+    --navy: #1b2545; --navy-2: #232f57; --navy-3: #2d3a68; --ink: #f6f1e4; --soft: #c9c3b2; --gold: #e3b341; --gold-2: #f3cf6b; --gold-deep: #b8871d;
+    --bad: #ff9b8f; --card: rgba(255, 255, 255, .06); --line: rgba(255, 255, 255, .12); --login-w: 400px;
+}
 * { box-sizing: border-box }
-body {
-    margin: 0;
-    font: 15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    color: var(--text);
-    background: #f7efe1 url("../../../assets/pattern_gold_2x.png") repeat;
-    background-size: 150px auto;
+html { scroll-behavior: smooth }
+body { margin: 0; background: var(--navy); color: var(--ink); font: 16px/1.55 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+body .app-footer { background: var(--navy); color: var(--soft); border: 0 }
+body .app-footer a { color: var(--gold-2) }
+.lp { position: relative; overflow-x: clip; }
+.lp a { color: var(--gold-2) }
+
+/* ------------------------------ the login ------------------------------ */
+.lp-login { display: grid; place-items: center; min-height: 100svh; padding: 24px 16px;
+    background: radial-gradient(90% 70% at 50% 0%, rgba(227, 179, 65, .18), transparent 60%), var(--navy); }
+.lp-card { width: min(100%, 380px); display: grid; gap: 6px; padding: 28px 26px 22px; border-radius: 26px;
+    background: #fffaf1; color: #2b1e15; box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 0 6px rgba(227, 179, 65, .25); }
+.lp-logo { width: 104px; justify-self: center; margin-bottom: 2px }
+.lp-card h1 { margin: 0; text-align: center; font: 26px/1.1 "Lilita One", Inter, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--navy) }
+.lp-card h1 span { color: var(--gold-deep) }
+.lp-muted { color: #6b5e4a; text-align: center; margin: 0 0 10px; font-size: 14px }
+.lp-card label { font-weight: 700; font-size: 13px; margin-top: 6px }
+.lp-card input { width: 100%; padding: 11px 13px; font: inherit; font-size: 15px; border: 1.5px solid #d9c49d; border-radius: 12px; background: #fff; color: #2b1e15 }
+.lp-card input:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; border-color: var(--gold) }
+.lp-card button { margin-top: 14px; padding: 12px; font: 18px "Lilita One", Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase;
+    border: 0; border-radius: 999px; background: var(--navy); color: var(--gold-2); cursor: pointer; transition: transform .15s, background .15s }
+.lp-card button:hover { background: var(--navy-3); transform: translateY(-1px) }
+.lp-card button:disabled { opacity: .6; cursor: wait }
+.lp-card .error { color: #a12a2a; min-height: 1.2em; margin: 6px 0 0; text-align: center; font-size: 13px }
+.lp-discover { justify-self: center; margin-top: 4px; font-size: 13px; font-weight: 700; color: var(--gold-deep) !important; text-decoration: none }
+
+@media (min-width: 1100px) {
+    .lp-login { position: fixed; z-index: 5; top: 0; right: 0; bottom: 0; width: var(--login-w); min-height: 0; border-left: 1px solid var(--line);
+        background: radial-gradient(120% 60% at 50% 0%, rgba(227, 179, 65, .22), transparent 60%), #172040; }
+    .lp-discover { display: none }
+    .lp-show, body .app-footer { margin-right: var(--login-w) }
 }
-.login { min-height: 100vh; display: grid; place-items: center; padding: 16px }
-.card {
-    width: min(100%, 380px);
-    background: #fffaf1; border: 1px solid var(--edge); border-radius: 16px;
-    padding: 24px; box-shadow: 0 18px 50px rgba(92,64,28,.14);
-    display: grid; gap: 6px;
+
+/* ------------------------------ shared ------------------------------ */
+.lp-show { position: relative }
+.lp-sec { max-width: 1100px; margin: 0 auto; padding: 72px 24px 24px }
+.lp-kicker { margin: 0; color: var(--gold); font-weight: 700; letter-spacing: .2em; text-transform: uppercase; font-size: 13px }
+.lp-h { margin: 6px 0 22px; font: clamp(30px, 4.6vw, 54px)/1.02 "Lilita One", Inter, sans-serif; letter-spacing: .01em; text-transform: uppercase; color: var(--ink) }
+.lp-h4 { margin: 44px 0 16px; font: 24px/1.1 "Lilita One", Inter, sans-serif; text-transform: uppercase; color: var(--gold-2) }
+.lp-p { color: var(--soft); margin: -8px 0 20px; max-width: 70ch }
+.lp-p.small { font-size: 13px; margin: 12px 0 0 }
+.lp-btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 26px; border-radius: 999px; background: var(--gold); color: var(--navy) !important;
+    font: 18px "Lilita One", Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; text-decoration: none; box-shadow: 0 10px 30px rgba(227, 179, 65, .25); transition: transform .15s }
+.lp-btn:hover { transform: translateY(-2px) }
+.lp-btn.ghost { background: transparent; color: var(--ink) !important; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .6) }
+
+/* ------------------------------ hero ------------------------------ */
+.lp-hero { height: 190vh; position: relative }
+.lp-hero-stick { position: sticky; top: 0; height: 100svh; display: grid; place-items: center; overflow: hidden;
+    background: radial-gradient(60% 50% at 50% 50%, var(--navy-3), var(--navy)); }
+.lp-circle { --r: 32%; position: absolute; inset: 0; clip-path: circle(var(--r) at 50% 50%); transition: clip-path .05s linear;
+    background: linear-gradient(135deg, #7a5410, #b8871d 45%, #e3b341); }
+.lp-circle::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(27, 37, 69, .25), rgba(27, 37, 69, .72)) }
+.lp-hero-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; transform: scale(calc(1.15 - var(--p, 0) * .15)); filter: saturate(1.05) }
+.lp-hero-text { position: relative; z-index: 1; text-align: center; padding: 0 20px }
+.lp-hello { margin: 0; font-weight: 700; color: var(--gold-2); letter-spacing: .06em }
+.lp-title { margin: 6px 0; font: clamp(44px, 8.5vw, 112px)/.95 "Lilita One", Inter, sans-serif; text-transform: uppercase; letter-spacing: .01em; color: #fff;
+    text-shadow: 0 6px 0 rgba(0, 0, 0, .25), 0 20px 60px rgba(0, 0, 0, .45) }
+.lp-title span { color: var(--gold-2) }
+.lp-sub { margin: 4px 0 26px; font: clamp(16px, 2vw, 22px) Inter, sans-serif; font-weight: 600; letter-spacing: .3em; text-transform: uppercase; color: #fff; opacity: .92 }
+.lp-cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center }
+
+/* ------------------------------ word reveal ------------------------------ */
+.lp-story { max-width: 1100px; margin: 0 auto; padding: 18vh 24px 10vh }
+.lp-words { margin: 0; font: clamp(28px, 4.4vw, 58px)/1.12 "Lilita One", Inter, sans-serif; text-transform: uppercase; letter-spacing: .01em }
+.lp-words span { color: rgba(246, 241, 228, .16); transition: color .25s }
+.lp-words span.on { color: var(--ink) }
+.lp-words span.on:nth-child(7n+3), .lp-words span.on:nth-child(11n+5) { color: var(--gold-2) }
+
+/* ------------------------------ stats, features ------------------------------ */
+.lp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px }
+.lp-stat { padding: 20px; border-radius: 22px; background: var(--card); border: 1px solid var(--line) }
+.lp-stat b { display: block; font: 44px/1 "Lilita One", Inter, sans-serif; color: var(--gold-2) }
+.lp-stat span { color: var(--soft); font-size: 14px }
+.lp-feats { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px }
+.lp-feat { padding: 20px; border-radius: 22px; background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03)); border: 1px solid var(--line) }
+.lp-feat .ic { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: rgba(227, 179, 65, .16); font-size: 26px; margin-bottom: 10px }
+.lp-feat b { display: block; font-size: 17px; margin-bottom: 4px }
+.lp-feat p { margin: 0; color: var(--soft); font-size: 14.5px }
+
+/* ------------------------------ screens ------------------------------ */
+.lp-shots { display: grid; gap: 34px }
+.lp-shot { margin: 0; display: grid; grid-template-columns: 1.5fr 1fr; gap: 26px; align-items: center }
+.lp-shot.r { grid-template-columns: 1fr 1.5fr }
+.lp-shot.r .frame { order: 2 }
+.lp-shot .frame { position: relative; padding: 26px 8px 8px; border-radius: 18px; background: #e9e1cf; box-shadow: 0 30px 70px rgba(0, 0, 0, .45); transform: rotate(-1.2deg) }
+.lp-shot.r .frame { transform: rotate(1.2deg) }
+.lp-shot .frame i { position: absolute; top: 10px; width: 9px; height: 9px; border-radius: 50%; background: #e35d5d }
+.lp-shot .frame i:nth-child(1) { left: 14px } .lp-shot .frame i:nth-child(2) { left: 28px; background: #f0b429 } .lp-shot .frame i:nth-child(3) { left: 42px; background: #39b46a }
+.lp-shot img { display: block; width: 100%; height: auto; border-radius: 10px }
+.lp-shot figcaption b { display: block; font: 30px/1.05 "Lilita One", Inter, sans-serif; text-transform: uppercase; color: var(--gold-2); margin-bottom: 8px }
+.lp-shot figcaption span { color: var(--soft) }
+
+/* ------------------------------ stack ------------------------------ */
+.lp-stack { display: grid; gap: 8px; max-width: 760px }
+.lp-layer { padding: 20px 22px; border-radius: 22px; border: 1px solid var(--line) }
+.lp-layer b { display: block; font: 24px/1.1 "Lilita One", Inter, sans-serif; text-transform: uppercase; margin-bottom: 6px }
+.lp-layer span { color: var(--soft) }
+.lp-layer.l1 { background: rgba(120, 170, 255, .1) } .lp-layer.l1 b { color: #a9c8ff }
+.lp-layer.l2 { background: rgba(243, 128, 32, .12) } .lp-layer.l2 b { color: #ffb36b }
+.lp-layer.l3 { background: rgba(227, 179, 65, .14) } .lp-layer.l3 b { color: var(--gold-2) }
+.lp-arrow { text-align: center; color: var(--soft); font-size: 12px; font-weight: 700; letter-spacing: .2em }
+.lp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px }
+.lp-chips span { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font-size: 13.5px; font-weight: 600 }
+
+/* ------------------------------ metrics, shipping ------------------------------ */
+.lp-metrics, .lp-ship { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px }
+.lp-metric { position: relative; padding: 22px 20px; border-radius: 22px; background: var(--card); border: 1px solid var(--line) }
+.lp-metric b { display: block; font: 40px/1 "Lilita One", Inter, sans-serif; color: var(--ink); margin-bottom: 6px }
+.lp-metric span { color: var(--soft); font-size: 14px }
+.lp-metric.live b { color: #7ee2a8 }
+.lp-metric em { position: absolute; top: 14px; right: 14px; font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #7ee2a8 }
+.lp-metric em::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7ee2a8; margin-right: 6px; animation: lp-pulse 1.6s infinite }
+@keyframes lp-pulse { 50% { opacity: .25 } }
+.lp-chart { margin-top: 24px; padding: 18px; border-radius: 22px; background: var(--card); border: 1px solid var(--line) }
+.lp-chart svg { width: 100%; height: auto; display: block }
+.lp-chart .bar { fill: var(--gold) }
+.lp-chart .v { fill: var(--ink); font: 16px "Lilita One", Inter, sans-serif; text-anchor: middle }
+.lp-chart .d { fill: var(--soft); font: 12px Inter, sans-serif; text-anchor: middle }
+.lp-principles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px }
+.lp-pr { padding: 20px; border-radius: 22px; border: 1px dashed rgba(227, 179, 65, .45) }
+.lp-pr span { font: 30px "Lilita One", Inter, sans-serif; color: var(--gold) }
+.lp-pr b { display: block; font-size: 17px; margin: 4px 0 }
+.lp-pr p { margin: 0; color: var(--soft); font-size: 14.5px }
+.lp-ai { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px }
+
+/* ------------------------------ end ------------------------------ */
+.lp-end { max-width: 1100px; margin: 0 auto; padding: 90px 24px 70px; text-align: center }
+.lp-end h3 { margin: 0 0 20px; font: clamp(34px, 5vw, 64px)/1 "Lilita One", Inter, sans-serif; text-transform: uppercase }
+.lp-end p { color: var(--soft); margin-top: 26px; font-size: 14px }
+
+/* ------------------------------ motion ------------------------------ */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity .6s ease, transform .6s ease }
+.reveal.in { opacity: 1; transform: none }
+.lp-shot.reveal.in .frame { transition: transform .8s ease }
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto }
+    .reveal { opacity: 1; transform: none; transition: none }
+    .lp-hero { height: auto } .lp-hero-stick { position: relative } .lp-circle { clip-path: none }
 }
-.logo { width: 120px; justify-self: center; margin-bottom: 4px }
-h1 { margin: 0; text-align: center; font-size: 18px; letter-spacing: .12em; text-transform: uppercase }
-h1 span { color: var(--gold) }
-.muted { color: var(--muted); text-align: center; margin: 0 0 10px }
-.small { font-size: 12px; text-align: left }
-label { font-weight: 600; font-size: 13px; margin-top: 6px }
-input {
-    width: 100%; padding: 10px 12px; font: inherit;
-    border: 1px solid #cdb492; border-radius: 10px; background: #fff;
+
+/* ------------------------------ small screens ------------------------------ */
+@media (max-width: 760px) {
+    .lp-sec { padding: 56px 16px 16px }
+    .lp-shot, .lp-shot.r { grid-template-columns: 1fr }
+    .lp-shot.r .frame { order: 0 }
+    .lp-hero { height: 150vh }
+    .lp-stat b { font-size: 36px }
 }
-input:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px }
-button {
-    margin-top: 14px; padding: 11px; font: inherit; font-weight: 700;
-    border: 0; border-radius: 10px; background: var(--gold); color: #fff; cursor: pointer;
-}
-button:disabled { opacity: .6; cursor: wait }
-.error { color: var(--bad); min-height: 1.2em; margin: 6px 0 0; text-align: center; font-size: 13px }
