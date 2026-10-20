@@ -215,7 +215,7 @@ export default async function mount(ctx) {
             return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}${staff.length ? ` <span class="staff">— ${staff.map(esc).join(', ')}</span>` : ''}</h2><table>${cats}</table></section>`;
         }).join('') || '<p>—</p>';
         w.document.open();
-        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Room cleaning</title><style>
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${urgentOnly ? 'Urgent Room Cleaning Assignment Report' : 'Room Cleaning Assignment Report'}</title><style>
             @page { margin: 12mm; } body { font: 16px/1.5 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
             section { break-inside: avoid; padding: 4px 0 10px; }
             h2 { font-size: 18px; margin: 8px 0 4px; } h2 .staff { font-weight: 600; }
@@ -226,7 +226,11 @@ export default async function mount(ctx) {
             .rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 3px; }
             .rooms span { border: 1px solid #555; border-radius: 3px; text-align: center; font-size: 16px; font-weight: 700; padding: 1px 0; }
             .day { font-size: 20px; font-weight: 700; margin: 0 0 6px; padding-bottom: 6px; border-bottom: 2px solid #000; }
-            </style></head><body><p class="day">${esc(new Date(`${$('hkDay').value || ymd(new Date())}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
+            .title { font-size: 22px; font-weight: 800; text-align: center; margin: 0 0 2px; }
+            .bld { font-size: 18px; font-weight: 700; text-align: center; margin: 0 0 6px; }
+            </style></head><body><h1 class="title">${urgentOnly ? 'Urgent Room Cleaning Assignment Report' : 'Room Cleaning Assignment Report'}</h1>
+            <p class="bld">${all ? 'All buildings' : esc($('hkBld').value)}</p>
+            <p class="day">${esc(new Date(`${$('hkDay').value || ymd(new Date())}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
         w.document.close();
     });
     await loadBuildingsList();
