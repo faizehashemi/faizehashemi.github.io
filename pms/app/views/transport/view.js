@@ -58,7 +58,10 @@ export default async function mount(ctx) {
                 const count = new Map();
                 const vk = (b) => `${b.vehicle}${b.vehicle === 'other' ? b.vlabel.toUpperCase() : ''}#${b.bus}`;
                 for (const b of s.buses) if (b.bus != null) count.set(vk(b), (count.get(vk(b)) || 0) + 1);
-                const body = s.buses.flatMap(b => b.rows.map((r, i) => ({ r, b, i }))).filter(x => matches(x.r, q)).map(({ r, b, i }) => `
+                // airport departures are listed by departure time (others by vehicle number)
+                const air = s.dest.tosha === 'airport';
+                const buses = air ? [...s.buses].sort((x, y) => x.at.localeCompare(y.at) || (x.bus ?? 1e9) - (y.bus ?? 1e9)) : s.buses;
+                const body = buses.flatMap(b => b.rows.map((r, i) => ({ r, b, i }))).filter(x => matches(x.r, q)).map(({ r, b, i }) => `
                   <tr class="${i ? 'rider' : ''}${r.at < past ? ' past' : ''}">
                     <td class="bus">${i ? `↳ ${esc(vehicleNo(b.bus, b.vehicle, b.vlabel))}` : writable
                         ? `<span class="tp-veh">${vehSelect(r, b)}<input type="number" min="1" max="999" inputmode="numeric" value="${esc(b.bus ?? '')}" data-key="${esc(r.key)}" class="${r.bus_manual ? 'manual' : ''}${count.get(vk(b)) > 1 ? ' dup' : ''}" aria-label="${esc(b.vlabel || VEHICLES[b.vehicle].title)} number" title="${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(vk(b)) > 1 ? ' · used twice' : ''}"></span>${b.vehicle === 'other' ? `<small class="tp-vname">${esc(b.vlabel)}</small>` : ''}`
@@ -73,8 +76,10 @@ export default async function mount(ctx) {
                     <td>${esc(r.remarks)}${!i && writable ? `<button type="button" class="tp-addsh" data-addsh="${esc(r.key)}" title="Add a group (SH) to this ${esc(VEHICLES[b.vehicle].title.toLowerCase())}">＋ SH</button>` : ''}</td>
                     ${delCell(r)}
                   </tr>`).join('');
-                return `<div class="tp-dest"><span aria-hidden="true">${s.dest.icon}</span>${esc(s.dest.label)}
-                    <small>${fleet(s.buses)} · ${s.groups} groups · ${s.pax} pax</small></div>
+                const order = air && s.buses.length > 1 && writable
+                    ? `<button type="button" class="tp-bytime" data-bytime="${esc(s.dest.id)}" title="Number this destination's vehicles 1, 2, 3… by departure time">🔢 Number by time</button>` : '';
+                return `<div class="tp-dest"><span aria-hidden="true">${s.dest.icon}</span>${esc(s.dest.label)}${air ? '<span class="tp-dest-note">by departure time</span>' : ''}
+                    <small>${fleet(s.buses)} · ${s.groups} groups · ${s.pax} pax</small>${order}</div>
                   ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Vehicle</th><th>Time</th><th>From</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th>${writable ? '<th></th>' : ''}</tr></thead>
                     <tbody>${body}</tbody></table></div>` : `<p class="tp-empty">${s.buses.length ? 'Nothing matches.' : 'No trips.'}</p>`}`;
             }).join('');
@@ -375,6 +380,30 @@ export default async function mount(ctx) {
         const key = `M${Date.now().toString(36).toUpperCase()}`;
         const rider = { key, dora: '', vch: '', transporter: '', at: parent.at, route: '', remarks: `added to SH ${parent.ref}'s ${vehicleOf(parent)}`, adj: '', loc: '', ...add, with: parent.key, manual: true };
         save([...doc.rows, rider].sort((a, b) => a.at.localeCompare(b.at)), `SH ${add.ref} added to SH ${parent.ref}`);
+    });
+
+    // airport departures: number one destination's vehicles by departure time (buses, cars and each custom name
+    // count apart). Only when asked — saved numbers are never changed on their own; numbers can still be typed in after.
+    $('tpList').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-bytime]');
+        if (!b || saving) return;
+        const dest = b.dataset.bytime;
+        const info = resolve(doc.rows);
+        const kind = (r) => vehicleOf(r) === 'other' ? `other:${String(r.vehicle_label || '').toUpperCase()}` : vehicleOf(r);
+        const mains = doc.rows.filter(r => info.get(r.key)?.dest === dest && !info.get(r.key).parent);
+        const next = new Map();
+        const groups = new Map();
+        for (const r of mains) { if (!groups.has(kind(r))) groups.set(kind(r), []); groups.get(kind(r)).push(r); }
+        for (const list of groups.values()) list.sort((x, y) => x.at.localeCompare(y.at) || (x.bus ?? 1e9) - (y.bus ?? 1e9)).forEach((r, i) => next.set(r.key, i + 1));
+        const moved = mains.filter(r => Number(r.bus) !== next.get(r.key));
+        if (!moved.length) { msg('Already numbered by departure time.'); return; }
+        const title = destsFor(ctx.siteId).find(d => d.id === dest)?.title || dest;
+        if (!confirm([`Number the ${title} vehicles 1, 2, 3… by departure time?`, '',
+            ...moved.slice(0, 12).map(r => `SH ${r.ref} · ${time12(r.at)}: ${r.bus ?? '—'} → ${next.get(r.key)}`),
+            ...(moved.length > 12 ? [`… and ${moved.length - 12} more`] : []), '',
+            'Bus sheets already stuck on vehicles may no longer match. You can still type a number in afterwards.'].join('\n'))) return;
+        const rows = doc.rows.map(r => next.has(r.key) && Number(r.bus) !== next.get(r.key) ? { ...r, bus: next.get(r.key), bus_manual: false } : r);
+        save(rows, `${title}: numbered by departure time (${moved.length} changed)`);
     });
 
     $('tpRenumber').addEventListener('click', () => {

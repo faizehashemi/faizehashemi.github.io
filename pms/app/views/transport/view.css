@@ -10,3 +10,7 @@
 .tp-tr.manual { color: #364fc7; }
 .tp-addsh { display: block; margin-top: 4px; font: inherit; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border: 1px solid #c9a227; border-radius: 999px; background: #fffaf0; color: #7a5410; cursor: pointer; white-space: nowrap; }
 .tp-addsh:hover { background: #fff1c9; }
+/* airport departures: listed by time; "Number by time" on the destination bar */
+.tp-dest-note { font-size: 11.5px; font-weight: 600; letter-spacing: 0; opacity: .8; }
+.tp-bytime { font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0; padding: 4px 10px; border: 1px solid rgba(255, 255, 255, .7); border-radius: 999px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; white-space: nowrap; }
+.tp-bytime:hover { background: rgba(255, 255, 255, .3); }
