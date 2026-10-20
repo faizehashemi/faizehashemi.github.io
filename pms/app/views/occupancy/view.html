@@ -19,6 +19,16 @@
         </div>
     </header>
 
+    <!-- Print: rooms allocation of one building, chosen first -->
+    <dialog class="oc-dlg" id="ocPrintDlg">
+        <form method="dialog" id="ocPrintForm">
+            <h2>Print rooms allocation</h2>
+            <p>One building at a time, for the period above.</p>
+            <label>Building<select id="ocPrintBld" required></select></label>
+            <div class="oc-dlg-act"><button type="submit" class="oc-btn primary" value="print">🖨 Open &amp; print</button><button type="button" class="oc-btn" id="ocPrintCancel">Cancel</button></div>
+        </form>
+    </dialog>
+
     <!-- 1. the whole: period totals and averages -->
     <section class="oc-kpis" id="ocKpis"></section>
 

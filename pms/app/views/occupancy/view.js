@@ -7,6 +7,7 @@
 
 import { loadBuildings, buildingsOfSite, normRoom, floorOf } from '../../core/rooms.js';
 import { rowsOf, slipEnd, isDelayed, paxAt } from '../../core/stay.js';
+import { printAllocation } from './allocprint.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -157,6 +158,22 @@ export default async function mount(ctx) {
         $('ocFrom').value = shift(today, a); $('ocTo').value = shift(today, z);
         run();
     });
-    $('ocPrint').addEventListener('click', () => { ctx.root.querySelectorAll('details.oc-bld').forEach(d => { d.open = true; }); window.print(); });
+    // Print: choose the building first, then its rooms allocation opens in a tab of its own
+    $('ocPrint').addEventListener('click', () => {
+        if (!BUILDINGS.length) { alert('No buildings in Rooms & Buildings for this site.'); return; }
+        $('ocPrintBld').innerHTML = '<option value="">Choose a building…</option>' + BUILDINGS.map(b => `<option${b.name === $('ocBld').value ? ' selected' : ''}>${esc(b.name)}</option>`).join('');
+        $('ocPrintDlg').showModal();
+        $('ocPrintBld').focus();
+    });
+    $('ocPrintCancel').addEventListener('click', () => $('ocPrintDlg').close());
+    $('ocPrintForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const b = $('ocPrintBld').value;
+        if (!b) { $('ocPrintBld').focus(); return; }
+        let from = $('ocFrom').value || today, to = $('ocTo').value || from;
+        if (from > to) [from, to] = [to, from];
+        $('ocPrintDlg').close();
+        printAllocation(await ctx.db.all(), b, from, to);
+    });
     await run();
 }
