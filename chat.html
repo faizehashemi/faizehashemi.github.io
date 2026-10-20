@@ -2,44 +2,906 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mohammedi Makan Bot</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light only">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="description" content="Mohammedi Makan Helpline — maintenance, room service, live chat, information and more.">
+    <title>Mohammedi Makan Helpline</title>
+<style>
+:root {
+    color-scheme: light;
+    --brand: #c56321;
+    --brand-strong: #a84312;
+    --brand-tint: #fdf3ec;
+    --brand-tint-2: #f9e3d3;
+    --bg: #faf7f4;
+    --surface: #ffffff;
+    --text: #221c18;
+    --muted: #6f655e;
+    --line: #ece4dd;
+    --danger: #b3261e;
+    --danger-tint: #fdecea;
+    --ok: #1e7b45;
+    --ok-tint: #e7f5ec;
+    --radius: 18px;
+    --shadow-sm: 0 1px 2px rgba(60, 35, 15, .06);
+    --shadow: 0 1px 2px rgba(60, 35, 15, .05), 0 6px 20px rgba(60, 35, 15, .07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); }
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+}
+button, a { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+button { background: none; border: 0; cursor: pointer; text-align: inherit; }
+a { text-decoration: none; }
+:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+
+/* ---------- Header ---------- */
+.app-header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(255, 255, 255, .92);
+    -webkit-backdrop-filter: saturate(1.4) blur(12px);
+    backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom: 1px solid var(--line);
+    padding: env(safe-area-inset-top) 0 0;
+}
+.app-header .bar {
+    max-width: 640px; margin: 0 auto;
+    min-height: 60px;
+    padding: 8px 16px;
+    display: flex; align-items: center; gap: 10px;
+}
+.back {
+    width: 44px; height: 44px; margin-left: -10px; flex-shrink: 0;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    color: var(--brand);
+}
+.back:active { background: var(--brand-tint); }
+.back svg { width: 26px; height: 26px; }
+.logo {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border-radius: 11px;
+    background: var(--brand); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 17px; letter-spacing: -.02em;
+}
+.titles { flex: 1; min-width: 0; }
+.titles .t1 { font-size: 17px; font-weight: 750; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titles .t2 { font-size: 13px; color: var(--muted); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-chip {
+    flex-shrink: 0; max-width: 40%;
+    padding: 6px 12px; border-radius: 999px;
+    background: var(--brand-tint); color: var(--brand-strong);
+    font-size: 14px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+main {
+    flex: 1;
+    width: 100%; max-width: 640px;
+    margin: 0 auto;
+    padding: 18px 16px calc(32px + env(safe-area-inset-bottom));
+}
+.view { display: flex; flex-direction: column; gap: 18px; animation: in .2s ease-out; }
+@keyframes in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .view { animation: none; } }
+
+h2 { font-size: 24px; line-height: 1.25; letter-spacing: -.01em; }
+h3 { font-size: 15px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.lead { color: var(--muted); margin-top: -10px; }
+
+/* ---------- Home ---------- */
+.hero {
+    position: relative; overflow: hidden;
+    border-radius: 22px;
+    padding: 22px 20px 20px;
+    color: #fff;
+    background:
+        radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .18), transparent 55%),
+        linear-gradient(135deg, #d0732f 0%, #c56321 45%, #a84312 100%);
+    box-shadow: 0 10px 30px rgba(168, 67, 18, .25);
+}
+.hero::after {
+    content: ""; position: absolute; right: -40px; bottom: -40px;
+    width: 160px; height: 160px; border-radius: 50%;
+    border: 26px solid rgba(255, 255, 255, .08);
+}
+.hero .hello { font-size: 15px; opacity: .9; font-weight: 600; }
+.hero h2 { font-size: 26px; margin: 2px 0 8px; color: #fff; }
+.hero p { font-size: 16px; opacity: .95; max-width: 34ch; position: relative; z-index: 1; }
+
+.notice {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 14px 16px; border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--line);
+    font-size: 15px;
+}
+.notice svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--brand); margin-top: 1px; }
+.notice b { display: block; }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tile {
+    position: relative;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 14px;
+    min-height: 128px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.tile:active { transform: scale(.975); border-color: var(--brand-tint-2); }
+@media (hover: hover) { .tile:hover { box-shadow: var(--shadow); border-color: var(--brand-tint-2); } }
+.tile .ic {
+    width: 46px; height: 46px; border-radius: 14px;
+    display: grid; place-items: center;
+    background: var(--brand-tint); font-size: 24px; line-height: 1;
+}
+.tile .name { font-size: 17px; font-weight: 700; line-height: 1.25; }
+.tile .sub { display: block; font-size: 13.5px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.tile.locked { opacity: .6; }
+
+.foot { text-align: center; color: var(--muted); font-size: 13.5px; padding-top: 4px; }
+
+/* ---------- Option lists ---------- */
+.options { display: grid; gap: 10px; }
+.options.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.opt {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; min-height: 60px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+    font-weight: 650; font-size: 16.5px; line-height: 1.3;
+    transition: transform .1s ease, border-color .15s ease, background .15s ease;
+}
+.opt:active { transform: scale(.98); background: var(--brand-tint); border-color: var(--brand-tint-2); }
+.opt .em { width: 38px; height: 38px; flex-shrink: 0; border-radius: 11px; background: var(--brand-tint); display: grid; place-items: center; font-size: 20px; }
+.opt .label { flex: 1; min-width: 0; }
+.opt .label small { display: block; font-weight: 500; color: var(--muted); font-size: 13.5px; }
+.opt .chev { width: 20px; height: 20px; color: #b8aca3; flex-shrink: 0; }
+.options.two .opt { flex-direction: column; align-items: flex-start; min-height: 104px; justify-content: space-between; }
+.options.two .opt .chev { display: none; }
+
+.slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.slot {
+    min-height: 56px; padding: 10px 8px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    font-weight: 700; font-size: 16px; text-align: center; font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+    box-shadow: var(--shadow-sm);
+}
+.slot:active { background: var(--brand-tint); border-color: var(--brand); }
+.slot-group { font-size: 14px; font-weight: 700; color: var(--muted); margin: 4px 0 -6px; }
+
+/* ---------- Forms ---------- */
+.field label { display: block; font-weight: 700; margin-bottom: 8px; }
+.field .help { font-size: 14px; color: var(--muted); margin-top: 6px; }
+.input, textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1.5px solid var(--line);
+    background: var(--surface); color: var(--text);
+    font: inherit; font-size: 18px; /* ≥16px stops iOS zoom */
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+textarea { min-height: 150px; resize: vertical; line-height: 1.45; }
+.input:focus, textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 4px rgba(197, 99, 33, .14); }
+.invalid { border-color: var(--danger) !important; }
+.error-text { color: var(--danger); font-size: 14.5px; font-weight: 600; margin-top: 6px; }
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; min-height: 56px; padding: 14px 18px;
+    border-radius: 16px;
+    font-weight: 700; font-size: 17.5px; text-align: center;
+    transition: transform .1s ease, opacity .15s ease, background .15s ease;
+}
+.btn:active { transform: scale(.985); }
+.btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+.btn-primary { background: var(--brand); color: #fff; box-shadow: 0 6px 16px rgba(197, 99, 33, .28); }
+.btn-primary:active { background: var(--brand-strong); }
+.btn-primary[disabled] { opacity: .7; box-shadow: none; }
+.btn-secondary { background: var(--surface); color: var(--text); border: 1.5px solid var(--line); }
+.btn-row { display: grid; gap: 10px; }
+
+.sticky-actions {
+    position: sticky; bottom: 0; z-index: 5;
+    margin: 0 -16px calc(-32px - env(safe-area-inset-bottom));
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 78%, rgba(250, 247, 244, 0));
+    display: grid; gap: 10px;
+}
+
+/* ---------- Review card ---------- */
+.review {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+.review .head { padding: 18px; background: var(--brand-tint); display: flex; gap: 14px; align-items: center; }
+.review .head .em { width: 52px; height: 52px; border-radius: 16px; background: #fff; display: grid; place-items: center; font-size: 26px; flex-shrink: 0; }
+.review .head .k { font-size: 13px; color: var(--brand-strong); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.review .head .v { font-size: 19px; font-weight: 750; line-height: 1.3; overflow-wrap: anywhere; }
+.review dl { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; padding: 16px 18px 18px; font-size: 16px; }
+.review dt { color: var(--muted); }
+.review dd { font-weight: 650; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.alert { border-radius: 14px; padding: 12px 14px; font-size: 15px; font-weight: 600; }
+.alert-error { background: var(--danger-tint); color: var(--danger); }
+
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Done ---------- */
+.done { align-items: center; text-align: center; padding-top: 28px; }
+.done .badge {
+    width: 92px; height: 92px; border-radius: 50%;
+    background: var(--ok-tint); color: var(--ok);
+    display: grid; place-items: center;
+    animation: pop .45s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.done .badge svg { width: 50px; height: 50px; }
+.done .badge path { stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw .45s .2s ease-out forwards; }
+@keyframes pop { from { transform: scale(.5); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.done p { color: var(--muted); max-width: 36ch; }
+.done .btn-row { width: 100%; margin-top: 8px; }
+
+/* ---------- Information ---------- */
+.acc { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden; }
+.acc + .acc { margin-top: -8px; }
+.acc summary {
+    list-style: none; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+    min-height: 62px; padding: 12px 14px;
+    font-weight: 700; font-size: 16.5px;
+}
+.acc summary::-webkit-details-marker { display: none; }
+.acc summary .em { width: 38px; height: 38px; flex-shrink: 0; border-radius: 11px; background: var(--brand-tint); display: grid; place-items: center; font-size: 20px; }
+.acc summary .label { flex: 1; }
+.acc summary .chev { width: 20px; height: 20px; color: #b8aca3; transition: transform .2s ease; }
+.acc[open] summary .chev { transform: rotate(90deg); color: var(--brand); }
+.acc .body { padding: 0 16px 16px; font-size: 16px; line-height: 1.6; color: #3a322c; }
+.acc .body b, .acc .body strong { color: var(--text); }
+.acc .sub { border-top: 1px solid var(--line); }
+.acc .sub summary { min-height: 54px; font-size: 16px; padding-left: 16px; }
+.acc .sub .body { padding-left: 16px; }
+.info-card { background: var(--brand-tint); border-radius: 14px; padding: 14px 16px; }
+
+/* ---------- Places ---------- */
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: #f1ebe5; border-radius: 14px; padding: 4px; gap: 4px; }
+.seg button { text-align: center; padding: 0 8px; min-height: 46px; border-radius: 11px; font-weight: 700; color: var(--muted); }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.map-ic { width: 22px; height: 22px; color: var(--brand); flex-shrink: 0; }
+
+/* ---------- Discover ---------- */
+.discover-img {
+    display: block; width: 100%; border-radius: var(--radius);
+    background: var(--brand-tint) linear-gradient(90deg, transparent, rgba(255, 255, 255, .6), transparent) no-repeat;
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    min-height: 240px;
+    box-shadow: var(--shadow);
+}
+.discover-img.loaded { animation: none; background: var(--surface); min-height: 0; }
+@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+
+/* ---------- Mansak ---------- */
+.doc {
+    display: flex; gap: 16px; align-items: center;
+    padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.doc .file { width: 56px; height: 68px; flex-shrink: 0; border-radius: 10px; background: var(--brand-tint); color: var(--brand-strong); display: grid; place-items: center; font-weight: 800; font-size: 13px; position: relative; }
+.doc .file::before { content: ""; position: absolute; top: 0; right: 0; width: 16px; height: 16px; background: linear-gradient(225deg, var(--bg) 50%, var(--brand-tint-2) 50%); border-bottom-left-radius: 6px; }
+.doc .name { font-weight: 750; font-size: 18px; }
+.doc .meta { color: var(--muted); font-size: 14.5px; }
+</style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">Mohammedi Makan Helpline</div>
-        <div class="chat-box" id="chatBox">
-            <div class="bot-message" style="font-size:18px;">
-                <h2>Welcome to <b>Mohammedi Makan’s</b> Helpline</h2>
-                <p>This chat assistant is designed to enhance your stay with <b>seamless service.</b></p>
-                <p>With this chatbot, you can:</p>
-                <ul>
-                    <li>Request <b>Maintenance Support</b> (e.g., <i>AC not working, lights not working</i>)</li>
-                    <li>Make <b>Room Service Requests</b></li>
-                    <li>Give <b>Feedback</b></li>
-                    <li>Use <b>Live Chat</b> for instant assistance and More</li>
-                </ul>
-            </div>
+
+<header class="app-header">
+    <div class="bar">
+        <button class="back" id="backBtn" type="button" aria-label="Back" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="logo" id="logo" aria-hidden="true">MM</div>
+        <div class="titles">
+            <div class="t1" id="title">Mohammedi Makan</div>
+            <div class="t2" id="subtitle">Helpline</div>
         </div>
-        <div class="chat-input" id="chatInput">
-            <input type="text" id="userInput" placeholder="Send 'Hi' to begin...">
-            <button onclick="sendMessage()">Send</button>
-        </div>
+        <span class="room-chip" id="roomChip" hidden></span>
     </div>
+</header>
 
-<script src="initialchat.js"></script>
-<script src="mainmenu.js"></script>
-<script src="maintenance.js"></script>
-<script src="roomservice.js"></script>
-<script src="mansak.js"></script>
-<script src="feedback.js"></script>
-<script src="livechat.js"></script>
-<script src="information.js"></script>
-<script src="discovermecca.js"></script>
+<main id="app" aria-live="polite"></main>
 
+<script>
+/* =====================================================================
+   Mohammedi Makan Helpline (guest chat). Opened from the QR code in each
+   room: chat.html?room=<room number>.
+   Requests go to the staff Telegram group through the Cloudflare Worker
+   "chat-notify", which keeps the bot token as a secret.
+   ===================================================================== */
+const NOTIFY_URL = "https://chat-notify.tkamlapur.workers.dev/";
 
+function getRoomNumber() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('room'); // Get the 'room' parameter
+}
+const userRoomNumber = (getRoomNumber() || "").trim();
 
+/* ---------------- Content (unchanged from the previous helpline) ---------------- */
+const MAINTENANCE = [
+    "🛁 Geaser not working",
+    "❄️ AC not working",
+    "🕰️ Clock Battery",
+    "💡 Lights not working",
+    "🚰 Drainage Issues",
+    "🚿 Basin Clot",
+    "🚪 Cupboard hinge",
+    "💨 Exhaust not working",
+    "⚡ Power outage",
+    "💧 Water leakage",
+    "🚽 Toilet flush issue",
+    "🐜 Pest problem",
+    "🫖 Kettle Not Working",
+];
+
+const ROOM_SERVICES = [
+    { name: "Commode", em: "🚽" },
+    { name: "Pillow", em: "🛏️" },
+    { name: "Bedsheet", em: "🧺" },
+    { name: "Room Cleaning", em: "🧹", slots: [
+        "8:00 AM - 9:00 AM", "9:00 AM - 10:00 AM", "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM",
+        "3:00 PM - 4:00 PM", "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM", "6:00 PM - 7:00 PM", "7:00 PM - 8:00 PM"
+    ] },
+    { name: "Locker", em: "🔐", slots: [
+        "9:00 AM - 10:00 AM", "10:00 AM - 11:00 AM", "11:00 AM - 12:00 PM",
+        "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM", "9:00 PM - 10:00 PM"
+    ] },
+];
+
+const INFORMATION = [
+    { title: "Transport", em: "🚍", children: [
+        { title: "Makkah Atraaf", em: "🚖", html: "<b>🚖 Makkah Atraaf Ziyarat:</b><br> 🗓️ Your <i>Atraaf Ziyarat</i> will be on the <u>second day of your arrival</u> (subject to change). <br> 🕝 The buses will depart at <b>2:30 PM</b>. <br> 📌 Please check the <b>notice board</b> regularly for updates." },
+        { title: "Madina", em: "🛫", html: "<b>🛫 Madina Departure:</b><br> 📝 Your name will be <b>displayed on the notice board</b> one day prior. <br> 🕕 Buses will depart at <b>6:15 AM</b>. <br> 🎒 Pack <b>only essential items</b> due to space constraints. <br> 🎁 Lunch will be provided as <b>Tosha</b> in the bus." },
+        { title: "Airport Departure", em: "✈️", html: "<b>✈️ Airport Departure:</b><br> ⏳ Departure is <b>5 hours before flight time</b>. <br> 📋 <b>Check your belongings, documents, and passport</b> before leaving. <br> 📌 Always check the <b>notice board</b> for updates." },
+        { title: "Haram Bus Services", em: "🚌", html: "<b>🚌 Haram Bus Services:</b><br> 🗓️ Your <i>Haram Bus</i> schedule is as follows: <br> 🕝 Morning: <b>8:30 AM - 9:30 AM</b> from hotel to Haram, <b>12:45 PM - 1:15 PM</b> return from Haram to hotel. <br> 🕝 Night: <b>8:00 PM - 9:00 PM</b> from hotel to Haram, <b>11:30 PM - 1:00 AM</b> return from Haram to hotel. <br> 📌 Please be on time and check for any updates." },
+    ] },
+    { title: "Accounts", em: "💰", html: "<strong>📜 Accounts and Checkout:</strong><br><br> You are required to <em>check out</em> <strong>24 hours prior</strong> to your departure at the <u>MP floor</u> or at <u>UG office no. 2</u> and collect your passport accordingly." },
+    { title: "Mawaid", em: "🍽️", html: "<strong>🍽️ Mawaid Timings:</strong><br><br> Please attend the <em>mawaid</em> on the <u>PR floor</u> in <strong>Libas al-Anwar</strong> only. The timings are as follows:<br> - 🥐 <strong>Breakfast:</strong> 7:30 - 9:00 AM<br> - 🍛 <strong>Lunch:</strong> 1:30 - 2:00 PM<br> - 🍲 <strong>Dinner:</strong> 7:30 - 8:00 PM<br><br>⏰ Please be punctual and attend on time." },
+    { title: "Laundry", em: "🧺", html: "<b>🧺 Laundry Options:</b><br> 💰 <b>Paid Laundry:</b> Available on the <b>LG floor</b>. Clothes returned in <b>24 hours</b>. <br> 🏠 <b>Self Laundry:</b> Available on the <b>17th floor</b>. Bring your own detergent." },
+    { title: "Floor Info", em: "🏢", html: "🏢 <strong>Floor Information:</strong><br><br> 🔹 <strong>UG:</strong> Reception<br> 🔹 <strong>MP:</strong> Accounts and Sabaq<br> 🔹 <strong>DH:</strong> Mawaid<br> 🔹 <strong>PR:</strong> Mawaid<br> 🔹 <strong>17th floor:</strong> Self Laundry<br> 🔹 <strong>LG:</strong> Paid Laundry" },
+    { title: "Zamzam", em: "💧", html: "<strong>💧 Zamzam Water:</strong><br><br> Zamzam water will be available for purchase at the <strong>airport only</strong> for <strong>13 SAR</strong>. <br><br>⚠️ <strong>Only one bottle per passport</strong> is allowed, subject to flight and government regulations." },
+    { title: "Sim Card", em: "📶", html: "📱 <strong>SIM Cards:</strong><br><br> SIM cards are available for purchase near the <strong>Haram</strong> with your <u>Visa ID</u> and <u>Passport ID</u>. Please carry these documents with you. <br><br>✅ <strong>STC Sim Cards</strong> are preferable due to their superior connectivity." },
+    { title: "Haram Clothes", em: "🕋", html: "👕 <strong>Haram Clothes Information:</strong><br><br> Entry into the <strong>Haram</strong> is strictly allowed only in <em>ehraam</em> for men and <strong>single-color rida</strong> (❌ no laces, work, or design) for women. <br><br>🚫 <strong>Anyone not adhering to these guidelines will not be permitted entry in our transport buses.</strong>" },
+];
+
+const DISCOVER = [
+    { name: "Maulana Abde Manaf AS", images: ["img/am_01.png"] },
+    { name: "Maulana Hashim AS", images: ["img/ha_01.png"] },
+    { name: "Maulana Abu Talib AS", images: ["img/bt_01.png"] },
+    { name: "Maulatona Khadija AS", images: ["img/k_01.png"] },
+    { name: "Jabal al-Nour", images: ["img/jn_01.png"] },
+    { name: "Jabal al-Saur", images: ["img/saur_01.png"] },
+    { name: "Jabal Abi Qubais", images: ["img/abi_01.png"] },
+    { name: "Mina", images: ["img/mina_01.png"] },
+    { name: "Arafah", images: ["img/ar_01.png"] },
+    { name: "Muzdalefah", images: ["img/mz_01.png"] },
+    { name: "Maulid al-Nabi", images: ["img/ghar_01.png"] },
+    { name: "Masjid al Kheef", images: ["img/mk_01.png"] },
+];
+
+const PLACES = {
+    Food: [
+        {name: "Adam Cafe for authentic Saudi Coffee", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD/ADAM+cafe+%7C+%D9%85%D9%82%D9%87%D9%89+%D8%A2%D8%AF%D9%85,+King+Khalid+rd%D8%8C+Al+Jamiah,+Makkah+24242%E2%80%AD/"},
+        {name: "Kebab Samarqand", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/%D9%85%D8%B7%D8%B9%D9%85+%D9%83%D8%A8%D8%A7%D8%A8+%D8%B3%D9%85%D8%B1%D9%82%D9%86%D8%AF,+King+Fahd+Road,+Makkah%E2%80%AD/"},
+        {name: "Romansiah Family Restaurant", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/Al+Romansiah+Restaurant,+Al+Masjid+Al+Haram+Road,+Makkah/"},
+        {name: "Turkish Divan", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/Divan+Turkish+Restaurant,+Ibrahim+Al+Joufaili,+Makkah/"},
+        {name: "Fresh Juice", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/%D8%B9%D8%B5%D9%8A%D8%B1%D8%A7%D8%AA+%D8%AA%D8%B1%D9%83%D9%8A%D8%8C+Makkah%E2%80%AD/"},
+        {name: "Pakistani Food", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD/Sargodha+Resturant,+King+Abdullah+Road,+Makkah/"}
+    ],
+    Shopping: [
+        {name: "10 Riyal Mall", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/Top+Ten,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D8%B3%D8%AC%D8%AF+%D8%A7%D9%84%D8%AD%D8%B1%D8%A7%D9%85,+Makkah%E2%80%AD/"},
+        {name: "5 Riyal Mall", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/5+Riyals,+Al+Kulliyyah+al+Mutawassitah,+Makkah/"},
+        {name: "Gold Market", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/%D8%B3%D9%88%D9%82+%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85+%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1%D9%8A%D8%8C+Al+Kulliyyah+al+Mutawassitah,+Makkah%E2%80%AD/"},
+        {name: "Mecca Mall", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/Makkah+Mall,+King+Abdullah+Road,+Makkah/"},
+        {name: "Electronics & Gadgets", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/eXtra,+3+Ring+Road,+Makkah/"},
+        {name: "Khajoor", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/%D8%AD%D9%84%D9%82%D8%A9%D8%8C%D8%B3%D9%88%D9%82+%D8%A7%D9%84%D8%AE%D8%B6%D8%B1%D9%88%D8%A7%D8%AA+%D8%A8%D8%A7%D9%84%D8%AC%D9%85%D9%84%D8%A9+%D9%88%D8%A7%D9%84%D9%82%D8%B7%D8%A7%D8%B9%D9%8A%D8%8C+%D8%A7%D9%84%D9%83%D8%B9%D9%83%D9%8A%D8%A9%D8%8C+Makkah%E2%80%AD/"},
+        {name: "Mirza Stationery", url: "https://www.google.com/maps/dir/Mohammedi+Makan,+%D8%B7%D8%B1%D9%8A%D9%82+%D8%A7%D9%84%D9%85%D9%84%D9%83+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D8%B9%D8%B2%D9%8A%D8%B2%D8%8C+Makkah%E2%80%AD%E2%80%AD%E2%80%AD/%D9%85%D9%83%D8%AA%D8%A8%D8%A9+%D8%B9%D8%A8%D8%AF%D8%A7%D9%84%D9%88%D9%87%D8%A7%D8%A8+%D9%85%D8%B1%D8%B2%D8%A7/"}
+    ]
+};
+
+const HOME_REQUESTS = [
+    { id: "maintenance", em: "🛠️", name: "Maintenance", sub: "AC, lights, water…" },
+    { id: "roomservice", em: "🛏️", name: "Room Services", sub: "Pillow, cleaning…" },
+    { id: "livechat", em: "💬", name: "Live Chat", sub: "We call you back" },
+    { id: "feedback", em: "✍️", name: "Feedback", sub: "Tell us anything" },
+];
+const HOME_GUIDE = [
+    { id: "information", em: "ℹ️", name: "Information", sub: "Transport, mawaid…" },
+    { id: "discover", em: "🕋", name: "Discover Makkah", sub: "Ziyarat places" },
+    { id: "places", em: "🌍", name: "Places To Visit", sub: "Food & shopping" },
+    { id: "mansak", em: "📄", name: "Mansak PDF", sub: "Download guide" },
+];
+
+/* ---------------- Telegram messages (same text as before) ---------------- */
+const MESSAGES = {
+    maintenance: (r) => `🔔 *Maintenance Request Received* 🔔\n\n`
+        + `📌 *Issue*: ${r.item}\n`
+        + `🏨 *Room Number*: ${userRoomNumber}\n\n`
+        + `📩 *Please assist as soon as possible!*`,
+    roomservice: (r) => `🔔 *Room Service Request Received* 🔔\n\n`
+        + `📌 *Service*: ${r.item}\n`
+        + `🏨 *Room Number*: ${userRoomNumber}\n\n`
+        + `📩 *Please assist as soon as possible!*`,
+    livechat: (r) => `📞 *Live Chat Request* 📞\n\n`
+        + `📱 *Phone Number*: ${r.item}\n`
+        + `🏨 *Room Number*: ${userRoomNumber}\n\n`
+        + `⚡ *Please connect this guest to a live agent ASAP.*`,
+    feedback: (r) => `📝 *New Feedback Received* 📝\n\n`
+        + `💬 *Feedback*: ${r.item}\n`
+        + `🏨 *Room Number*: ${userRoomNumber}\n\n`
+        + `🙏 *Thank you for helping us improve!*`,
+};
+
+async function sendToTelegram(text) {
+    const response = await fetch(NOTIFY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+    });
+    const data = await response.json().catch(() => ({}));
+    console.log("Telegram Message Sent:", data);
+    if (!response.ok || !data.ok) throw new Error(data.telegram || data.error || `HTTP ${response.status}`);
+}
+
+/* ---------------- Helpers ---------------- */
+const $app = document.getElementById('app');
+const ICON = {
+    chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5M12 7.5v.01"/></svg>',
+    pin: '<svg class="map-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+    ext: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+};
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function splitEmoji(label) {
+    const m = String(label).match(/^(\S+)\s+(.*)$/);
+    return m && /\p{Extended_Pictographic}/u.test(m[1]) ? { em: m[1], text: m[2] } : { em: "", text: label };
+}
+function greeting() {
+    const h = new Date().getHours();
+    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
+/* ---------------- Routing (phone Back button = back one screen) ---------------- */
+let view = { name: "home" };
+let draft = {};          // the request being prepared: { kind, item, label, em }
+let sending = false;
+
+function go(next, push = true) {
+    view = next;
+    if (push) history.pushState(next, "");
+    render();
+    window.scrollTo(0, 0);
+}
+window.addEventListener('popstate', (e) => {
+    if (sending) { history.pushState(view, ""); return; }
+    // after a request is sent, Back goes home instead of re-opening the sent request
+    if (view.name === "done") { history.replaceState({ name: "home" }, ""); view = { name: "home" }; return render(); }
+    view = e.state || { name: "home" };
+    render();
+});
+document.getElementById('backBtn').onclick = () => history.back();
+
+/* ---------------- Render ---------------- */
+const TITLES = {
+    home: ["Mohammedi Makan", "Helpline"],
+    maintenance: ["Maintenance", "Report an issue"],
+    roomservice: ["Room Services", "Request an item or service"],
+    slots: ["Choose a time", ""],
+    livechat: ["Live Chat", "Talk to our team"],
+    feedback: ["Feedback", "We are listening"],
+    review: ["Confirm request", ""],
+    done: ["Request received", ""],
+    information: ["Information", "Everything about your stay"],
+    discover: ["Discover Makkah", "Ziyarat places"],
+    discoverItem: ["Discover Makkah", ""],
+    places: ["Places To Visit", "Opens in Google Maps"],
+    mansak: ["Mansak PDF", "Makkah & Umrah guide"],
+    noroom: ["Mohammedi Makan", "Helpline"],
+};
+
+function render() {
+    const [t1, t2] = TITLES[view.name] || TITLES.home;
+    const isHome = view.name === "home" || view.name === "done";
+    document.getElementById('title').textContent = view.name === "discoverItem" ? view.item : view.name === "slots" ? view.service : t1;
+    document.getElementById('subtitle').textContent = view.name === "discoverItem" ? t1 : view.name === "slots" ? "Choose a time slot" : t2;
+    document.getElementById('subtitle').hidden = !document.getElementById('subtitle').textContent;
+    document.getElementById('backBtn').hidden = isHome;
+    document.getElementById('logo').hidden = !isHome;
+    const chip = document.getElementById('roomChip');
+    chip.hidden = !userRoomNumber;
+    chip.textContent = `Room ${userRoomNumber}`;
+
+    ({
+        home: renderHome, maintenance: renderMaintenance, roomservice: renderRoomService, slots: renderSlots,
+        livechat: renderLiveChat, feedback: renderFeedback, review: renderReview, done: renderDone,
+        information: renderInformation, discover: renderDiscover, discoverItem: renderDiscoverItem,
+        places: renderPlaces, mansak: renderMansak, noroom: renderNoRoom,
+    }[view.name] || renderHome)();
+}
+
+function tileHtml(t) {
+    const locked = t.needsRoom && !userRoomNumber;
+    return `<button class="tile${locked ? ' locked' : ''}" type="button" data-go="${t.id}">
+        <span class="ic" aria-hidden="true">${t.em}</span>
+        <span class="name">${esc(t.name)}<span class="sub">${esc(t.sub)}</span></span>
+    </button>`;
+}
+
+function renderHome() {
+    $app.innerHTML = `
+    <section class="view">
+        <div class="hero">
+            <div class="hello">${greeting()}${userRoomNumber ? ` · Room ${esc(userRoomNumber)}` : ""}</div>
+            <h2>Welcome to Mohammedi Makan’s Helpline</h2>
+            <p>This chat assistant is designed to enhance your stay with seamless service. How can we assist you?</p>
+        </div>
+
+        ${userRoomNumber ? "" : `
+        <div class="notice" role="note">${ICON.info}
+            <div><b>Please provide your room number to proceed.</b>Scan the QR code in your room to send requests. Information is available to everyone.</div>
+        </div>`}
+
+        <h3>Requests</h3>
+        <div class="grid">${HOME_REQUESTS.map(t => tileHtml({ ...t, needsRoom: true })).join("")}</div>
+
+        <h3>Guide</h3>
+        <div class="grid">${HOME_GUIDE.map(t => tileHtml(t)).join("")}</div>
+
+        <p class="foot">Scan the QR code again anytime to access the helpline chat.</p>
+    </section>`;
+    $app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
+        const id = b.dataset.go;
+        const needsRoom = HOME_REQUESTS.some(t => t.id === id);
+        go({ name: needsRoom && !userRoomNumber ? "noroom" : id });
+    });
+}
+
+function renderNoRoom() {
+    $app.innerHTML = `
+    <section class="view done">
+        <div class="badge" style="background:var(--brand-tint);color:var(--brand);animation:none">${ICON.info.replace('<svg', '<svg style="width:46px;height:46px"')}</div>
+        <h2>Please provide your room number to proceed.</h2>
+        <p>Requests are sent to our team with your room number. Please scan the QR code in your room, then try again.</p>
+        <div class="btn-row"><button class="btn btn-secondary" type="button" id="homeBtn">Back to Helpline</button></div>
+    </section>`;
+    document.getElementById('homeBtn').onclick = () => history.back();
+}
+
+/* ----- Maintenance ----- */
+function renderMaintenance() {
+    $app.innerHTML = `
+    <section class="view">
+        <h2>Please select the issue</h2>
+        <div class="options two">
+            ${MAINTENANCE.map(o => { const p = splitEmoji(o); return `
+            <button class="opt" type="button" data-item="${esc(o)}">
+                <span class="em" aria-hidden="true">${p.em}</span><span class="label">${esc(p.text)}</span>
+            </button>`; }).join("")}
+        </div>
+    </section>`;
+    $app.querySelectorAll('[data-item]').forEach(b => b.onclick = () => {
+        const p = splitEmoji(b.dataset.item);
+        draft = { kind: "maintenance", item: b.dataset.item, label: p.text, em: p.em || "🛠️" };
+        go({ name: "review" });
+    });
+}
+
+/* ----- Room services ----- */
+function renderRoomService() {
+    $app.innerHTML = `
+    <section class="view">
+        <h2>Please select your room service</h2>
+        <div class="options">
+            ${ROOM_SERVICES.map(s => `
+            <button class="opt" type="button" data-service="${esc(s.name)}">
+                <span class="em" aria-hidden="true">${s.em}</span>
+                <span class="label">${esc(s.name)}${s.slots ? `<small>Choose a time slot</small>` : ""}</span>${ICON.chev}
+            </button>`).join("")}
+        </div>
+    </section>`;
+    $app.querySelectorAll('[data-service]').forEach(b => b.onclick = () => {
+        const s = ROOM_SERVICES.find(x => x.name === b.dataset.service);
+        if (s.slots) return go({ name: "slots", service: s.name });
+        draft = { kind: "roomservice", item: s.name, label: s.name, em: s.em };
+        go({ name: "review" });
+    });
+}
+
+// "8:00 AM - 9:00 AM" → "8:00 – 9:00 AM" on the button (the full text is still what gets sent)
+function slotLabel(t) {
+    const m = t.match(/^(.+?) (AM|PM) - (.+?) (AM|PM)$/);
+    return !m ? t : m[2] === m[4] ? `${m[1]} – ${m[3]} ${m[4]}` : `${m[1]} ${m[2]} – ${m[3]} ${m[4]}`;
+}
+
+function renderSlots() {
+    const s = ROOM_SERVICES.find(x => x.name === view.service);
+    if (!s) return go({ name: "roomservice" }, false);
+    const am = s.slots.filter(x => /AM -/.test(x)), pm = s.slots.filter(x => !/AM -/.test(x));
+    const group = (title, list) => list.length ? `<div class="slot-group">${title}</div>
+        <div class="slots">${list.map(t => `<button class="slot" type="button" data-slot="${esc(t)}" aria-label="${esc(t)}">${esc(slotLabel(t))}</button>`).join("")}</div>` : "";
+    $app.innerHTML = `
+    <section class="view">
+        <h2>Please select a time slot for ${esc(s.name.toLowerCase())}</h2>
+        ${group("Morning", am)}
+        ${group("Afternoon & evening", pm)}
+    </section>`;
+    $app.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => {
+        const item = `${s.name} @ ${b.dataset.slot}`;
+        draft = { kind: "roomservice", item, label: s.name, em: s.em, slot: b.dataset.slot };
+        go({ name: "review" });
+    });
+}
+
+/* ----- Live chat ----- */
+function renderLiveChat() {
+    $app.innerHTML = `
+    <section class="view">
+        <h2>Connect with a live agent</h2>
+        <p class="lead">To connect you with a live agent, please enter your phone number. Our team will contact you shortly.</p>
+        <div class="field">
+            <label for="phone">Phone number</label>
+            <input class="input" id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. +966 5X XXX XXXX" value="${esc(draft.kind === 'livechat' ? draft.item : '')}">
+            <div class="error-text" id="phoneError" hidden>Please enter a valid phone number.</div>
+            <div class="help">Include your country code if your number is not Saudi.</div>
+        </div>
+        <div class="sticky-actions"><button class="btn btn-primary" type="button" id="next">Continue</button></div>
+    </section>`;
+    const input = document.getElementById('phone');
+    const submit = () => {
+        const phone = input.value.replace(/[\s\-().]/g, "");
+        if (/^\+?\d{7,15}$/.test(phone)) {
+            draft = { kind: "livechat", item: phone, label: phone, em: "📞" };
+            go({ name: "review" });
+        } else {
+            input.classList.add('invalid');
+            document.getElementById('phoneError').hidden = false;
+            input.focus();
+        }
+    };
+    input.addEventListener('input', () => { input.classList.remove('invalid'); document.getElementById('phoneError').hidden = true; });
+    input.addEventListener('keydown', e => { if (e.key === "Enter") { e.preventDefault(); submit(); } });
+    document.getElementById('next').onclick = submit;
+}
+
+/* ----- Feedback ----- */
+function renderFeedback() {
+    $app.innerHTML = `
+    <section class="view">
+        <h2>We'd love to hear your feedback</h2>
+        <p class="lead">Compliments, suggestions or anything we can do better.</p>
+        <div class="field">
+            <label for="fb">Your feedback</label>
+            <textarea id="fb" placeholder="Type your feedback..." maxlength="1500">${esc(draft.kind === 'feedback' ? draft.item : '')}</textarea>
+            <div class="error-text" id="fbError" hidden>Please type your feedback first.</div>
+        </div>
+        <div class="sticky-actions"><button class="btn btn-primary" type="button" id="next">Continue</button></div>
+    </section>`;
+    const ta = document.getElementById('fb');
+    ta.addEventListener('input', () => { ta.classList.remove('invalid'); document.getElementById('fbError').hidden = true; });
+    document.getElementById('next').onclick = () => {
+        const feedback = ta.value.trim();
+        if (!feedback) { ta.classList.add('invalid'); document.getElementById('fbError').hidden = false; ta.focus(); return; }
+        draft = { kind: "feedback", item: feedback, label: "Feedback", em: "✍️" };
+        go({ name: "review" });
+    };
+}
+
+/* ----- Review & send ----- */
+const KIND_LABEL = { maintenance: "Maintenance", roomservice: "Room service", livechat: "Live chat", feedback: "Feedback" };
+const QUESTION = {
+    maintenance: () => `Are you sure you want to report "${draft.label}" for Room ${userRoomNumber}?`,
+    roomservice: () => `Are you sure you want to request "${draft.item}" for Room ${userRoomNumber}?`,
+    livechat: () => `Would you like to start a live chat using this phone number: ${draft.item}?`,
+    feedback: () => `Are you sure you want to submit this feedback?`,
+};
+
+function renderReview() {
+    if (!draft.kind || !userRoomNumber) return go({ name: "home" }, false);
+    const rows = [];
+    if (draft.kind === "roomservice" && draft.slot) rows.push(["Time", draft.slot]);
+    if (draft.kind === "livechat") rows.push(["Phone", draft.item]);
+    if (draft.kind === "feedback") rows.push(["Message", draft.item]);
+    rows.push(["Room", userRoomNumber]);
+    $app.innerHTML = `
+    <section class="view">
+        <div class="review">
+            <div class="head">
+                <span class="em" aria-hidden="true">${draft.em}</span>
+                <div><div class="k">${KIND_LABEL[draft.kind]}</div><div class="v">${esc(draft.kind === "feedback" ? "Your feedback" : draft.kind === "livechat" ? "Call me back" : draft.label)}</div></div>
+            </div>
+            <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+        </div>
+        <p class="lead" style="margin-top:0">${esc(QUESTION[draft.kind]())}</p>
+        <div id="err"></div>
+        <div class="sticky-actions">
+            <button class="btn btn-primary" type="button" id="yes">${ICON.send}<span>Yes, send</span></button>
+            <button class="btn btn-secondary" type="button" id="no">No, go back</button>
+        </div>
+    </section>`;
+    document.getElementById('no').onclick = () => history.back();
+    document.getElementById('yes').onclick = submitRequest;
+}
+
+async function submitRequest() {
+    if (sending) return;
+    sending = true;
+    const yes = document.getElementById('yes'), no = document.getElementById('no');
+    yes.disabled = true; no.disabled = true;
+    yes.innerHTML = `<span class="spinner"></span><span>Sending…</span>`;
+    document.getElementById('err').innerHTML = "";
+    try {
+        await sendToTelegram(MESSAGES[draft.kind](draft));
+        sending = false;
+        // replace the review screen so Back from "done" can't re-send
+        view = { name: "done" };
+        history.replaceState(view, "");
+        render();
+        window.scrollTo(0, 0);
+    } catch (error) {
+        console.error("Telegram Error:", error);
+        sending = false;
+        yes.disabled = false; no.disabled = false;
+        yes.innerHTML = `${ICON.send}<span>Try again</span>`;
+        document.getElementById('err').innerHTML = `<div class="alert alert-error" role="alert">We couldn't send your request. Please check your internet connection and try again.</div>`;
+    }
+}
+
+function renderDone() {
+    const text = {
+        maintenance: `Thank you! Your issue "${draft.label}" has been reported for Room ${userRoomNumber}.`,
+        roomservice: `Thank you! Your request "${draft.item}" has been reported for Room ${userRoomNumber}.`,
+        livechat: `Thank you! Our team will contact you shortly at ${draft.item}.`,
+        feedback: `Thank you for your feedback!`,
+    }[draft.kind] || "Your request has been successfully submitted.";
+    $app.innerHTML = `
+    <section class="view done">
+        <div class="badge">${ICON.check}</div>
+        <h2>Request Received!</h2>
+        <p>${esc(text)}</p>
+        <div class="btn-row">
+            <button class="btn btn-primary" type="button" id="homeBtn">Back to Helpline</button>
+        </div>
+        <p class="foot">Scan the QR code again anytime to access the helpline chat.</p>
+    </section>`;
+    document.getElementById('homeBtn').onclick = () => { draft = {}; go({ name: "home" }); };
+}
+
+/* ----- Information ----- */
+function renderInformation() {
+    const item = (x) => x.children ? `
+        <details class="acc">
+            <summary><span class="em" aria-hidden="true">${x.em}</span><span class="label">${esc(x.title)}</span>${ICON.chev}</summary>
+            ${x.children.map(c => `
+            <details class="sub">
+                <summary><span class="em" aria-hidden="true">${c.em}</span><span class="label">${esc(c.title)}</span>${ICON.chev}</summary>
+                <div class="body"><div class="info-card">${c.html}</div></div>
+            </details>`).join("")}
+        </details>` : `
+        <details class="acc">
+            <summary><span class="em" aria-hidden="true">${x.em}</span><span class="label">${esc(x.title)}</span>${ICON.chev}</summary>
+            <div class="body"><div class="info-card">${x.html}</div></div>
+        </details>`;
+    $app.innerHTML = `
+    <section class="view">
+        <h2>Please select the information you need</h2>
+        ${INFORMATION.map(item).join("")}
+    </section>`;
+}
+
+/* ----- Discover Makkah ----- */
+function renderDiscover() {
+    $app.innerHTML = `
+    <section class="view">
+        <h2>Please select a place to discover in Makkah</h2>
+        <div class="options">
+            ${DISCOVER.map(d => `<button class="opt" type="button" data-place="${esc(d.name)}"><span class="em" aria-hidden="true">🕌</span><span class="label">${esc(d.name)}</span>${ICON.chev}</button>`).join("")}
+        </div>
+    </section>`;
+    $app.querySelectorAll('[data-place]').forEach(b => b.onclick = () => go({ name: "discoverItem", item: b.dataset.place }));
+}
+
+function renderDiscoverItem() {
+    const d = DISCOVER.find(x => x.name === view.item);
+    if (!d) return go({ name: "discover" }, false);
+    const i = DISCOVER.indexOf(d), next = DISCOVER[(i + 1) % DISCOVER.length];
+    $app.innerHTML = `
+    <section class="view">
+        ${d.images.map(src => `<a href="${esc(src)}" target="_blank" rel="noopener" aria-label="Open full size image"><img class="discover-img" src="${esc(src)}" alt="${esc(d.name)}" decoding="async"></a>`).join("")}
+        <p class="foot">Tap the image to open it full size and zoom in.</p>
+        <button class="opt" type="button" id="nextPlace"><span class="em" aria-hidden="true">🕌</span><span class="label"><small>Next place</small>${esc(next.name)}</span>${ICON.chev}</button>
+    </section>`;
+    $app.querySelectorAll('.discover-img').forEach(img => {
+        const done = () => img.classList.add('loaded');
+        if (img.complete) done(); else { img.onload = done; img.onerror = done; }
+    });
+    document.getElementById('nextPlace').onclick = () => {
+        // replace, so Back still returns to the list
+        view = { name: "discoverItem", item: next.name };
+        history.replaceState(view, "");
+        render(); window.scrollTo(0, 0);
+    };
+}
+
+/* ----- Places to visit ----- */
+function renderPlaces() {
+    const tab = view.tab === "Shopping" ? "Shopping" : "Food";
+    $app.innerHTML = `
+    <section class="view">
+        <div class="seg" role="tablist">
+            ${["Food", "Shopping"].map(t => `<button type="button" role="tab" aria-selected="${t === tab}" data-tab="${t}">${t === "Food" ? "🍽️" : "🛍️"} ${t}</button>`).join("")}
+        </div>
+        <p class="lead" style="margin-top:0">${tab === "Food" ? "Select a restaurant to view on Google Maps:" : "Select a shopping place to view on Google Maps:"}</p>
+        <div class="options">
+            ${PLACES[tab].map(p => `<a class="opt" href="${esc(p.url)}" target="_blank" rel="noopener">${ICON.pin}<span class="label">${esc(p.name)}<small>Directions from Mohammedi Makan</small></span>${ICON.ext}</a>`).join("")}
+        </div>
+    </section>`;
+    $app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
+        view = { name: "places", tab: b.dataset.tab };
+        history.replaceState(view, "");
+        render();
+    });
+}
+
+/* ----- Mansak PDF ----- */
+function renderMansak() {
+    $app.innerHTML = `
+    <section class="view">
+        <h2>Makkah and Umrah PDF</h2>
+        <div class="doc">
+            <div class="file" aria-hidden="true">PDF</div>
+            <div><div class="name">makkah.pdf</div><div class="meta">Mansak guide · about 10 MB</div></div>
+        </div>
+        <div class="btn-row">
+            <a class="btn btn-primary" href="makkah.pdf" download="makkah.pdf" id="dl">${ICON.download}<span>Download PDF</span></a>
+            <a class="btn btn-secondary" href="makkah.pdf" target="_blank" rel="noopener">${ICON.eye}<span>Open to read</span></a>
+        </div>
+        <p class="foot">The file is about 10 MB — Wi-Fi is recommended.</p>
+    </section>`;
+    document.getElementById('dl').addEventListener('click', (e) => {
+        const a = e.currentTarget;
+        setTimeout(() => { a.innerHTML = `${ICON.check}<span>Download started</span>`; }, 100);
+    });
+}
+
+/* ---------------- Start ---------------- */
+history.replaceState(view, "");
+render();
+</script>
 </body>
 </html>
-
