@@ -197,14 +197,18 @@ export default async function mount(ctx) {
         }, [s.id]);
     });
     // Delayed Departure Report (Excel): every delayed group of this site, one row per departure
+    // default range: the 1st of this month to today (departures after today have not happened yet)
+    { const t = new Date(), p = (n) => String(n).padStart(2, '0'); $('dpTo').value = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`; $('dpFrom').value = `${t.getFullYear()}-${p(t.getMonth() + 1)}-01`; }
     $('dpExport').addEventListener('click', async () => {
         const b = $('dpExport');
+        let from = $('dpFrom').value, to = $('dpTo').value;
+        if (from && to && from > to) [from, to] = [to, from];
         b.disabled = true;
         try {
             const all = await ctx.guard(mirrorAll()).catch(() => SLIPS);
-            const rows = reportRows(SLIPS, all);
-            if (!rows.length) { say('No delayed groups to export.', true); return; }
-            await exportReport(rows, ctx.site.label);
+            const rows = reportRows(SLIPS, all, { from, to });
+            if (!rows.length) { say('No delayed departures in these dates.', true); return; }
+            await exportReport(rows, ctx.site.label, { from, to });
             say(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'}.`);
         } catch (e) { say(e.message || String(e), true); }
         finally { b.disabled = false; }

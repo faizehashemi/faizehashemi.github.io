@@ -5,7 +5,8 @@
             <p>Groups that could not leave on their booked date. Each room has its own check-out: <b>confirmed</b>, <b>tentative</b> (ticket not confirmed) or <b>unknown</b> (beds held). Every change is checked against the groups booked into those rooms next.</p>
         </div>
         <span class="dp-top-act">
-            <button type="button" id="dpExport" class="dp-btn primary" title="Delayed Departure Report — one row per departure of each delayed group">⬇ Export Excel</button>
+            <span class="dp-range" title="Only the departures (Extended Departure Date) between these days">Departed from <input type="date" id="dpFrom"> to <input type="date" id="dpTo"></span>
+            <button type="button" id="dpExport" class="dp-btn primary" title="Delayed Departure Report — one row per departure of each delayed group, between the two dates">⬇ Export Excel</button>
             <button type="button" id="dpRefresh" class="dp-btn ghost">↻ Refresh</button>
         </span>
     </header>

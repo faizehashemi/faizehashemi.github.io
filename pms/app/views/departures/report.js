@@ -1,7 +1,7 @@
 // Delayed Departure Report (Excel), from the Delayed departures page — one row per partial departure of each delayed
 // group, in the desks' layout: booking, group, pax, the actual schedule (arrival, Makkah → Madina, Madina → Makkah,
 // departure), remaining pax, pax departed, balance, the extended departure date, days extended and beds used
-// (= guests who left × days extended).
+// (= guests who left × days extended). Infants are left out of every count: they are never given a bed.
 // Makkah → Madina / Madina → Makkah: from the UMS import (madinaDate / makkahDate), else from the group's other stays
 // (its Madina stay, its second Makkah stay "S…").
 
@@ -18,7 +18,8 @@ const cap = (s) => { const t = String(s || '').trim().toLowerCase(); return t ? 
 const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
 
 /** The rows of the report (also used to count before writing). */
-export function reportRows(slips, all) {
+/** range: { from, to } 'YYYY-MM-DD' — only departures (Extended Departure Date) inside it; SR NO counts the groups shown */
+export function reportRows(slips, all, range = {}) {
     const delayed = slips.filter(s => !s.deleted && isDelayed(s))
         .sort((a, b) => String(a.delayed?.original_checkout?.date || a.checkout_date).localeCompare(String(b.delayed?.original_checkout?.date || b.checkout_date)) || String(a.sh_no).localeCompare(String(b.sh_no), undefined, { numeric: true }));
     const out = [];
@@ -34,23 +35,32 @@ export function reportRows(slips, all) {
         for (const d of departuresOf(s)) {
             const before = paxAt(s, d.at - 1), after = paxAt(s, d.at);
             const adults = (before.gents + before.ladies) - (after.gents + after.ladies);
-            const ch = (before.children + before.infants) - (after.children + after.infants);
-            const left = before.total - after.total;
-            const ext = ymdOf(d.at), extDays = days(booked, ext);
+            // infants have no bed of their own: not counted in CH, the pax columns or the beds used
+            const beds = (p) => p.gents + p.ladies + p.children;
+            const ch = before.children - after.children;
+            const left = beds(before) - beds(after);
+            // days extended = Extended Departure Date − Departure (the column shown), negative when they left early
+            const depDay = u.departure?.date || booked;
+            const ext = ymdOf(d.at), extDays = days(depDay, ext);
+            if ((range.from && ext < range.from) || (range.to && ext > range.to)) continue;
             out.push({
                 sr: gi + 1, ref: key || String(s.sh_no ?? ''), kind: u.family ? 'Individual' : 'Group', operator: u.operator || s.tour_name || '',
                 leader: String(s.group_leader || u.glName || '').trim() || '-', country: u.country || '', first: cap(u.firstArrival || (s.site === 'medina' ? 'Madina' : 'Makkah')),
-                a: g + l, ch: c + i, tot: num(s.total) || g + l + c + i,
-                arrival: dmy(u.arrival?.date || s.checkin_date), toMadina: dmy(toMadina), toMakkah: dmy(toMakkah), departure: dmy(u.departure?.date || booked),
-                remaining: before.total, da: adults, dch: ch, dt: left, balance: after.total,
+                a: g + l, ch: c, tot: g + l + c,
+                arrival: dmy(u.arrival?.date || s.checkin_date), toMadina: dmy(toMadina), toMakkah: dmy(toMakkah), departure: dmy(depDay),
+                remaining: beds(before), da: adults, dch: ch, dt: left, balance: beds(after),
                 extended: dmy(ext), extDays, beds: left * Math.max(0, extDays), status: d.status,
             });
         }
     });
+    // SR NO: 1, 2, 3 … for the groups that have a departure in the range
+    const sr = new Map();
+    for (const r of out) { if (!sr.has(r.sr)) sr.set(r.sr, sr.size + 1); r.sr = sr.get(r.sr); }
     return out;
 }
 
-export async function exportReport(rows, siteLabel) {
+export async function exportReport(rows, siteLabel, range = {}) {
+    const span = range.from || range.to ? ` · ${range.from ? dmy(range.from) : '…'} to ${range.to ? dmy(range.to) : '…'}` : '';
     await loadScript(EXCELJS);
     const wb = new window.ExcelJS.Workbook();
     const ws = wb.addWorksheet('Delayed Departure Report', { views: [{ state: 'frozen', ySplit: 3 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 } });
@@ -60,7 +70,7 @@ export async function exportReport(rows, siteLabel) {
     ws.columns = [6, 10, 12, 18, 26, 10, 9, 5, 5, 6, 11, 12, 12, 11, 10, 5, 5, 5, 6, 12, 10, 11].map(width => ({ width }));
 
     ws.mergeCells('A1:V1');
-    Object.assign(ws.getCell('A1'), { value: `Delayed Departure Report${siteLabel ? ` · ${siteLabel}` : ''}` });
+    Object.assign(ws.getCell('A1'), { value: `Delayed Departure Report${siteLabel ? ` · ${siteLabel}` : ''}${span}` });
     ws.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FFFF0000' } };
     ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = 26;
@@ -107,7 +117,7 @@ export async function exportReport(rows, siteLabel) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
     const d = new Date();
-    a.download = `Delayed Departure Report${siteLabel ? ` ${siteLabel}` : ''} ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}.xlsx`;
+    a.download = `Delayed Departure Report${siteLabel ? ` ${siteLabel}` : ''}${range.from || range.to ? ` ${range.from ? dmy(range.from) : ''} to ${range.to ? dmy(range.to) : ''}` : ` ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`}.xlsx`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
