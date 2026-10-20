@@ -12,6 +12,9 @@
 //   vehicle — 'car' when switched on the Transport day page (cars count from 1 on their own); else a bus.
 //   building — the building the bus departs from (Transport day page; names from Rooms & Buildings); a grouped trip
 //          takes its bus's unless given its own (a trailing group picked up elsewhere). Kept by re-imports.
+//   transporter_manual, vch_import — transporter / Vch No changed by hand (kept by re-imports); vch_import = the
+//          list's Vch No, which grouped trips of the list still point at.
+//   with — a group added by hand to a trip on the Transport day page rides in the trip with this key.
 //   at_manual, at_import — the time was changed by hand on the Transport day page; at_import = the list's time.
 //          A re-import keeps the hand-set time unless the list itself brings a different time.
 
@@ -160,12 +163,15 @@ export function fleetText(list, none = '') {
  */
 export function resolve(rows) {
     const byVch = new Map(rows.filter(r => r.vch && r.route).map(r => [r.vch, r]));
+    // a Vch No changed by hand: groups adjusted into the list's number still ride in it
+    for (const r of rows) if (r.route && r.vch_import && !byVch.has(r.vch_import)) byVch.set(r.vch_import, r);
+    const byKey = new Map(rows.filter(r => r.route).map(r => [r.key, r]));
     const byDora = new Map();
     for (const r of rows) if (r.dora && r.route && !byDora.has(r.dora)) byDora.set(r.dora, r);
     const out = new Map();
     for (const r of rows) {
         // no route of its own: the vehicle named in the remarks, else the trip with the same Dora No
-        const parent = r.route ? null : (r.adj && byVch.get(r.adj)) || (r.dora && byDora.get(r.dora)) || null;
+        const parent = r.route ? null : (r.with && byKey.get(r.with)) || (r.adj && byVch.get(r.adj)) || (r.dora && byDora.get(r.dora)) || null;
         const route = parent ? parent.route : r.route;
         const dest = DEST_OF_ROUTE[normRoute(route)] || null;
         out.set(r.key, { dest, route, parent, bus: dest ? ((parent || r).bus ?? null) : null, vehicle: vehicleOf(parent || r), vlabel: (parent || r).vehicle_label || '', building: r.building || parent?.building || '' });
@@ -257,6 +263,8 @@ export function diffDay(saved, incoming) {
         const o = old.get(r.key);
         // a time set by hand stays while the list still has the time it had then
         if (o && o.at_manual && r.at === o.at_import) r = { ...r, at: o.at, at_manual: true, at_import: o.at_import };
+        // a transporter / Vch No set by hand on the Transport day page stays
+        if (o && o.transporter_manual) r = { ...r, transporter: o.transporter, vch: o.vch, transporter_manual: true, ...(o.vch_import ? { vch_import: o.vch_import } : {}) };
         if (!o) { out.added.push(r); continue; }
         const fields = FIELDS.filter(f => show(o, f) !== show(r, f)).map(f => [f[1], show(o, f), show(r, f)]);
         if (fields.length) out.changed.push({ old: o, now: r, fields }); else out.same++;

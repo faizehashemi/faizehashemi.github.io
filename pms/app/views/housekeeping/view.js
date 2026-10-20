@@ -195,7 +195,9 @@ export default async function mount(ctx) {
     // Print: just each category and its room numbers, in a tab of its own
     $('hkPrint').addEventListener('click', () => {
         if (!$('hkBld').value) { alert('Choose a building first.'); return; }
-        const { rows } = compute();
+        const urgentOnly = $('hkUrgentOnly').checked;
+        const rows = compute().rows.filter(r => !urgentOnly || r.p === 1);
+        if (urgentOnly && !rows.length) { alert('No Urgent rooms on this day.'); return; }
         const all = $('hkBld').value === '*';
         const w = window.open('', '_blank');
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print again.'); return; }
@@ -204,7 +206,7 @@ export default async function mount(ctx) {
         const body = floors.map(f => {
             const [bld, floor] = f.split('|');
             const here = rows.filter(r => r.bld === bld && r.floor === floor);
-            const cats = [1, 2, 3, 4].map(p => {
+            const cats = (urgentOnly ? [1] : [1, 2, 3, 4]).map(p => {
                 const rooms = here.filter(r => r.p === p).map(r => r.room).sort(natural);
                 return rooms.length ? `<div class="cat"><b>${esc(PRIO[p])}</b> ${rooms.map(esc).join(', ')}</div>` : '';
             }).join('');

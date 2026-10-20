@@ -72,7 +72,6 @@ export const NAV = [
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
     { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts'] },
     { id: 'data',   label: 'Data',           views: ['slip-search', 'ums', 'admin', 'setup', 'changelog'] },
-    { id: 'settings', label: 'Settings',     views: ['settings'] },
 ];
 
 // Product analytics (PostHog). Empty key = analytics off. The project API key (phc_…) is meant

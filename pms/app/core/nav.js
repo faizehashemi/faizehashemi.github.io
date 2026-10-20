@@ -16,8 +16,9 @@ import { canOpen } from './cloud.js';
 const viewById = Object.fromEntries(VIEWS.map(v => [v.id, v]));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// Pages never offered in a menu group of their own
-const NOT_IN_MENU = new Set(['home', 'login', 'blank']);
+// Pages never offered in a menu group of their own (Settings lives in the login's dropdown)
+const NOT_IN_MENU = new Set(['home', 'login', 'blank', 'settings']);
+const NOT_IN_SEARCH = new Set(['home', 'login', 'blank']);
 
 /** The menu to show: the login's own groups (Settings → Menu) or the standard NAV; unplaced new pages at the end. */
 export function menuFor(p = getPrefs()) {
@@ -38,7 +39,6 @@ function menuItems(cat) {
     return cat.views.map(id => viewById[id]).filter(Boolean).map(v => `
         <a class="mi" role="menuitem" data-view="${v.id}" href="#">
             <span class="mi-l">${esc(v.label)}<kbd data-kbd="${v.id}" hidden></kbd></span>
-            <span class="mi-h">${esc(v.hint || '')}</span>
         </a>`).join('');
 }
 
@@ -88,6 +88,7 @@ class SiteNav extends HTMLElement {
         <div class="dr-foot">
           <div class="dr-desk" id="drDesk"></div>
           <div class="dr-sync" id="drSync"></div>
+          <a class="dr-link" data-view="settings" href="#">Settings</a>
           <a class="dr-link" data-view="settings" data-anchor="password" href="#">Change password</a>
           <div class="dr-admin" data-admin-only hidden>${Object.values(SITES).map(s => `<button type="button" class="dr-link" data-site="${s.id}">View ${esc(s.label)} (admin)</button>`).join('')}</div>
           <button type="button" class="dr-logout" data-logout>Log out</button>
@@ -186,6 +187,7 @@ class SiteNav extends HTMLElement {
         .desk{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--edge); background:#fff; border-radius:999px; padding:5px 12px; font-size:12.5px; font-weight:650; white-space:nowrap; max-width:220px }
         .desk #deskName{ overflow:hidden; text-overflow:ellipsis }
         .desk:hover, .desk-dd.open .desk{ background:#fbf1d8 }
+        .sync:not(.warn){ display:none !important } /* no "Synced" sign on the bar; it shows only when offline / not saved */
         .sync{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); white-space:nowrap }
         .sync i{ width:8px; height:8px; border-radius:50%; background:#2f9e44; box-shadow:0 0 0 3px rgba(47,158,68,.15) }
         :host([data-no-sync-text]) #syncText{ display:none }
@@ -439,7 +441,7 @@ class SiteNav extends HTMLElement {
         const r = this.shadowRoot;
         const q = r.getElementById('qsIn').value.trim().toLowerCase();
         const groupOf = Object.fromEntries((this._menu || []).flatMap(g => g.views.map(v => [v, g.label])));
-        const list = VIEWS.filter(v => !v.hidden && !NOT_IN_MENU.has(v.id) && canOpen(v.id, this._desk))
+        const list = VIEWS.filter(v => (!v.hidden || v.id === 'settings') && !NOT_IN_SEARCH.has(v.id) && canOpen(v.id, this._desk))
             .map(v => ({ v, hay: `${v.label} ${v.title} ${v.hint || ''} ${groupOf[v.id] || ''}`.toLowerCase() }))
             .filter(x => !q || q.split(/\s+/).every(w => x.hay.includes(w)))
             .sort((a, b) => (q && b.v.label.toLowerCase().startsWith(q)) - (q && a.v.label.toLowerCase().startsWith(q)) || a.v.label.localeCompare(b.v.label))
