@@ -434,26 +434,28 @@ export default async function mount(ctx) {
         if (!b || saving) return;
         const parent = doc.rows.find(r => r.key === b.dataset.addsh);
         if (!parent) return;
-        const sh = String(prompt(`SH to add to the ${vehicleOf(parent)} of ${parent.ref ? `SH ${parent.ref}` : 'this vehicle'} (${time12(parent.at)}):`) || '').replace(/[<>\s]/g, '').toUpperCase();
-        if (!sh) return;
-        if (doc.rows.some(r => String(r.ref).toUpperCase() === sh)) { if (!confirm(`SH ${sh} is already on this day's list. Add it again?`)) return; }
+        // one SH or several at once: "44461, 44462 44463"
+        const typed = String(prompt(`SH to add to the ${vehicleOf(parent)} of ${parent.ref ? `SH ${parent.ref}` : 'this vehicle'} (${time12(parent.at)}).\nSeveral at once: separate them with a comma or a space.`) || '');
+        const shs = [...new Set(typed.replace(/[<>]/g, '').toUpperCase().split(/[\s,;]+/).filter(Boolean))];
+        if (!shs.length) return;
         const n = (v) => Math.max(0, parseInt(v, 10) || 0);
-        const g = await groupOf(sh);
-        let add;
-        if (g) {
-            const { slip } = g; add = g.add;
-            if (!confirm([`Add SH ${slip.sh_no} to this ${vehicleOf(parent)}?`, '',
-                `${slip.tour_name || '—'} · ${String(slip.group_leader || '').trim() || '-'}`,
-                `${add.pax} pax (M ${add.m} · F ${add.f} · C ${add.c})${slip.building ? ` · ${slip.building}` : ''}${add.rooms.length ? ` · rooms ${add.rooms.join(', ')}` : ''}`,
-                `Stay ${slip.checkin_date || '?'} → ${slip.checkout_date || '?'}`].join('\n'))) return;
-        } else {
-            const p = prompt(`SH ${sh} is not in this site's slips. Add it anyway? Number of pax:`);
-            if (p === null || !n(p)) return;
-            add = { ref: sh, operator: '', leader: '', m: 0, f: 0, c: 0, pax: n(p), rooms: [] };
+        const found = [], missing = [];
+        for (const sh of shs) { const g = await groupOf(sh); (g ? found : missing).push(g ? g : sh); }
+        const already = shs.filter(sh => doc.rows.some(r => String(r.ref).toUpperCase() === sh));
+        const lines = found.map(({ slip, add }) => `• SH ${slip.sh_no} — ${slip.tour_name || '—'} · ${String(slip.group_leader || '').trim() || '-'} · ${add.pax} pax (M ${add.m} · F ${add.f} · C ${add.c})${add.rooms.length ? ` · rooms ${add.rooms.join(', ')}` : ''}`);
+        if (found.length && !confirm([`Add ${found.length} group${found.length === 1 ? '' : 's'} to this ${vehicleOf(parent)}?`, '', ...lines,
+            ...(missing.length ? ['', `Not in this site's slips: ${missing.join(', ')} — you will be asked their pax next.`] : []),
+            ...(already.length ? ['', `Already on this day's list: ${already.join(', ')} — they are added again.`] : [])].join('\n'))) return;
+        const adds = found.map(g => g.add);
+        for (const sh of missing) {
+            const p = prompt(`SH ${sh} is not in this site's slips. Add it anyway? Number of pax (Cancel to skip):`);
+            if (p === null || !n(p)) continue;
+            adds.push({ ref: sh, operator: '', leader: '', m: 0, f: 0, c: 0, pax: n(p), rooms: [] });
         }
-        const key = `M${Date.now().toString(36).toUpperCase()}`;
-        const rider = { key, dora: '', vch: '', transporter: '', at: parent.at, route: '', remarks: `added to SH ${parent.ref}'s ${vehicleOf(parent)}`, adj: '', loc: '', ...add, with: parent.key, manual: true };
-        save([...doc.rows, rider].sort((a, b) => a.at.localeCompare(b.at)), `SH ${add.ref} added to SH ${parent.ref}`);
+        if (!adds.length) return;
+        const stamp = Date.now().toString(36).toUpperCase();
+        const riders = adds.map((add, i) => ({ key: `M${stamp}${i}`, dora: '', vch: '', transporter: '', at: parent.at, route: '', remarks: `added to SH ${parent.ref}'s ${vehicleOf(parent)}`, adj: '', loc: '', ...add, with: parent.key, manual: true }));
+        save([...doc.rows, ...riders].sort((a, b) => a.at.localeCompare(b.at)), `SH ${adds.map(a => a.ref).join(', ')} added to ${parent.ref ? `SH ${parent.ref}` : 'a vehicle'}`);
     });
 
     // airport departures: number one destination's vehicles by departure time (buses, cars and each custom name
