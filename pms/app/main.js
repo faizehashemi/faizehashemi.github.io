@@ -278,10 +278,20 @@ origAdd.call(window, 'pms:desk-changed', () => {
     if (!canOpen(viewId, desk) || siteFor(desk, siteId) !== siteId) { if (current) current.key = null; route(); }
     else nav.setRoute(siteId, viewId, desk);
 });
+// The login (name, site, role, pages) and the time its settings were last saved come with every sync (/api/sync,
+// every 30 s and when the page comes back into view). Settings are fetched only when that time changes.
+let prefsAt;
+origAdd.call(window, 'pms:prefs-stamp', (e) => {
+    const at = e.detail ? e.detail.at : null;
+    if (prefsAt !== undefined && at !== prefsAt) loadServerPrefs().catch(() => { }); // changed on another device
+    prefsAt = at;
+});
+origAdd.call(window, 'pms:logged-out', () => { prefsAt = undefined; });
+// with automatic sync switched off (Settings → Data), the login is still checked every minute
 const checkDesk = () => {
-    if (!currentDesk() || document.visibilityState !== 'visible') return;
+    if (!currentDesk() || document.visibilityState !== 'visible' || Number(getPrefs().syncSeconds) > 0) return;
     refreshDesk().catch(() => { });
-    loadServerPrefs().catch(() => { }); // settings changed on another device
+    loadServerPrefs().catch(() => { });
 };
 setInterval(checkDesk, 60000);
 origAdd.call(document, 'visibilitychange', checkDesk);

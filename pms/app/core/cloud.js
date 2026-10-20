@@ -62,8 +62,12 @@ export async function refreshDesk() {
     const s = getSession();
     if (!s) return null;
     const { desk } = await request('GET', '/api/me');
+    return applyDesk(desk, s.token);
+}
+// the login as the server has it (from /api/me or the sync heartbeat): keep it, tell the pages when it changed
+function applyDesk(desk, token) {
     const now = getSession();
-    if (!now || now.token !== s.token) return null;
+    if (!desk || !now || now.token !== token) return null;
     if (JSON.stringify(desk) !== JSON.stringify(now.desk)) {
         localStorage.setItem(SESSION_KEY, JSON.stringify({ ...now, desk }));
         emit('pms:desk-changed', { desk });
@@ -194,8 +198,13 @@ export function sync({ force = false } = {}) {
     if (!force && state.lastSync && Date.now() - state.lastSync < 3000) return Promise.resolve();
     inflight = (async () => {
         let cursor = (await tx(['meta'], 'readonly', t => req2p(t.objectStore('meta').get('cursor')))) || { seq: 0, id: 0 };
+        const token = getSession()?.token;
         for (let page = 0; page < 100; page++) {
-            const r = await request('GET', `/api/slips?seq=${cursor.seq}&id=${cursor.id}`);
+            // the heartbeat: new slips + this login + when its settings last changed, one call (an older server: slips only)
+            let r;
+            try { r = await request('GET', `/api/sync?seq=${cursor.seq}&id=${cursor.id}`); }
+            catch (e) { if (e.status !== 404) throw e; r = await request('GET', `/api/slips?seq=${cursor.seq}&id=${cursor.id}`); }
+            if (page === 0 && r.desk) { applyDesk(r.desk, token); emit('pms:prefs-stamp', { at: r.prefs_at ?? null }); }
             cursor = r.cursor;
             await tx(['slips', 'meta'], 'readwrite', t => {
                 const st = t.objectStore('slips');

@@ -52,6 +52,25 @@ export default {
 
 /* --------------------------------- plumbing --------------------------------- */
 
+/**
+ * A public GET answered from Cloudflare's edge cache for `seconds` (one answer per address per data centre), so many
+ * screens asking the same thing cost one database read. Errors are not kept. No cache (tests): answered directly.
+ */
+async function edgeCached(req, seconds, make) {
+    const cache = typeof caches !== 'undefined' && caches.default;
+    if (!cache) return make();
+    const key = new Request(new URL(req.url).toString(), { method: 'GET' });
+    const hit = await cache.match(key);
+    if (hit) return new Response(hit.body, hit); // a copy with headers that may still be changed (CORS)
+    const res = await make();
+    if (res.ok) {
+        const keep = new Response(res.clone().body, res);
+        keep.headers.set('Cache-Control', `public, max-age=${seconds}`);
+        await cache.put(key, keep);
+    }
+    return res;
+}
+
 function corsHeaders(request, env) {
     const origin = request.headers.get('Origin') || '';
     const allowed = String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -131,9 +150,17 @@ async function route(req, env) {
 
     if (p === '/api/health') return json({ ok: true, time: now() });
     if (p === '/api/login' && m === 'POST') return login(req, env);
-    if (p === '/api/public/signage' && m === 'GET') return publicSignage(url, env); // no login: the TV board
-    if (p === '/api/public/signage/setup' && m === 'GET') return publicSignageSetup(url, env);
+    // no login: the TV boards — the same answer is kept at the edge for 30 s, so many screens cost one database read
+    if (p === '/api/public/signage' && m === 'GET') return edgeCached(req, 30, () => publicSignage(url, env));
+    if (p === '/api/public/signage/setup' && m === 'GET') return edgeCached(req, 30, () => publicSignageSetup(url, env));
     if (p === '/api/public/chat-notify' && m === 'POST') return chatNotify(req, env); // no login: guest chatbot
+
+    // the reads every open page makes all the time: login check + data in ONE database trip (D1 batch)
+    if (m === 'GET' && p === '/api/sync') return syncHeartbeat(req, url, env);
+    if (m === 'GET' && p === '/api/slips') return (await authedBatch(req, env, [pullStmt(url, env)])).reply(([r]) => pullReply(url, r));
+    if (m === 'GET' && p === '/api/me') return (await authedBatch(req, env, [])).reply((_, me) => ({ desk: publicDesk(me) }));
+    if (m === 'GET' && p === '/api/me/prefs') return (await authedBatch(req, env, [prefsStmt(req, env)]))
+        .reply(([r]) => { const row = r.results[0]; return { prefs: row ? JSON.parse(row.prefs) : null, updated_at: row ? row.updated_at : null }; });
 
     const me = await authenticate(req, env);
     if (p === '/api/logout' && m === 'POST') {
@@ -238,19 +265,36 @@ async function login(req, env) {
     return json({ token, expiresAt, desk: publicDesk(desk) });
 }
 
-async function authenticate(req, env) {
+async function tokenHashOf(req) {
     const m = (req.headers.get('Authorization') || '').match(/^Bearer\s+([a-f0-9]{64})$/i);
     if (!m) throw new HttpError(401, 'Please log in.');
-    const tokenHash = await sha256(m[1].toLowerCase());
-    const row = await env.DB.prepare(
-        `SELECT s.expires_at, d.id, d.name, d.site, d.role, d.disabled, ${PAGES_OF} FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?`
-    ).bind(tokenHash).first();
+    return sha256(m[1].toLowerCase());
+}
+const sessionStmt = (env, tokenHash) => env.DB.prepare(
+    `SELECT s.expires_at, d.id, d.name, d.site, d.role, d.disabled, ${PAGES_OF} FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?`
+).bind(tokenHash);
+// a valid, unexpired session of an enabled desk; extends the login when less than half its lifetime is left
+async function checkSession(env, row, tokenHash) {
     if (!row || row.expires_at < now() || row.disabled) throw new HttpError(401, 'Your login has expired. Please log in again.');
-    // sliding expiry: extend when less than half the lifetime is left
     if (row.expires_at < plusDays(SESSION_DAYS / 2)) {
         await env.DB.prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?').bind(plusDays(SESSION_DAYS), tokenHash).run();
     }
     return { ...row, tokenHash };
+}
+/**
+ * The login check and a request's own reads in one database trip. The reads run alongside the session lookup, but
+ * nothing from them is answered unless the session is valid. Statements may use the token hash (bound by the caller).
+ */
+async function authedBatch(req, env, stmts) {
+    const tokenHash = await tokenHashOf(req);
+    const [auth, ...rest] = await env.DB.batch([sessionStmt(env, tokenHash), ...stmts.map(f => typeof f === 'function' ? f(tokenHash) : f)]);
+    const me = await checkSession(env, auth.results[0], tokenHash);
+    return { me, rest, reply: (fn) => json(fn(rest, me)) };
+}
+
+async function authenticate(req, env) {
+    const tokenHash = await tokenHashOf(req);
+    return checkSession(env, await sessionStmt(env, tokenHash).first(), tokenHash);
 }
 
 function requireAdmin(me) {
@@ -333,25 +377,50 @@ async function getRow(env, id) {
     return env.DB.prepare('SELECT * FROM slips WHERE id = ?').bind(id).first();
 }
 
-async function pull(url, env) {
-    const seq = Number(url.searchParams.get('seq')) || 0;
-    const id = Number(url.searchParams.get('id')) || 0;
-    const limit = Math.min(PULL_LIMIT, Number(url.searchParams.get('limit')) || PULL_LIMIT);
+const pullArgs = (url) => ({
+    seq: Number(url.searchParams.get('seq')) || 0,
+    id: Number(url.searchParams.get('id')) || 0,
+    limit: Math.min(PULL_LIMIT, Number(url.searchParams.get('limit')) || PULL_LIMIT),
+});
+function pullStmt(url, env) {
+    const { seq, id, limit } = pullArgs(url);
     // first download: skip deleted slips, the browser has nothing to remove yet
     const onlyLive = seq === 0 && id === 0 ? 'AND deleted = 0' : '';
     // "after (seq, id)". The leading seq >= ? lets SQLite start in the slips_seq index; written as
     // (seq > ? OR (seq = ? AND id > ?)) it scanned the whole table on every check.
-    const { results } = await env.DB.prepare(
+    return env.DB.prepare(
         `SELECT id, site, data, version, seq, deleted FROM slips
          WHERE seq >= ? AND (seq > ? OR id > ?) ${onlyLive}
          ORDER BY seq, id LIMIT ?`
-    ).bind(seq, seq, id, limit).all();
+    ).bind(seq, seq, id, limit);
+}
+function pullReply(url, r) {
+    const { seq, id, limit } = pullArgs(url);
+    const results = r.results;
     const last = results[results.length - 1];
-    return json({
+    return {
         slips: results.map(rowToSlip),
         cursor: last ? { seq: last.seq, id: last.id } : { seq, id },
         more: results.length === limit,
-    });
+    };
+}
+async function pull(url, env) {
+    return json(pullReply(url, await pullStmt(url, env).all()));
+}
+// this login's settings row, found through its session (so it can share the login check's trip)
+const prefsStmt = (req, env) => (tokenHash) => env.DB.prepare(
+    'SELECT prefs, updated_at FROM desk_prefs WHERE desk_id = (SELECT desk_id FROM sessions WHERE token_hash = ?)').bind(tokenHash);
+
+/**
+ * GET /api/sync — what every open page asks every 30 s, in one call and one database trip:
+ * the slips changed since the cursor, this login as the server has it (name, site, role, pages — the admin may have
+ * changed them) and when its settings were last saved (the page fetches them only when that changes).
+ */
+async function syncHeartbeat(req, url, env) {
+    const stamp = (tokenHash) => env.DB.prepare(
+        'SELECT updated_at FROM desk_prefs WHERE desk_id = (SELECT desk_id FROM sessions WHERE token_hash = ?)').bind(tokenHash);
+    const b = await authedBatch(req, env, [pullStmt(url, env), stamp]);
+    return b.reply(([slips, prefs], me) => ({ ...pullReply(url, slips), desk: publicDesk(me), prefs_at: prefs.results[0]?.updated_at || null }));
 }
 
 async function createSlip(req, env, me) {

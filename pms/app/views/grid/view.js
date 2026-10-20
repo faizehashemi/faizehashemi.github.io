@@ -88,28 +88,45 @@ let BUILDINGS = [];
         let CACHE = [];
         const overlapsIn = (when, ci, co) => when >= ci && when < co;
 
-        // this slip's rows for the room that are in house at `when` (a delayed group's rows have their own check-out)
-        const rowsHere = (r, roomNorm, when) => rowsOf(r).filter(w => normRoom(w.room_no) === roomNorm && w.start && w.end && overlapsIn(when, w.start, w.end));
-        function getActiveSlipsForRoom(when, building, roomNorm) {
-            const out = [];
+        // Index of one building's slips by room, built once per draw (a box used to scan every slip several times —
+        // rooms × slips work, 10 s+ with a full Miqaat). Each entry: the slip and its rows for that room
+        // (core/stay.js — a delayed group's rows have their own check-out); lists keep the slips' order.
+        let IDX = null;
+        function roomIndex(building) {
+            const b = (building || '').trim();
+            if (IDX && IDX.b === b && IDX.cache === CACHE) return IDX;
+            const rows = new Map(), slips = new Map(), ci = new Map();
             for (const r of CACHE) {
-                if ((r.building || '').trim() !== building) continue;
-                if (rowsHere(r, roomNorm, when).length) out.push(r);
+                if ((r.building || '').trim() !== b) continue;
+                const mine = new Map();
+                for (const w of rowsOf(r)) {
+                    const k = normRoom(w.room_no);
+                    if (!mine.has(k)) mine.set(k, []);
+                    mine.get(k).push(w);
+                }
+                for (const [k, ws] of mine) { if (!rows.has(k)) rows.set(k, []); rows.get(k).push({ rec: r, ws }); }
+                for (const k of roomsFromSlip(r)) { if (!slips.has(k)) slips.set(k, []); slips.get(k).push(r); }
+                ci.set(r, parseDT(r.checkin_date, r.checkin_time));
             }
-            return out;
+            IDX = { b, cache: CACHE, rows, slips, ci };
+            return IDX;
+        }
+        // this slip's rows for the room that are in house at `when`
+        const hereNow = (ws, when) => ws.filter(w => w.start && w.end && overlapsIn(when, w.start, w.end));
+
+        function getActiveSlipsForRoom(when, building, roomNorm) {
+            return (roomIndex(building).rows.get(roomNorm) || []).filter(e => hereNow(e.ws, when).length).map(e => e.rec);
         }
 
         function getNextSlip(when, building, roomNorm) {
-            const out = [];
-            for (const r of CACHE) {
-                if ((r.building || '').trim() !== building) continue;
-                const ci = parseDT(r.checkin_date, r.checkin_time);
-                if (!ci || !(ci > when)) continue;
-                if (roomsFromSlip(r).includes(roomNorm)) out.push(r);
+            const idx = roomIndex(building);
+            let best = null, bestAt = null;
+            for (const r of idx.slips.get(roomNorm) || []) {
+                const at = idx.ci.get(r);
+                if (!at || !(at > when)) continue;
+                if (!best || at < bestAt) { best = r; bestAt = at; }
             }
-            if (!out.length) return null;
-            out.sort((a, b) => parseDT(a.checkin_date, a.checkin_time) - parseDT(b.checkin_date, b.checkin_time));
-            return out[0];
+            return best;
         }
 
         /* Build a capacity map per physical room (latest non-null wins) */
@@ -132,12 +149,12 @@ let BUILDINGS = [];
         }
 
         function aggregateRoomTotals(building, roomNorm, when, capMap) {
-            const active = getActiveSlipsForRoom(when, building, roomNorm);
             let assigned = 0, shNos = [], coTimes = [];
-            for (const rec of active) {
-                const here = rowsHere(rec, roomNorm, when);
+            for (const e of roomIndex(building).rows.get(roomNorm) || []) {
+                const here = hereNow(e.ws, when);
+                if (!here.length) continue;
                 assigned += here.reduce((s, w) => s + (Number(w.row.assigned ?? w.row.pax ?? w.row.count ?? 0) || 0), 0);
-                if (rec.sh_no != null) shNos.push(String(rec.sh_no));
+                if (e.rec.sh_no != null) shNos.push(String(e.rec.sh_no));
                 for (const w of here) coTimes.push(new Date(w.end));
             }
             const capacity = capMap.get(roomNorm) ?? null;
@@ -146,25 +163,7 @@ let BUILDINGS = [];
         }
 
         function roomInstanceCount(building, roomNorm) {
-            let count = 0;
-            for (const r of CACHE) {
-                if ((r.building || '').trim() !== building) continue;
-                if (roomsFromSlip(r).includes(roomNorm)) count++;
-            }
-            return count;
-        }
-
-        function activeInstanceCount(when, building, roomNorm) {
-            let count = 0;
-            for (const r of CACHE) {
-                if ((r.building || '').trim() !== building) continue;
-                const ci = parseDT(r.checkin_date, r.checkin_time);
-                const co = parseDT(r.checkout_date, r.checkout_time);
-                if (!ci || !co) continue;
-                if (!overlapsIn(when, ci, co)) continue;
-                if (roomsFromSlip(r).includes(roomNorm)) count++;
-            }
-            return count;
+            return (roomIndex(building).slips.get(roomNorm) || []).length;
         }
 
         const summarizeSH = (list, max = 3) => {
