@@ -2,226 +2,294 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#c56321">
     <title>Mohammedi Makan Bot</title>
- <style>
-/* Reset CSS */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: Arial, sans-serif;
+<style>
+:root {
+    --brand: #c56321;
+    --brand-strong: #a84312;
+    --brand-soft: #fbeee4;
+    --on-brand: #ffffff;
+    --bg: #f6f3f0;
+    --surface: #ffffff;
+    --text: #1f1a17;
+    --muted: #6b625c;
+    --line: #e6ded7;
+    --danger: #b3261e;
+    --danger-soft: #fdecea;
+    --ok: #1e7b45;
+    --ok-soft: #e6f4ec;
+    --radius: 16px;
+    --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --brand: #e07a35;
+        --brand-strong: #f08c47;
+        --brand-soft: #3a2619;
+        --on-brand: #1a0f08;
+        --bg: #141210;
+        --surface: #1f1c19;
+        --text: #f3eee9;
+        --muted: #b0a69e;
+        --line: #36302b;
+        --danger: #ff8a80;
+        --danger-soft: #3b1f1d;
+        --ok: #7fd3a0;
+        --ok-soft: #1a3325;
+        --shadow: none;
+    }
 }
 
-/* Fullscreen Layout */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
 body {
-    background-color: #f5f5f5;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0;
-    overflow: hidden;  /* Prevent scrolling */
-    height: 100%;  /* Take up full height */
-}
-
-.chat-container {
-    width: 100%;
-    max-width: 400px;
-    background: #fff;
-    border-radius: 15px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background-image: url('bg.png');
-}
-
-/* Chat Box */
-.chat-box {
-    padding: 10px;
-    flex-grow: 1;
-    overflow-y: auto;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.45;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
 }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, textarea:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+[hidden] { display: none !important; }
 
 /* Header */
-.chat-header {
-    background: #c56321;
-    color: white;
-    padding: 12px 15px;
-    text-align: center;
-    font-size: 16px;
-    flex-shrink: 0;
+.app-header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--brand);
+    color: var(--on-brand);
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+    display: flex; align-items: center; gap: 12px;
+}
+.app-header .back {
+    width: 44px; height: 44px; margin-left: -10px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    color: inherit;
+}
+.app-header .back:active { background: rgba(255,255,255,.18); }
+.app-header .back svg { width: 24px; height: 24px; }
+.app-header h1 { font-size: 17px; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-chip {
+    flex-shrink: 0; max-width: 45%;
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,255,255,.2);
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* Bot and User Message */
-.bot-message, .user-message {
-    max-width: 80%;
-    margin-bottom: 10px;
-    padding: 10px;
-    border-radius: 10px;
-    font-size: 22px;
-    word-wrap: break-word;
+/* Progress */
+.steps {
+    display: flex; gap: 6px;
+    padding: 12px 16px 0;
+    max-width: 640px; width: 100%; margin: 0 auto;
 }
+.steps span { flex: 1; height: 4px; border-radius: 4px; background: var(--line); transition: background .2s; }
+.steps span.on { background: var(--brand); }
+.step-label { padding: 6px 16px 0; max-width: 640px; width: 100%; margin: 0 auto; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
 
-.bot-message {
-    background: #c56321;
-    color: white;
-    align-self: flex-start;
-}
-
-.user-message {
-    background: #e1e1e1;
-    align-self: flex-end;
-}
-
-/* Input Section */
-.chat-input {
-    display: flex;
-    padding: 12px;
-    border-top: 1px solid #ddd;
-    background: #fff;
-    flex-shrink: 0;
-    justify-content: space-between;
-    align-items: center;
-}
-
-/* Input Field */
-.chat-input input {
+main {
     flex: 1;
-    padding: 12px;
-    font-size: 16px;
-    border: none;
-    border-radius: 5px;
-    outline: none;
+    width: 100%; max-width: 640px;
+    margin: 0 auto;
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+}
+.view { display: flex; flex-direction: column; gap: 16px; animation: in .18s ease-out; }
+@keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .view { animation: none; } }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+.welcome { background: var(--brand-soft); border-color: transparent; }
+.welcome strong { display: block; font-size: 20px; margin-bottom: 4px; overflow-wrap: anywhere; }
+.welcome p { color: var(--text); }
+h2 { font-size: 22px; line-height: 1.25; }
+.hint { color: var(--muted); font-size: 15px; margin-top: -8px; }
+
+/* Building tiles */
+.tiles { display: grid; gap: 12px; }
+.tile {
+    display: flex; align-items: center; gap: 14px;
+    width: 100%; min-height: 72px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: left;
+    transition: transform .1s, border-color .15s;
+}
+.tile:active { transform: scale(.985); border-color: var(--brand); }
+.tile .icon {
+    width: 44px; height: 44px; flex-shrink: 0;
+    border-radius: 12px; background: var(--brand-soft); color: var(--brand);
+    display: grid; place-items: center;
+}
+.tile .icon svg { width: 24px; height: 24px; }
+.tile .name { flex: 1; font-size: 18px; font-weight: 650; }
+.tile .sub { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
+.tile .chev { color: var(--muted); width: 20px; height: 20px; }
+
+/* Floor chips */
+.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (min-width: 480px) { .chips { grid-template-columns: repeat(4, 1fr); } }
+.chip {
+    min-height: 56px; padding: 8px 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 16px; font-weight: 600;
+    transition: transform .1s, background .15s;
+}
+.chip:active { transform: scale(.96); background: var(--brand-soft); border-color: var(--brand); }
+
+/* Details */
+.summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 40px; padding: 6px 12px;
+    border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+    font-size: 15px; font-weight: 600;
+}
+.pill .edit { color: var(--brand); font-weight: 600; font-size: 14px; }
+.field-label { font-weight: 650; font-size: 16px; display: block; margin-bottom: 8px; }
+textarea {
+    width: 100%; min-height: 128px; resize: vertical;
+    padding: 14px; border-radius: 12px;
+    border: 1.5px solid var(--line); background: var(--surface); color: var(--text);
+    font: inherit; font-size: 17px; /* ≥16px stops iOS zoom */
+}
+textarea::placeholder { color: var(--muted); }
+textarea.invalid { border-color: var(--danger); }
+.field-error { color: var(--danger); font-size: 14px; margin-top: 6px; font-weight: 600; }
+
+.photo-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 52px; padding: 12px 16px;
+    border-radius: 12px; font-weight: 650; font-size: 16px;
+    transition: transform .1s, opacity .15s;
+}
+.btn:active { transform: scale(.98); }
+.btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+.btn-outline { border: 1.5px solid var(--brand); color: var(--brand); background: var(--surface); }
+.btn-primary { background: var(--brand); color: var(--on-brand); width: 100%; min-height: 56px; font-size: 18px; }
+.btn-primary[disabled] { opacity: .65; }
+.btn-ghost { color: var(--brand); width: 100%; }
+
+.preview { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+.preview img { display: block; width: 100%; max-height: 320px; object-fit: contain; }
+.preview .remove {
+    position: absolute; top: 8px; right: 8px;
+    min-height: 40px; padding: 6px 14px; border-radius: 999px;
+    background: rgba(0,0,0,.65); color: #fff; font-size: 14px; font-weight: 600;
 }
 
-/* Button */
-.chat-input button {
-    background: #c56321;
-    color: white;
-    border: none;
-    padding: 12px 18px;
-    margin-left: 8px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
+.sticky-send {
+    position: sticky; bottom: 0;
+    margin: 0 -16px calc(-24px - env(safe-area-inset-bottom));
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg) 75%, transparent);
 }
 
-/* Centered button container */
-.menu-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 150px;
-}
+#errorBox .alert { margin-bottom: 10px; }
+.alert { border-radius: 12px; padding: 12px 14px; font-size: 15px; font-weight: 600; }
+.alert-error { background: var(--danger-soft); color: var(--danger); }
+.alert-note { background: var(--brand-soft); color: var(--text); font-weight: 500; }
 
-/* Styled buttons */
-.menu-button {
-    width: 250px; /* Fixed width for consistent sizing */
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: bold;
-    color: #fff;
-    background: #c56321;
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    box-shadow: 0px 4px 20px rgba(197, 99, 33, 0.5);
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
-    text-align: center;
-    margin-bottom: 15px; /* Adds space between buttons */
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-}
+/* Done */
+.done { text-align: center; align-items: center; padding-top: 24px; }
+.done .badge { width: 80px; height: 80px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); display: grid; place-items: center; }
+.done .badge svg { width: 44px; height: 44px; }
+.done p { color: var(--muted); max-width: 34ch; }
+.done .card { width: 100%; text-align: left; }
+.recap { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 15px; }
+.recap dt { color: var(--muted); }
+.recap dd { font-weight: 600; overflow-wrap: anywhere; }
 
-/* Hover effects */
-.menu-button:hover {
-    transform: scale(1.1);
-    box-shadow: 0px 8px 30px rgba(197, 99, 33, 0.7);
-}
-
-/* Click effect */
-.menu-button:active {
-    transform: scale(0.95);
-    box-shadow: 0px 2px 10px rgba(197, 99, 33, 0.5);
-}
-
-
-    </style>
-
+.empty { text-align: center; align-items: center; padding-top: 32px; }
+.empty .badge { width: 72px; height: 72px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; }
+.empty .badge svg { width: 36px; height: 36px; }
+.empty p { color: var(--muted); max-width: 34ch; }
+</style>
 </head>
 <body>
 
-    <div class="chat-container">
-        <div class="chat-header">Mohammedi Makan Staff</div>
-        <div class="chat-box" id="chatBox">
-            <div class="bot-message"></div>
-        </div>
-    </div>
+<header class="app-header">
+    <button class="back" id="backBtn" type="button" aria-label="Back" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>Mohammedi Makan Staff</h1>
+    <span class="room-chip" id="roomChip" hidden></span>
+</header>
 
-    <script>
+<div class="steps" id="steps" hidden aria-hidden="true"><span></span><span></span><span></span></div>
+<div class="step-label" id="stepLabel" hidden></div>
 
-    function getRoomNumber() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('room'); 
-    }
+<main id="app" aria-live="polite"></main>
 
-    window.onload = function () {
-        let roomNumber = getRoomNumber();
-        if (roomNumber) {
-            userRoomNumber = roomNumber;
-            startChatWithRoom(roomNumber);
-        }
-    };
+<script>
+// ---------- Settings ----------
+// The bot token lives in the Cloudflare Worker "chat-notify" as a secret, never in this public file.
+const NOTIFY_URL = "https://chat-notify.tkamlapur.workers.dev/";
 
-    let selectedMaintenance = null;
-    let userRoomNumber = ""; 
-    let uploadType = null;  // Tracks the upload type (image, video, or capture)
+const BUILDINGS = {
+    "Mohammedi Makan": ["B2 Floor", "B1 Floor", "LG Floor", "UG Floor", "MP Floor", "DH Floor", "PR Floor", "S Floor", "5th Floor", "6th Floor", "7th Floor", "8th Floor", "9th Floor", "10th Floor", "11th Floor", "12th Floor", "13th Floor", "14th Floor", "15th Floor", "16th Floor", "17th Floor"],
+    "Mufaddal Makan": ["B1 Floor", "G Floor", "1st Floor", "2nd Floor", "3rd Floor", "4th Floor", "5th Floor", "6th Floor", "7th Floor"],
+    "Ezzy Makan": ["B1 Floor", "G Floor", "1st Floor", "2nd Floor", "3rd Floor", "4th Floor", "5th Floor", "6th Floor", "7th Floor"]
+};
 
-    const flatteryList = [
-         "You are the inspiration that drives us forward.", "You are the hope that fuels our ambitions.", 
-    "You are the strength that empowers our team.", "You are the guiding star that lights our path.", 
-    "You are the force that keeps us moving forward.", "Your vision is the foundation of our success.", 
-    "You are the heartbeat of this organization.", "Your commitment is the cornerstone of our achievements.", 
-    "Your ambition is what keeps us striving for greatness.", "You are the spark that ignites our passion.", 
-    "Your determination is the reason for our continuous growth.", "Your leadership is what motivates us every day.", 
-    "You are the energy that drives our progress.", "Your excellence inspires us to reach new heights.", 
-    "Your leadership fuels our collective success.", "Your wisdom shapes the future we’re creating together.", 
-    "Your dedication is what makes us stronger every day.", "Your vision is the road map to our future success.", 
+const flatteryList = [
+    "You are the inspiration that drives us forward.", "You are the hope that fuels our ambitions.",
+    "You are the strength that empowers our team.", "You are the guiding star that lights our path.",
+    "You are the force that keeps us moving forward.", "Your vision is the foundation of our success.",
+    "You are the heartbeat of this organization.", "Your commitment is the cornerstone of our achievements.",
+    "Your ambition is what keeps us striving for greatness.", "You are the spark that ignites our passion.",
+    "Your determination is the reason for our continuous growth.", "Your leadership is what motivates us every day.",
+    "You are the energy that drives our progress.", "Your excellence inspires us to reach new heights.",
+    "Your leadership fuels our collective success.", "Your wisdom shapes the future we’re creating together.",
+    "Your dedication is what makes us stronger every day.", "Your vision is the road map to our future success.",
     "Your passion is the catalyst for everything we do.", "Your persistence is the secret to our continued achievement.",
-    "Your work ethic sets the standard for all of us.", "You are the compass guiding our direction.", 
+    "Your work ethic sets the standard for all of us.", "You are the compass guiding our direction.",
     "Your creativity is the key to our innovative breakthroughs.", "You are the driving force behind every success.",
-    "Your ambition has set a new bar for excellence.", "Your insight helps us turn challenges into opportunities.", 
-    "Your leadership strengthens our resolve to succeed.", "Your passion makes everything possible.", 
-    "You are the source of our greatest achievements.", "Your perseverance ensures that we continue to grow.", 
-    "Your ability to innovate inspires us all to think bigger.", "Your strategy helps us achieve new levels of success.", 
+    "Your ambition has set a new bar for excellence.", "Your insight helps us turn challenges into opportunities.",
+    "Your leadership strengthens our resolve to succeed.", "Your passion makes everything possible.",
+    "You are the source of our greatest achievements.", "Your perseverance ensures that we continue to grow.",
+    "Your ability to innovate inspires us all to think bigger.", "Your strategy helps us achieve new levels of success.",
     "Your foresight is what keeps us ahead of the curve.", "Your influence pushes us to be the best version of ourselves.",
-    "Your drive is the reason we continue to break barriers.", "Your tenacity is what defines our success story.", 
-    "Your integrity sets the tone for everything we do.", "Your performance raises the bar for excellence.", 
-    "Your decisions shape our future and lead us to success.", "You are the reason we keep reaching for more.", 
-    "Your contribution has made a lasting impact on our success.", "Your ambition inspires us to aim higher every day.", 
-    "You are the reason we strive for continuous improvement.", "Your leadership brings out the best in all of us.", 
+    "Your drive is the reason we continue to break barriers.", "Your tenacity is what defines our success story.",
+    "Your integrity sets the tone for everything we do.", "Your performance raises the bar for excellence.",
+    "Your decisions shape our future and lead us to success.", "You are the reason we keep reaching for more.",
+    "Your contribution has made a lasting impact on our success.", "Your ambition inspires us to aim higher every day.",
+    "You are the reason we strive for continuous improvement.", "Your leadership brings out the best in all of us.",
     "You are the fuel that powers our vision for the future.", "Your approach to business makes us better every day.",
     "Your innovation is the foundation of our competitive advantage.", "Your insight brings clarity to the path we’re on.",
-    "Your focus drives our collective pursuit of excellence.", "Your ability to lead by example sets us apart.", 
+    "Your focus drives our collective pursuit of excellence.", "Your ability to lead by example sets us apart.",
     "Your wisdom inspires us to think outside the box.", "Your discipline keeps us on the path to success.",
-    "Your achievements are the milestones that we aim for.", "Your commitment to success is what defines us.", 
+    "Your achievements are the milestones that we aim for.", "Your commitment to success is what defines us.",
     "Your leadership inspires us to reach new heights.", "Your drive is the reason we strive for perfection.",
-    "Your courage motivates us to take on new challenges.", "Your dedication inspires confidence in our vision.", 
-    "Your vision is the cornerstone of our strategic success.", "Your success is the benchmark for all of us.", 
+    "Your courage motivates us to take on new challenges.", "Your dedication inspires confidence in our vision.",
+    "Your vision is the cornerstone of our strategic success.", "Your success is the benchmark for all of us.",
     "Your leadership is the glue that holds our team together.", "Your ability to build strong relationships drives our progress.",
     "Your influence on our growth cannot be overstated.", "Your ability to adapt to change is an inspiration to us all.",
     "Your achievements are a constant reminder of what’s possible.", "Your leadership style encourages collaboration and innovation.",
     "Your creativity is the backbone of our innovative solutions.", "Your problem-solving ability drives our success in tough times.",
     "Your energy and enthusiasm inspire everyone around you.", "Your strategic vision is the foundation of our competitive edge.",
-    "Your determination to succeed is what sets you apart.", "Your dedication to excellence makes us all better.", 
-    "Your leadership ensures that we keep achieving greater success.", "Your ability to deliver results is unmatched.", 
+    "Your determination to succeed is what sets you apart.", "Your dedication to excellence makes us all better.",
+    "Your leadership ensures that we keep achieving greater success.", "Your ability to deliver results is unmatched.",
     "Your passion for progress fuels our constant drive to improve.", "Your perspective is the key to unlocking new opportunities.",
-    "Your influence has a lasting impact on our business growth.", "Your exceptional ability to lead has shaped our success.", 
+    "Your influence has a lasting impact on our business growth.", "Your exceptional ability to lead has shaped our success.",
     "Your belief in continuous improvement keeps us at the top.", "Your innovative ideas are what keep us ahead of the curve.",
-    "Your support is the backbone of our success story.", "Your performance sets the standard for excellence.", 
-    "Your work inspires us all to push the boundaries of what’s possible.", "Your ability to think big helps us achieve more.", 
+    "Your support is the backbone of our success story.", "Your performance sets the standard for excellence.",
+    "Your work inspires us all to push the boundaries of what’s possible.", "Your ability to think big helps us achieve more.",
     "Your trust in the team elevates everyone’s performance.", "Your commitment to our shared goals motivates us to succeed together.",
     "Your clarity of vision leads us toward groundbreaking success.", "Your drive has become the DNA of our company’s culture.",
     "Your ability to take calculated risks makes us leaders in the industry.", "Your work ethic sets an example for all of us to follow.",
@@ -239,408 +307,346 @@ body {
     "Your adaptability and foresight help us stay ahead in a competitive environment.", "Your continuous growth drives the company forward.",
     "Your ability to innovate under pressure is one of your greatest strengths.", "Your leadership defines our company's success and future.",
     "Your pursuit of excellence has brought us unparalleled success.", "Your vision and action are what make our business thrive."
+];
 
-    ];
-
-let selectedBuilding = ""; // Track the selected building
-
-function startChatWithRoom(room) {
-    const flattery = flatteryList[Math.floor(Math.random() * flatteryList.length)];
-    const chatBox = document.getElementById('chatBox');
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Welcome ${room}. ${flattery} How can I assist you?`;
-
-    chatBox.appendChild(botResponse);
-    displayMainMenu();
-}
-
-function displayMainMenu() {
-    const chatBox = document.getElementById('chatBox');
-    const buttonMenu = document.createElement('div');
-    buttonMenu.className = 'button-menu';
-
-    const options = ["Mohammedi Makan", "Mufaddal Makan", "Ezzy Makan"];
-
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => selectMainOption(option);
-        buttonMenu.appendChild(button);
-    });
-
-    chatBox.appendChild(buttonMenu);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-async function selectMainOption(option) {
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = option;
-    chatBox.appendChild(userMessage);
-
-    selectedBuilding = option; // Store the selected building name
-
-    if (option === "Mohammedi Makan") {
-        setTimeout(() => {
-            displayBuildingMenu(option);
-        }, 1000);
-    } else if (option === "Mufaddal Makan") {
-        setTimeout(() => {
-            displayBuildingMenu(option);
-        }, 1000);
-    } else if (option === "Ezzy Makan") {
-        setTimeout(() => {
-            displayBuildingMenu(option);
-        }, 1000);
-    } else {
-        setTimeout(() => {
-            const botResponse = document.createElement('div');
-            botResponse.className = 'bot-message';
-            botResponse.innerText = `You selected "${option}". How can we assist you further?`;
-            chatBox.appendChild(botResponse);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }, 1000);
-    }
-}
-
-function displayBuildingMenu(building) {
-    const chatBox = document.getElementById('chatBox');
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Please select the issue for ${building}:`;
-    chatBox.appendChild(botResponse);
-
-    const buttonMenu = document.createElement('div');
-    buttonMenu.className = 'button-menu';
-
-    let floors = [];
-    if (building === "Mohammedi Makan") {
-floors = ["B2 Floor", "B1 Floor", "LG Floor", "UG Floor", "MP Floor", "DH Floor", "PR Floor", "S Floor", "5th Floor", "6th Floor", "7th Floor", "8th Floor", "9th Floor", "10th Floor", "11th Floor", "12th Floor", "13th Floor", "14th Floor", "15th Floor", "16th Floor", "17th Floor"];
-
-    } else if (building === "Mufaddal Makan") {
-floors = ["B1 Floor", "G Floor", "1st Floor", "2nd Floor", "3rd Floor", "4th Floor", "5th Floor", "6th Floor", "7th Floor"];
-    } else if (building === "Ezzy Makan") {
-floors = ["B1 Floor", "G Floor", "1st Floor", "2nd Floor", "3rd Floor", "4th Floor", "5th Floor", "6th Floor", "7th Floor"];
-    }
-
-    floors.forEach(option => {
-        const button = document.createElement('button');
-        button.className = 'menu-button';
-        button.innerText = option;
-        button.onclick = () => confirmMaintenanceRequest(option);
-        buttonMenu.appendChild(button);
-    });
-
-    chatBox.appendChild(buttonMenu);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-function confirmMaintenanceRequest(issue) {
-    selectedMaintenance = issue;
-    const chatBox = document.getElementById('chatBox');
-    const userMessage = document.createElement('div');
-    userMessage.className = 'user-message';
-    userMessage.innerText = issue;
-    chatBox.appendChild(userMessage);
-
-    setTimeout(() => {
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = `Please type your query related to "${selectedMaintenance}" for Room ${userRoomNumber}.`;
-        chatBox.appendChild(botResponse);
-
-        const inputField = document.createElement('input');
-        inputField.type = 'text';
-        inputField.placeholder = 'Enter your query here...';
-        inputField.id = 'userQuery';
-        inputField.style.marginTop = '10px';
-        inputField.style.padding = '10px';
-        inputField.style.borderRadius = '5px';
-        inputField.style.width = '100%';
-
-// Create "Send Query" button
-let sendQueryButton = document.createElement('button');
-sendQueryButton.innerText = "Send Query";
-sendQueryButton.style.marginTop = '10px';
-sendQueryButton.style.padding = '15px';
-sendQueryButton.style.backgroundColor = '#a84312'; // Unique but matching color
-sendQueryButton.style.color = 'white';
-sendQueryButton.style.border = 'none';
-sendQueryButton.style.borderRadius = '5px';
-sendQueryButton.style.fontSize = '16px';
-sendQueryButton.style.fontWeight = 'bold';
-sendQueryButton.style.width = '100%';
-
-// Attach the click handler
-sendQueryButton.onclick = async () => {
-    // Call submitQuery function
-    await submitQuery(inputField.value);
-
-    // Remove the "Send Query" button after it is clicked
-    sendQueryButton.remove(); // This removes the button from the DOM
+// ---------- State ----------
+const state = {
+    room: new URLSearchParams(window.location.search).get('room') || "",
+    flattery: flatteryList[Math.floor(Math.random() * flatteryList.length)],
+    building: "",
+    floor: "",
+    query: "",
+    image: null,        // File
+    imageUrl: null,     // preview URL
+    sending: false,
+    error: "",
+    photoWarning: false,
+    step: 0             // 0 building · 1 floor · 2 details · 3 done
 };
 
-// Append the button to the page (assuming you want to add it somewhere in your DOM)
-document.body.appendChild(sendQueryButton);
+// ---------- Helpers ----------
+const $app = document.getElementById('app');
+const icons = {
+    building: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M16 9h2a2 2 0 0 1 2 2v10"/><path d="M8 7h4M8 11h4M8 15h4M3 21h18"/></svg>',
+    chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+    gallery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"/></svg>'
+};
+function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
+// ---------- Navigation (phone back button goes back a step) ----------
+function go(step, push = true) {
+    state.step = step;
+    state.error = "";
+    if (push) history.pushState({ step }, "");
+    render();
+    window.scrollTo(0, 0);
+}
+window.addEventListener('popstate', (e) => {
+    if (state.sending) { history.pushState({ step: state.step }, ""); return; }
+    const step = e.state && typeof e.state.step === 'number' ? e.state.step : 0;
+    // after sending, Back starts a new report instead of reopening the sent one
+    if (state.step === 3) { resetReport(); go(0, false); return; }
+    go(step, false);
+});
+document.getElementById('backBtn').onclick = () => history.back();
 
-        // Upload button
-        const uploadButton = document.createElement('button');
-        uploadButton.innerText = "Upload or Capture Image";
-        uploadButton.style.marginTop = '20px';
-        uploadButton.style.padding = '15px';
-        uploadButton.style.backgroundColor = '#c56321';
-        uploadButton.style.color = 'white';
-        uploadButton.style.border = 'none';
-        uploadButton.style.borderRadius = '5px';
-        uploadButton.style.width = '100%';
-        uploadButton.style.fontSize = '16px';
-        uploadButton.style.fontWeight = 'bold';
-        uploadButton.onclick = () => {
-            chooseUploadType();
-            // Move "Send Query" button to bottom if Upload button is clicked
-            chatBox.appendChild(sendQueryButton);
-            chatBox.scrollTop = chatBox.scrollHeight;
+function resetReport() {
+    if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
+    Object.assign(state, { building: "", floor: "", query: "", image: null, imageUrl: null, error: "", photoWarning: false });
+}
+
+// ---------- Rendering ----------
+function renderChrome() {
+    const chip = document.getElementById('roomChip');
+    chip.hidden = !state.room;
+    chip.textContent = state.room;
+    chip.title = state.room;
+
+    const inFlow = state.room && state.step <= 2;
+    document.getElementById('backBtn').hidden = !(state.room && state.step >= 1 && state.step <= 2);
+    const steps = document.getElementById('steps');
+    const label = document.getElementById('stepLabel');
+    steps.hidden = label.hidden = !inFlow;
+    [...steps.children].forEach((s, i) => s.classList.toggle('on', i <= state.step));
+    label.textContent = `Step ${state.step + 1} of 3 · ` + ["Building", "Issue", "Details"][state.step];
+}
+
+function render() {
+    renderChrome();
+    if (!state.room) return renderNoRoom();
+    [renderBuildings, renderFloors, renderDetails, renderDone][state.step]();
+}
+
+function renderNoRoom() {
+    $app.innerHTML = `
+        <section class="view empty">
+            <div class="badge">${icons.link}</div>
+            <h2>Open your personal link</h2>
+            <p>This page needs your name in the link (for example <b>…/index.html?room=YourName</b>). Please open the link you were given.</p>
+        </section>`;
+}
+
+function renderBuildings() {
+    $app.innerHTML = `
+        <section class="view">
+            <div class="card welcome">
+                <strong>Welcome ${esc(state.room)}.</strong>
+                <p>${esc(state.flattery)} How can I assist you?</p>
+            </div>
+            <h2>Which building?</h2>
+            <div class="tiles">
+                ${Object.keys(BUILDINGS).map(b => `
+                    <button class="tile" type="button" data-building="${esc(b)}">
+                        <span class="icon">${icons.building}</span>
+                        <span class="name">${esc(b)}<span class="sub">${BUILDINGS[b].length} floors</span></span>
+                        ${icons.chev}
+                    </button>`).join('')}
+            </div>
+        </section>`;
+    $app.querySelectorAll('[data-building]').forEach(btn => btn.onclick = () => {
+        state.building = btn.dataset.building;
+        state.floor = "";
+        go(1);
+    });
+}
+
+function renderFloors() {
+    const floors = BUILDINGS[state.building] || [];
+    $app.innerHTML = `
+        <section class="view">
+            <h2>Please select the issue for ${esc(state.building)}</h2>
+            <p class="hint">Choose the floor where the problem is.</p>
+            <div class="chips">
+                ${floors.map(f => `<button class="chip" type="button" data-floor="${esc(f)}">${esc(f.replace(/ Floor$/, ''))}</button>`).join('')}
+            </div>
+        </section>`;
+    $app.querySelectorAll('[data-floor]').forEach(btn => {
+        btn.setAttribute('aria-label', btn.dataset.floor);
+        btn.onclick = () => { state.floor = btn.dataset.floor; go(2); };
+    });
+}
+
+function renderDetails() {
+    $app.innerHTML = `
+        <section class="view">
+            <div class="summary">
+                <button class="pill" type="button" data-jump="0">${esc(state.building)} <span class="edit">Change</span></button>
+                <button class="pill" type="button" data-jump="1">${esc(state.floor)} <span class="edit">Change</span></button>
+            </div>
+
+            <div>
+                <label class="field-label" for="userQuery">What is the problem?</label>
+                <textarea id="userQuery" placeholder="Type your query related to “${esc(state.floor)}” for ${esc(state.room)}…" maxlength="3000">${esc(state.query)}</textarea>
+                <div class="field-error" id="queryError" hidden>Please enter a valid query.</div>
+            </div>
+
+            <div>
+                <div class="field-label">Photo <span style="color:var(--muted);font-weight:500">(optional)</span></div>
+                <div id="photoBox"></div>
+            </div>
+
+            <div class="sticky-send">
+                <div id="errorBox"></div>
+                <button class="btn btn-primary" id="sendBtn" type="button">${icons.send}<span>Send Query</span></button>
+            </div>
+        </section>`;
+
+    const ta = document.getElementById('userQuery');
+    ta.addEventListener('input', () => {
+        state.query = ta.value;
+        if (ta.value.trim()) { ta.classList.remove('invalid'); document.getElementById('queryError').hidden = true; }
+    });
+    $app.querySelectorAll('[data-jump]').forEach(b => b.onclick = () => {
+        const target = Number(b.dataset.jump);
+        history.go(target - state.step);
+    });
+    document.getElementById('sendBtn').onclick = submitQuery;
+    renderPhoto();
+    renderError();
+}
+
+function renderPhoto() {
+    const box = document.getElementById('photoBox');
+    if (!box) return;
+    if (state.imageUrl) {
+        box.innerHTML = `
+            <div class="preview">
+                <img src="${state.imageUrl}" alt="Attached photo">
+                <button class="remove" type="button" id="removePhoto">Remove</button>
+            </div>`;
+        document.getElementById('removePhoto').onclick = () => {
+            URL.revokeObjectURL(state.imageUrl);
+            state.image = null; state.imageUrl = null;
+            renderPhoto();
         };
-
-        // Display elements in order
-        chatBox.appendChild(inputField);
-        chatBox.appendChild(uploadButton);
-        chatBox.appendChild(sendQueryButton);
-
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }, 1000);
+    } else {
+        box.innerHTML = `
+            <div class="photo-actions">
+                <button class="btn btn-outline" type="button" id="capturePhoto">${icons.camera}<span>Capture Photo</span></button>
+                <button class="btn btn-outline" type="button" id="uploadImage">${icons.gallery}<span>Upload Image</span></button>
+            </div>`;
+        document.getElementById('capturePhoto').onclick = () => pickImage(true);
+        document.getElementById('uploadImage').onclick = () => pickImage(false);
+    }
 }
 
+function renderError() {
+    const box = document.getElementById('errorBox');
+    if (!box) return;
+    box.innerHTML = state.error ? `<div class="alert alert-error" role="alert">${esc(state.error)}</div>` : '';
+}
 
-    function chooseUploadType() {
-        const chatBox = document.getElementById('chatBox');
-        const botResponse = document.createElement('div');
-        botResponse.className = 'bot-message';
-        botResponse.innerText = "Please choose an upload option: (Image, Video, or Capture)";
-        chatBox.appendChild(botResponse);
+function renderDone() {
+    $app.innerHTML = `
+        <section class="view done">
+            <div class="badge">${icons.check}</div>
+            <h2>Sent to the team</h2>
+            <p>Thank you for your query. We have forwarded your issue and query to the relevant team.</p>
+            ${state.photoWarning ? `<div class="alert alert-note" style="width:100%">Your message was delivered, but the photo could not be attached.</div>` : ''}
+            <div class="card">
+                <dl class="recap">
+                    <dt>Building</dt><dd>${esc(state.building)}</dd>
+                    <dt>Issue</dt><dd>${esc(state.floor)}</dd>
+                    <dt>Name</dt><dd>${esc(state.room)}</dd>
+                    <dt>Query</dt><dd>${esc(state.query)}</dd>
+                    ${state.image ? `<dt>Photo</dt><dd>${state.photoWarning ? 'Not sent' : 'Attached'}</dd>` : ''}
+                </dl>
+            </div>
+            <button class="btn btn-primary" type="button" id="againBtn">Report another issue</button>
+        </section>`;
+    document.getElementById('againBtn').onclick = () => { resetReport(); go(0); };
+}
 
-        const uploadMenu = document.createElement('div');
-        uploadMenu.className = 'upload-menu';
+// ---------- Photo (Capture Photo / Upload Image) ----------
+function pickImage(capture) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    if (capture) input.capture = 'environment';
+    input.style.display = 'none';
+    input.onchange = () => {
+        const file = input.files && input.files[0];
+        input.remove();
+        if (!file) return;
+        if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
+        state.image = file;
+        state.imageUrl = URL.createObjectURL(file);
+        renderPhoto();
+    };
+    document.body.appendChild(input);
+    input.click();
+}
 
-        const uploadOptions = ["Upload Image 🖼️", "Capture Photo 📸"];
-        uploadOptions.forEach(option => {
-            const button = document.createElement('button');
-            button.className = 'menu-button';
-            button.innerText = option;
-            button.onclick = () => handleUploadOption(option);
-            uploadMenu.appendChild(button);
+// Phone photos are often 5–10 MB: shrink to ≤2048px JPEG so they upload fast. Falls back to the original file.
+async function shrinkImage(file) {
+    try {
+        if (file.size < 1.5 * 1024 * 1024 && file.type === 'image/jpeg') return file;
+        const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = URL.createObjectURL(file);
         });
-
-        chatBox.appendChild(uploadMenu);
-        chatBox.scrollTop = chatBox.scrollHeight;
+        const scale = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(img.src);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+        if (!blob) return file;
+        return new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+    } catch {
+        return file;
     }
-
-
-        let attachedImage = null; // Global variable to hold the attached image
-let attachedVideo = null;
-
-        // Handle upload options (image/video capture)
-        function handleUploadOption(option) {
-            const chatBox = document.getElementById('chatBox');
-            const userMessage = document.createElement('div');
-            userMessage.className = 'user-message';
-            userMessage.innerText = `You selected: ${option}`;
-            chatBox.appendChild(userMessage);
-
-            if (option === "Upload Image 🖼️") {
-                setTimeout(() => openImageUploadDialog(), 1000);
-            } else if (option === "Capture Video 🎥") {
-                setTimeout(() => openVideoCaptureDialog(), 1000);
-            } else if (option === "Capture Photo 📸") {
-                setTimeout(() => openPhotoCaptureDialog(), 1000);
-            }
-        }
-
-        // Handle image upload from file input
-        function openImageUploadDialog() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.style.display = 'none';
-            input.onchange = (event) => handleImageUpload(event);
-            document.body.appendChild(input);
-            input.click();
-        }
-
-        function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (file) {
-                attachedImage = file; // Store image globally
-
-                const chatBox = document.getElementById('chatBox');
-                const botResponse = document.createElement('div');
-                botResponse.className = 'bot-message';
-                botResponse.innerText = "Image uploaded successfully.";
-                chatBox.appendChild(botResponse);
-
-                const imgPreview = document.createElement('img');
-                imgPreview.src = URL.createObjectURL(file);
-                imgPreview.alt = 'Image Preview';
-                imgPreview.style.maxWidth = '200px';
-                imgPreview.style.marginTop = '10px';
-                chatBox.appendChild(imgPreview);
-            }
-        }
-
-        // Handle photo capture via native camera
-        function openPhotoCaptureDialog() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.capture = 'camera';
-            input.style.display = 'none';
-            input.onchange = (event) => handleImageUpload(event);
-            document.body.appendChild(input);
-            input.click();
-        }
-
-        // Handle video capture via native camera
-        function openVideoCaptureDialog() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'video/*';
-            input.capture = 'camera';
-            input.style.display = 'none';
-            input.onchange = (event) => handleVideoUpload(event);
-            document.body.appendChild(input);
-            input.click();
-        }
-
-        // Handle video upload from file input
-        function handleVideoUpload(event) {
-            const file = event.target.files[0];
-            if (file) {
-                attachedVideo = file; // Store video globally
-
-                const chatBox = document.getElementById('chatBox');
-                const botResponse = document.createElement('div');
-                botResponse.className = 'bot-message';
-                botResponse.innerText = "Video uploaded successfully.";
-                chatBox.appendChild(botResponse);
-
-                const videoPreview = document.createElement('video');
-                videoPreview.src = URL.createObjectURL(file);
-                videoPreview.controls = true;
-                videoPreview.style.maxWidth = '200px';
-                videoPreview.style.marginTop = '10px';
-                chatBox.appendChild(videoPreview);
-            }
-        }
-
-async function submitQuery(userQuery) {
-    if (!userQuery.trim()) {
-        alert("Please enter a valid query.");
-        return;
-    }
-
-    const chatBox = document.getElementById('chatBox');
-    
-    // Create and append user message
-    const queryMessage = document.createElement('div');
-    queryMessage.className = 'user-message';
-    queryMessage.innerText = userQuery;
-    chatBox.appendChild(queryMessage);
-
-    // Create and append bot response
-    const botResponse = document.createElement('div');
-    botResponse.className = 'bot-message';
-    botResponse.innerText = `Thank you for your query. We have forwarded your issue and query to the relevant team.`;
-    chatBox.appendChild(botResponse);
-
-    if (!userRoomNumber || !selectedMaintenance) {
-        alert("Room number or issue type is missing!");
-        return;
-    }
-
-    // Call the function to forward the query
-    await forwardToTelegramWithQuery(userRoomNumber, selectedBuilding, selectedMaintenance, userQuery, attachedImage);
-
-
 }
 
+// ---------- Send ----------
+async function submitQuery() {
+    const ta = document.getElementById('userQuery');
+    const userQuery = ta.value;
+    if (!userQuery.trim()) {
+        ta.classList.add('invalid');
+        document.getElementById('queryError').hidden = false;
+        ta.focus();
+        return;
+    }
+    if (!state.room || !state.floor) {
+        state.error = "Room number or issue type is missing!";
+        return renderError();
+    }
+    if (state.sending) return;
 
- // Function to forward the query to Telegram
+    state.query = userQuery;
+    state.sending = true;
+    state.error = "";
+    state.photoWarning = false;
+    renderError();
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span><span>${state.image ? 'Sending photo…' : 'Sending…'}</span>`;
+
+    try {
+        await forwardToTelegramWithQuery(state.room, state.building, state.floor, userQuery, state.image);
+        state.sending = false;
+        go(3);
+    } catch (error) {
+        console.error("Telegram Error:", error);
+        state.sending = false;
+        state.error = "Could not send. Please check your internet connection and try again.";
+        btn.disabled = false;
+        btn.innerHTML = `${icons.send}<span>Try again</span>`;
+        renderError();
+    }
+}
+
+// Same Telegram message as before; the Worker sends it with the photo (sendPhoto + caption) or as text (sendMessage).
 async function forwardToTelegramWithQuery(room, building, floor, query, image) {
-    const telegramBotToken = "7907237986:AAHnmVO8CKOSIjKpwZwP3C6F5Ih8viGJoC4";
-    const telegramChatId = "-4754144977"; // Replace with your Telegram group ID
-
     const message = `🔔 *${building}* 🔔\n\n`
                 + `📌 *Issue*: ${floor}\n`
                 + `🏨 *Username*: ${room}\n`
                 + `💬 *User Query*: ${query}\n\n`
                 + `📩 *Please assist as soon as possible!*`;
 
+    const sendText = async () => {
+        const response = await fetch(NOTIFY_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: message })
+        });
+        const data = await response.json().catch(() => ({}));
+        console.log("Telegram Message Sent:", data);
+        if (!response.ok || !data.ok) throw new Error(`Message send failed: ${data.telegram || data.error || response.status}`);
+    };
+
+    if (!image) return sendText();
+
     try {
-        // If an image or video is attached, send it along with the message
-        if (image) {
-            const formData = new FormData();
-            formData.append('chat_id', telegramChatId);
-            formData.append('photo', image);
-            formData.append('caption', message);
-            formData.append('parse_mode', 'Markdown');
-
-            const imageApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendPhoto`;
-
-            const imageResponse = await fetch(imageApiUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            const imageData = await imageResponse.json();
-            console.log("Telegram Image Sent:", imageData);
-
-            if (!imageData.ok) {
-                throw new Error(`Image send failed: ${imageData.description}`);
-            }
-        } else {
-            // If no image or video, just send the text message
-            const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
-            const requestBody = {
-                chat_id: telegramChatId,
-                text: message,
-                parse_mode: "Markdown"
-            };
-
-            const response = await fetch(telegramApiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody)
-            });
-
-            const data = await response.json();
-            console.log("Telegram Message Sent:", data);
-
-            if (!data.ok) {
-                throw new Error(`Message send failed: ${data.description}`);
-            }
-        }
+        const formData = new FormData();
+        formData.append('text', message);
+        formData.append('photo', await shrinkImage(image));
+        const imageResponse = await fetch(NOTIFY_URL, { method: 'POST', body: formData });
+        const imageData = await imageResponse.json().catch(() => ({}));
+        console.log("Telegram Image Sent:", imageData);
+        if (!imageResponse.ok || !imageData.ok) throw new Error(`Image send failed: ${imageData.telegram || imageData.error || imageResponse.status}`);
     } catch (error) {
+        // Photo failed: still deliver the request as text so the team gets it
         console.error("Telegram Error:", error);
+        await sendText();
+        state.photoWarning = true;
     }
 }
 
-         // Adjust the chat container height based on the device's actual viewport height
-function adjustChatContainerHeight() {
-    const windowHeight = window.innerHeight;  // Get the inner height of the window (this excludes the browser UI)
-    const chatContainer = document.querySelector('.chat-container');
-
-    // Set the height of the chat container to the inner height of the viewport minus any space for the header
-    chatContainer.style.height = `${windowHeight - 20}px`; // 20px can be adjusted based on your desired padding
-}
-
-// Call the function on page load and when the window is resized
-window.addEventListener('load', adjustChatContainerHeight);
-window.addEventListener('resize', adjustChatContainerHeight);
-    </script>
+// ---------- Start ----------
+history.replaceState({ step: 0 }, "");
+render();
+</script>
 
 </body>
 </html>
