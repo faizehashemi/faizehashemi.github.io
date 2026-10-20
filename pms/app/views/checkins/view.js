@@ -230,6 +230,9 @@ export default async function mount(ctx) {
     /* ===== Live flight status (Flightradar24, kept by the server) ===== */
     // Check-ins: the arrival flight of a stay that comes from the airport; check-outs: the departure flight of a stay
     // that goes to the airport. Stays from / to the other city and car, bus or train legs have no flight.
+    // The live flight API (Flightradar24 / VariFlight via the Worker) is switched off: no status, no Guest flights panel,
+    // only the Check 1 / Check 2 links. The code stays for later — set FLIGHT_API to true (and FLIGHT_API_ON in worker.js).
+    const FLIGHT_API = false;
     let FLIGHTS = null; // { byKey, meta, configured }
     function flightOf(r, key) {
         const dir = key === 'checkin' ? 'arr' : 'dep';
@@ -241,15 +244,20 @@ export default async function mount(ctx) {
         if (f.kind === 'city') return `<td class="fl"><span class="fl-none">${key === 'checkin' ? 'from' : 'to'} ${otherLabel}</span></td>`;
         if (f.kind === 'road') return `<td class="fl"><span class="fl-none">by ${escapeHTML((f.mode || 'road').toLowerCase())}</span></td>`;
         if (f.kind !== 'flight') return '<td class="fl"><span class="fl-none">—</span></td>';
+        if (!FLIGHT_API) return `<td class="fl" title="${escapeHTML(f.code)}">${checkHtml(f.code, { dir: f.dir, date: f.leg?.date }, true)}</td>`;
         const d = FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)) : { label: '…', sentence: '', cls: 'wait', title: '' };
         const row = FLIGHTS?.byKey.get(f.key);
         return `<td class="fl" title="${escapeHTML(d.title)}"><b class="fl-code">${escapeHTML(f.code)}</b><span class="fl-st ${d.cls}">${escapeHTML(d.label)}</span><small class="fl-say">${escapeHTML(d.sentence)}</small>${checkHtml(f.code, { callsign: row?.callsign, row, dir: f.dir, date: f.leg?.date })}</td>`;
     }
     // "Check 1 · Check 2": the flight on Trip.com and FlightAware, to confirm by hand — for the flight's own date
     // (Trip.com cannot be opened on a date: the tab to tap is named; FlightAware opens the flight or that day's list)
-    function checkHtml(code, o) {
+    function checkHtml(code, o, only = false) {
         const l = checkLinks(code, o);
         if (!l) return '';
+        if (only) {
+            const t1 = l.tripTab || !l.date ? `<a href="${escapeHTML(l.trip)}" target="_blank" rel="noopener" title="${escapeHTML(code)} on Trip.com${l.tripTab ? ` — tap the “${escapeHTML(l.tripTab)}” tab` : ''}">Check 1</a>` : '';
+            return `<span class="fl-links only">${t1}${t1 ? ' · ' : ''}<a href="${escapeHTML(l.fa)}" target="_blank" rel="noopener" title="${escapeHTML(l.ident)} on FlightAware${l.dateLabel ? ` — ${escapeHTML(l.dateLabel)}` : ''}">Check 2</a></span>`;
+        }
         const trip = l.tripTab || !l.date
             ? `<a href="${escapeHTML(l.trip)}" target="_blank" rel="noopener" title="${escapeHTML(code)} on Trip.com${l.tripTab ? ` — it opens on today: tap the “${escapeHTML(l.tripTab)}” tab` : ''}">Check 1</a>`
             : `<span class="fl-na" title="Trip.com only shows yesterday, today and tomorrow">Check 1 n/a</span>`;
@@ -260,12 +268,12 @@ export default async function mount(ctx) {
     function flightText(r, key) {
         const f = flightOf(r, key);
         if (f.kind !== 'flight') return f.kind === 'road' ? `by ${(f.mode || 'road').toLowerCase()}` : '';
-        return `${f.code} ${FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)).text : ''}`.trim();
+        return `${f.code} ${FLIGHT_API && FLIGHTS ? describeFlight(f.dir, FLIGHTS.byKey.get(f.key)).text : ''}`.trim();
     }
     const flightsShown = () => $('showFlights').checked;
     function applyFlightToggle() {
         ['tblIn', 'tblOut'].forEach(id => $(id).classList.toggle('no-flight', !flightsShown()));
-        $('panelFlights').hidden = false; // the Guest flights panel stays (folded); the tick is for the column
+        $('panelFlights').hidden = !FLIGHT_API; // the Guest flights panel (folded) only while the flight API is on
     }
 
     // every guest flight from 12 h ago to 24 h ahead (both sites' groups), latest status, delay and details
@@ -309,6 +317,7 @@ export default async function mount(ctx) {
           }).join('')}</tbody></table>`;
     }
     async function loadFlights(force = false) {
+        if (!FLIGHT_API) { FLIGHTS = null; $('flightNote').textContent = ''; return; } // switched off: nothing is asked
         try {
             FLIGHTS = await loadFlightStatus({ force });
             const m = FLIGHTS.meta;
@@ -456,8 +465,17 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     applyCols();
     window.addEventListener('pms:prefs', applyCols);
 
-    $('btnRefresh').addEventListener('click', refresh);
-    $('btnRun').addEventListener('click', run);
+    // Get Data: fresh slips from the PMS (this site and the other city), then the tables for the chosen window
+    $('btnGet').addEventListener('click', async () => {
+        const b = $('btnGet');
+        b.disabled = true; b.textContent = 'Getting data…';
+        try {
+            CACHE = await getAllRecords();
+            try { OTHER = (await mirrorAll()).filter(r => r.site === other); } catch { OTHER = []; }
+            run();
+        } catch (e) { console.error(e); $('status').textContent = 'Could not load slips: ' + (e.message || e); }
+        finally { b.disabled = false; b.textContent = 'Get Data'; }
+    });
     // split view: this login's default from Settings → Check-ins page; the tick switches it for now
     $('splitView').checked = !!getPrefs().checkinsSplit;
     $('splitView').addEventListener('change', run);
@@ -502,6 +520,6 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
     await loadFlights();
     run();
     // flight statuses change while the page is open: every 2 minutes (the server keeps them fresh)
-    const flTimer = setInterval(async () => { if (document.visibilityState !== 'visible') return; await loadFlights(); if (CACHE.length) run(); }, 120e3);
+    const flTimer = FLIGHT_API ? setInterval(async () => { if (document.visibilityState !== 'visible') return; await loadFlights(); if (CACHE.length) run(); }, 120e3) : 0;
     return () => { clearInterval(flTimer); window.removeEventListener('pms:prefs', applyCols); };
 }

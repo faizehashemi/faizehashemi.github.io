@@ -45,6 +45,7 @@ export default {
     },
     // Cloudflare cron (wrangler.toml [triggers], every 5 minutes): live flight status when it is due
     async scheduled(event, env, ctx) {
+        if (!FLIGHT_API_ON) return; // live flight status switched off (Check-ins shows only the Check 1 / Check 2 links)
         ctx.waitUntil(refreshFlightStatus(env, false).catch(e => console.error('flights', e && e.stack || e)));
     },
 };
@@ -172,7 +173,7 @@ async function route(req, env) {
     if (p === '/api/tosha' && m === 'GET') return getTosha(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
     if (p === '/api/tosha' && m === 'PUT') return putTosha(req, env, me);
     if (p === '/api/flights/status' && m === 'GET') return getFlightStatus(env);
-    if (p === '/api/flights/refresh' && m === 'POST') { requireAdmin(me); await refreshFlightStatus(env, true); return getFlightStatus(env); }
+    if (p === '/api/flights/refresh' && m === 'POST') { requireAdmin(me); if (FLIGHT_API_ON) await refreshFlightStatus(env, true); return getFlightStatus(env); }
     if (p === '/api/transport/types' && m === 'GET') return transportTypes(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage' && m === 'GET') return getSignage(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage/config' && m === 'PUT') return putSignageConfig(req, env, me);
@@ -1706,6 +1707,9 @@ async function putTosha(req, env, me) {
 // Secret: FR24_API_KEY (npx wrangler secret put FR24_API_KEY). Cron: every 30 minutes (wrangler.toml).
 
 const FR24_AIRPORTS = { JED: 'OEJN', MED: 'OEMA' };
+// Live flight status (Flightradar24 + VariFlight) — off since 21 Oct 2026: no cron calls, no refreshes. The code is
+// kept; set to true (and FLIGHT_API in pms/app/views/checkins/view.js) to switch it back on.
+const FLIGHT_API_ON = false;
 const FLIGHT_KEEP_DAYS = 25;
 const FLIGHT_MIN_GAP = 25;    // minutes between look-ups, at the most (the cron runs every 30 min)
 const FLIGHT_MAX_GAP = 60;    // … and at the least, while credits last

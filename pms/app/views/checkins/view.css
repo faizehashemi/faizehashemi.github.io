@@ -291,6 +291,9 @@ td.fl .fl-code { display: block; font-size: 12px; letter-spacing: .02em; }
 .fl-st.bad { background: #fde7e7; color: #a12a2a; }
 .fl-none { color: #8a7d68; font-size: 12px; }
 table.no-flight th.fl, table.no-flight td.fl { display: none; }
+/* Get Data: the one action — fresh slips from the PMS, then the tables for the chosen window */
+.get-data { font-weight: 800 !important; font-size: 15px !important; padding: 10px 22px !important; color: #3b2a06 !important; background: linear-gradient(#f0cf63, #d4af37) !important; border: 1px solid #b8931f !important; box-shadow: 0 0 0 3px rgba(212, 175, 55, .35), 0 6px 16px rgba(154, 116, 20, .3); }
+.fl-links.only { display: inline-flex; gap: 6px; white-space: nowrap; }
 /* columns hidden in Settings → Check-ins page */
 table.hide-sh .c-sh { display: none; }
 table.hide-group .c-group { display: none; }
