@@ -12,6 +12,7 @@
 //   vehicle — 'car' when switched on the Transport day page (cars count from 1 on their own); else a bus.
 //   building — the building the bus departs from (Transport day page; names from Rooms & Buildings); a grouped trip
 //          takes its bus's unless given its own (a trailing group picked up elsewhere). Kept by re-imports.
+//   pax_manual — m / f / c / pax changed by hand on the Transport day page (kept by re-imports).
 //   transporter_manual, vch_import — transporter / Vch No changed by hand (kept by re-imports); vch_import = the
 //          list's Vch No, which grouped trips of the list still point at.
 //   with — a group added by hand to a trip on the Transport day page rides in the trip with this key.
@@ -23,7 +24,7 @@ import { request } from './cloud.js';
 // The trips that get a bus number, signage and a bus sheet, per site, in Home's order.
 // tosha: how the Tosha summary treats them — 'long' (preparation time, meal, packet: the inter-city trip),
 // 'airport' (by departure time, packet / burger per bus), 'summary' (pax only).
-// Medina keeps only its own three routes; anything else in a pasted Medina list is left out at import.
+// Medina keeps only its own four routes; anything else in a pasted Medina list is left out at import.
 export const DESTS_BY_SITE = {
     makkah: [
         { id: 'atraaf', route: 'MAKKAH-MAKKAH ATRAAF', label: 'ATRAAF', title: 'Atraaf', icon: '🕋', tosha: 'summary' },
@@ -36,6 +37,7 @@ export const DESTS_BY_SITE = {
         { id: 'mdmakkah', route: 'MADINA-MAKKAH', label: 'MAKKAH', title: 'Makkah', icon: '🕋', tosha: 'long' },
         { id: 'mdziyarat', route: 'MADINA-MADINA ZIYARAT', label: 'ZIYARAT', title: 'Madina Ziyarat', icon: '🕌', tosha: 'summary' },
         { id: 'mdairport', route: 'MADINA-MADINA AIRPORT', label: 'MADINA AIRPORT', title: 'Madina Airport', icon: '🛫', tosha: 'airport' },
+        { id: 'mdjeddah', route: 'MADINA-JEDDAH AIRPORT', label: 'JEDDAH AIRPORT', title: 'Jeddah Airport', icon: '✈️', tosha: 'airport' },
     ],
 };
 export const DESTS = DESTS_BY_SITE.makkah;
@@ -264,6 +266,7 @@ export function diffDay(saved, incoming) {
         // a time set by hand stays while the list still has the time it had then
         if (o && o.at_manual && r.at === o.at_import) r = { ...r, at: o.at, at_manual: true, at_import: o.at_import };
         // a transporter / Vch No set by hand on the Transport day page stays
+        if (o && o.pax_manual) r = { ...r, m: o.m, f: o.f, c: o.c, pax: o.pax, pax_manual: true }; // pax changed by hand stays
         if (o && o.transporter_manual) r = { ...r, transporter: o.transporter, vch: o.vch, transporter_manual: true, ...(o.vch_import ? { vch_import: o.vch_import } : {}) };
         if (!o) { out.added.push(r); continue; }
         const fields = FIELDS.filter(f => show(o, f) !== show(r, f)).map(f => [f[1], show(o, f), show(r, f)]);

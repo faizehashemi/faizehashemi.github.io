@@ -42,13 +42,17 @@ export default async function mount(ctx) {
     const nowAt = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
     const matches = (r, q) => !q || [r.ref, r.operator, r.leader, r.transporter, r.vch, r.dora, r.route, r.remarks, ...(r.rooms || [])]
         .some(v => String(v ?? '').toLowerCase().includes(q));
-    const pax = (r) => `<b>${esc(r.pax)}</b><small>${[r.m && `M${r.m}`, r.f && `F${r.f}`, r.c && `C${r.c}`].filter(Boolean).join(' ')}</small>`;
+    const paxText = (r) => `<b>${esc(r.pax)}</b><small>${[r.m && `M${r.m}`, r.f && `F${r.f}`, r.c && `C${r.c}`].filter(Boolean).join(' ')}</small>`;
+    // pax: tap to change (kept by later imports)
+    const pax = (r) => writable
+        ? `<button type="button" class="tp-pax${r.pax_manual ? ' manual' : ''}" data-pax="${esc(r.key)}" title="Change the pax">${paxText(r)}</button>`
+        : paxText(r);
 
     function list() {
         const q = $('tpFind').value.trim().toLowerCase();
         const info = resolve(doc.rows);
         const past = nowAt();
-        if (!doc.rows.length) {
+        if (!doc.rows.length && !(writable && filter === 'sign')) {
             $('tpList').innerHTML = `<p class="tp-empty">No transport list saved for this day.${writable && canOpen('transport-import', desk) ? ` <a href="${ctx.href('transport-import')}">Import one →</a>` : ''}</p>`;
             return;
         }
@@ -68,7 +72,7 @@ export default async function mount(ctx) {
                         : `${VEHICLES[b.vehicle].icon} ${esc(vehicleNo(b.bus, b.vehicle, b.vlabel) || b.bus || '—')}`}</td>
                     ${timeCell(r)}
                     ${fromCell(r, i ? b : null)}
-                    <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
+                    <td><b>${esc(r.ref || '—')}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
                     <td>${esc(r.operator || '—')}</td>
                     <td>${esc(r.leader || '—')}</td>
                     <td class="n">${pax(r)}</td>
@@ -81,7 +85,8 @@ export default async function mount(ctx) {
                 return `<div class="tp-dest"><span aria-hidden="true">${s.dest.icon}</span>${esc(s.dest.label)}${air ? '<span class="tp-dest-note">by departure time</span>' : ''}
                     <small>${fleet(s.buses)} · ${s.groups} groups · ${s.pax} pax</small>${order}</div>
                   ${body ? `<div class="tp-scroll"><table class="tp-tbl"><thead><tr><th>Vehicle</th><th>Time</th><th>From</th><th>SH</th><th>Tour operator</th><th>Group leader</th><th class="n">Pax</th><th>Transporter</th><th>Remarks</th>${writable ? '<th></th>' : ''}</tr></thead>
-                    <tbody>${body}</tbody></table></div>` : `<p class="tp-empty">${s.buses.length ? 'Nothing matches.' : 'No trips.'}</p>`}`;
+                    <tbody>${body}</tbody></table></div>` : `<p class="tp-empty">${s.buses.length ? 'Nothing matches.' : 'No trips.'}</p>`}
+                  ${writable ? addBusForm(s.dest) : ''}`;
             }).join('');
             $('tpList').innerHTML = html;
         } else {
@@ -135,6 +140,17 @@ export default async function mount(ctx) {
         return `<td class="from"><select class="tp-from${own ? ' set' : ''}" data-from="${esc(r.key)}" aria-label="Departs from (building)">
             <option value="">${esc(none)}</option>${names.map(n => `<option${n === own ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></td>`;
     }
+    // + Bus under each destination: a vehicle made by hand (optionally with a first group by its SH)
+    const addBusForm = (d) => `<div class="tp-addbus-wrap"><button type="button" class="tp-addbus-btn" data-addbus-open="${esc(d.id)}">＋ Bus</button>
+        <form class="tp-addbus" data-addbus="${esc(d.id)}" hidden autocomplete="off">
+          <b>New ${esc(d.title)} vehicle</b>
+          <label>Time<input type="time" name="time" required></label>
+          <label>Vehicle<select name="veh"><option value="bus">🚌 Bus</option><option value="car">🚗 Car</option></select></label>
+          <label>Transporter<input name="transporter" maxlength="60"></label>
+          <label>Vch No<input name="vch" maxlength="20"></label>
+          <label>SH (optional)<input name="sh" maxlength="20" placeholder="first group"></label>
+          <span class="tp-addbus-act"><button type="submit" class="tp-btn gold">Add</button><button type="button" class="tp-btn" data-addbus-cancel>Cancel</button></span>
+        </form></div>`;
     // transporter and Vch No: tap to change them on a vehicle's own row (grouped trips ride with it)
     function trCell(r, rider) {
         const text = `${esc(r.transporter || (rider ? 'with the bus above' : '—'))}${r.vch ? `<small>Vch ${esc(r.vch)}</small>` : ''}`;
@@ -346,32 +362,90 @@ export default async function mount(ctx) {
         save(rows, `SH ${row.ref}: transporter ${T || '—'}, Vch ${V || '—'}`);
     });
 
+    // change a trip's pax: "M F C" (e.g. 10 12 2) or one number for the total; kept when the list is pasted again
+    $('tpList').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-pax]');
+        if (!b || saving) return;
+        const row = doc.rows.find(r => r.key === b.dataset.pax);
+        if (!row) return;
+        const ans = prompt(`Pax for ${row.ref ? `SH ${row.ref}` : 'this vehicle'} (${time12(row.at)}).\nType M F C (e.g. 10 12 2), or just the total:`,
+            [row.m || 0, row.f || 0, row.c || 0].join(' '));
+        if (ans === null) return;
+        const nums = String(ans).trim().split(/[\s,/]+/).filter(Boolean).map(x => parseInt(x, 10));
+        if (!nums.length || nums.some(x => !Number.isFinite(x) || x < 0 || x > 999)) { alert('Type numbers only, e.g. 10 12 2 or 24.'); return; }
+        const patch = nums.length === 1 ? { pax: nums[0] } : { m: nums[0] || 0, f: nums[1] || 0, c: nums[2] || 0, pax: (nums[0] || 0) + (nums[1] || 0) + (nums[2] || 0) };
+        if (patch.pax === Number(row.pax) && (nums.length === 1 || (patch.m === (row.m || 0) && patch.f === (row.f || 0) && patch.c === (row.c || 0)))) return;
+        const rows = doc.rows.map(r => r.key === row.key ? { ...r, ...patch, pax_manual: true } : r);
+        save(rows, `pax of ${row.ref ? `SH ${row.ref}` : 'a vehicle'}: ${row.pax} → ${patch.pax}`);
+    });
+
     // add a group to a vehicle by its SH: the slip's group, leader, pax and rooms are filled in from the PMS
     let slipCache = null;
-    $('tpList').addEventListener('click', async (e) => {
-        const b = e.target.closest('button[data-addsh]');
-        if (!b || saving) return;
-        const parent = doc.rows.find(r => r.key === b.dataset.addsh);
-        if (!parent) return;
-        const sh = String(prompt(`SH to add to the ${vehicleOf(parent)} of SH ${parent.ref} (${time12(parent.at)}):`) || '').replace(/[<>\s]/g, '').toUpperCase();
-        if (!sh) return;
-        if (doc.rows.some(r => String(r.ref).toUpperCase() === sh)) { if (!confirm(`SH ${sh} is already on this day's list. Add it again?`)) return; }
+    async function groupOf(sh) {
         try { slipCache = slipCache || await ctx.guard(ctx.db.all()); } catch { slipCache = []; }
         // the slip of that SH whose stay starts or ends this day, else its latest
         const same = slipCache.filter(s => !s.deleted && (String(s.sh_no).toUpperCase() === sh || baseSh(s.sh_no) === baseSh(sh)));
         const slip = same.find(s => s.checkout_date === day || s.checkin_date === day)
             || same.sort((x, y) => String(y.checkin_date).localeCompare(String(x.checkin_date)))[0];
+        if (!slip) return null;
         const n = (v) => Math.max(0, parseInt(v, 10) || 0);
+        const m = n(slip.gents), f = n(slip.ladies), c = n(slip.children ?? slip.child) + n(slip.infants ?? slip.infant);
+        const rooms = ['gents', 'ladies'].flatMap(k => (slip.rooms?.[k] || []).map(x => String(x.room_no || '').trim()).filter(Boolean));
+        return { slip, add: { ref: String(slip.sh_no), operator: slip.tour_name || '', leader: String(slip.group_leader || '').trim(), m, f, c, pax: n(slip.total) || m + f + c, rooms } };
+    }
+    $('tpList').addEventListener('click', (e) => {
+        const open = e.target.closest('[data-addbus-open]'), cancel = e.target.closest('[data-addbus-cancel]');
+        if (open) { const f = open.parentElement.querySelector('form'); f.hidden = false; open.hidden = true; f.elements.time.focus(); }
+        else if (cancel) { const f = cancel.closest('form'); f.hidden = true; f.reset(); f.parentElement.querySelector('[data-addbus-open]').hidden = false; }
+    });
+    $('tpList').addEventListener('submit', async (e) => {
+        const f = e.target.closest('form[data-addbus]');
+        if (!f) return;
+        e.preventDefault();
+        if (saving) return;
+        const dest = destsFor(ctx.siteId).find(d => d.id === f.dataset.addbus);
+        const el = f.elements, clean = (v) => String(v ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+        const time = el.time.value;
+        if (!dest || !/^\d{2}:\d{2}$/.test(time)) { el.time.focus(); return; }
+        const sh = clean(el.sh.value).replace(/\s/g, '').toUpperCase();
+        let add = { ref: '', operator: '', leader: '', m: 0, f: 0, c: 0, pax: 0, rooms: [] };
+        if (sh) {
+            const g = await groupOf(sh);
+            if (g) add = g.add;
+            else {
+                const p = prompt(`SH ${sh} is not in this site's slips. Add the vehicle with it anyway? Number of pax:`);
+                if (p === null) return;
+                add = { ...add, ref: sh, pax: Math.max(0, parseInt(p, 10) || 0) };
+            }
+        }
+        const T = clean(el.transporter.value).slice(0, 60), V = clean(el.vch.value).slice(0, 20);
+        const trip = {
+            key: `M${Date.now().toString(36).toUpperCase()}`, dora: '', vch: V, transporter: T, at: `${day}T${time}`, route: dest.route,
+            remarks: 'vehicle added by hand', adj: '', loc: '', ...add, manual: true, ...(T || V ? { transporter_manual: true } : {}),
+            ...(el.veh.value === 'car' ? { vehicle: 'car' } : {}),
+        };
+        // existing numbers stay; the new vehicle takes the next number of its destination
+        const rows = assignBuses([...doc.rows.map(r => ({ ...r })), trip].sort((a, b) => a.at.localeCompare(b.at)), doc.rows);
+        const n = rows.find(r => r.key === trip.key)?.bus;
+        save(rows, `${dest.title}: ${el.veh.value} ${n ?? ''} added by hand at ${time}${add.ref ? ` with SH ${add.ref}` : ''}`);
+    });
+    $('tpList').addEventListener('click', async (e) => {
+        const b = e.target.closest('button[data-addsh]');
+        if (!b || saving) return;
+        const parent = doc.rows.find(r => r.key === b.dataset.addsh);
+        if (!parent) return;
+        const sh = String(prompt(`SH to add to the ${vehicleOf(parent)} of ${parent.ref ? `SH ${parent.ref}` : 'this vehicle'} (${time12(parent.at)}):`) || '').replace(/[<>\s]/g, '').toUpperCase();
+        if (!sh) return;
+        if (doc.rows.some(r => String(r.ref).toUpperCase() === sh)) { if (!confirm(`SH ${sh} is already on this day's list. Add it again?`)) return; }
+        const n = (v) => Math.max(0, parseInt(v, 10) || 0);
+        const g = await groupOf(sh);
         let add;
-        if (slip) {
-            const m = n(slip.gents), f = n(slip.ladies), c = n(slip.children ?? slip.child) + n(slip.infants ?? slip.infant);
-            const pax = n(slip.total) || m + f + c;
-            const rooms = ['gents', 'ladies'].flatMap(k => (slip.rooms?.[k] || []).map(x => String(x.room_no || '').trim()).filter(Boolean));
+        if (g) {
+            const { slip } = g; add = g.add;
             if (!confirm([`Add SH ${slip.sh_no} to this ${vehicleOf(parent)}?`, '',
                 `${slip.tour_name || '—'} · ${String(slip.group_leader || '').trim() || '-'}`,
-                `${pax} pax (M ${m} · F ${f} · C ${c})${slip.building ? ` · ${slip.building}` : ''}${rooms.length ? ` · rooms ${rooms.join(', ')}` : ''}`,
+                `${add.pax} pax (M ${add.m} · F ${add.f} · C ${add.c})${slip.building ? ` · ${slip.building}` : ''}${add.rooms.length ? ` · rooms ${add.rooms.join(', ')}` : ''}`,
                 `Stay ${slip.checkin_date || '?'} → ${slip.checkout_date || '?'}`].join('\n'))) return;
-            add = { ref: String(slip.sh_no), operator: slip.tour_name || '', leader: String(slip.group_leader || '').trim(), m, f, c, pax, rooms };
         } else {
             const p = prompt(`SH ${sh} is not in this site's slips. Add it anyway? Number of pax:`);
             if (p === null || !n(p)) return;

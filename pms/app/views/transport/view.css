@@ -14,3 +14,18 @@
 .tp-dest-note { font-size: 11.5px; font-weight: 600; letter-spacing: 0; opacity: .8; }
 .tp-bytime { font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0; padding: 4px 10px; border: 1px solid rgba(255, 255, 255, .7); border-radius: 999px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; white-space: nowrap; }
 .tp-bytime:hover { background: rgba(255, 255, 255, .3); }
+/* + Bus under each destination: a vehicle made by hand */
+.tp-addbus-wrap { margin: 6px 0 4px; }
+.tp-addbus-btn { font: inherit; font-size: 13px; font-weight: 800; padding: 6px 14px; border: 1.5px dashed #c9a227; border-radius: 10px; background: #fffaf0; color: #7a5410; cursor: pointer; }
+.tp-addbus-btn:hover { background: #fff1c9; }
+.tp-addbus { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; padding: 10px 12px; border: 1.5px dashed #c9a227; border-radius: 12px; background: #fffaf0; }
+.tp-addbus > b { width: 100%; font-size: 13px; color: #7a5410; }
+.tp-addbus label { display: grid; gap: 3px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.tp-addbus input, .tp-addbus select { font: inherit; font-size: 14px; font-weight: 500; color: var(--ink); padding: 6px 9px; border: 1px solid var(--edge); border-radius: 9px; background: #fff; min-width: 0; width: 150px; }
+.tp-addbus input[type=time] { width: 120px; }
+.tp-addbus-act { display: inline-flex; gap: 6px; }
+/* pax: tap to change */
+.tp-pax { font: inherit; text-align: right; padding: 2px 6px; border: 1px dashed transparent; border-radius: 8px; background: none; color: inherit; cursor: pointer; }
+.tp-pax small { display: block; }
+.tp-pax:hover { border-color: #c9a227; background: #fff; }
+.tp-pax.manual b { color: #364fc7; }
