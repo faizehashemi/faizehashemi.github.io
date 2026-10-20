@@ -16,6 +16,8 @@ import { initAnalytics, pageview, identify, resetAnalytics, track } from './core
 import { loadBuildings } from './core/rooms.js';
 import { applyPrefs, getPrefs, loadServerPrefs } from './core/prefs.js';
 import { watchForUpdates } from './core/update.js';
+import { watchSpeedTestBanner } from './core/speedtest-banner.js'; // temporary: database region samples
+watchSpeedTestBanner();
 
 applyPrefs(); // this browser's Settings, before anything is drawn
 watchForUpdates(); // new website build → reload; Android app too old → "Update required" (core/update.js)
