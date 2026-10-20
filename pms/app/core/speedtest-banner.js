@@ -2,12 +2,22 @@
 // send the result on WhatsApp — the samples decide which region the PMS database moves to. "Run the test" measures
 // 3 times right here (pms-dbtest ?json) and the WhatsApp button then carries the numbers as text. Closing hides it
 // for an hour on this browser. Remove this file's import in main.js (and the test Worker) once the decision is made.
+// Quiet samples: while a logged-in PMS page is open and in view, the same test runs in the background about once an
+// hour per device (first one a couple of minutes after opening); the test Worker keeps the result (/summary).
 
 import { currentDesk } from './cloud.js';
 
 const KEY = 'pms_dbtest_banner_closed';
 const COOLDOWN_MS = 60 * 60 * 1000;
-const TEST_URL = 'https://pms-dbtest.tkamlapur.workers.dev';
+const TEST_URL = (() => { try { return localStorage.getItem('pms_dbtest_url') || 'https://pms-dbtest.tkamlapur.workers.dev'; } catch { return 'https://pms-dbtest.tkamlapur.workers.dev'; } })();
+const SAMPLE_KEY = 'pms_dbtest_last_sample';
+const SAMPLE_EVERY_MS = 60 * 60 * 1000;
+const kind = () => (matchMedia('(max-width: 900px)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'phone' : 'desk');
+const testUrl = (source) => {
+    const d = currentDesk();
+    const q = new URLSearchParams({ json: '1', record: '1', source, kind: kind(), site: d?.site || '', desk: d?.name || '' });
+    return `${TEST_URL}/?${q}`;
+};
 const WA = '917747945253';
 const median = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 
@@ -22,7 +32,7 @@ async function runTest(bar) {
     try {
         for (let i = 1; i <= 3; i++) {
             say.textContent = `Testing… ${i} of 3`;
-            rounds.push(await (await fetch(`${TEST_URL}/?json`, { cache: 'no-store' })).json());
+            rounds.push(await (await fetch(testUrl('banner'), { cache: 'no-store' })).json());
         }
     } catch {
         say.textContent = 'The test could not run here — please use “Open the test page”.';
@@ -77,8 +87,20 @@ export function showSpeedTestBanner() {
     document.body.insertBefore(bar, document.body.firstChild);
 }
 
-// opened and left open: offer it again once the hour has passed
+// a quiet background sample: logged in, page in view, online, not more than once an hour on this device
+export async function sampleQuietly() {
+    if (!currentDesk() || document.visibilityState !== 'visible' || !navigator.onLine) return;
+    let last = 0;
+    try { last = Number(localStorage.getItem(SAMPLE_KEY) || 0); } catch { }
+    if (Date.now() - last < SAMPLE_EVERY_MS) return;
+    try { localStorage.setItem(SAMPLE_KEY, String(Date.now())); } catch { }
+    try { await fetch(testUrl('auto'), { cache: 'no-store' }); } catch { }
+}
+
+// opened and left open: offer the banner again once the hour has passed; take a quiet sample when due
 export function watchSpeedTestBanner() {
     showSpeedTestBanner();
     setInterval(() => { if (document.visibilityState === 'visible') showSpeedTestBanner(); }, 5 * 60 * 1000);
+    setTimeout(sampleQuietly, 2 * 60 * 1000);
+    setInterval(sampleQuietly, 10 * 60 * 1000);
 }
