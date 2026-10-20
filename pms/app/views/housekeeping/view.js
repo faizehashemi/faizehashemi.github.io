@@ -168,6 +168,7 @@ export default async function mount(ctx) {
         const who = (ws, at) => ws.map(w => `<span class="hk-who">${at === 'out' ? hm(w.end) : at === 'stay' ? `until ${dayTime(w.end)}` : hm(w.start)} · SH ${esc(w.sh)} · ${w.beds} bed${w.beds === 1 ? '' : 's'}${w.delayed ? ' <em>delayed</em>' : ''}</span>`).join('');
         const shown = rows.filter(r => !hide || !done.has(`${r.bld}|${r.room}`));
         $('hkList').innerHTML = shown.length ? `<table class="hk-tbl">
+            <colgroup><col class="c-done"><col class="c-n"><col class="c-p"><col class="c-room"><col class="c-out"><col class="c-in"><col></colgroup>
             <thead><tr><th>Done</th><th>#</th><th>Priority</th><th>Building · room</th><th>Leaves</th><th>Arrives</th><th>Note</th></tr></thead>
             <tbody>${shown.map((r, i) => { const k = `${r.bld}|${r.room}`; return `<tr class="${done.has(k) ? 'done' : ''}">
                 <td><input type="checkbox" data-done="${esc(k)}" ${done.has(k) ? 'checked' : ''} aria-label="Room ${esc(r.room)} done"></td>
@@ -208,16 +209,22 @@ export default async function mount(ctx) {
             const here = rows.filter(r => r.bld === bld && r.floor === floor);
             const cats = (urgentOnly ? [1] : [1, 2, 3, 4]).map(p => {
                 const rooms = here.filter(r => r.p === p).map(r => r.room).sort(natural);
-                return rooms.length ? `<div class="cat"><b>${esc(PRIO[p])}</b> ${rooms.map(esc).join(', ')}</div>` : '';
+                return rooms.length ? `<tr><th>${esc(PRIO[p])}<small>${rooms.length}</small></th><td><div class="rooms">${rooms.map(x => `<span>${esc(x)}</span>`).join('')}</div></td></tr>` : '';
             }).join('');
             const staff = staffOn(bld, floor);
-            return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}${staff.length ? ` <span class="staff">— ${staff.map(esc).join(', ')}</span>` : ''}</h2>${cats}</section>`;
+            return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}${staff.length ? ` <span class="staff">— ${staff.map(esc).join(', ')}</span>` : ''}</h2><table>${cats}</table></section>`;
         }).join('') || '<p>—</p>';
         w.document.open();
         w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Room cleaning</title><style>
             @page { margin: 12mm; } body { font: 16px/1.5 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
-            section { break-inside: avoid; padding: 6px 0 8px; border-bottom: 1px solid #999; }
-            h2 { font-size: 18px; margin: 8px 0 4px; } h2 .staff { font-weight: 600; } .cat { font-size: 18px; margin: 2px 0; } .cat b { display: inline-block; min-width: 230px; font-size: 15px; }
+            section { break-inside: avoid; padding: 4px 0 10px; }
+            h2 { font-size: 18px; margin: 8px 0 4px; } h2 .staff { font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            th, td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+            th { width: 210px; text-align: left; font-size: 15px; } th small { float: right; font-weight: 400; }
+            /* rooms in a fixed grid: every wrapped line lines up under the one above */
+            .rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 3px; }
+            .rooms span { border: 1px solid #555; border-radius: 3px; text-align: center; font-size: 16px; font-weight: 700; padding: 1px 0; }
             .day { font-size: 20px; font-weight: 700; margin: 0 0 6px; padding-bottom: 6px; border-bottom: 2px solid #000; }
             </style></head><body><p class="day">${esc(new Date(`${$('hkDay').value || ymd(new Date())}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`);
         w.document.close();
