@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Transport Signage</title>
+    <link rel="icon" type="image/png" href="../assets/icons/icon-192.png">
+    <!--
+      Public transport board for a TV (no login): https://pms.raajsoftware.com/medina/signage (same file as makkah/signage.html; the site comes from the address)
+      Plays the slides set in Transport → Signage Builder: per trip type a template and the seconds a slide stays;
+      trips from the Transport day lists inside the window set on the Transport day page (Riyadh time).
+      "Classic" = laid out like sigatulhaj.org/signage/testsignage.aspx (5 rows a page, Travel To merged per page).
+      Custom templates are drawn on a 1920×1080 stage scaled to the screen. Every change of slide: fade out and in (Transition time in the Signage Builder).
+      Options: ?rows=5 (rows per Classic page)
+    -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        .fade-box { transition: opacity .3s ease; }
+        body.custom { margin: 0; padding: 0; border: 0; border-radius: 0; overflow: hidden; }
+        #custom { position: fixed; inset: 0; overflow: hidden; }
+        #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body class="alert alert-warning">
+    <div id="classic" class="container-fluid mt-1" style="font-family: 'Roboto'">
+        <div class="row">
+            <div class="col-12">
+                <div class="card p-4 text-center alert alert-warning border-0">
+                    <h2 class="fw-bold">Umrah Transport Schedule</h2>
+                    <div id="gridWrapper" class="mt-2 overflow-auto fade-box">
+                        <div>
+                            <table cellspacing="0" rules="all" class="table table-warning table-responsive-xl border-0" border="1" id="gvTransportList" style="border-collapse:collapse;">
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="custom" class="fade-box" hidden><div id="stage"></div></div>
+    <script type="module">
+        import { API_URL } from '../app/config.js';
+        import { tripsOf, buildSlides, renderTemplate, tickClocks, STAGE_W, STAGE_H } from '../app/core/signage.js';
+        import { vehicleNo } from '../app/core/transport.js';
+
+        const q = new URLSearchParams(location.search);
+        const site = location.pathname.split('/').filter(Boolean).find(s => s === 'makkah' || s === 'medina') || 'makkah';
+        const CLASSIC_ROWS = Math.max(1, Number(q.get('rows')) || 5);
+        const api = (() => { try { return localStorage.getItem('pms_api_url') || API_URL; } catch { return API_URL; } })().replace(/\/+$/, '');
+        const $ = (id) => document.getElementById(id);
+
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        // "2026-10-04T03:00" → "04-10-2026 03:00"
+        const when = (at) => `${at.slice(8, 10)}-${at.slice(5, 7)}-${at.slice(0, 4)} ${at.slice(11, 16)}`;
+        const TH = 'scope="col" style="color:#663300;background-color:#F9BB00;"';
+        // "Building" (where the bus leaves from) only when the Transport day page has set one for a Classic trip
+        const head = (building) => `<tr>
+            <th class="rounded-start-2 border-0" ${TH}>SH Ref</th><th class="border-0" ${TH}>Travel To</th><th class="border-0" ${TH}>Date</th><th class="border-0" ${TH}>Tour Group</th><th class="border-0" ${TH}>Total Pax</th>${building ? `<th class="border-0" ${TH}>Building</th>` : ''}<th class="rounded-end-2 border-0" ${TH}>Bus No</th>
+        </tr>`;
+        const ROW = 'border border-warning border-bottom border-top-0 border-start-0 border-end-0';
+
+        let setup = { slides: [], templates: [], stamp: null };
+        let slides = [], index = -1, current = null;
+
+        /* ---------------- Classic (the sigatulhaj layout) ---------------- */
+        function renderClassic(list) {
+            const building = slides.some(s => s.template === 'classic' && s.trips.some(t => t.building));
+            const body = list.map((t, i) => {
+                // "Travel To" once for the rows that share it on this page
+                let span = 0;
+                if (i === 0 || list[i - 1].to !== t.to) { span = 1; while (list[i + span] && list[i + span].to === t.to) span++; }
+                const op = t.r.operator && t.r.operator.toUpperCase() !== 'SELF' ? `${esc(t.r.operator)}<br>` : '';
+                return `<tr class="${ROW}">
+                    <td class="text-center align-middle">${esc(t.r.ref)}</td>${span ? `<td class="align-middle bg-body-tertiary fw-bold text-primary table-warning " rowspan="${span}">${esc(t.to)}</td>` : ''}<td>${esc(when(t.r.at))}</td><td class="text-center align-middle">${op}${esc(t.r.leader)}</td><td class="text-center align-middle">${esc(t.r.pax)}</td>${building ? `<td class="text-center align-middle fw-bold">${esc(t.building || '')}</td>` : ''}<td class="text-center align-middle">${esc(vehicleNo(t.bus, t.vehicle, t.vlabel))}</td>
+                </tr>`;
+            }).join('');
+            $('gvTransportList').tBodies[0].innerHTML = head(building) + (body || `<tr class="${ROW}"><td class="text-center align-middle" colspan="${building ? 7 : 6}">No transport scheduled</td></tr>`);
+        }
+
+        /* ---------------- custom templates (Signage Builder) ---------------- */
+        function fitStage() {
+            const s = Math.min(innerWidth / STAGE_W, innerHeight / STAGE_H);
+            const st = $('stage');
+            st.style.transform = `scale(${s})`;
+            st.style.left = `${(innerWidth - STAGE_W * s) / 2}px`;
+            st.style.top = `${(innerHeight - STAGE_H * s) / 2}px`;
+        }
+        addEventListener('resize', fitStage);
+
+        function show(slide) {
+            current = slide;
+            const classic = !slide || slide.template === 'classic';
+            $('classic').hidden = !classic;
+            $('custom').hidden = classic;
+            document.body.className = classic ? 'alert alert-warning' : 'custom';
+            document.body.style.background = '';
+            if (classic) { renderClassic(slide ? slide.trips : []); return; }
+            renderTemplate($('stage'), slide.tpl.data, slide);
+            document.body.style.background = $('stage').style.backgroundColor;
+            fitStage();
+        }
+
+        /* ---------------- data ---------------- */
+        async function getJson(path) {
+            const res = await fetch(`${api}${path}`, { cache: 'no-store' });
+            if (!res.ok) throw new Error(String(res.status));
+            return res.json();
+        }
+        async function load() {
+            const data = await getJson(`/api/public/signage?site=${site}`);
+            if (data.stamp !== setup.stamp) setup = await getJson(`/api/public/signage/setup?site=${site}`); // the look changed
+            slides = buildSlides(tripsOf(data), setup.slides, setup.templates, { classicRows: CLASSIC_ROWS });
+            slides.forEach(s => { s.today = data.today; });
+        }
+
+        // each slide stays its seconds. The latest data is fetched a few seconds before the change, so the change itself
+        // is only the fade: out and in, each taking the Transition time set in the Signage Builder (0 = cut).
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        const boxes = () => [$('gridWrapper'), $('custom')];
+        const fadeMs = () => Math.min(3, Math.max(0, Number(setup.fade ?? 0.3))) * 1000;
+        const setFade = (ms) => boxes().forEach(b => { b.style.transition = `opacity ${ms}ms ease`; });
+        function schedule() {
+            const ms = Math.max(3, Number(slides[index]?.seconds) || 15) * 1000;
+            let fresh = null;
+            setTimeout(() => { fresh = load().catch(() => { /* keep showing the last list */ }); }, Math.max(0, ms - 2500));
+            setTimeout(async () => {
+                const f = fadeMs();
+                setFade(f);
+                if (f) { boxes().forEach(b => { b.style.opacity = 0; }); await sleep(f); }
+                await Promise.race([fresh, sleep(2000)]); // normally finished long ago
+                index = slides.length ? (index + 1) % slides.length : -1;
+                show(slides[index] || null);
+                boxes().forEach(b => { b.style.opacity = 1; });
+                schedule();
+            }, ms);
+        }
+
+        try { await load(); } catch { }
+        index = slides.length ? 0 : -1;
+        show(slides[index] || null);
+        schedule();
+        setInterval(() => { if (current && current.template !== 'classic') tickClocks($('stage'), current); }, 1000);
+
+        // a new website build: reload (TVs stay open for weeks)
+        let buildId = null;
+        setInterval(async () => {
+            try {
+                const v = await (await fetch(`../version.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+                if (buildId && v.web && v.web !== buildId) location.reload();
+                buildId = v.web || buildId;
+            } catch { }
+        }, 10 * 60e3);
+    </script>
+</body>
+</html>

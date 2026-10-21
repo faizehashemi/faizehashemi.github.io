@@ -1573,6 +1573,16 @@ async function putTransport(req, env, me) {
 
 const SIGNAGE_WINDOW = { from: 'now', to_day: 1, to_time: '23:59' };   // default: upcoming today + all of tomorrow
 const SIGNAGE_DEFAULT_SLIDES = ['MAKKAH-JEDDAH AIRPORT', 'MAKKAH-MADINA', 'MAKKAH-MAKKAH ATRAAF'].map(type => ({ type, template: 'classic', seconds: 15 }));
+// each site's own destinations (pms/app/core/transport.js DESTS_BY_SITE): a route the Signage Builder has never been
+// told about shows on the Classic board instead of being left off (only an explicit "none" hides a route)
+const SIGNAGE_SITE_ROUTES = {
+    makkah: ['MAKKAH-MAKKAH ATRAAF', 'MAKKAH-MADINA', 'MAKKAH-JEDDAH AIRPORT', 'MAKKAH-MADINA AIRPORT', 'MAKKAH-TAIF'],
+    medina: ['MADINA-MAKKAH', 'MADINA-MADINA ZIYARAT', 'MADINA-MADINA AIRPORT', 'MADINA-JEDDAH AIRPORT'],
+};
+function boardSlides(cfg, site) {
+    const known = new Set(cfg.slides.map(s => s.type));
+    return [...cfg.slides, ...(SIGNAGE_SITE_ROUTES[site] || []).filter(t => !known.has(t)).map(type => ({ type, template: 'classic', seconds: 15 }))];
+}
 const SIGNAGE_FADE = 0.3;   // seconds each way between slides (0 = cut); Signage Builder → Slides
 const MAX_TEMPLATE_BYTES = 1800 * 1024;
 const DATA_IMAGE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
@@ -1697,7 +1707,7 @@ async function transportTypes(env, site) {
 // What changes the board's look: its config and templates (the board reloads them only when this changes)
 async function signageStamp(env, site, cfg) {
     const t = await env.DB.prepare('SELECT COUNT(*) AS n, MAX(updated_at) AS at FROM signage_templates WHERE site = ?').bind(site).first();
-    return `${cfg.version}|${cfg.updated_at || ''}|${t.n}|${t.at || ''}`;
+    return `${cfg.version}|${cfg.updated_at || ''}|${t.n}|${t.at || ''}|r2`; // r2: own routes by default
 }
 const publicSite = (url) => { const s = String(url.searchParams.get('site') || 'makkah'); if (!SITES[s]) throw new HttpError(400, `Unknown site "${s}".`); return s; };
 const publicJson = (data) => new Response(JSON.stringify(data), {
@@ -1716,7 +1726,7 @@ async function publicSignage(url, env) {
     const days = [0, 1, 2].slice(0, w.to_day + 1).map(dayPlus);
     const from = w.from === 'now' ? riyadh.slice(0, 16) : `${today}T${w.from}`;
     const to = `${dayPlus(w.to_day)}T${w.to_time}`;
-    const shown = cfg.slides.filter(s => s.template !== 'none');
+    const shown = boardSlides(cfg, site).filter(s => s.template !== 'none');
     const types = new Set(shown.map(s => s.type));
     // the transporter (it carries phone numbers) only when a template shows that column
     let withTransporter = false;
@@ -1730,8 +1740,10 @@ async function publicSignage(url, env) {
     for (const r of results) {
         for (const t of JSON.parse(r.rows)) {
             if (!t || (t.route && !types.has(t.route))) continue;
-            rows.push({ day: r.day, key: t.key, ref: t.ref, at: t.at, route: t.route || '', operator: t.operator || '', leader: t.leader || '',
-                pax: t.pax, m: t.m || 0, f: t.f || 0, c: t.c || 0, bus: t.bus ?? null, vehicle: t.vehicle === 'car' ? 'car' : '', building: t.building || '', vch: t.vch || '', dora: t.dora || '', adj: t.adj || '',
+            rows.push({ day: r.day, key: t.key, ref: t.manual && t.ref === t.key ? '' : t.ref, at: t.at, route: t.route || '', operator: t.operator || '', leader: t.leader || '',
+                pax: t.pax, m: t.m || 0, f: t.f || 0, c: t.c || 0, bus: t.bus ?? null, vehicle: t.vehicle === 'car' || t.vehicle === 'other' ? t.vehicle : '',
+                vehicle_label: t.vehicle === 'other' ? t.vehicle_label || '' : '', building: t.building || '', vch: t.vch || '', dora: t.dora || '', adj: t.adj || '',
+                with: t.with || '', vch_import: t.vch_import || '',                 // groups added by hand / a Vch No changed by hand
                 ...(withTransporter ? { transporter: t.transporter || '' } : {}) });
         }
     }
@@ -1748,7 +1760,7 @@ async function publicSignageSetup(url, env) {
         const { results } = await env.DB.prepare(`SELECT id, name, data FROM signage_templates WHERE site = ? AND id IN (${ids.map(() => '?').join(', ')})`).bind(site, ...ids).all();
         templates = results.map(r => ({ id: r.id, name: r.name, data: JSON.parse(r.data) }));
     }
-    return publicJson({ site, slides: cfg.slides, fade: cfg.fade ?? SIGNAGE_FADE, templates, stamp: await signageStamp(env, site, cfg) });
+    return publicJson({ site, slides: boardSlides(cfg, site), fade: cfg.fade ?? SIGNAGE_FADE, templates, stamp: await signageStamp(env, site, cfg) });
 }
 
 // Tosha (travel refreshments) choices per site and day — Mawaid → Tosha summary: Madina preparation time and meal,

@@ -29,6 +29,15 @@ function fromLine(b) {
         ? `<small> · pick up ${other.map(r => `SH ${esc(r.ref)} at ${esc(r.building)}`).join(', ')}</small>` : ''}</b>`;
 }
 
+// A sheet is one fixed page: with many groups, step its text down (fit1 → fit4) until nothing — not the
+// "Departs from … · Total pax" line either — runs past the bottom edge.
+function fitSheets() {
+    for (const s of document.querySelectorAll('.sheet')) {
+        s.classList.remove('fit1', 'fit2', 'fit3', 'fit4');
+        for (let k = 1; k <= 4 && s.scrollHeight > s.clientHeight + 1; k++) { if (k > 1) s.classList.remove(`fit${k - 1}`); s.classList.add(`fit${k}`); }
+    }
+}
+
 function sheet(day, dest, b) {
     const many = b.rows.length > 3;
     return `<section class="sheet${many ? ' many' : ''}">
@@ -99,6 +108,7 @@ export default async function mount(ctx) {
     function render() {
         const pages = chosen().flatMap(g => g.buses.map(b => sheet(day, g.dest, b)));
         $('tqSheets').innerHTML = pages.join('') || `<p class="tq-none">${doc.rows.length ? 'No buses for this choice.' : 'No transport list saved for this day.'}</p>`;
+        fitSheets();
         $('tqCount').textContent = `${pages.length} sheet${pages.length === 1 ? '' : 's'}`;
         $('tqPrint').disabled = $('tqSummary').disabled = !pages.length;
     }

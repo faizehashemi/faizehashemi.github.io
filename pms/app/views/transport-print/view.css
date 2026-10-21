@@ -25,6 +25,21 @@
 .sheet .foot .from small { font-size: 13pt; }
 .sheet .foot .from { display: block; font: 900 20pt "Arial Black", Arial, sans-serif; color: #000; margin-bottom: 1mm; }
 .sheet .foot .total { font-size: 16pt; color: #000; border: 2px solid #000; padding: 0 5mm; }
+.sheet .foot { flex: none; }
+/* many groups: smaller steps until the sheet fits its page (view.js fitSheets) */
+.sheet.fit1 .row td { font-size: 14pt; height: auto; padding: 1.2mm 3mm; }
+.sheet.fit1 .bus .n { font-size: 90pt; } .sheet.fit1 .bus .w { font-size: 52pt; }
+.sheet.fit2 .row td { font-size: 12pt; height: auto; padding: 1mm 2.5mm; }
+.sheet.fit2 .bus .n { font-size: 72pt; } .sheet.fit2 .bus .w { font-size: 42pt; }
+.sheet.fit2 .date, .sheet.fit2 .time, .sheet.fit2 .dest { font-size: 22pt; } .sheet.fit2 .col { font-size: 15pt; }
+.sheet.fit3 .row td { font-size: 10.5pt; height: auto; padding: .7mm 2mm; }
+.sheet.fit3 .bus .n { font-size: 56pt; } .sheet.fit3 .bus .w { font-size: 34pt; }
+.sheet.fit3 .date, .sheet.fit3 .time, .sheet.fit3 .dest { font-size: 18pt; } .sheet.fit3 .col { font-size: 12pt; }
+.sheet.fit3 .foot .from { font-size: 15pt; }
+.sheet.fit4 .row td { font-size: 9pt; height: auto; padding: .4mm 1.5mm; }
+.sheet.fit4 .bus .n { font-size: 44pt; } .sheet.fit4 .bus .w { font-size: 26pt; }
+.sheet.fit4 .date, .sheet.fit4 .time, .sheet.fit4 .dest { font-size: 15pt; } .sheet.fit4 .col { font-size: 10pt; }
+.sheet.fit4 .foot .from { font-size: 13pt; } .sheet.fit4 .foot .total { font-size: 13pt; }
 .tq-none { padding: 30px; color: var(--muted); text-align: center; }
 
 /* ---------- Print summary (only while printing it) ---------- */
