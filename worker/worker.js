@@ -148,7 +148,11 @@ async function route(req, env) {
     const p = url.pathname.replace(/\/+$/, '');
     const m = req.method;
 
-    if (p === '/api/health') return json({ ok: true, time: now() });
+    if (p === '/api/health') return json({ ok: true, time: now(), ...(env.MAINTENANCE === '1' ? { maintenance: true } : {}) });
+    // maintenance (deploy with --var MAINTENANCE:1, e.g. while the database moves): reading works, nothing is written
+    if (env.MAINTENANCE === '1' && m !== 'GET' && m !== 'OPTIONS') {
+        throw new HttpError(503, 'Saving is paused for a few minutes while the PMS moves to a faster server. Please try again shortly — nothing you entered was saved.');
+    }
     if (p === '/api/login' && m === 'POST') return login(req, env);
     // no login: the TV boards — the same answer is kept at the edge for 30 s, so many screens cost one database read
     if (p === '/api/public/signage' && m === 'GET') return edgeCached(req, 30, () => publicSignage(url, env));
@@ -276,7 +280,7 @@ const sessionStmt = (env, tokenHash) => env.DB.prepare(
 // a valid, unexpired session of an enabled desk; extends the login when less than half its lifetime is left
 async function checkSession(env, row, tokenHash) {
     if (!row || row.expires_at < now() || row.disabled) throw new HttpError(401, 'Your login has expired. Please log in again.');
-    if (row.expires_at < plusDays(SESSION_DAYS / 2)) {
+    if (row.expires_at < plusDays(SESSION_DAYS / 2) && env.MAINTENANCE !== '1') {
         await env.DB.prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?').bind(plusDays(SESSION_DAYS), tokenHash).run();
     }
     return { ...row, tokenHash };
