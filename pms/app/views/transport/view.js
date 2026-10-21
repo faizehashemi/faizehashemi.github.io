@@ -73,8 +73,8 @@ export default async function mount(ctx) {
                     ${timeCell(r)}
                     ${fromCell(r, i ? b : null)}
                     <td><b>${esc(r.ref || '—')}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
-                    <td>${esc(r.operator || '—')}</td>
-                    <td>${esc(r.leader || '—')}</td>
+                    ${nameCell(r, 'operator')}
+                    ${nameCell(r, 'leader')}
                     <td class="n">${pax(r)}</td>
                     ${trCell(r, !!i)}
                     <td>${esc(r.remarks)}${!i && writable ? `<button type="button" class="tp-addsh" data-addsh="${esc(r.key)}" title="Add a group (SH) to this ${esc(VEHICLES[b.vehicle].title.toLowerCase())}">＋ SH</button>` : ''}</td>
@@ -100,8 +100,8 @@ export default async function mount(ctx) {
                   <td>${esc(i.route || '—')}${i.parent ? '<small>grouped</small>' : ''}</td>
                   <td class="bus">${i.dest ? `${VEHICLES[i.vehicle].icon} ${esc(i.vehicle === 'other' ? vehicleNo(i.bus, i.vehicle, i.vlabel) : i.bus ?? '—')}` : ''}</td>
                   <td><b>${esc(r.ref)}</b>${r.dora ? `<small>Dora ${esc(r.dora)}</small>` : ''}</td>
-                  <td>${esc(r.operator || '—')}</td>
-                  <td>${esc(r.leader || '—')}</td>
+                  ${nameCell(r, 'operator')}
+                  ${nameCell(r, 'leader')}
                   <td class="n">${pax(r)}</td>
                   ${trCell(r, !!i.parent)}
                   <td>${esc((r.rooms || []).join(', '))}</td>
@@ -151,6 +151,14 @@ export default async function mount(ctx) {
           <label>SH (optional)<input name="sh" maxlength="20" placeholder="first group"></label>
           <span class="tp-addbus-act"><button type="submit" class="tp-btn gold">Add</button><button type="button" class="tp-btn" data-addbus-cancel>Cancel</button></span>
         </form></div>`;
+    // tour operator / group leader: tap to change (kept when the list is pasted again)
+    const NAME_LABEL = { operator: 'Tour operator', leader: 'Group leader' };
+    function nameCell(r, field) {
+        const text = esc(r[field] || '—');
+        if (!writable) return `<td>${text}</td>`;
+        const manual = (r.names_manual || []).includes(field);
+        return `<td><button type="button" class="tp-name${manual ? ' manual' : ''}" data-name="${esc(r.key)}" data-field="${field}" title="Change the ${NAME_LABEL[field].toLowerCase()}">${text} <span aria-hidden="true">✎</span></button></td>`;
+    }
     // transporter and Vch No: tap to change them on a vehicle's own row (grouped trips ride with it)
     function trCell(r, rider) {
         const text = `${esc(r.transporter || (rider ? 'with the bus above' : '—'))}${r.vch ? `<small>Vch ${esc(r.vch)}</small>` : ''}`;
@@ -340,6 +348,19 @@ export default async function mount(ctx) {
             .sort((a, b) => a.at.localeCompare(b.at)).forEach((r, i) => { r.bus = i + 1; r.bus_manual = false; });
         const n = rows.find(r => r.key === key)?.bus;
         save(rows, `SH ${key} → ${to === 'other' ? label : to} ${n ?? ''}`);
+    });
+
+    $('tpList').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-name]');
+        if (!b || saving) return;
+        const row = doc.rows.find(r => r.key === b.dataset.name), field = b.dataset.field;
+        if (!row || !NAME_LABEL[field]) return;
+        const v = prompt(`${NAME_LABEL[field]} for ${row.ref ? `SH ${row.ref}` : 'this trip'} (${time12(row.at)})`, row[field] || '');
+        if (v === null) return;
+        const val = String(v).replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+        if (val === (row[field] || '')) return;
+        const rows = doc.rows.map(r => r.key !== row.key ? r : { ...r, [field]: val, names_manual: [...new Set([...(r.names_manual || []), field])] });
+        save(rows, `${NAME_LABEL[field].toLowerCase()} of ${row.ref ? `SH ${row.ref}` : 'a trip'}: ${val || '—'}`);
     });
 
     // edit the transporter and Vch No of a vehicle; groups adjusted into the old Vch No follow the new one

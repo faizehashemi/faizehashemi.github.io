@@ -12,6 +12,7 @@
 //   vehicle — 'car' when switched on the Transport day page (cars count from 1 on their own); else a bus.
 //   building — the building the bus departs from (Transport day page; names from Rooms & Buildings); a grouped trip
 //          takes its bus's unless given its own (a trailing group picked up elsewhere). Kept by re-imports.
+//   names_manual — ['operator', 'leader']: names changed by hand on the Transport day page (kept by re-imports).
 //   pax_manual — m / f / c / pax changed by hand on the Transport day page (kept by re-imports).
 //   transporter_manual, vch_import — transporter / Vch No changed by hand (kept by re-imports); vch_import = the
 //          list's Vch No, which grouped trips of the list still point at.
@@ -267,6 +268,7 @@ export function diffDay(saved, incoming) {
         if (o && o.at_manual && r.at === o.at_import) r = { ...r, at: o.at, at_manual: true, at_import: o.at_import };
         // a transporter / Vch No set by hand on the Transport day page stays
         if (o && o.pax_manual) r = { ...r, m: o.m, f: o.f, c: o.c, pax: o.pax, pax_manual: true }; // pax changed by hand stays
+        if (o && o.names_manual?.length) { r = { ...r, names_manual: o.names_manual }; for (const k of o.names_manual) r[k] = o[k]; } // names too
         if (o && o.transporter_manual) r = { ...r, transporter: o.transporter, vch: o.vch, transporter_manual: true, ...(o.vch_import ? { vch_import: o.vch_import } : {}) };
         if (!o) { out.added.push(r); continue; }
         const fields = FIELDS.filter(f => show(o, f) !== show(r, f)).map(f => [f[1], show(o, f), show(r, f)]);

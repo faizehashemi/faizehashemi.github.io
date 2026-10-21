@@ -29,3 +29,9 @@
 .tp-pax small { display: block; }
 .tp-pax:hover { border-color: #c9a227; background: #fff; }
 .tp-pax.manual b { color: #364fc7; }
+/* tour operator / group leader: tap to change */
+.tp-name { font: inherit; text-align: left; padding: 2px 6px; border: 1px dashed transparent; border-radius: 8px; background: none; color: inherit; cursor: pointer; }
+.tp-name span { font-size: 11px; opacity: .35; }
+.tp-name:hover { border-color: #c9a227; background: #fff; }
+.tp-name:hover span { opacity: .8; }
+.tp-name.manual { color: #364fc7; }
