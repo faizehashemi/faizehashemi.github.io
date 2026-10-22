@@ -225,7 +225,10 @@ export default async function mount(ctx) {
         setStat('dlUnknown', sum(unknown), `beds held · ${g(unknown)}`);
         setStat('dlToday', sum(leaving), `guests · ${g(leaving)}`);
         setStat('dlClash', sum(clash), clash.length ? `rooms · ${g(clash)} — open the page` : 'none');
-        dlLists = { stay, unknown, leaving, clash };
+        // the rooms each delayed group still occupies (rooms already checked out are not listed)
+        const inHouse = (r) => [...new Set(rowsOf(r).filter(w => w.end > now && w.start <= now).map(w => w.room_no))];
+        const withRooms = (list) => list.map(x => ({ ...x, rooms: inHouse(x.r) }));
+        dlLists = { stay: withRooms(stay), unknown: withRooms(unknown), leaving: withRooms(leaving), clash: withRooms(clash) };
     }
     for (const [id, key, title, label] of [['dlStay', 'stay', 'Delayed — staying now', 'guests'], ['dlUnknown', 'unknown', 'Delayed — unknown date', 'beds held'],
         ['dlToday', 'leaving', 'Delayed — leaving today', 'guests'], ['dlClash', 'clash', 'Delayed — rooms clashing with the next group', 'rooms']]) {

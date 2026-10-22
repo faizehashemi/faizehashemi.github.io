@@ -42,14 +42,17 @@ export function openGroupList(o) {
     };
     function render() {
         const q = $('glFind').value.trim().toLowerCase();
-        const list = rows.filter(x => !q || [x.r.sh_no, x.r.tour_name, x.r.group_leader, x.r.building, ...roomsOf(x.r)]
+        // an item may bring its own rooms (a delayed group: only the rooms still occupied)
+        const roomsFor = (x) => x.rooms || roomsOf(x.r);
+        const list = rows.filter(x => !q || [x.r.sh_no, x.r.tour_name, x.r.group_leader, x.r.building, ...roomsFor(x)]
             .some(v => String(v ?? '').toLowerCase().includes(q))).sort(SORTS[$('glSort').value]);
         $('glList').innerHTML = list.length ? `
           <table class="ih-tbl" data-no-cards>
             <thead><tr><th>SH</th><th>Group / leader</th><th>Building · rooms</th><th>Stay</th><th class="n">Guests</th></tr></thead>
-            <tbody>${list.map(({ r, pax, ci, co }) => {
+            <tbody>${list.map((x) => {
+                const { r, pax, ci, co } = x;
                 const g = num(r.gents), l = num(r.ladies), c = num(r.children), i = num(r.infants);
-                const rooms = roomsOf(r);
+                const rooms = roomsFor(x);
                 return `<tr>
                   <td class="sh">${o.canOpen && r.sh_no ? `<a href="${esc(o.slipHref(r.sh_no))}" data-open title="Open this slip">${esc(r.sh_no)}</a>` : esc(r.sh_no || '—')}</td>
                   <td><b>${esc(r.tour_name || '—')}</b><small>${esc(r.group_leader || 'no leader')}</small></td>
