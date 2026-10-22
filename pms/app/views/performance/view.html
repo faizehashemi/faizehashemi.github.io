@@ -19,6 +19,17 @@
         <div class="pf-scroll"><table class="pf-tbl" id="pfPages"></table></div>
     </section>
 
+    <section class="pf-card" id="pfDenySec">
+        <div class="pf-card-head"><h2>Slip saves refused</h2><span class="pf-note">every Save / Edit / Save as a copy the Slip page stopped, with each condition it checked — open one to see why</span>
+            <span class="pf-fb-filters">
+                <select id="dnKind"><option value="">All reasons</option></select>
+                <select id="dnDesk"><option value="">All logins</option></select>
+                <input id="dnFind" type="search" placeholder="SH or room" aria-label="Find SH or room">
+            </span></div>
+        <div id="pfDenySum"></div>
+        <div id="pfDeny"></div>
+    </section>
+
     <section class="pf-grid">
         <div class="pf-card"><div class="pf-card-head"><h2>By device</h2></div><div class="pf-scroll"><table class="pf-tbl" id="pfDevice"></table></div></div>
         <div class="pf-card"><div class="pf-card-head"><h2>By browser</h2></div><div class="pf-scroll"><table class="pf-tbl" id="pfBrowser"></table></div></div>

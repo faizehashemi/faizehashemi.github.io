@@ -35,7 +35,7 @@ export function showSlipReport(report, timelineHref) {
               <ul><li>Type the room's beds in this row's <b>Capacity</b>, or add the room in <b>Rooms &amp; Buildings</b> — then save again.</li>${link}</ul></li>`;
         if (x.kind === 'badtime') return `<li class="sr-issue"><b>Room ${esc(x.room)}: its own check-out is before the check-in.</b>
               <ul><li>Fix that row's leave date (delayed departure) or remove the row, then save again.</li></ul></li>`;
-        if (x.kind === 'window') return `<li class="sr-issue"><b>The building or the dates are missing.</b>
+        if (x.kind === 'window') return `<li class="sr-issue"><b>${x.missing?.length ? `Missing or wrong: ${esc(x.missing.join(', '))}.` : 'The building or the dates are missing.'}</b>
               <ul><li>Choose the building and fill in check-in and check-out — the check-out must be after the check-in.</li></ul></li>`;
         return `<li class="sr-issue"><b>${esc(x.text || 'Problem')}</b>${x.help ? `<ul>${x.help.map(h => `<li>${h}</li>`).join('')}</ul>` : ''}</li>`;
     };

@@ -3,6 +3,7 @@
 
 import { request, currentDesk, UserError } from '../../core/cloud.js';
 import { VIEWS } from '../../config.js';
+import { denialsSection } from './denials.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sec = (ms) => ms == null ? '—' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
@@ -20,6 +21,7 @@ export default async function mount(ctx) {
         return;
     }
     let FB = [];
+    const showDenials = denialsSection(ctx.root);
 
     const group = (rows, label = 'Group') => rows.length
         ? `<thead><tr><th>${label}</th><th class="n">Opened</th><th class="n">Typical</th><th class="n">Slow (95%)</th><th class="n">Server</th></tr></thead><tbody>${rows.map(g => `<tr>
@@ -30,10 +32,13 @@ export default async function mount(ctx) {
         $('pfMsg').textContent = 'Loading…';
         const days = $('pfDays').value, site = $('pfSite').value;
         try {
-            const [s, f] = await ctx.guard(Promise.all([
+            const [s, f, dn] = await ctx.guard(Promise.all([
                 request('GET', `/api/perf/summary?days=${days}${site ? `&site=${site}` : ''}`),
                 request('GET', `/api/feedback?days=${Math.max(30, Number(days))}`),
+                request('GET', `/api/slip-denials?days=${days}${site ? `&site=${site}` : ''}`),
             ]));
+            showDenials(dn.denials);
+            s.totals.denials = dn.denials.length;
             FB = f.feedback.filter(x => !site || x.site === site);
             render(s);
             $('pfMsg').textContent = s.totals.routes ? '' : 'No page timings yet — they arrive as desks use the PMS (sent every few minutes).';
@@ -47,6 +52,7 @@ export default async function mount(ctx) {
             ['Typical page', sec(t.p50), 'median, menu click → page drawn', tone(t.p50)],
             ['Slow pages', sec(t.p95), '95% of openings are faster', tone(t.p95)],
             ['Errors', t.errors, 'pages that failed / script errors', t.errors ? 'bad' : 'ok'],
+            ['Slip saves refused', t.denials ?? '—', 'see "Slip saves refused" below', t.denials ? 'mid' : 'ok'],
             ['Feedback', t.feedback, t.stars != null ? `average ${t.stars} ★` : 'no ratings yet', t.stars == null ? '' : t.stars >= 4 ? 'ok' : t.stars >= 3 ? 'mid' : 'bad'],
         ].map(([l, v, sub, c]) => `<div class="pf-kpi ${c}"><span>${esc(l)}</span><b>${esc(v ?? '—')}</b><small>${esc(sub)}</small></div>`).join('');
 

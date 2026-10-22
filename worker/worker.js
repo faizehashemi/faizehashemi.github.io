@@ -238,6 +238,9 @@ async function route(req, env) {
     if (p === '/api/feedback' && m === 'GET') { requireAdmin(me); return listFeedback(url, env); }
     mm = p.match(/^\/api\/feedback\/(\d+)$/);
     if (mm && m === 'PATCH') { requireAdmin(me); return patchFeedback(req, env, Number(mm[1])); }
+    // Slip saves the PMS refused (rooms over their beds, no bed count, dates …) with every condition checked — for debugging
+    if (p === '/api/slip-denials' && m === 'POST') return postSlipDenials(req, env, me);
+    if (p === '/api/slip-denials' && m === 'GET') { requireAdmin(me); return listSlipDenials(url, env); }
 
     throw new HttpError(404, 'Not found');
 }
@@ -2646,6 +2649,38 @@ async function listFeedback(url, env) {
     const { results } = await env.DB.prepare(`SELECT id, at, desk, site, role, page, trigger, rating, tags, text, page_ms, device, browser, net_type, colo, country, build, status
         FROM feedback WHERE at >= ? ORDER BY id DESC LIMIT 1000`).bind(since).all();
     return json({ feedback: results });
+}
+
+// The Slip page sends one record each time Save / Edit / Save as a copy is refused (views/slip/view.js): what was
+// entered, every room's capacity and where it came from, the other groups' stays that clashed, and how fresh this
+// browser's copy of the slips was. detail is that record as JSON (≤ 24 kB); kinds / rooms are copied out for filters.
+async function postSlipDenials(req, env, me) {
+    const { denials, ctx } = await body(req);
+    if (!Array.isArray(denials)) throw new HttpError(400, 'denials must be a list.');
+    const c = ctx && typeof ctx === 'object' ? ctx : {};
+    const stmts = denials.slice(0, 20).filter(d => d && typeof d === 'object').map(d => {
+        const issues = Array.isArray(d.issues) ? d.issues : [];
+        let detail = JSON.stringify(d);
+        if (detail.length > 24000) detail = JSON.stringify({ ...d, ok_rooms: undefined, rows: undefined, truncated: true }).slice(0, 24000);
+        return env.DB.prepare(`INSERT INTO slip_denials (at, desk_id, desk, site, role, action, sh_no, slip_id, building, kinds, rooms, detail, device, browser, build)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(tAt(d.at), me.id, me.name, tStr(d.site || me.site, 10), me.role, tStr(d.action, 12),
+            tStr(d.sh_no, 30), tInt(d.slip_id, 1e12), tStr(d.building, 60), tStr([...new Set(issues.map(x => x && x.kind).filter(Boolean))].join(','), 80),
+            tStr([...new Set(issues.map(x => x && x.room).filter(Boolean))].join(','), 300), detail.replace(/[<>]/g, ''),
+            tStr(c.device, 10), tStr(c.browser, 20), tStr(c.build, 20));
+    });
+    if (stmts.length) await env.DB.batch(stmts);
+    return json({ ok: true, saved: stmts.length });
+}
+
+// GET /api/slip-denials?days=7&site=makkah — newest first
+async function listSlipDenials(url, env) {
+    const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days')) || 7));
+    const site = url.searchParams.get('site');
+    const since = new Date(Date.now() - days * 864e5).toISOString();
+    await env.DB.prepare('DELETE FROM slip_denials WHERE at < ?').bind(new Date(Date.now() - 90 * 864e5).toISOString()).run();
+    const { results } = await env.DB.prepare(`SELECT id, at, desk, site, role, action, sh_no, slip_id, building, kinds, rooms, detail, device, browser, build
+        FROM slip_denials WHERE at >= ?${SITES[site] ? ' AND site = ?' : ''} ORDER BY id DESC LIMIT 1000`).bind(...(SITES[site] ? [since, site] : [since])).all();
+    return json({ denials: results });
 }
 
 async function patchFeedback(req, env, id) {

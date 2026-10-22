@@ -60,3 +60,29 @@ body { background: var(--pf-bg) url("../../../assets/pattern_gold_2x.png") repea
 .pf-tags span { font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #f6ecd2; color: var(--pf-gold-deep); }
 .pf-ctx { color: var(--pf-muted); font-size: 11.5px; }
 @media (max-width: 640px) { .pf { padding: 10px 10px 24px; } .pf-grid { grid-template-columns: 1fr; } }
+
+/* Slip saves refused (denials.js) */
+.dn-sum { display: grid; gap: 6px; margin-bottom: 10px; }
+.dn-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; font-size: 12.5px; }
+.dn-chips > b { color: var(--pf-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; margin-right: 4px; }
+.dn-chips span { padding: 1px 9px; border-radius: 999px; background: #f6ecd2; color: #5a4310; }
+.dn-chips i { font-style: normal; font-weight: 800; color: var(--pf-bad); }
+.dn-warn { margin: 2px 0 0; font-size: 12.5px; font-weight: 700; color: var(--pf-mid); }
+.dn-list { display: grid; gap: 6px; }
+.dn { background: #fff; border: 1px solid var(--pf-edge); border-left: 5px solid var(--pf-bad); border-radius: 10px; padding: 7px 10px; }
+.dn summary { cursor: pointer; font-size: 13px; line-height: 1.6; }
+.dn summary small, .dn-when { color: var(--pf-muted); }
+.dn-kind { display: inline-block; margin-left: 4px; font-size: 11px; font-weight: 800; padding: 0 8px; border-radius: 999px; background: #fde2df; color: var(--pf-bad); }
+.dn-kind.server { background: #e8e8f6; color: #3b3b8f; } .dn-kind.window, .dn-kind.badtime { background: #fff1d6; color: var(--pf-mid); }
+.dn-body { margin-top: 8px; display: grid; gap: 8px; font-size: 13px; }
+.dn-facts { display: grid; gap: 3px; } .dn-facts > span > b { color: var(--pf-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; margin-right: 6px; }
+.dn-issues { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.dn-bad { color: var(--pf-bad); }
+.dn-sub { display: block; color: #4a3b2a; margin: 2px 0; }
+.dn-flag { display: inline-block; font-size: 11px; font-weight: 800; padding: 0 7px; border-radius: 999px; background: #fff1d6; color: var(--pf-mid); }
+.dn-tbl { border-collapse: collapse; font-size: 12.5px; margin-top: 4px; width: 100%; max-width: 720px; }
+.dn-tbl th { text-align: left; background: #f6ecd2; padding: 3px 6px; font-size: 11.5px; } .dn-tbl td { padding: 3px 6px; border-top: 1px solid #f0e6d2; }
+.dn-tbl .n { text-align: right; } .dn-tbl tr.dn-hit td { background: #fde2df; font-weight: 700; }
+.dn-ok { margin: 0; color: var(--pf-ok); font-size: 12.5px; }
+.dn-copy { justify-self: start; font: inherit; font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--pf-edge); background: #fff; color: var(--pf-gold-deep); cursor: pointer; }
+.dn-chips input, #dnFind { font: inherit; font-size: 12.5px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--pf-edge); }

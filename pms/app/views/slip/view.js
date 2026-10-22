@@ -1,7 +1,8 @@
 // Ported from pms/accommodation_slip.html (its five scripts merged into one module).
 // Behaviour is unchanged; storage goes through ctx.db (the cloud).
 
-import { UserError, sync } from '../../core/cloud.js';
+import { UserError, sync, state } from '../../core/cloud.js';
+import { recordSlipDenial } from '../../core/telemetry.js';
 import { loadBuildings, buildingNames, builderCapacity } from '../../core/rooms.js';
 import { baseSh } from '../../core/ums.js';
 import { openRoomPicker } from './room-picker.js';
@@ -423,13 +424,18 @@ export default async function mount(ctx) {
     // Every room of this slip against the other slips in it: { pass, okRooms, issues, building, start, end }.
     // The result is shown in a window (checkmodal.js) — by "Check availability", and by Save / Edit when it fails.
     async function checkAvailability() {
+        // the latest slips from every desk first — a check-out corrected on another desk a minute ago must count
+        // (offline: this browser's copy; how old it was goes into the record of a refused save)
+        let synced = true;
+        try { await sync({ force: true }); } catch (e) { synced = false; if (!(e instanceof UserError)) console.warn('sync before check', e); }
         await refreshDBCache();
+        const copy = { synced, last_sync: state.lastSync ? new Date(state.lastSync).toISOString() : null, slips: DB_CACHE.length, online: navigator.onLine };
 
         const bld = ($('building').value || '').trim();
         const ci = parseDT($('checkin_date').value, $('checkin_time').value);
         const co = parseDT($('checkout_date').value, $('checkout_time').value);
 
-        if (!bld || !ci || !co || co <= ci) return { pass: false, okRooms: [], issues: [{ kind: 'window' }], building: bld };
+        if (!bld || !ci || !co || co <= ci) return { pass: false, okRooms: [], issues: [{ kind: 'window', missing: [!bld && 'building', !ci && 'check-in', !co && 'check-out', ci && co && co <= ci && 'check-out not after check-in'].filter(Boolean) }], building: bld, copy, own: [] };
         const issues = [], okRooms = [];
 
         // This slip's rows: each row is a window (delayed departures give rows their own check-out)
@@ -440,8 +446,8 @@ export default async function mount(ctx) {
             if (!room) continue;
             const beds = Number.isFinite(+r.assigned) ? +r.assigned : 0;
             const end = (r.out && parseDT(r.out.date, r.out.time)) || co;
-            if (end <= ci) { issues.push({ kind: 'badtime', room }); continue; }
-            own.push({ room, start: +ci, end: +end, beds });
+            if (end <= ci) { issues.push({ kind: 'badtime', room, out: r.out }); continue; }
+            own.push({ room, side, start: +ci, end: +end, beds, cap_row: Number(r.capacity) || null });
             if (!capLocalOf.get(room) && Number.isFinite(+r.capacity) && +r.capacity > 0) capLocalOf.set(room, +r.capacity);
         }
         const uniqRooms = [...new Set(own.map(o => o.room))];
@@ -456,23 +462,28 @@ export default async function mount(ctx) {
                 const room = cleanRoom(w.room_no);
                 if (!others.has(room) || !w.start || !w.end || w.beds <= 0) continue;
                 if (!(w.start < lastEnd && w.end > +ci)) continue;
-                others.get(room).push({ start: w.start, end: w.end, beds: w.beds, sh: r.sh_no });
+                others.get(room).push({ start: w.start, end: w.end, beds: w.beds, sh: r.sh_no, id: r.id, status: w.status, ums: !!r.ums });
             }
         }
 
         // Capacity from the current row first, then Rooms & Buildings, then last-known from history
+        // (capSource keeps which one was used and what the others said — a row capacity that disagrees with
+        // Rooms & Buildings is a common reason for a surprise "over its beds")
+        const capSource = new Map();
         function resolveCapacity(room) {
             const local = capLocalOf.get(room) || 0;
-            if (local > 0) return local;
             const fromBuilder = builderCapacity(BUILDINGS, bld, room);
-            if (fromBuilder > 0) return fromBuilder;
+            const src = { row: local || null, builder: fromBuilder ?? null, used: null };
+            capSource.set(room, src);
+            if (local > 0) { src.used = 'row'; return local; }
+            if (fromBuilder > 0) { src.used = 'builder'; return fromBuilder; }
             for (let i = DB_CACHE.length - 1; i >= 0; i--) {
                 const rec = DB_CACHE[i];
                 if ((rec.building || '').trim() !== bld) continue;
                 const arr = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])];
                 const hit = arr.find(z => cleanRoom(z.room_no) === room);
                 const histCap = Number.isFinite(+hit?.capacity) ? +hit.capacity : 0;
-                if (histCap > 0) return histCap;
+                if (histCap > 0) { src.used = 'history'; src.history = histCap; src.history_slip = rec.id; return histCap; }
             }
             return 0; // unknown
         }
@@ -481,7 +492,7 @@ export default async function mount(ctx) {
         const blocked = new Set();
         for (const room of uniqRooms) {
             const cap = resolveCapacity(room);
-            if (!cap) { blocked.add(room); issues.push({ kind: 'nocap', room }); continue; }
+            if (!cap) { blocked.add(room); issues.push({ kind: 'nocap', room, cap_source: capSource.get(room) }); continue; }
             const mine = own.filter(o => o.room === room), theirs = others.get(room);
             const times = new Set([...mine.map(o => o.start), ...theirs.map(e => e.start)]);
             let worst = { total: -1, existing: 0, want: 0, t: null, who: [] };
@@ -494,24 +505,49 @@ export default async function mount(ctx) {
             }
             if (worst.total < 0) continue;
             if (worst.total <= cap) {
-                okRooms.push({ room, before: worst.existing, after: worst.total, cap });
+                okRooms.push({ room, before: worst.existing, after: worst.total, cap, cap_source: capSource.get(room) });
             } else {
                 blocked.add(room);
-                issues.push({ kind: 'blocked', room, at: worst.t, cap, existing: worst.existing, want: worst.want, total: worst.total, who: worst.who });
+                issues.push({ kind: 'blocked', room, at: worst.t, cap, existing: worst.existing, want: worst.want, total: worst.total, who: worst.who,
+                    cap_source: capSource.get(room), others: theirs });
             }
         }
 
         highlightConflicts(blocked);
         const pass = !issues.length;
         $('status').textContent = pass ? 'Availability OK.' : `${issues.length} room problem${issues.length === 1 ? '' : 's'} — see the window.`;
-        return { pass, okRooms, issues, building: bld, start: +ci, end: lastEnd };
+        return { pass, okRooms, issues, building: bld, start: +ci, end: lastEnd, copy, own };
     }
     const timelineHref = (p) => ctx.href('timeline', p);
     const report = (r, extra) => showSlipReport({ ok: r.okRooms, issues: r.issues, building: r.building, start: r.start, end: r.end, ...extra }, timelineHref);
-    const notSaved = (r, what) => report(r, { tone: 'bad', title: `Not ${what} — ${r.issues.length} problem${r.issues.length === 1 ? '' : 's'} to fix`,
-        lead: 'Nothing was saved. Fix the points in bold, then press the button again.' });
+    // A refused Save / Edit / Save as a copy goes to the Performance page with every condition that was checked:
+    // what was typed, each room's beds and where the capacity came from, every other stay in those rooms,
+    // and how fresh this browser's copy of the slips was (core/telemetry.js → POST /api/slip-denials)
+    const iso = (ms) => ms ? new Date(ms).toISOString() : null;
+    const win = (w) => ({ ...w, start: iso(w.start), end: iso(w.end) });
+    function logDenial(action, r, server) {
+        try {
+            const v = (id) => $(id).value;
+            recordSlipDenial({
+                site: ctx.siteId, action, sh_no: v('sh_no').trim(), slip_id: CURRENT_ID || null, building: (v('building') || '').trim(),
+                form: { checkin: `${v('checkin_date')} ${v('checkin_time')}`, checkout: `${v('checkout_date')} ${v('checkout_time')}`,
+                    gents: v('gents'), ladies: v('ladies'), children: v('children'), infants: v('infants'), total: v('total'), delayed: $('delayOn')?.checked || false },
+                stay: r ? { start: iso(r.start), end: iso(r.end) } : null,
+                rows: (r?.own || []).map(win),
+                issues: r ? r.issues.map(x => ({ ...x, at: iso(x.at), who: x.who?.map(win), others: x.others?.map(win) })) : [{ kind: 'server', ...server }],
+                ok_rooms: r?.okRooms || [],
+                copy: r?.copy || null,
+            });
+        } catch (e) { console.warn('could not record the refused save', e); }
+    }
+    const notSaved = (r, what, action) => {
+        logDenial(action, r);
+        report(r, { tone: 'bad', title: `Not ${what} — ${r.issues.length} problem${r.issues.length === 1 ? '' : 's'} to fix`,
+            lead: 'Nothing was saved. Fix the points in bold, then press the button again.' });
+    };
     // a save the server refused: what it means and what to do
     function saveError(err, what) {
+        logDenial(what === 'Save' ? (CURRENT_ID ? 'copy' : 'save') : 'update', null, { status: err?.status ?? null, message: String(err?.message || err).slice(0, 300) });
         const msg = err instanceof UserError ? err.message : `${what} failed: ${err?.message || err}`;
         const help = err?.status === 409 ? ['Another desk changed this slip a moment ago. Load it again (type its SH No. and fetch), check the changes, then save again.']
             : /offline|connection/i.test(msg) ? ['The PMS cannot reach the server. Check the internet connection, then save again — nothing was saved yet.']
@@ -587,7 +623,7 @@ export default async function mount(ctx) {
                 !confirm('This slip comes from the UMS import.\n\nUse "Edit" to update it (rooms, building, times).\n"Save" creates a separate copy that will double-count.\n\nCreate a separate copy anyway?')) return;
             const data = getFormData();
             const r = await checkAvailability(); // guard before saving
-            if (!r.pass) { notSaved(r, 'saved'); return; }
+            if (!r.pass) { notSaved(r, 'saved', CURRENT_ID ? 'copy' : 'save'); return; }
             const id = await addRecord(data);
             setCurrent(id);
             $('status').textContent = `Saved as #${id}`;
@@ -604,7 +640,7 @@ export default async function mount(ctx) {
             if (!CURRENT_ID) { showSlipReport({ tone: 'warn', title: 'No slip loaded', issues: [{ kind: 'text', text: 'Edit changes a slip that is already saved.', help: ['Type its SH No. and fetch it (or open it from a list) first, then press Edit.', 'For a brand-new slip use Save instead.'] }] }, timelineHref); return; }
             const data = getFormData();
             const r = await checkAvailability(); // validate before edit too
-            if (!r.pass) { notSaved(r, 'updated'); return; }
+            if (!r.pass) { notSaved(r, 'updated', 'update'); return; }
             delete data.createdAt; // keep original
             const id = await updateRecord(CURRENT_ID, data);
             $('status').textContent = `Updated #${id}`;

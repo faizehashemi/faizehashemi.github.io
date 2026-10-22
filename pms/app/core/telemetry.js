@@ -12,7 +12,7 @@ import { currentBuild } from './update.js';
 const KEY = 'pms_telemetry_queue';
 const MAX_QUEUE = 300;
 const FLUSH_MS = 3 * 60 * 1000;
-const SELF = /\/api\/(telemetry|feedback)\b/;
+const SELF = /\/api\/(telemetry|feedback|slip-denials)\b/;
 
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const write = (q) => { try { localStorage.setItem(KEY, JSON.stringify(q.slice(-MAX_QUEUE))); } catch { } };
@@ -116,8 +116,34 @@ export function startTelemetry() {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(true); });
 }
 
+/* ------------------------------ slip saves refused ------------------------------ */
+// One record per refused Save / Edit on the Slip page (views/slip/view.js), sent at once — or kept here and sent with
+// the next flush when the server cannot be reached. Read on the Performance page (POST / GET /api/slip-denials).
+const DENY_KEY = 'pms_slip_denials_queue';
+const readDen = () => { try { return JSON.parse(localStorage.getItem(DENY_KEY) || '[]'); } catch { return []; } };
+const writeDen = (q) => { try { localStorage.setItem(DENY_KEY, JSON.stringify(q.slice(-30))); } catch { } };
+let sendingDen = false;
+export function recordSlipDenial(rec) {
+    if (!currentDesk()) return;
+    writeDen([...readDen(), { at: new Date().toISOString(), ...rec }]);
+    flushDenials();
+}
+async function flushDenials() {
+    const q = readDen();
+    if (!q.length || sendingDen || !currentDesk() || !navigator.onLine) return;
+    sendingDen = true;
+    const batch = q.slice(0, 20);
+    try {
+        await request('POST', '/api/slip-denials', { denials: batch, ctx: context() });
+        const sent = new Set(batch.map(x => x.at));
+        writeDen(readDen().filter(x => !sent.has(x.at)));
+    } catch { /* kept for the next try */ }
+    finally { sendingDen = false; }
+}
+
 let sending = false;
 export async function flush(leaving = false) {
+    if (!leaving) flushDenials();
     const q = read();
     if (!q.length || sending || !currentDesk() || !navigator.onLine) return;
     sending = true;
