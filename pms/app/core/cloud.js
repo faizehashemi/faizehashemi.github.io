@@ -87,6 +87,7 @@ const emit = (name, detail) => window.dispatchEvent(new CustomEvent(name, { deta
 export async function request(method, path, body) {
     const s = getSession();
     let res;
+    const t0 = performance.now();
     try {
         res = await fetch(apiBase() + path, {
             method,
@@ -105,6 +106,8 @@ export async function request(method, path, body) {
         await forgetSession();
         emit('pms:logged-out', { reason: data?.error || 'Please log in again.' });
     }
+    // every server wait, for the Performance page (core/telemetry.js) and the feedback card (after a save)
+    emit('pms:request', { method, path, ms: Math.round(performance.now() - t0), status: res.status, ok: res.ok });
     if (!res.ok) throw new ApiError(res.status, data?.error || `Server error (${res.status})`, data);
     return data;
 }

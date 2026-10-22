@@ -231,6 +231,14 @@ async function route(req, env) {
     if (mm && m === 'DELETE') { requireAdmin(me); return deleteDesk(env, me, Number(mm[1])); }
     if (p === '/api/audit' && m === 'GET') { requireAdmin(me); return listAudit(url, env); }
 
+    // Performance page: page timings and in-page feedback from every login; the summary and the feedback for admins
+    if (p === '/api/telemetry' && m === 'POST') return postTelemetry(req, env, me);
+    if (p === '/api/feedback' && m === 'POST') return postFeedback(req, env, me);
+    if (p === '/api/perf/summary' && m === 'GET') { requireAdmin(me); return perfSummary(url, env); }
+    if (p === '/api/feedback' && m === 'GET') { requireAdmin(me); return listFeedback(url, env); }
+    mm = p.match(/^\/api\/feedback\/(\d+)$/);
+    if (mm && m === 'PATCH') { requireAdmin(me); return patchFeedback(req, env, Number(mm[1])); }
+
     throw new HttpError(404, 'Not found');
 }
 
@@ -2539,4 +2547,110 @@ async function listAudit(url, env) {
         "SELECT a.id, a.at, a.action, a.slip_id, a.detail, COALESCE(d.name, x.name || ' (deleted)') AS desk FROM audit a LEFT JOIN desks d ON d.id = a.desk_id LEFT JOIN deleted_desks x ON x.id = a.desk_id ORDER BY a.id DESC LIMIT ?"
     ).bind(limit).all();
     return json({ audit: results });
+}
+
+/* ------------------------------ performance & feedback ------------------------------ */
+// Rows come from every desk's browser (pms/app/core/telemetry.js, feedback.js): bounded text, whole numbers, at most
+// 60 events a call. perf_events older than 90 days are dropped when the summary is read.
+const tStr = (v, n) => v == null ? null : String(v).replace(/[<>]/g, '').slice(0, n);
+const tInt = (v, max = 1e7) => { const x = Number(v); return Number.isFinite(x) ? Math.max(0, Math.min(max, Math.round(x))) : null; };
+const tNum = (v, max = 1e6) => { const x = Number(v); return Number.isFinite(x) ? Math.max(0, Math.min(max, Math.round(x * 1000) / 1000)) : null; };
+function tAt(v) {
+    const ms = Date.parse(String(v || ''));
+    return Number.isFinite(ms) && Math.abs(Date.now() - ms) < 3 * 864e5 ? new Date(ms).toISOString() : now();
+}
+const PERF_KINDS = ['route', 'load', 'error'];
+
+async function postTelemetry(req, env, me) {
+    const { events, ctx } = await body(req);
+    if (!Array.isArray(events)) throw new HttpError(400, 'events must be a list.');
+    const c = ctx && typeof ctx === 'object' ? ctx : {};
+    const cf = req.cf || {};
+    const stmts = events.slice(0, 60).filter(e => e && PERF_KINDS.includes(e.kind)).map(e => env.DB.prepare(
+        `INSERT INTO perf_events (at, desk_id, desk, site, role, kind, page, ms_total, ms_server, server_calls, long_ms, lcp, inp, cls, ttfb, dom_ready, load_ms,
+            device, os, browser, browser_ver, app, screen, mem, cores, net_type, downlink, rtt, save_data, colo, country, build, err)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
+        tAt(e.at), me.id, me.name, tStr(e.site || me.site, 10), me.role, e.kind, tStr(e.page, 40),
+        tInt(e.ms_total, 6e5), tInt(e.ms_server, 6e5), tInt(e.server_calls, 1000), tInt(e.long_ms, 6e5),
+        tInt(e.lcp, 6e5), tInt(e.inp, 6e4), tNum(e.cls, 100), tInt(e.ttfb, 6e5), tInt(e.dom_ready, 6e5), tInt(e.load_ms, 6e5),
+        tStr(c.device, 10), tStr(c.os, 20), tStr(c.browser, 20), tStr(c.browser_ver, 12), tStr(c.app, 10), tStr(c.screen, 12),
+        tNum(c.mem, 1024), tInt(c.cores, 256), tStr(e.net_type ?? c.net_type, 10), tNum(e.downlink ?? c.downlink, 10000),
+        tInt(e.rtt ?? c.rtt, 60000), c.save_data ? 1 : 0, tStr(cf.colo, 8), tStr(cf.country, 4), tStr(c.build, 20), tStr(e.err, 400)));
+    if (stmts.length) await env.DB.batch(stmts);
+    return json({ ok: true, saved: stmts.length });
+}
+
+async function postFeedback(req, env, me) {
+    const f = await body(req);
+    const rating = tInt(f.rating, 5);
+    if (!(rating >= 1 && rating <= 5)) throw new HttpError(400, 'Choose 1 to 5 stars.');
+    const c = f.ctx && typeof f.ctx === 'object' ? f.ctx : {};
+    const cf = req.cf || {};
+    const tags = Array.isArray(f.tags) ? f.tags.map(x => tStr(x, 30)).filter(Boolean).slice(0, 8).join(', ') : '';
+    await env.DB.prepare(
+        `INSERT INTO feedback (at, desk_id, desk, site, role, page, trigger, rating, tags, text, page_ms, device, browser, net_type, colo, country, build)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(now(), me.id, me.name, tStr(f.site || me.site, 10), me.role, tStr(f.page, 40), tStr(f.trigger, 20),
+        rating, tags, tStr(f.text, 1000) || '', tInt(c.page_ms, 6e5), tStr(c.device, 10), tStr(c.browser, 20), tStr(c.net_type, 10),
+        tStr(cf.colo, 8), tStr(cf.country, 4), tStr(c.build, 20)).run();
+    return json({ ok: true });
+}
+
+const pct = (arr, p) => { if (!arr.length) return null; const s = [...arr].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
+function perfGroups(rows, keyOf) {
+    const by = new Map();
+    for (const r of rows) { const k = keyOf(r) || '—'; if (!by.has(k)) by.set(k, []); by.get(k).push(r); }
+    return [...by].map(([key, list]) => {
+        const ms = list.map(r => r.ms_total).filter(x => x != null), srv = list.map(r => r.ms_server).filter(x => x != null);
+        return { key, n: list.length, p50: pct(ms, .5), p95: pct(ms, .95), server_p50: pct(srv, .5), calls: Math.round(list.reduce((s, r) => s + (r.server_calls || 0), 0) / list.length * 10) / 10 };
+    }).sort((a, b) => b.n - a.n);
+}
+
+// GET /api/perf/summary?days=7&site=makkah — page timings grouped every useful way, recent errors, feedback stars per page
+async function perfSummary(url, env) {
+    const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days')) || 7));
+    const site = url.searchParams.get('site');
+    const since = new Date(Date.now() - days * 864e5).toISOString();
+    await env.DB.prepare('DELETE FROM perf_events WHERE at < ?').bind(new Date(Date.now() - 90 * 864e5).toISOString()).run();
+    const where = `at >= ?${SITES[site] ? ' AND site = ?' : ''}`, args = SITES[site] ? [since, site] : [since];
+    const [ev, fb] = await env.DB.batch([
+        env.DB.prepare(`SELECT at, kind, page, site, ms_total, ms_server, server_calls, long_ms, lcp, inp, cls, ttfb, dom_ready, load_ms,
+            device, os, browser, app, net_type, rtt, colo, country, build, err, desk FROM perf_events WHERE ${where} ORDER BY at DESC LIMIT 60000`).bind(...args),
+        env.DB.prepare(`SELECT page, rating FROM feedback WHERE ${where}`).bind(...args),
+    ]);
+    const all = ev.results, routes = all.filter(r => r.kind === 'route'), loads = all.filter(r => r.kind === 'load');
+    const errors = all.filter(r => r.kind === 'error');
+    const stars = new Map();
+    for (const f of fb.results) { const s = stars.get(f.page) || { n: 0, sum: 0 }; s.n++; s.sum += f.rating; stars.set(f.page, s); }
+    const pages = perfGroups(routes, r => r.page).map(g => ({ ...g, errors: errors.filter(e => e.page === g.key).length,
+        stars: stars.has(g.key) ? Math.round(stars.get(g.key).sum / stars.get(g.key).n * 10) / 10 : null, ratings: stars.get(g.key)?.n || 0 }));
+    const ms = routes.map(r => r.ms_total).filter(x => x != null);
+    const v = (k) => loads.map(r => r[k]).filter(x => x != null);
+    return json({
+        days, site: SITES[site] ? site : null, since,
+        totals: { routes: routes.length, loads: loads.length, errors: errors.length, p50: pct(ms, .5), p95: pct(ms, .95),
+            desks: new Set(all.map(r => r.desk)).size, feedback: fb.results.length,
+            stars: fb.results.length ? Math.round(fb.results.reduce((s, f) => s + f.rating, 0) / fb.results.length * 10) / 10 : null },
+        vitals: { ttfb: pct(v('ttfb'), .5), dom_ready: pct(v('dom_ready'), .5), load: pct(v('load_ms'), .5), lcp: pct(v('lcp'), .5), inp: pct(routes.map(r => r.inp).filter(x => x != null), .75), cls: pct(v('cls'), .75) },
+        pages,
+        device: perfGroups(routes, r => r.device), browser: perfGroups(routes, r => r.browser), os: perfGroups(routes, r => r.os),
+        app: perfGroups(routes, r => r.app), net: perfGroups(routes, r => r.net_type), site_groups: perfGroups(routes, r => r.site),
+        colo: perfGroups(routes, r => r.colo && `${r.colo} (${r.country || '?'})`), build: perfGroups(routes, r => r.build).sort((a, b) => String(b.key).localeCompare(String(a.key))).slice(0, 12),
+        day: perfGroups(routes, r => String(r.at).slice(0, 10)).sort((a, b) => a.key.localeCompare(b.key)),
+        errors: errors.slice(0, 40).map(r => ({ at: r.at, page: r.page, err: r.err, desk: r.desk, browser: r.browser, device: r.device })),
+    });
+}
+
+async function listFeedback(url, env) {
+    const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
+    const since = new Date(Date.now() - days * 864e5).toISOString();
+    const { results } = await env.DB.prepare(`SELECT id, at, desk, site, role, page, trigger, rating, tags, text, page_ms, device, browser, net_type, colo, country, build, status
+        FROM feedback WHERE at >= ? ORDER BY id DESC LIMIT 1000`).bind(since).all();
+    return json({ feedback: results });
+}
+
+async function patchFeedback(req, env, id) {
+    const { status } = await body(req);
+    if (!['new', 'seen', 'handled'].includes(status)) throw new HttpError(400, 'status: new, seen or handled.');
+    await env.DB.prepare('UPDATE feedback SET status = ? WHERE id = ?').bind(status, id).run();
+    return json({ ok: true });
 }

@@ -16,6 +16,10 @@ import { initAnalytics, pageview, identify, resetAnalytics, track } from './core
 import { loadBuildings } from './core/rooms.js';
 import { applyPrefs, getPrefs, loadServerPrefs } from './core/prefs.js';
 import { watchForUpdates } from './core/update.js';
+import { startTelemetry } from './core/telemetry.js';
+import { startFeedback } from './core/feedback.js';
+startTelemetry(); // page timings → Performance page
+startFeedback();  // the in-page "How is your experience?" card
 
 applyPrefs(); // this browser's Settings, before anything is drawn
 watchForUpdates(); // new website build → reload; Android app too old → "Update required" (core/update.js)
@@ -175,6 +179,8 @@ async function route() {
     pageview(siteId, view.id);
 
     unmount();
+    window.dispatchEvent(new CustomEvent('pms:route-start', { detail: { view: view.id, site: siteId } }));
+    let opened = false;
     outlet.setAttribute('aria-busy', 'true');
     const stopLoader = showLoader({ text: `Opening ${view.title}` }); // only shows if the page takes a moment
     try {
@@ -220,6 +226,7 @@ async function route() {
         if (typeof cleanup === 'function') {
             if (current === mine) mine.cleanup = cleanup; else cleanup();
         }
+        opened = true;
     } catch (err) {
         console.error(err);
         outlet.innerHTML = `<div style="max-width:720px;margin:40px auto;padding:16px;border:1px solid #e6bcbc;background:#fff1f1;border-radius:12px;font:14px system-ui">
@@ -227,6 +234,7 @@ async function route() {
     } finally {
         stopLoader();
         if (seq === routeSeq) outlet.removeAttribute('aria-busy');
+        if (seq === routeSeq) window.dispatchEvent(new CustomEvent('pms:route-done', { detail: { view: view.id, site: siteId, ok: opened } }));
     }
     if (seq === routeSeq && desk) refreshBadge();
 }

@@ -1,0 +1,55 @@
+<div class="pf">
+    <header class="pf-head">
+        <div>
+            <h1>Performance &amp; feedback</h1>
+            <p>How long pages take on the desks' own devices and connections, what breaks, and what the desks say about each page.</p>
+        </div>
+        <div class="pf-controls">
+            <label>Period<select id="pfDays"><option value="1">Last 24 hours</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
+            <label>Site<select id="pfSite"><option value="">Both sites</option><option value="makkah">Makkah</option><option value="medina">Medina</option></select></label>
+            <button type="button" id="pfRefresh" class="pf-btn">↻ Refresh</button>
+        </div>
+    </header>
+    <p class="pf-msg" id="pfMsg"></p>
+
+    <section class="pf-kpis" id="pfKpis"></section>
+
+    <section class="pf-card">
+        <div class="pf-card-head"><h2>Pages</h2><span class="pf-note">time from the menu click until the page is drawn · typical (median) and slow (95th percentile) · server = time waiting for the server</span></div>
+        <div class="pf-scroll"><table class="pf-tbl" id="pfPages"></table></div>
+    </section>
+
+    <section class="pf-grid">
+        <div class="pf-card"><div class="pf-card-head"><h2>By device</h2></div><div class="pf-scroll"><table class="pf-tbl" id="pfDevice"></table></div></div>
+        <div class="pf-card"><div class="pf-card-head"><h2>By browser</h2></div><div class="pf-scroll"><table class="pf-tbl" id="pfBrowser"></table></div></div>
+        <div class="pf-card"><div class="pf-card-head"><h2>By connection</h2><span class="pf-note">as the browser reports it (Chrome, Edge, Android)</span></div><div class="pf-scroll"><table class="pf-tbl" id="pfNet"></table></div></div>
+        <div class="pf-card"><div class="pf-card-head"><h2>By system &amp; app</h2></div><div class="pf-scroll"><table class="pf-tbl" id="pfOs"></table></div></div>
+        <div class="pf-card"><div class="pf-card-head"><h2>By site</h2></div><div class="pf-scroll"><table class="pf-tbl" id="pfSiteT"></table></div></div>
+        <div class="pf-card"><div class="pf-card-head"><h2>By Cloudflare location</h2></div><div class="pf-scroll"><table class="pf-tbl" id="pfColo"></table></div></div>
+    </section>
+
+    <section class="pf-grid">
+        <div class="pf-card"><div class="pf-card-head"><h2>Day by day</h2><span class="pf-note">median page time per day</span></div><div id="pfDay"></div></div>
+        <div class="pf-card"><div class="pf-card-head"><h2>By build</h2><span class="pf-note">each deploy of the website — did it get slower?</span></div><div class="pf-scroll"><table class="pf-tbl" id="pfBuild"></table></div></div>
+    </section>
+
+    <section class="pf-card">
+        <div class="pf-card-head"><h2>Full loads (opening the PMS)</h2><span class="pf-note">median · first byte from the server, page ready, everything loaded, main content shown (LCP), slowest tap response (INP), layout shift (CLS)</span></div>
+        <div class="pf-vitals" id="pfVitals"></div>
+    </section>
+
+    <section class="pf-card">
+        <div class="pf-card-head"><h2>Feedback</h2>
+            <span class="pf-fb-filters">
+                <select id="fbStars"><option value="">All stars</option><option value="1-2">1–2 ★</option><option value="3">3 ★</option><option value="4-5">4–5 ★</option></select>
+                <select id="fbStatus"><option value="">Any status</option><option value="new">New</option><option value="seen">Seen</option><option value="handled">Handled</option></select>
+                <select id="fbPage"><option value="">All pages</option></select>
+            </span></div>
+        <div id="pfFeedback"></div>
+    </section>
+
+    <section class="pf-card">
+        <div class="pf-card-head"><h2>Recent errors</h2><span class="pf-note">pages that could not open and script errors, newest first</span></div>
+        <div class="pf-scroll"><table class="pf-tbl" id="pfErrors"></table></div>
+    </section>
+</div>

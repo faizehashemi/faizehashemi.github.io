@@ -360,3 +360,32 @@ CREATE TABLE IF NOT EXISTS flight_history (
     checked  TEXT NOT NULL,                          -- last top-up (ISO)
     data     TEXT NOT NULL                           -- JSON: { rows: [{ id, code, orig, dest, dest_actual, off, on, seen, ended, reg }], from, inbound, inbound_checked }
 );
+
+-- Performance page (Data): one row per page opened / full load / error in a desk's browser (pms/app/core/telemetry.js).
+-- Timings in ms; device, browser and connection as the browser reports them; colo/country from Cloudflare. Kept 90 days.
+CREATE TABLE IF NOT EXISTS perf_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT NOT NULL,
+    desk_id     INTEGER, desk TEXT, site TEXT, role TEXT,
+    kind        TEXT NOT NULL,              -- route | load | error
+    page        TEXT,
+    ms_total    INTEGER, ms_server INTEGER, server_calls INTEGER, long_ms INTEGER,
+    lcp INTEGER, inp INTEGER, cls REAL, ttfb INTEGER, dom_ready INTEGER, load_ms INTEGER,
+    device TEXT, os TEXT, browser TEXT, browser_ver TEXT, app TEXT, screen TEXT, mem REAL, cores INTEGER,
+    net_type TEXT, downlink REAL, rtt INTEGER, save_data INTEGER,
+    colo TEXT, country TEXT, build TEXT, err TEXT
+);
+CREATE INDEX IF NOT EXISTS perf_events_at ON perf_events(at);
+
+-- In-page feedback (pms/app/core/feedback.js): 1–5 stars and what made them say it; read on the Performance page.
+CREATE TABLE IF NOT EXISTS feedback (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT NOT NULL,
+    desk_id     INTEGER, desk TEXT, site TEXT, role TEXT,
+    page        TEXT, trigger TEXT,
+    rating      INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    tags        TEXT, text TEXT,
+    page_ms     INTEGER, device TEXT, browser TEXT, net_type TEXT, colo TEXT, country TEXT, build TEXT,
+    status      TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'seen', 'handled'))
+);
+CREATE INDEX IF NOT EXISTS feedback_at ON feedback(at);

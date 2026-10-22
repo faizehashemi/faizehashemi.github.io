@@ -65,6 +65,9 @@ async function check() {
     if (info.web && info.web !== loaded) { clearInterval(timer); reloadSoon(); }
 }
 
+/** The build this page runs (version.json "web"), once the first check has answered. */
+export const currentBuild = () => loaded;
+
 /** Start watching for new versions (call once at boot). */
 export function watchForUpdates() {
     check();
