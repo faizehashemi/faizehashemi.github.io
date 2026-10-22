@@ -4,9 +4,12 @@
 // (= guests who left × days extended). Infants are left out of every count: they are never given a bed.
 // Makkah → Madina / Madina → Makkah: from the UMS import (madinaDate / makkahDate), else from the group's other stays
 // (its Madina stay, its second Makkah stay "S…").
+// Split groups: a desk may move part of a group to a slip of its own (E42878 / ES42878 next to 42878 / S42878).
+// Slips of the same site whose SH has the same digits and whose stays overlap are reported as one group:
+// the pax columns add up to the whole booking and every part's departures are rows of that group.
 
 import { loadScript } from '../../core/lib.js';
-import { isDelayed, paxAt, departuresOf } from '../../core/stay.js';
+import { isDelayed, paxAt, departuresOf, slipStart, slipEnd } from '../../core/stay.js';
 import { baseSh } from '../../core/ums.js';
 
 const EXCELJS = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
@@ -16,24 +19,37 @@ const ymdOf = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad
 const days = (a, b) => Math.round((Date.parse(`${b}T12:00`) - Date.parse(`${a}T12:00`)) / 864e5);
 const cap = (s) => { const t = String(s || '').trim().toLowerCase(); return t ? t[0].toUpperCase() + t.slice(1) : ''; };
 const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+// 42878, S42878, E42878, ES42878 → "42878"
+const digitsOf = (sh) => String(sh ?? '').trim().toUpperCase().replace(/^[A-Z]+(?=\d)/, '');
 
 /** The rows of the report (also used to count before writing). */
 /** range: { from, to } 'YYYY-MM-DD' — only departures (Extended Departure Date) inside it; SR NO counts the groups shown */
 export function reportRows(slips, all, range = {}) {
     const delayed = slips.filter(s => !s.deleted && isDelayed(s))
         .sort((a, b) => String(a.delayed?.original_checkout?.date || a.checkout_date).localeCompare(String(b.delayed?.original_checkout?.date || b.checkout_date)) || String(a.sh_no).localeCompare(String(b.sh_no), undefined, { numeric: true }));
-    const out = [];
+    const out = [], done = new Set();
     delayed.forEach((s, gi) => {
+        if (done.has(s.id)) return; // already reported as part of a split group
         const u = s.ums || {}, key = baseSh(s.sh_no);
+        const a0 = slipStart(s), z0 = slipEnd(s);
+        const parts = [s, ...all.filter(o => !o.deleted && o.id !== s.id && o.site === s.site && digitsOf(o.sh_no) === digitsOf(s.sh_no)
+            && slipStart(o) < z0 && slipEnd(o) > a0)];
+        parts.forEach(p => done.add(p.id));
+        const sum = (f) => parts.reduce((n, p) => n + num(f(p)), 0);
+        const at = (t) => parts.map(p => paxAt(p, t)).reduce((x, y) => ({ gents: x.gents + y.gents, ladies: x.ladies + y.ladies, children: x.children + y.children }), { gents: 0, ladies: 0, children: 0 });
+        // every part's departures, one row per moment (two parts leaving together are one row)
+        const events = new Map();
+        for (const p of parts) for (const d of departuresOf(p)) if (!events.has(d.at)) events.set(d.at, d);
+        const split = parts.length > 1 ? `\n(${parts.map(p => `${p.sh_no} ${num(p.gents) + num(p.ladies) + num(p.children ?? p.child)}`).join(' + ')})` : '';
         const others = all.filter(o => !o.deleted && o.id !== s.id && baseSh(o.sh_no) === key);
         const medina = [s, ...others].find(o => o.site === 'medina');
         const second = [s, ...others].find(o => o.site === 'makkah' && /^S/i.test(String(o.sh_no)));
         const toMadina = u.madinaDate || (medina && (u.firstArrival || 'MAKKAH') !== 'MADINA' ? medina.checkin_date : '');
         const toMakkah = u.makkahDate || (second ? second.checkin_date : (medina && u.firstArrival === 'MADINA' ? medina.checkout_date : ''));
-        const g = num(s.gents), l = num(s.ladies), c = num(s.children ?? s.child), i = num(s.infants ?? s.infant);
+        const g = sum(p => p.gents), l = sum(p => p.ladies), c = sum(p => p.children ?? p.child);
         const booked = s.delayed?.original_checkout?.date || s.checkout_date;
-        for (const d of departuresOf(s)) {
-            const before = paxAt(s, d.at - 1), after = paxAt(s, d.at);
+        for (const d of [...events.values()].sort((x, y) => x.at - y.at)) {
+            const before = at(d.at - 1), after = at(d.at);
             const adults = (before.gents + before.ladies) - (after.gents + after.ladies);
             // infants have no bed of their own: not counted in CH, the pax columns or the beds used
             const beds = (p) => p.gents + p.ladies + p.children;
@@ -44,7 +60,7 @@ export function reportRows(slips, all, range = {}) {
             const ext = ymdOf(d.at), extDays = days(depDay, ext);
             if ((range.from && ext < range.from) || (range.to && ext > range.to)) continue;
             out.push({
-                sr: gi + 1, ref: key || String(s.sh_no ?? ''), kind: u.family ? 'Individual' : 'Group', operator: u.operator || s.tour_name || '',
+                sr: gi + 1, ref: (key || String(s.sh_no ?? '')) + split, kind: u.family ? 'Individual' : 'Group', operator: u.operator || s.tour_name || '',
                 leader: String(s.group_leader || u.glName || '').trim() || '-', country: u.country || '', first: cap(u.firstArrival || (s.site === 'medina' ? 'Madina' : 'Makkah')),
                 a: g + l, ch: c, tot: g + l + c,
                 arrival: dmy(u.arrival?.date || s.checkin_date), toMadina: dmy(toMadina), toMakkah: dmy(toMakkah), departure: dmy(depDay),
