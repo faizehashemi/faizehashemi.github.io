@@ -35,3 +35,7 @@
 .tp-name:hover { border-color: #c9a227; background: #fff; }
 .tp-name:hover span { opacity: .8; }
 .tp-name.manual { color: #364fc7; }
+/* Medina Ziyarat: gents / ladies parts */
+.tp-part { display: inline-block; font-size: 10.5px; font-weight: 900; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; color: #fff; }
+.tp-part.gents { background: #2f6fb3; } .tp-part.ladies { background: #b33a6f; }
+.tp-zsplit { border-color: #b33a6f !important; color: #8a2a55 !important; }

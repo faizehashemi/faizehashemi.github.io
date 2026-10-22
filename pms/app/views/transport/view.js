@@ -8,6 +8,7 @@ import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { loadSignage, saveSignageConfig } from '../../core/signage-api.js';
 import { loadBuildings, buildingNames } from '../../core/rooms.js';
 import { baseSh } from '../../core/ums.js';
+import { isZiyarat, openZiyaratSplit } from '../../core/ziyarat.js';
 
 export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
@@ -77,7 +78,7 @@ export default async function mount(ctx) {
                     ${nameCell(r, 'leader')}
                     <td class="n">${pax(r)}</td>
                     ${trCell(r, !!i)}
-                    <td>${esc(r.remarks)}${!i && writable ? `<button type="button" class="tp-addsh" data-addsh="${esc(r.key)}" title="Add a group (SH) to this ${esc(VEHICLES[b.vehicle].title.toLowerCase())}">＋ SH</button>` : ''}</td>
+                    <td>${r.part ? `<span class="tp-part ${r.part}">${r.part === 'gents' ? 'GENTS' : 'LADIES'}</span> ` : ''}${esc(r.remarks)}${!i && writable ? `<button type="button" class="tp-addsh" data-addsh="${esc(r.key)}" title="Add a group (SH) to this ${esc(VEHICLES[b.vehicle].title.toLowerCase())}">＋ SH</button>` : ''}${!i && writable && isZiyarat(ctx.siteId, r.route) ? `<button type="button" class="tp-addsh tp-zsplit" data-zsplit="${esc(r.key.replace(/-L$/, ''))}" title="Gents and ladies on their own Ziyarat trips">${r.part ? '⚥ Gents / Ladies…' : '⚥ Split gents / ladies'}</button>` : ''}</td>
                     ${delCell(r)}
                   </tr>`).join('');
                 const order = air && s.buses.length > 1 && writable
@@ -477,6 +478,20 @@ export default async function mount(ctx) {
         const stamp = Date.now().toString(36).toUpperCase();
         const riders = adds.map((add, i) => ({ key: `M${stamp}${i}`, dora: '', vch: '', transporter: '', at: parent.at, route: '', remarks: `added to SH ${parent.ref}'s ${vehicleOf(parent)}`, adj: '', loc: '', ...add, with: parent.key, manual: true }));
         save([...doc.rows, ...riders].sort((a, b) => a.at.localeCompare(b.at)), `SH ${adds.map(a => a.ref).join(', ')} added to ${parent.ref ? `SH ${parent.ref}` : 'a vehicle'}`);
+    });
+
+    // Medina Ziyarat: split a bus's groups into a gents trip and a ladies trip (core/ziyarat.js)
+    $('tpList').addEventListener('click', async (e) => {
+        const b = e.target.closest('button[data-zsplit]');
+        if (!b || saving) return;
+        const main = doc.rows.find(r => r.key === b.dataset.zsplit);
+        if (!main) return;
+        const info = resolve(doc.rows);
+        const riders = doc.rows.filter(r => info.get(r.key)?.parent === main);
+        const rows = await openZiyaratSplit(main, riders, doc.rows);
+        if (!rows) return;
+        const undone = !rows.some(r => r.key === `${main.key}-L`);
+        save(assignBuses(rows.map(r => ({ ...r })), doc.rows), undone ? `Ziyarat split undone for SH ${main.ref || main.key}` : `Ziyarat gents / ladies for SH ${main.ref || main.key} (${riders.length + 1} groups)`);
     });
 
     // airport departures: number one destination's vehicles by departure time (buses, cars and each custom name

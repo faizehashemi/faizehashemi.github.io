@@ -4,6 +4,7 @@
 // #/<site>/transport-print?day=YYYY-MM-DD
 import { loadDay, listDays, signage, destsFor, vehicleWord, today, sheetDate, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
+import { ziyaratSummary } from '../../core/ziyarat.js';
 import { UserError, canOpen } from '../../core/cloud.js';
 
 // the destinations a desk unticked (a destination added later starts ticked); the old key kept the ticked ones
@@ -45,7 +46,7 @@ function sheet(day, dest, b) {
         <colgroup><col style="width:24%"><col style="width:46%"><col style="width:17%"><col style="width:13%"></colgroup>
         <tr><td class="h date">${esc(sheetDate(day))}</td>
             <td class="h bus${vehicleWord(b.vehicle, b.vlabel).length > 5 ? ' long' : ''}" rowspan="2"><span class="w">${esc(vehicleWord(b.vehicle, b.vlabel))}</span><span class="n">${esc(b.bus ?? '')}</span></td>
-            <td class="h dest${dest.label.length > 8 ? ' long' : ''}" colspan="2">${esc(dest.label)}</td></tr>
+            <td class="h dest${(dest.label + (b.rows[0]?.part ? ' X GENTS' : '')).length > 8 ? ' long' : ''}" colspan="2">${esc(dest.label)}${b.rows[0]?.part ? `<br>${b.rows[0].part === 'gents' ? 'GENTS' : 'LADIES'}` : ''}</td></tr>
         <tr><td class="h time">${esc(time12(b.at))}</td><td class="h col">SH REF</td><td class="h col">PAX NO</td></tr>
         ${b.rows.map(r => `<tr class="row"><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td>${esc(r.ref)}</td><td>${esc(r.pax)}</td></tr>`).join('')}
       </table>
@@ -56,7 +57,17 @@ function sheet(day, dest, b) {
 
 // The day's summary: per destination, in the sheet yellows — every chosen trip with its time, vehicle and number
 function summary(day, groups) {
-    return groups.map(({ dest, buses }) => {
+    return groups.map((g) => {
+        // Medina Ziyarat split into gents / ladies: the desks' Ziyarat sheets, then any bus not split as usual
+        if (g.dest.id === 'mdziyarat') {
+            const z = ziyaratSummary(day, g);
+            return z.html + (z.rest.length ? table(day, { dest: g.dest, buses: z.rest }) : '');
+        }
+        return table(day, g);
+    }).join('');
+}
+function table(day, { dest, buses }) {
+    {
         const pax = buses.reduce((s, b) => s + b.pax, 0);
         return `<table class="sum">
           <colgroup><col style="width:19%"><col style="width:28%"><col style="width:10%"><col style="width:7%"><col style="width:10%"><col style="width:12%"><col style="width:8%"><col style="width:6%"></colgroup>
@@ -70,7 +81,7 @@ function summary(day, groups) {
             <td class="n">${esc(time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(vehicleWord(b.vehicle, b.vlabel))}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
           <tfoot><tr><td colspan="3">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="4"></td></tr></tfoot>
         </table>`;
-    }).join('');
+    }
 }
 
 export default async function mount(ctx) {

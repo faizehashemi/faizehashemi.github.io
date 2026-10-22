@@ -14,6 +14,8 @@ let SH_PREFIXES = DEFAULTS.sh_prefixes;
 let SH_RE = shPattern(SH_PREFIXES);
 const shValue = (v) => { const s = String(v ?? '').trim().toUpperCase(); return s === '' ? '' : /^\d+$/.test(s) ? Number(s) : s; };
 
+import { showSlipReport } from './checkmodal.js';
+
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
     let HOLD_DAYS = DEFAULTS.delay_hold_days; // Setup → Delayed departures: an unknown date holds the beds this long
@@ -418,6 +420,8 @@ export default async function mount(ctx) {
         });
     }
 
+    // Every room of this slip against the other slips in it: { pass, okRooms, issues, building, start, end }.
+    // The result is shown in a window (checkmodal.js) — by "Check availability", and by Save / Edit when it fails.
     async function checkAvailability() {
         await refreshDBCache();
 
@@ -425,10 +429,8 @@ export default async function mount(ctx) {
         const ci = parseDT($('checkin_date').value, $('checkin_time').value);
         const co = parseDT($('checkout_date').value, $('checkout_time').value);
 
-        if (!bld || !ci || !co || co <= ci) {
-            alert('Enter a valid building and check-in/check-out window first.');
-            return false;
-        }
+        if (!bld || !ci || !co || co <= ci) return { pass: false, okRooms: [], issues: [{ kind: 'window' }], building: bld };
+        const issues = [], okRooms = [];
 
         // This slip's rows: each row is a window (delayed departures give rows their own check-out)
         const own = [];
@@ -438,7 +440,7 @@ export default async function mount(ctx) {
             if (!room) continue;
             const beds = Number.isFinite(+r.assigned) ? +r.assigned : 0;
             const end = (r.out && parseDT(r.out.date, r.out.time)) || co;
-            if (end <= ci) { alert(`Room ${room}: its check-out is before the check-in.`); return false; }
+            if (end <= ci) { issues.push({ kind: 'badtime', room }); continue; }
             own.push({ room, start: +ci, end: +end, beds });
             if (!capLocalOf.get(room) && Number.isFinite(+r.capacity) && +r.capacity > 0) capLocalOf.set(room, +r.capacity);
         }
@@ -477,10 +479,9 @@ export default async function mount(ctx) {
 
         // Per room: the busiest moment while this group is in it — other groups there then + this group's beds then
         const blocked = new Set();
-        const lines = [];
         for (const room of uniqRooms) {
             const cap = resolveCapacity(room);
-            if (!cap) { blocked.add(room); lines.push(`${room}: capacity unknown. Enter capacity for this slip.`); continue; }
+            if (!cap) { blocked.add(room); issues.push({ kind: 'nocap', room }); continue; }
             const mine = own.filter(o => o.room === room), theirs = others.get(room);
             const times = new Set([...mine.map(o => o.start), ...theirs.map(e => e.start)]);
             let worst = { total: -1, existing: 0, want: 0, t: null, who: [] };
@@ -493,25 +494,30 @@ export default async function mount(ctx) {
             }
             if (worst.total < 0) continue;
             if (worst.total <= cap) {
-                lines.push(`${room}: OK. Before Assigned: ${worst.existing}/${cap}. After Assignment: ${worst.total}/${cap}. Remaining now ${Math.max(0, cap - worst.total)}.`);
+                okRooms.push({ room, before: worst.existing, after: worst.total, cap });
             } else {
                 blocked.add(room);
-                const who = worst.who.map(e => `SH ${e.sh} (${e.beds}, ${fmt(new Date(e.start))} → ${fmt(new Date(e.end))})`).join(', ');
-                lines.push(`${room}: BLOCKED on ${fmt(new Date(worst.t))}. ${who || 'Other groups'} use ${worst.existing}/${cap}; this group's ${worst.want} would make ${worst.total}/${cap}.`);
+                issues.push({ kind: 'blocked', room, at: worst.t, cap, existing: worst.existing, want: worst.want, total: worst.total, who: worst.who });
             }
         }
 
         highlightConflicts(blocked);
-
-        if (blocked.size) {
-            alert(lines.join('\n'));
-            $('status').textContent = `${blocked.size} room(s) at or over capacity.`;
-            return false;
-        } else {
-            alert(lines.join('\n') + '\nAll entered rooms are available within capacity.');
-            $('status').textContent = 'Availability OK.';
-            return true;
-        }
+        const pass = !issues.length;
+        $('status').textContent = pass ? 'Availability OK.' : `${issues.length} room problem${issues.length === 1 ? '' : 's'} — see the window.`;
+        return { pass, okRooms, issues, building: bld, start: +ci, end: lastEnd };
+    }
+    const timelineHref = (p) => ctx.href('timeline', p);
+    const report = (r, extra) => showSlipReport({ ok: r.okRooms, issues: r.issues, building: r.building, start: r.start, end: r.end, ...extra }, timelineHref);
+    const notSaved = (r, what) => report(r, { tone: 'bad', title: `Not ${what} — ${r.issues.length} problem${r.issues.length === 1 ? '' : 's'} to fix`,
+        lead: 'Nothing was saved. Fix the points in bold, then press the button again.' });
+    // a save the server refused: what it means and what to do
+    function saveError(err, what) {
+        const msg = err instanceof UserError ? err.message : `${what} failed: ${err?.message || err}`;
+        const help = err?.status === 409 ? ['Another desk changed this slip a moment ago. Load it again (type its SH No. and fetch), check the changes, then save again.']
+            : /offline|connection/i.test(msg) ? ['The PMS cannot reach the server. Check the internet connection, then save again — nothing was saved yet.']
+            : err?.status === 403 ? ['This login may not change this site\'s slips. Ask an admin, or log in with a desk login of this site.']
+            : ['Try again in a moment. If it keeps failing, note the SH No. and tell the admin.'];
+        showSlipReport({ tone: 'bad', title: `${what} failed`, issues: [{ kind: 'text', text: msg, help }] }, timelineHref);
     }
 
     /* ========= Bulk Rooms: multi-separator + bold big beds count ========= */
@@ -574,38 +580,39 @@ export default async function mount(ctx) {
     }
 
     /* ---------------------------- Events --------------------------- */
-    const saveFailed = (err, fallback) => alert(err instanceof UserError ? err.message : fallback);
 
     $('btnSave').addEventListener('click', async () => {
         try {
             if (CURRENT_ID && DB_CACHE.find(r => r.id === CURRENT_ID)?.ums &&
                 !confirm('This slip comes from the UMS import.\n\nUse "Edit" to update it (rooms, building, times).\n"Save" creates a separate copy that will double-count.\n\nCreate a separate copy anyway?')) return;
             const data = getFormData();
-            const ok = await checkAvailability(); // guard before saving
-            if (ok === false) return;
+            const r = await checkAvailability(); // guard before saving
+            if (!r.pass) { notSaved(r, 'saved'); return; }
             const id = await addRecord(data);
             setCurrent(id);
             $('status').textContent = `Saved as #${id}`;
+            report(r, { tone: 'ok', title: `Saved ✓ — SH ${data.sh_no || '—'} (#${id})`, lead: `${data.building || ''}${r.okRooms.length ? ` · ${r.okRooms.length} room${r.okRooms.length === 1 ? '' : 's'}` : ' · no rooms yet'} · ${fmt(new Date(r.start))} → ${fmt(new Date(r.end))}` });
         } catch (err) {
             $('status').textContent = err instanceof UserError ? err.message : 'Save failed. Check console.';
             console.error('Save error:', err);
-            saveFailed(err, 'Failed to save. Your browser may block IndexedDB in this context.');
+            saveError(err, 'Save');
         }
     });
 
     $('btnEdit').addEventListener('click', async () => {
         try {
-            if (!CURRENT_ID) { alert('Load a slip (Saved list or SH Fetch) before editing.'); return; }
+            if (!CURRENT_ID) { showSlipReport({ tone: 'warn', title: 'No slip loaded', issues: [{ kind: 'text', text: 'Edit changes a slip that is already saved.', help: ['Type its SH No. and fetch it (or open it from a list) first, then press Edit.', 'For a brand-new slip use Save instead.'] }] }, timelineHref); return; }
             const data = getFormData();
-            const ok = await checkAvailability(); // validate before edit too
-            if (ok === false) return;
+            const r = await checkAvailability(); // validate before edit too
+            if (!r.pass) { notSaved(r, 'updated'); return; }
             delete data.createdAt; // keep original
             const id = await updateRecord(CURRENT_ID, data);
             $('status').textContent = `Updated #${id}`;
+            report(r, { tone: 'ok', title: `Updated ✓ — SH ${data.sh_no || '—'} (#${id})`, lead: `${data.building || ''}${r.okRooms.length ? ` · ${r.okRooms.length} room${r.okRooms.length === 1 ? '' : 's'}` : ' · no rooms yet'} · ${fmt(new Date(r.start))} → ${fmt(new Date(r.end))}` });
         } catch (err) {
             $('status').textContent = err instanceof UserError ? err.message : 'Edit failed. See console.';
             console.error('Edit error:', err);
-            saveFailed(err, 'Edit failed.');
+            saveError(err, 'Update');
         }
     });
 
@@ -677,7 +684,11 @@ export default async function mount(ctx) {
     });
 
     $('btnFetchCap').addEventListener('click', fetchCapacities);
-    $('btnCheckAvail').addEventListener('click', checkAvailability);
+    $('btnCheckAvail').addEventListener('click', async () => {
+        const r = await checkAvailability();
+        if (r.pass) report(r, { tone: 'ok', title: 'Availability OK ✓', lead: r.okRooms.length ? 'Every room has room for this group for the whole stay.' : 'No rooms entered yet.' });
+        else report(r, { tone: 'bad', title: `${r.issues.length} problem${r.issues.length === 1 ? '' : 's'} to fix`, lead: 'Fix the points in bold before saving.' });
+    });
     $('btnPickRooms').addEventListener('click', async () => {
         const building = ($('building').value || '').trim();
         const ci = parseDT($('checkin_date').value, $('checkin_time').value);

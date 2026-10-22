@@ -5,6 +5,7 @@
 
 import { loadBuildings, buildingsOfSite, findBuilding } from '../../core/rooms.js';
 import { rowsOf } from '../../core/stay.js';
+import { printGrid } from './export.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -348,7 +349,9 @@ let BUILDINGS = [];
             });
             wireSizeControls();
 
-            $('btnPrintGrid').addEventListener('click', () => printOnlyById('matrix'));
+            // Print: PDF (new tab, landscape) or Excel — asked first
+            $('btnPrintGrid').addEventListener('click', () => printGrid($('matrix'), {
+                building: document.querySelector('.tab[aria-selected="true"]')?.textContent || '', date: $('asof_date').value, time: $('asof_time').value, site: ctx.site?.label || '' }));
         })();
 
 }

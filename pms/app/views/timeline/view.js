@@ -96,6 +96,18 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
         start.setMinutes(0,0,0); now.setMinutes(0,0,0);
         startInp.value=toLocalDT(start);
         endInp.value=toLocalDT(now);
+
+        // opened from a link (e.g. the Slip page's problem window): that room, those dates, drawn at once
+        const P = app.params;
+        if (P && P.get && P.get('building') && P.get('room')) {
+          const b = P.get('building');
+          if (![...buildingSel.options].some(o => o.value === b)) buildingSel.insertAdjacentHTML('beforeend', `<option>${b.replace(/[<>&"]/g, '')}</option>`);
+          buildingSel.value = b; buildingSel.onchange();
+          roomInp.value = P.get('room');
+          if (P.get('from')) startInp.value = P.get('from');
+          if (P.get('to')) endInp.value = P.get('to');
+          setTimeout(() => btnEnter.click(), 0);
+        }
       }catch(e){
         dbHint.textContent='DB error: '+e.message;
         dbHint.style.color='#a3572f';

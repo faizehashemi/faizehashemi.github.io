@@ -47,7 +47,7 @@
 .sum { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 8mm; color: #000; break-inside: auto; }
 .sum th, .sum td { border: 1.5px solid #000; padding: 1.6mm 2mm; text-align: center; vertical-align: middle; }
 .sum thead { display: table-header-group; }
-.sum .band th { background: #f1c232; color: #fff; font: 900 20pt "Arial Black", Arial, sans-serif; text-decoration: underline; text-underline-offset: 3px; text-shadow: 0 1px 1px rgba(0, 0, 0, .25); }
+.sum .band th { background: #f1c232; color: #000; font: 900 20pt "Arial Black", Arial, sans-serif; text-decoration: underline; text-underline-offset: 3px; } /* destination and date: bold, black */
 .sum .band .d { font-size: 15pt; }
 .sum .cols th { background: #ffd966; font: 900 10.5pt "Arial Black", Arial, sans-serif; text-decoration: underline; }
 .sum tbody td { background: #fff2cc; font: 700 11pt "Times New Roman", Georgia, serif; text-transform: uppercase; color: #3d3100; }
@@ -67,3 +67,12 @@ html.tq-print-summary .tq-summary { display: block; }
     .sheet { box-shadow: none; padding: 0; width: 100%; height: 190mm; break-after: page; page-break-after: always; }
     .sheet:last-child { break-after: auto; page-break-after: auto; }
 }
+/* Medina Ziyarat sheets (gents / ladies), as the desks' own */
+.sum.zy th, .sum.zy td { background: #fff; color: #000; font: 700 11pt Calibri, Arial, sans-serif; text-transform: uppercase; border: 1.5px solid #000; }
+.sum.zy .zy-title th { font: 900 17pt Calibri, Arial, sans-serif; background: #fff; color: #000; text-decoration: none; }
+.sum.zy .zy-cols th { font: 900 10.5pt Calibri, Arial, sans-serif; background: #fff; color: #000; text-decoration: none; }
+.sum.zy .zy-red { color: #e00000; }
+.sum.zy td.zy-name { text-align: left; font-size: 10pt; }
+.sum.zy td.zy-tp { color: #e00000; font-weight: 900; }
+.sum.zy .zy-note td { text-align: center; font-size: 11pt; }
+.sum.zy .zy-total td { font: 900 12pt Calibri, Arial, sans-serif; }
