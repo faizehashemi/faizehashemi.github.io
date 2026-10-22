@@ -148,7 +148,8 @@ dialog.mc::backdrop { background: rgba(30, 20, 5, .5); }
 }
 
 /* ---------- building occupancy (occupancy.js, the old Home tiles) ---------- */
-.hm-occ .battery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.hm-occ .battery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; min-height: 120px; }
+.hm-dc .dc-svg { min-height: 340px; } /* the chart's room before it is drawn (no jump) */
 .hm-occ .battery-card { border: 1px solid var(--edge); border-radius: 14px; padding: 12px; display: grid; gap: 8px; background: var(--panel); box-shadow: var(--shade); }
 .hm-occ .b-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hm-occ .b-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

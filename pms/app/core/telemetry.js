@@ -99,7 +99,16 @@ export function startTelemetry() {
 
     // errors: the page and a short message
     const err = (msg) => push({ kind: 'error', page: route?.page || null, site: route?.site || null, err: String(msg || 'error').slice(0, 300) });
-    window.addEventListener('error', (e) => err(e.message || (e.target && e.target.src ? `could not load ${e.target.src}` : 'error')), true);
+    // only the PMS's own files and code: a blocked add-on of another site (e.g. Cloudflare's visitor counter
+    // static.cloudflareinsights.com, stopped by ad blockers) is not a PMS error
+    const own = (url) => { try { return new URL(url, location.href).origin === location.origin; } catch { return false; } };
+    window.addEventListener('error', (e) => {
+        const src = e.target && (e.target.src || e.target.href);
+        if (src) { if (own(src)) err(`could not load ${src}`); return; }          // a file that failed to load
+        if (e.filename && !own(e.filename)) return;                              // another site's script
+        if (!e.filename && /^Script error\.?$/.test(e.message || '')) return;  // a cross-origin script, details hidden
+        err(e.message || 'error');
+    }, true);
     window.addEventListener('unhandledrejection', (e) => err(e.reason && (e.reason.message || e.reason)));
 
     // send: every few minutes, and when the tab goes to the background (closing, switching apps)

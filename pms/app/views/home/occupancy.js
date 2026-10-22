@@ -18,7 +18,8 @@ const saveCaps = (m) => { try { localStorage.setItem(CAP_KEY, JSON.stringify(m |
 /** Draw the panel into `root` (the #hmOcc section). Call again to refresh. */
 export async function renderOccupancy(ctx, root, slips, day = ymd(new Date())) {
     const $ = (sel) => root.querySelector(sel);
-    const builder = buildingsOfSite(await ctx.guard(loadBuildings({ force: true })), ctx.siteId).filter(b => b.rooms.length);
+    // Home asks for a fresh copy when it opens; the refreshes every few minutes take the copy kept for a minute or two
+    const builder = buildingsOfSite(await ctx.guard(loadBuildings()), ctx.siteId).filter(b => b.rooms.length);
     const beds = Object.fromEntries(builder.map(b => [b.name, totalBeds(b)]));
     const buildings = [...new Set([...builder.map(b => b.name), ...slips.map(s => String(s.building || '').trim())])].sort((a, b) => a.localeCompare(b));
 

@@ -26,6 +26,8 @@
     <style>
         /* Shell only. Every view brings its own stylesheet (app/views/<id>/view.css). */
         #view[aria-busy="true"] { min-height: 60vh; }
+        /* the footer starts below the screen and stays there while a page fills in (no jump) */
+        #view { min-height: calc(100vh - 120px); min-height: calc(100svh - 120px); }
     </style>
     <!-- after each page's own stylesheet (the router inserts those before this one) -->
     <link rel="stylesheet" href="app/core/responsive.css" id="responsive-css" data-shell>

@@ -178,6 +178,8 @@ async function route() {
     document.title = `${view.title} · ${SITES[siteId].label}`;
     pageview(siteId, view.id);
 
+    // keep the old page's height while the new one loads, so the footer and the rest do not jump up and back down
+    if (outlet.offsetHeight) outlet.style.minHeight = `${outlet.offsetHeight}px`;
     unmount();
     window.dispatchEvent(new CustomEvent('pms:route-start', { detail: { view: view.id, site: siteId } }));
     let opened = false;
@@ -233,7 +235,7 @@ async function route() {
             <b>Could not open “${view.title}”.</b><br>${String(err && err.message || err)}</div>`;
     } finally {
         stopLoader();
-        if (seq === routeSeq) outlet.removeAttribute('aria-busy');
+        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; }
         if (seq === routeSeq) window.dispatchEvent(new CustomEvent('pms:route-done', { detail: { view: view.id, site: siteId, ok: opened } }));
     }
     if (seq === routeSeq && desk) refreshBadge();

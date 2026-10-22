@@ -91,7 +91,11 @@ export default async function mount(ctx) {
         canOpen: mayOpenSlip(site), slipHref: (sh) => `#/${site}/slip?sh_no=${encodeURIComponent(sh)}` });
     let fe = null, mealsWho = null; // filled by numbers()
     let feWin = DEFAULTS.fe_windows;
-    try { feWin = { ...feWin, ...((await ctx.guard(loadSettings())).settings.fe_windows || {}) }; } catch { }
+    // what the page needs from the server, asked at the same time (one after another they cost a round trip each):
+    // the settings, Rooms & Buildings (fresh; the cards then use this copy) and the slips' sync
+    const settingsP = ctx.guard(loadSettings()).then(s => { feWin = { ...feWin, ...(s.settings.fe_windows || {}) }; }).catch(() => { });
+    const buildingsP = ctx.guard(loadBuildings({ force: true })).catch(() => null);
+    let firstHere = ctx.db.all();
     const hm = (d) => d.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
     for (const [id, key, title] of [['feMorning', 'morning', 'Fakkul Ehraam · Morning'], ['feNight', 'night', 'Fakkul Ehraam · Night'],
         ['feMadina', 'madina', 'Fakkul Ehraam · Night, from Madina']]) {
@@ -165,7 +169,10 @@ export default async function mount(ctx) {
 
     let viewDay = ymd(new Date()); // the day the cards show (Look ahead)
     async function numbers() {
-        const here = await ctx.db.all(); // this site, freshly synced
+        // this site, freshly synced (the first time: the sync already asked for at the start)
+        const here = await (firstHere || ctx.db.all());
+        firstHere = null;
+        await Promise.all([settingsP, buildingsP]);
         const all = (await ctx.guard(mirrorAll())).filter(r => !r.deleted);
         const N = dayNumbers(viewDay, here, all);
         const groups = (n) => `${n} group${n === 1 ? '' : 's'}`;
@@ -205,12 +212,16 @@ export default async function mount(ctx) {
 
     /* --------------------------- delayed departures --------------------------- */
     let dlLists = null;
+    // shown from the start when it was shown last time, so the cards below do not jump when it appears
+    const DL_SHOWN = `pms_home_dl_shown:${ctx.siteId}`;
+    try { if (localStorage.getItem(DL_SHOWN) === '1') $('hmDl').hidden = false; } catch { }
     $('hmDlLink').hidden = !canOpen('departures', desk);
     if (canOpen('departures', desk)) $('hmDlLink').href = ctx.href('departures');
     async function delayedCard(here) {
         const now = Date.now();
         const delayed = here.filter(s => !s.deleted && isDelayed(s) && slipEnd(s) > now);
         $('hmDl').hidden = !delayed.length;
+        try { localStorage.setItem(DL_SHOWN, delayed.length ? '1' : '0'); } catch { }
         if (!delayed.length) { dlLists = null; return; }
         const blds = await ctx.guard(loadBuildings());
         const capOf = (b, room) => builderCapacity(blds, b, room);

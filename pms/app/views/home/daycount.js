@@ -5,7 +5,7 @@
 // The choices are kept in this browser.
 
 import { SITES } from '../../config.js';
-import { paxAt } from '../../core/stay.js';
+import { paxAt, slipStart, slipEnd } from '../../core/stay.js';
 import { toHijri } from '../../core/hijri.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -37,7 +37,8 @@ let slipsAll = [];
 
 /** Bars for one city: [{ from, to, count, marked }] */
 function bars(siteId) {
-    const slips = slipsAll.filter(s => s.site === siteId);
+    const lo = dateOf(state.from).getTime(), hi = dateOf(state.to).getTime() + 864e5;
+    const slips = slipsAll.filter(s => s.site === siteId && (slipStart(s) || Infinity) < hi && (slipEnd(s) || 0) > lo);
     const days = [];
     for (let d = state.from, n = 0; d <= state.to && n < 800; d = addDays(d, 1), n++) {
         const t = dateOf(d).getTime() + 12 * 3600e3;
