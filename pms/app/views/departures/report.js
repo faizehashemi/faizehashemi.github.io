@@ -2,6 +2,7 @@
 // group, in the desks' layout: booking, group, pax, the actual schedule (arrival, Makkah → Madina, Madina → Makkah,
 // departure), remaining pax, pax departed, balance, the extended departure date, days extended and beds used
 // (= guests who left × days extended). Infants are left out of every count: they are never given a bed.
+// Only departures after the group's airport departure date (Column N) are listed.
 // Makkah → Madina / Madina → Makkah: from the UMS import (madinaDate / makkahDate), else from the group's other stays
 // (its Madina stay, its second Makkah stay "S…").
 // Split groups: a desk may move part of a group to a slip of its own (E42878 / ES42878 next to 42878 / S42878).
@@ -45,6 +46,9 @@ export function reportRows(slips, all, range = {}) {
         const medina = [s, ...others].find(o => o.site === 'medina');
         const second = [s, ...others].find(o => o.site === 'makkah' && /^S/i.test(String(o.sh_no)));
         const toMadina = u.madinaDate || (medina && (u.firstArrival || 'MAKKAH') !== 'MADINA' ? medina.checkin_date : '');
+        // the airport departure (Column N): from the group's latest UMS import — each stay keeps the date of its own import
+        const airport = [s, ...others].filter(o => o.ums?.departure?.date)
+            .sort((a, b) => String(b.ums.importedAt || '').localeCompare(String(a.ums.importedAt || '')))[0]?.ums.departure.date;
         const toMakkah = u.makkahDate || (second ? second.checkin_date : (medina && u.firstArrival === 'MADINA' ? medina.checkout_date : ''));
         const g = sum(p => p.gents), l = sum(p => p.ladies), c = sum(p => p.children ?? p.child);
         const booked = s.delayed?.original_checkout?.date || s.checkout_date;
@@ -55,10 +59,13 @@ export function reportRows(slips, all, range = {}) {
             const beds = (p) => p.gents + p.ladies + p.children;
             const ch = before.children - after.children;
             const left = beds(before) - beds(after);
-            // days extended = Extended Departure Date − Departure (the column shown), negative when they left early
-            const depDay = u.departure?.date || booked;
+            // days extended = Extended Departure Date − Departure (the column shown)
+            const depDay = airport || booked;
             const ext = ymdOf(d.at), extDays = days(depDay, ext);
             if ((range.from && ext < range.from) || (range.to && ext > range.to)) continue;
+            // only stays past the flight home: a group held over on the first leg (e.g. Makkah before Madina) leaves
+            // the hotel before its airport departure and is not a delayed departure
+            if (!(ext > depDay)) continue;
             out.push({
                 sr: gi + 1, ref: (key || String(s.sh_no ?? '')) + split, kind: u.family ? 'Individual' : 'Group', operator: u.operator || s.tour_name || '',
                 leader: String(s.group_leader || u.glName || '').trim() || '-', country: u.country || '', first: cap(u.firstArrival || (s.site === 'medina' ? 'Madina' : 'Makkah')),
