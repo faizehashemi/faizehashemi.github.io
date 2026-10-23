@@ -45,6 +45,7 @@ export default {
     },
     // Cloudflare cron (wrangler.toml [triggers], every 5 minutes): live flight status when it is due
     async scheduled(event, env, ctx) {
+        ctx.waitUntil(backupIfDue(env, event.scheduledTime).catch(e => console.error('backup', e && e.stack || e)));
         if (!FLIGHT_API_ON) return; // live flight status switched off (Check-ins shows only the Check 1 / Check 2 links)
         ctx.waitUntil(refreshFlightStatus(env, false).catch(e => console.error('flights', e && e.stack || e)));
     },
@@ -234,6 +235,7 @@ async function route(req, env) {
     if (mm && m === 'PATCH') { requireAdmin(me); return updateDesk(req, env, me, Number(mm[1])); }
     if (mm && m === 'DELETE') { requireAdmin(me); return deleteDesk(env, me, Number(mm[1])); }
     if (p === '/api/audit' && m === 'GET') { requireAdmin(me); return listAudit(url, env); }
+    if (p.startsWith('/api/backups')) { requireAdmin(me); const r = await backupRoute(p, m, url, req, env, me); if (r) return r; }
 
     // Performance page: page timings and in-page feedback from every login; the summary and the feedback for admins
     if (p === '/api/telemetry' && m === 'POST') return postTelemetry(req, env, me);
@@ -2623,6 +2625,180 @@ async function listAudit(url, env) {
         "SELECT a.id, a.at, a.action, a.slip_id, a.detail, COALESCE(d.name, x.name || ' (deleted)') AS desk FROM audit a LEFT JOIN desks d ON d.id = a.desk_id LEFT JOIN deleted_desks x ON x.id = a.desk_id ORDER BY a.id DESC LIMIT ?"
     ).bind(limit).all();
     return json({ audit: results });
+}
+
+/* ------------------------------ hourly backups ------------------------------ */
+// Every hour the cron (wrangler.toml) writes a compressed export of the database to KV (binding BACKUPS): kept hourly for
+// 72 h and one a day for 35 days. Each backup is three values so nothing heavy is read when it is not needed:
+//   slips — the slips table (a lookup of "how did this slip look" parses only this)
+//   rest  — every other table (logins without their password hashes)
+//   auth  — the logins WITH password hashes: never served by the API, only read with wrangler for a real restore
+// Format: { format: 'pms-backup-1', part, at, stem, tables: { name: { cols: [...], rows: [[...]] } } } gzipped.
+// Not kept: sessions, login failures, page-speed telemetry. Admin API: /api/backups (status + list), /download, /run,
+// /slip (a slip as it was in a backup), /restore-slip (writes that state back as a new version — also undeletes).
+// A missed run is made up at the next :30 tick. Restore of a whole database: tools/restore-backup.mjs.
+const BK_SKIP = new Set(['sessions', 'login_failures', 'perf_events']);
+const BK_SECRET_COLS = ['pw_hash', 'pw_salt', 'pw_iter'];
+const BK_HOURLY_TTL = 72 * 3600, BK_DAILY_TTL = 35 * 86400;
+const BK_PARTS = ['slips', 'rest', 'auth'];
+const stemOf = (d) => d.toISOString().slice(0, 16).replace(':', '-');                 // 2026-10-23T18-00
+const bkKey = (kind, stem, part) => `bk:${kind}:${stem}:${part}`;
+const gzip = async (text) => new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+const gunzip = async (bytes) => new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+const sha256Bytes = async (bytes) => toHex(await crypto.subtle.digest('SHA-256', bytes));
+
+async function bkDump(env) {
+    const { results: tl } = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all();
+    const names = tl.map(r => r.name).filter(n => !n.startsWith('sqlite_') && !n.startsWith('_cf_') && !BK_SKIP.has(n));
+    const sets = await env.DB.batch(names.map(n => env.DB.prepare(`SELECT * FROM "${n}"`)));
+    const tables = {};
+    names.forEach((n, i) => {
+        const res = sets[i].results, cols = res[0] ? Object.keys(res[0]) : [];
+        tables[n] = { cols, rows: res.map(r => cols.map(c => r[c])) };
+    });
+    return tables;
+}
+const bkRedact = (t) => {
+    const keep = t.cols.map((c, i) => BK_SECRET_COLS.includes(c) ? -1 : i).filter(i => i >= 0);
+    return { cols: keep.map(i => t.cols[i]), rows: t.rows.map(r => keep.map(i => r[i])) };
+};
+
+async function runBackup(env, trigger) {
+    if (!env.BACKUPS) throw new HttpError(503, 'Backups are not set up (the BACKUPS storage is not connected).');
+    const t0 = Date.now(), at = new Date(), stem = stemOf(at);
+    try {
+        const tables = await bkDump(env);
+        const names = Object.keys(tables);
+        const pick = (list) => Object.fromEntries(list.filter(n => tables[n]).map(n => [n, tables[n]]));
+        const parts = {
+            slips: pick(['slips']),
+            auth: pick(['desks']),
+            rest: { ...pick(names.filter(n => n !== 'slips')), ...(tables.desks ? { desks: bkRedact(tables.desks) } : {}) },
+        };
+        const daily = at.getUTCHours() === 0;                                         // 03:00 Saudi time: also a copy kept 35 days
+        let bytes = 0, rows = 0;
+        for (const part of BK_PARTS) {
+            const json = JSON.stringify({ format: 'pms-backup-1', part, at: at.toISOString(), stem, tables: parts[part] });
+            const gz = await gzip(json);
+            const n = Object.values(parts[part]).reduce((s, t) => s + t.rows.length, 0);
+            const metadata = { at: at.toISOString(), kind: trigger, part, bytes: gz.length, raw: json.length, rows: n, sha: await sha256Bytes(gz) };
+            await env.BACKUPS.put(bkKey('h', stem, part), gz, { expirationTtl: BK_HOURLY_TTL, metadata });
+            if (daily) await env.BACKUPS.put(bkKey('d', stem.slice(0, 10), part), gz, { expirationTtl: BK_DAILY_TTL, metadata: { ...metadata, kind: 'daily' } });
+            bytes += gz.length; if (part !== 'auth') rows += n;
+        }
+        const status = { ok: true, ok_at: at.toISOString(), stem, trigger, ms: Date.now() - t0, bytes, rows, tables: names.length,
+            counts: Object.fromEntries(names.map(n => [n, tables[n].rows.length])) };
+        await env.BACKUPS.put('bk:last', JSON.stringify(status));
+        return status;
+    } catch (e) {
+        const prev = await env.BACKUPS.get('bk:last', 'json').catch(() => null);
+        const status = { ...(prev || {}), ok: false, failed_at: at.toISOString(), error: String(e && e.message || e).slice(0, 300) };
+        await env.BACKUPS.put('bk:last', JSON.stringify(status)).catch(() => { });
+        throw e;
+    }
+}
+
+// the cron: on the first tick of every hour, and on the next one if the last good backup is more than 100 minutes old
+async function backupIfDue(env, scheduledTime) {
+    if (!env.BACKUPS) return;
+    const minute = new Date(scheduledTime).getUTCMinutes();
+    const last = await env.BACKUPS.get('bk:last', 'json').catch(() => null);
+    const age = last && last.ok_at ? Date.now() - Date.parse(last.ok_at) : Infinity;
+    if (minute < 30 || age > 100 * 60e3) await runBackup(env, 'hourly');
+}
+
+async function bkList(env) {
+    const items = new Map();
+    for (const kind of ['h', 'd']) {
+        let cursor;
+        do {
+            const r = await env.BACKUPS.list({ prefix: `bk:${kind}:`, cursor });
+            for (const k of r.keys) {
+                const [, , stem, part] = k.name.split(':');
+                if (!k.metadata || !BK_PARTS.includes(part)) continue;
+                const id = `${kind}:${stem}`;
+                const it = items.get(id) || { kind, stem, at: k.metadata.at, trigger: k.metadata.kind, parts: {} };
+                it.parts[part] = { bytes: k.metadata.bytes, raw: k.metadata.raw, rows: k.metadata.rows, sha: k.metadata.sha };
+                items.set(id, it);
+            }
+            cursor = r.list_complete ? undefined : r.cursor;
+        } while (cursor);
+    }
+    return [...items.values()].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+async function bkLoad(env, kind, stem, part) {
+    if (!/^[hd]$/.test(kind) || !/^[0-9T-]{10,16}$/.test(stem) || !['slips', 'rest'].includes(part)) throw new HttpError(400, 'Unknown backup.');
+    const bytes = await env.BACKUPS.get(bkKey(kind, stem, part), 'arrayBuffer');
+    if (!bytes) throw new HttpError(404, 'That backup is no longer kept (hourly copies are kept 72 hours, daily ones 35 days).');
+    return JSON.parse(await gunzip(new Uint8Array(bytes)));
+}
+const bkTable = (doc, name) => {
+    const t = doc.tables && doc.tables[name];
+    if (!t) throw new HttpError(404, `That backup has no ${name} table.`);
+    const ix = Object.fromEntries(t.cols.map((c, i) => [c, i]));
+    return { t, ix };
+};
+
+async function backupRoute(p, m, url, req, env, me) {
+    if (!env.BACKUPS) throw new HttpError(503, 'Backups are not set up (the BACKUPS storage is not connected).');
+    if (p === '/api/backups' && m === 'GET') {
+        const [status, items] = await Promise.all([env.BACKUPS.get('bk:last', 'json'), bkList(env)]);
+        return json({ status: status || null, items, now: now() });
+    }
+    if (p === '/api/backups/run' && m === 'POST') {
+        const s = await runBackup(env, 'manual');
+        await auditStmt(env, me, 'backup-run', null, `${s.rows} rows, ${Math.round(s.bytes / 1024)} KB`).run();
+        return json({ status: s });
+    }
+    if (p === '/api/backups/download' && m === 'GET') {
+        const kind = url.searchParams.get('kind') || 'h', stem = String(url.searchParams.get('stem') || ''), part = url.searchParams.get('part') || 'rest';
+        if (!/^[hd]$/.test(kind) || !/^[0-9T-]{10,16}$/.test(stem) || !['slips', 'rest'].includes(part)) throw new HttpError(400, 'Unknown backup.');   // the logins part is never served
+        const bytes = await env.BACKUPS.get(bkKey(kind, stem, part), 'arrayBuffer');
+        if (!bytes) throw new HttpError(404, 'That backup is no longer kept.');
+        await auditStmt(env, me, 'backup-download', null, `${kind}:${stem} ${part}`).run();
+        return new Response(bytes, { headers: { 'Content-Type': 'application/gzip', 'Cache-Control': 'no-store', 'Content-Disposition': `attachment; filename="pms-${stem}-${part}.json.gz"` } });
+    }
+    // a slip as it was in a backup, next to how it is now: ?kind=h&stem=2026-10-23T18-00&sh=43496 (or &id=948)
+    if (p === '/api/backups/slip' && m === 'GET') {
+        const doc = await bkLoad(env, url.searchParams.get('kind') || 'h', String(url.searchParams.get('stem') || ''), 'slips');
+        const { t, ix } = bkTable(doc, 'slips');
+        const digits = (s) => String(s || '').trim().toUpperCase().replace(/^[A-Z]+(?=\d)/, '');
+        const sh = digits(url.searchParams.get('sh')), id = Number(url.searchParams.get('id')) || 0;
+        if (!sh && !id) throw new HttpError(400, 'Give an SH number or a slip id.');
+        const hits = t.rows.filter(r => (id ? r[ix.id] === id : digits(r[ix.sh_no]) === sh)).slice(0, 12);
+        const ids = hits.map(r => r[ix.id]);
+        const live = ids.length ? (await env.DB.prepare(`SELECT id, site, sh_no, data, deleted, version FROM slips WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all()).results : [];
+        const liveBy = new Map(live.map(r => [r.id, r]));
+        return json({ stem: doc.stem, at: doc.at, matches: hits.map(r => {
+            const l = liveBy.get(r[ix.id]);
+            return { id: r[ix.id], site: r[ix.site], sh_no: r[ix.sh_no], deleted: !!r[ix.deleted], data: JSON.parse(r[ix.data]),
+                live: l ? { sh_no: l.sh_no, deleted: !!l.deleted, version: l.version, data: JSON.parse(l.data) } : null };
+        }) });
+    }
+    // writes a slip's state in a backup back as a NEW version (history keeps everything; a deleted slip comes back)
+    if (p === '/api/backups/restore-slip' && m === 'POST') {
+        const { kind = 'h', stem, slip_id } = await body(req);
+        const doc = await bkLoad(env, kind, String(stem || ''), 'slips');
+        const { t, ix } = bkTable(doc, 'slips');
+        const row = t.rows.find(r => r[ix.id] === Number(slip_id));
+        if (!row) throw new HttpError(404, 'That slip is not in this backup.');
+        const live = await getRow(env, Number(slip_id));
+        if (!live) throw new HttpError(404, 'This slip does not exist any more.');
+        const data = JSON.parse(row[ix.data]), liveData = JSON.parse(live.data);
+        if (data.ums && liveData.ums && liveData.ums.applied) data.ums = { ...data.ums, applied: liveData.ums.applied };   // as when a version is made active
+        data.updatedAt = now();
+        const s = prepareSlip(data), at = now();
+        const [res] = await env.DB.batch([
+            env.DB.prepare(`UPDATE slips SET sh_no = ?, building = ?, checkin_date = ?, checkout_date = ?, ums_key = ?, data = ?, deleted = 0,
+                    version = version + 1, seq = ${NEXT_SEQ}, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?`)
+                .bind(s.sh_no, s.building, s.checkin_date, s.checkout_date, s.ums_key, s.text, at, me.id, live.id, live.version),
+            verStmt(env, me, at, 'restore', 'restore', `backup ${kind}:${doc.stem}`, true),
+        ]);
+        if (!res.meta.changes) throw new HttpError(409, 'Someone changed this slip just now. Look it up again and retry.');
+        await auditStmt(env, me, 'slip-restore', live.id, `SH ${s.sh_no}: restored from backup ${kind}:${doc.stem}${live.deleted ? ' (it was deleted)' : ''}`).run();
+        return json({ slip: rowToSlip(await getRow(env, live.id)) });
+    }
+    return null;
 }
 
 /* ------------------------------ performance & feedback ------------------------------ */

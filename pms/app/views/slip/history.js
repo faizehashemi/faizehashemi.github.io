@@ -11,7 +11,7 @@ const SOURCE = { 'ums-import': 'UMS import', 'json-import': 'JSON import', plann
 
 const roomsText = (list) => (list || []).map(r => `${r.room_no}×${r.assigned ?? r.beds ?? '?'}${r.out && r.out.date ? ` → ${r.out.date}` : ''}`).join(', ') || '—';
 // the fields worth showing, as [label, text]
-function fields(d) {
+export function fields(d) {
     d = d || {};
     const dt = (a, b) => [a, b].filter(Boolean).join(' ') || '—';
     return [
@@ -22,7 +22,7 @@ function fields(d) {
         ['Gents rooms', roomsText(d.rooms && d.rooms.gents)], ['Ladies rooms', roomsText(d.rooms && d.rooms.ladies)],
     ].map(([l, v]) => [l, v == null || v === '' ? '—' : String(v)]);
 }
-function changes(now, before) {
+export function changes(now, before) {
     if (!before) return null;
     const a = new Map(fields(before)), out = [];
     for (const [l, v] of fields(now)) if (a.get(l) !== v) out.push({ l, from: a.get(l), to: v });
@@ -52,7 +52,7 @@ export function mountSlipHistory({ host, api, current, canWrite, onActivated }) 
         const prevOf = new Map(vs.map((v, i) => [v.id, vs[i - 1] || null]));
         const rows = [...vs].reverse().map(v => {
             const parent = v.parent != null ? byId.get(v.parent) : null, isActive = v.id === data.active;
-            const act = v.action === 'create' ? 'Created' : v.action === 'import' ? (SOURCE[v.note] || 'UMS import') : v.action === 'delete' ? 'Deleted'
+            const act = v.action === 'create' ? 'Created' : v.action === 'import' ? (SOURCE[v.note] || 'UMS import') : v.action === 'delete' ? 'Deleted' : v.action === 'restore' ? 'Restored from backup'
                 : v.action === 'snapshot' ? 'Starting point' : (SOURCE[v.note] || 'Manual edit');
             const diff = changes(v.data, parent && parent.data);
             const branch = parent && prevOf.get(v.id) && prevOf.get(v.id).id !== parent.id;

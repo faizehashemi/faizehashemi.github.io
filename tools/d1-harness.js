@@ -56,12 +56,28 @@ class D1 {
 
 let current = null;
 
+// a Workers-KV stand-in (put / get / list with metadata) for the backup tests
+function makeKv() {
+    const store = new Map();
+    return {
+        store,
+        async put(k, v, o = {}) { store.set(k, { v: typeof v === 'string' ? v : new Uint8Array(v), meta: o.metadata }); },
+        async get(k, t) {
+            const e = store.get(k); if (!e) return null;
+            if (t === 'json') return JSON.parse(e.v);
+            if (t === 'arrayBuffer') return e.v.buffer.slice(e.v.byteOffset, e.v.byteOffset + e.v.byteLength);
+            return e.v;
+        },
+        async list({ prefix = '' } = {}) { return { keys: [...store].filter(([k]) => k.startsWith(prefix)).map(([name, e]) => ({ name, metadata: e.meta })), list_complete: true }; },
+    };
+}
+
 export async function start() {
     const SQL = await loadSqlJs();
     const db = new SQL.Database();
     db.run(await (await fetch('/worker/schema.sql', { cache: 'no-store' })).text());
     const worker = (await import('/worker/worker.js?t=' + Date.now())).default;
-    const env = { DB: new D1(db), ALLOWED_ORIGINS: location.origin };
+    const env = { DB: new D1(db), BACKUPS: makeKv(), ALLOWED_ORIGINS: location.origin };
     const call = (path, init = {}) => worker.fetch(new Request('https://pms-api.test' + path, { ...init, headers: { Origin: location.origin, ...(init.headers || {}) } }), env);
     current = { db, env, worker, call };
     return {

@@ -49,6 +49,7 @@ export const VIEWS = [
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'slip-search',  label: 'Search slips',       title: 'Search Slips',          hint: 'Find a slip and see its details — view only' },
     { id: 'performance',  label: 'Performance',        title: 'Performance',           hint: 'Page speed on the desks and their feedback (admins)' },
+    { id: 'backups',      label: 'Backups',            title: 'Backups',               hint: 'Hourly database backups: health, download, and restore a slip as it was (admins)' },
     { id: 'changelog',    label: 'Change log',         title: 'Change Log',            hint: 'Every deployed change, by feature or day by day' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
     { id: 'laundry',      label: 'Laundry POS',        title: 'Laundry POS',           hint: 'New bill, staff only, building linen, logs, pending cash' },
@@ -72,7 +73,7 @@ export const NAV = [
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
     { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts'] },
-    { id: 'data',   label: 'Data',           views: ['slip-search', 'ums', 'admin', 'setup', 'performance', 'changelog'] },
+    { id: 'data',   label: 'Data',           views: ['slip-search', 'ums', 'admin', 'setup', 'performance', 'backups', 'changelog'] },
 ];
 
 // Product analytics (PostHog). Empty key = analytics off. The project API key (phc_…) is meant

@@ -1,0 +1,41 @@
+<div class="bk">
+    <header class="bk-head">
+        <div>
+            <h1>Backups</h1>
+            <p>The PMS saves a full copy of its database every hour (kept 72 hours) and one a day (kept 35 days). Find a slip as it was in any of them and put it back — as a new version, so nothing is lost.</p>
+        </div>
+        <button type="button" id="bkRun" class="bk-btn">⟳ Back up now</button>
+    </header>
+    <p class="bk-msg" id="bkMsg"></p>
+
+    <section class="bk-card" id="bkStatus"></section>
+
+    <section class="bk-card">
+        <div class="bk-card-head"><h2>Find a slip in a backup</h2><span class="bk-note">pick the copy, type the SH number (or the slip id), see what restoring would change</span></div>
+        <form class="bk-find" id="bkFind">
+            <label>Backup<select id="bkPick"></select></label>
+            <label>SH number or slip id<input id="bkQ" type="text" inputmode="numeric" placeholder="e.g. 43496" autocomplete="off"></label>
+            <button type="submit" class="bk-btn main">Find</button>
+        </form>
+        <div id="bkResult"></div>
+    </section>
+
+    <section class="bk-card">
+        <div class="bk-card-head"><h2>Saved backups</h2><span class="bk-note">newest first · times are yours</span></div>
+        <div class="bk-scroll"><table class="bk-tbl" id="bkList"></table></div>
+    </section>
+
+    <section class="bk-card">
+        <details>
+            <summary><b>Restoring everything</b> — if the whole database is ever lost</summary>
+            <ol class="bk-steps">
+                <li>Do not panic and do not delete anything: switch the PMS to read-only (deploy the Worker with <code>--var MAINTENANCE:1</code>).</li>
+                <li>Download the <b>slips</b> and <b>rest</b> files of the backup you want from the table above. The login passwords are in a third file, <b>auth</b>, that this page never shows: fetch it with
+                    <code>npx wrangler kv key get "bk:h:&lt;time&gt;:auth" --namespace-id 48710e49e880465987b706a98f70096e --remote &gt; auth.json.gz</code> (the time is the one in the key, e.g. 2026-10-23T18-00).</li>
+                <li>Turn them into SQL: <code>node tools/restore-backup.mjs slips.json.gz rest.json.gz auth.json.gz &gt; restore.sql</code>, create an empty database from <code>worker/schema.sql</code> and run <code>restore.sql</code> on it (<code>wrangler d1 execute … --file restore.sql</code>).</li>
+                <li>Point the Worker at that database (<code>worker/wrangler.toml</code>), deploy, and switch maintenance off. Cloudflare's own <b>Time Travel</b> (any minute of the last 7 days) is the other way back: <code>wrangler d1 time-travel restore pms-weur --timestamp=…</code>.</li>
+            </ol>
+            <p class="bk-note">One slip, or a few slips deleted or edited by mistake, do not need any of this: use <b>Find a slip in a backup</b> above.</p>
+        </details>
+    </section>
+</div>
