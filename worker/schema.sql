@@ -47,11 +47,36 @@ CREATE TABLE IF NOT EXISTS slips (
     seq           INTEGER NOT NULL,
     updated_at    TEXT NOT NULL,
     updated_by    INTEGER,
-    deleted       INTEGER NOT NULL DEFAULT 0
+    deleted       INTEGER NOT NULL DEFAULT 0,
+    active_version INTEGER                  -- slip_versions.id whose content is slips.data (the version in use)
 );
 CREATE INDEX IF NOT EXISTS slips_seq ON slips(seq, id);
 CREATE INDEX IF NOT EXISTS slips_site_sh ON slips(site, sh_no);
 CREATE INDEX IF NOT EXISTS slips_ums ON slips(ums_key);
+
+-- Full version history for every slip (Slip page → History): one append-only snapshot per real change (create / UMS
+-- import / hand edit / delete), never removed. slips.data is always the ACTIVE snapshot (slips.active_version), so every
+-- page and calculation reads the active version with no extra wiring. Marking an older snapshot active moves the
+-- pointer and writes its content live; the next edit then branches from it (parent = the snapshot it was based on).
+CREATE TABLE IF NOT EXISTS slip_versions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    slip_id       INTEGER NOT NULL,
+    site          TEXT NOT NULL,
+    n             INTEGER NOT NULL,         -- v1, v2 … per slip
+    parent        INTEGER,                  -- slip_versions.id this one was based on (NULL for the first)
+    action        TEXT NOT NULL,            -- create | import | edit | delete | snapshot
+    data          TEXT NOT NULL,            -- the full cleaned slip JSON at this point
+    sh_no         TEXT,
+    note          TEXT,
+    at            TEXT NOT NULL,
+    by            INTEGER                   -- desk id (joined to desks / deleted_desks for the name)
+);
+CREATE INDEX IF NOT EXISTS slip_versions_slip ON slip_versions(slip_id, id);
+-- every new snapshot becomes the active one (activating an OLDER snapshot only moves the pointer, see activateSlipVersion)
+CREATE TRIGGER IF NOT EXISTS slip_versions_active AFTER INSERT ON slip_versions
+BEGIN
+    UPDATE slips SET active_version = NEW.id WHERE id = NEW.slip_id;
+END;
 
 -- Buildings and their rooms (the Rooms & Buildings builder). One row per building; `data` holds
 -- {"rooms":[{"room_no","floor","capacity","type","notes","active"}], "notes": ""}.

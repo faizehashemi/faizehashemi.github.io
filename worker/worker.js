@@ -181,7 +181,11 @@ async function route(req, env) {
     if (p === '/api/slips/bulk' && m === 'POST') return bulk(req, env, me);
     if (p === '/api/slips/migrate' && m === 'POST') return migrate(req, env, me);
     if (p === '/api/slips/clear' && m === 'POST') return clearSite(req, env, me);
-    let mm = p.match(/^\/api\/slips\/(\d+)$/);
+    let mm = p.match(/^\/api\/slips\/(\d+)\/versions$/);
+    if (mm && m === 'GET') return listSlipVersions(env, Number(mm[1]));
+    mm = p.match(/^\/api\/slips\/(\d+)\/activate$/);
+    if (mm && m === 'POST') return activateSlipVersion(req, env, me, Number(mm[1]));
+    mm = p.match(/^\/api\/slips\/(\d+)$/);
     if (mm && m === 'PUT') return updateSlip(req, env, me, Number(mm[1]));
     if (mm && m === 'DELETE') return deleteSlip(url, env, me, Number(mm[1]));
 
@@ -362,21 +366,39 @@ const NEXT_SEQ = '(SELECT COALESCE(MAX(seq), 0) + 1 FROM slips)';
 
 // Insert unless a live slip already has the same UMS stay key (two desks importing the same
 // file at once) or the same origin (the same old slip uploaded twice).
-function insertStmt(env, me, site, s, origin) {
+function insertStmt(env, me, site, s, origin, at = now()) {
     return env.DB.prepare(
         `INSERT OR IGNORE INTO slips (site, sh_no, building, checkin_date, checkout_date, ums_key, origin, data, version, seq, updated_at, updated_by)
          SELECT ?, ?, ?, ?, ?, ?, ?, ?, 1, ${NEXT_SEQ}, ?, ?
          WHERE ? IS NULL OR NOT EXISTS (SELECT 1 FROM slips WHERE ums_key = ? AND deleted = 0)`
-    ).bind(site, s.sh_no, s.building, s.checkin_date, s.checkout_date, s.ums_key, origin || null, s.text, now(), me.id, s.ums_key, s.ums_key);
+    ).bind(site, s.sh_no, s.building, s.checkin_date, s.checkout_date, s.ums_key, origin || null, s.text, at, me.id, s.ums_key, s.ums_key);
 }
 
-function updateStmt(env, me, id, version, s) {
+function updateStmt(env, me, id, version, s, at = now()) {
     return env.DB.prepare(
         `UPDATE slips SET sh_no = ?, building = ?, checkin_date = ?, checkout_date = ?, ums_key = ?, data = ?,
                 version = version + 1, seq = ${NEXT_SEQ}, updated_at = ?, updated_by = ?
          WHERE id = ? AND version = ? AND deleted = 0`
-    ).bind(s.sh_no, s.building, s.checkin_date, s.checkout_date, s.ums_key, s.text, now(), me.id, id, version);
+    ).bind(s.sh_no, s.building, s.checkin_date, s.checkout_date, s.ums_key, s.text, at, me.id, id, version);
 }
+
+// Version history (slip_versions): ONE statement snapshots every slip this request wrote at `at` (updated_at = at, by me).
+// Reads the row as written, so a refused (conflicting) save leaves nothing behind; a write that changes nothing but the
+// updatedAt stamp (the hourly UMS import re-saving identical data) adds no snapshot; `always` is for deletes. A trigger
+// (schema.sql) moves slips.active_version to the new snapshot. parent = the snapshot that was active — so an edit made
+// after an older version was activated branches from it. The seq bound: this request's rows hold the newest sync numbers, so the
+// statement reads an index range, not the whole table (everyRow: a site-wide clear). firstAct / otherAct: the action of a slip's first snapshot / later ones.
+function verStmt(env, me, at, firstAct, otherAct, note, always = false, everyRow = false) {
+    return env.DB.prepare(
+        `INSERT INTO slip_versions (slip_id, site, n, parent, action, data, sh_no, note, at, by)
+         SELECT s.id, s.site, COALESCE((SELECT MAX(n) FROM slip_versions x WHERE x.slip_id = s.id), 0) + 1, s.active_version,
+                CASE WHEN NOT EXISTS (SELECT 1 FROM slip_versions y WHERE y.slip_id = s.id) THEN ? ELSE ? END, s.data, s.sh_no, ?, s.updated_at, s.updated_by
+         FROM slips s WHERE s.updated_at = ? AND s.updated_by = ?
+           ${everyRow ? '' : 'AND s.seq > (SELECT COALESCE(MAX(seq), 0) FROM slips) - 200'}
+           ${always ? '' : "AND NOT EXISTS (SELECT 1 FROM slip_versions v WHERE v.id = s.active_version AND json_remove(v.data, '$.updatedAt') = json_remove(s.data, '$.updatedAt'))"}`
+    ).bind(firstAct, otherAct, note == null ? null : String(note).slice(0, 120), at, me.id);
+}
+const importAct = (reason) => /import/i.test(reason) ? 'import' : 'edit';
 
 function auditStmt(env, me, action, slipId, detail) {
     return env.DB.prepare('INSERT INTO audit (at, desk_id, action, slip_id, detail) VALUES (?, ?, ?, ?, ?)')
@@ -443,7 +465,8 @@ async function createSlip(req, env, me) {
     const site = String(slip && slip.site || me.site);
     assertWrite(me, site);
     const s = prepareSlip(slip);
-    const [res] = await env.DB.batch([insertStmt(env, me, site, s, null)]);
+    const at = now();
+    const [res] = await env.DB.batch([insertStmt(env, me, site, s, null, at), verStmt(env, me, at, 'create', 'edit', null)]);
     if (!res.meta.changes) throw new HttpError(409, 'This UMS stay already exists.');
     const id = res.meta.last_row_id;
     await auditStmt(env, me, 'create', id, `SH ${s.sh_no}`).run();
@@ -457,7 +480,8 @@ async function updateSlip(req, env, me, id) {
     assertWrite(me, row.site);
     if (slip && slip.site && slip.site !== row.site && me.role !== 'admin') throw new HttpError(403, 'Only an admin can move a slip to the other site.');
     const s = prepareSlip(slip);
-    const res = await updateStmt(env, me, id, Number(version), s).run();
+    const at = now();
+    const [res] = await env.DB.batch([updateStmt(env, me, id, Number(version), s, at), verStmt(env, me, at, 'edit', 'edit', null)]);
     if (!res.meta.changes) {
         throw new HttpError(409, 'Someone else changed this slip after you opened it. Reload it and make your change again.', { current: rowToSlip(await getRow(env, id)) });
     }
@@ -470,10 +494,11 @@ async function deleteSlip(url, env, me, id) {
     if (!row || row.deleted) return json({ ok: true });
     assertWrite(me, row.site);
     const v = url.searchParams.get('version');
-    const res = await env.DB.prepare(
+    const at = now();
+    const [res] = await env.DB.batch([env.DB.prepare(
         `UPDATE slips SET deleted = 1, version = version + 1, seq = ${NEXT_SEQ}, updated_at = ?, updated_by = ?
          WHERE id = ? AND deleted = 0 AND (? IS NULL OR version = ?)`
-    ).bind(now(), me.id, id, v, v == null ? null : Number(v)).run();
+    ).bind(at, me.id, id, v, v == null ? null : Number(v)), verStmt(env, me, at, 'delete', 'delete', 'deleted', true)]);
     if (!res.meta.changes) throw new HttpError(409, 'Someone else changed this slip after you opened it. Reload and try again.');
     await auditStmt(env, me, 'delete', id, `SH ${row.sh_no}`).run();
     return json({ ok: true });
@@ -494,13 +519,15 @@ async function bulk(req, env, me) {
         if (stale.length) throw new HttpError(409, `${stale.length} slip(s) were changed on another desk meanwhile.`, { stale: stale.map(p => p.id) });
     }
 
+    const at = now();
     const stmts = [
-        ...add.map(slip => insertStmt(env, me, site, prepareSlip(slip), null)),
-        ...put.map(p => updateStmt(env, me, Number(p.id), Number(p.version), prepareSlip(p.slip))),
+        ...add.map(slip => insertStmt(env, me, site, prepareSlip(slip), null, at)),
+        ...put.map(p => updateStmt(env, me, Number(p.id), Number(p.version), prepareSlip(p.slip), at)),
     ];
-    const results = stmts.length ? await env.DB.batch(stmts) : [];
+    // every slip written here is snapshotted by one more statement (the batch stays within D1's per-request limit)
+    const results = stmts.length ? await env.DB.batch([...stmts, verStmt(env, me, at, importAct(reason), importAct(reason), String(reason))]) : [];
     const created = results.slice(0, add.length).filter(r => r.meta.changes).length;
-    const updated = results.slice(add.length).filter(r => r.meta.changes).length;
+    const updated = results.slice(add.length, add.length + put.length).filter(r => r.meta.changes).length;
     await auditStmt(env, me, reason, null, `${site}: ${created} created, ${updated} updated, ${add.length - created} skipped (already there)`).run();
     return json({ created, updated, skipped: add.length - created, conflicts: put.length - updated });
 }
@@ -510,13 +537,14 @@ async function migrate(req, env, me) {
     const { slips = [] } = await body(req);
     if (slips.length > MAX_BULK) throw new HttpError(413, `At most ${MAX_BULK} slips per request.`);
     const stmts = [];
+    const at = now();
     for (const { site, origin, slip } of slips) {
         assertWrite(me, site);
         if (!origin) throw new HttpError(400, 'Each uploaded slip needs an origin.');
-        stmts.push(insertStmt(env, me, site, prepareSlip(slip), String(origin).slice(0, 100)));
+        stmts.push(insertStmt(env, me, site, prepareSlip(slip), String(origin).slice(0, 100), at));
     }
-    const results = stmts.length ? await env.DB.batch(stmts) : [];
-    const created = results.filter(r => r.meta.changes).length;
+    const results = stmts.length ? await env.DB.batch([...stmts, verStmt(env, me, at, 'import', 'import', 'migrate')]) : [];
+    const created = results.slice(0, stmts.length).filter(r => r.meta.changes).length;
     await auditStmt(env, me, 'migrate', null, `${created} uploaded, ${slips.length - created} already there`).run();
     return json({ created, skipped: slips.length - created });
 }
@@ -524,11 +552,52 @@ async function migrate(req, env, me) {
 async function clearSite(req, env, me) {
     const { site } = await body(req);
     assertWrite(me, site);
-    const res = await env.DB.prepare(
+    const at = now();
+    const [res] = await env.DB.batch([env.DB.prepare(
         `UPDATE slips SET deleted = 1, version = version + 1, seq = ${NEXT_SEQ}, updated_at = ?, updated_by = ? WHERE site = ? AND deleted = 0`
-    ).bind(now(), me.id, site).run();
+    ).bind(at, me.id, site), verStmt(env, me, at, 'delete', 'delete', 'site cleared', true, true)]);
     await auditStmt(env, me, 'clear', null, `${site}: ${res.meta.changes} deleted`).run();
     return json({ deleted: res.meta.changes });
+}
+
+/* ----------------------------- version history ----------------------------- */
+
+// GET /api/slips/:id/versions — every snapshot of one slip, newest first (the Slip page's History), and which is active
+async function listSlipVersions(env, id) {
+    const row = await getRow(env, id);
+    if (!row) throw new HttpError(404, 'No such slip.');
+    const { results } = await env.DB.prepare(
+        `SELECT v.id, v.n, v.parent, v.action, v.note, v.at, v.data, COALESCE(d.name, x.name || ' (deleted)') AS by_name
+         FROM slip_versions v LEFT JOIN desks d ON d.id = v.by LEFT JOIN deleted_desks x ON x.id = v.by
+         WHERE v.slip_id = ? ORDER BY v.id DESC LIMIT 300`).bind(id).all();
+    const active = row.active_version ?? (results[0] ? results[0].id : null);
+    return json({ slip_id: id, active, version: row.version, versions: results.map(v => ({ ...v, data: JSON.parse(v.data) })) });
+}
+
+// POST /api/slips/:id/activate { snapshot, version } — make an older (or any) snapshot the version in use. Its content is
+// written live, so every page and calculation uses it at once; the snapshots stay as they are and the next edit
+// branches from this one. The live copy keeps the UMS import's record of what it last applied (ums.applied): the next
+// import then treats the restored values as a desk edit instead of silently putting UMS's values back.
+async function activateSlipVersion(req, env, me, id) {
+    const { snapshot, version } = await body(req);
+    const row = await getRow(env, id);
+    if (!row || row.deleted) throw new HttpError(404, 'This slip no longer exists (it may have been deleted on another desk).');
+    assertWrite(me, row.site);
+    const snap = await env.DB.prepare('SELECT id, n, data FROM slip_versions WHERE id = ? AND slip_id = ?').bind(Number(snapshot), id).first();
+    if (!snap) throw new HttpError(404, 'That version does not belong to this slip.');
+    if (snap.id === row.active_version) return json({ slip: rowToSlip(row), unchanged: true });
+    const live = JSON.parse(row.data), old = JSON.parse(snap.data);
+    if (old.ums && live.ums && live.ums.applied) old.ums = { ...old.ums, applied: live.ums.applied };
+    old.updatedAt = now();
+    const s = prepareSlip(old);
+    const res = await env.DB.prepare(
+        `UPDATE slips SET sh_no = ?, building = ?, checkin_date = ?, checkout_date = ?, ums_key = ?, data = ?, active_version = ?,
+                version = version + 1, seq = ${NEXT_SEQ}, updated_at = ?, updated_by = ?
+         WHERE id = ? AND version = ? AND deleted = 0`
+    ).bind(s.sh_no, s.building, s.checkin_date, s.checkout_date, s.ums_key, s.text, snap.id, now(), me.id, id, Number(version)).run();
+    if (!res.meta.changes) throw new HttpError(409, 'Someone else changed this slip after you opened it. Reload it and try again.', { current: rowToSlip(await getRow(env, id)) });
+    await auditStmt(env, me, 'slip-activate', id, `SH ${s.sh_no}: version v${snap.n} made active`).run();
+    return json({ slip: rowToSlip(await getRow(env, id)) });
 }
 
 /* --------------------------------- settings --------------------------------- */

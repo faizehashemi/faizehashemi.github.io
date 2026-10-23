@@ -351,3 +351,25 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .subtables.delayed .out-cell input[type=time] { width: 92px; }
 .subtables.delayed .out-cell select { width: auto; }
 .subtables.delayed .out-cell .out-split { padding: 2px 8px; }
+
+/* History: every version of the loaded slip (history.js) */
+.slip-history { margin-top: 18px; padding: 14px 16px; border: 1px solid #e3d2b1; border-radius: 14px; background: #fffaf1; }
+.slip-history h3 { margin: 0 0 4px; font-size: 17px; color: #9a7414; }
+.slip-history .sh-help { margin: 0 0 10px; font-size: 12.5px; }
+.slip-history .sh-msg { margin: 0 0 8px; font-weight: 700; color: #1f6f43; }
+.sh-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sh-ver { --c: hsl(calc(var(--lane) * 67 + 38) 55% 42%); margin-left: calc(var(--lane) * 18px); padding: 8px 12px; border-radius: 10px; background: #fff; border: 1px solid #ecdfc3; border-left: 6px solid var(--c); }
+.sh-ver.active { background: #fff7dc; border-color: #d4af37; box-shadow: 0 0 0 2px rgba(212, 175, 55, .35); }
+.sh-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.sh-n { font-size: 15px; color: var(--c); }
+.sh-act { font-weight: 700; } .sh-by, .sh-at { color: #6b5e4a; font-size: 12.5px; }
+.sh-badge { font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
+.sh-badge.on { background: #d4af37; color: #3b2a06; } .sh-badge.br { background: #efe3ff; color: #5b2a8f; }
+.sh-sum { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 5px 0; font-size: 12.5px; }
+.sh-chg { padding: 1px 8px; border-radius: 8px; background: #f6ecd2; } .sh-chg b { color: #7a5410; }
+.sh-first, .sh-more { color: #6b5e4a; font-style: italic; }
+.sh-btns { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.sh-use { font: inherit; font-size: 12.5px; font-weight: 800; padding: 4px 12px; border-radius: 999px; border: 1px solid #b8931f; background: #fff; color: #7a5410; cursor: pointer; }
+.sh-use:hover { background: #fff6dd; }
+.sh-det { margin-top: 6px; border-collapse: collapse; font-size: 12.5px; width: 100%; max-width: 640px; }
+.sh-det th { text-align: left; width: 110px; color: #6b5e4a; padding: 2px 8px 2px 0; vertical-align: top; } .sh-det td { padding: 2px 0; overflow-wrap: anywhere; }

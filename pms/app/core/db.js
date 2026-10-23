@@ -105,6 +105,22 @@ export function createDb(siteId) {
             return slip.id;
         },
 
+        // Version history of one slip: { active, versions: [{ id, n, parent, action, note, at, by_name, data }] } (newest first)
+        async versions(id) {
+            return request('GET', `/api/slips/${Number(id)}/versions`);
+        },
+
+        // Make a snapshot the version in use (its content becomes the live slip); nothing is deleted, edits then branch from it
+        async activate(id, snapshot) {
+            guard();
+            const old = await mirrorGet(id);
+            if (!old) throw new ConflictError('This slip is no longer there (deleted on another desk?). Reload the page.');
+            const { slip } = await send(() => request('POST', `/api/slips/${Number(id)}/activate`, { snapshot, version: old._v }));
+            await mirrorPut(slip);
+            track('slip_version_activated', { site: slip.site });
+            return slip;
+        },
+
         async remove(id) {
             guard();
             const old = await mirrorGet(id);

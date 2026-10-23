@@ -16,6 +16,7 @@ let SH_RE = shPattern(SH_PREFIXES);
 const shValue = (v) => { const s = String(v ?? '').trim().toUpperCase(); return s === '' ? '' : /^\d+$/.test(s) ? Number(s) : s; };
 
 import { showSlipReport } from './checkmodal.js';
+import { mountSlipHistory } from './history.js';
 
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
@@ -35,6 +36,7 @@ export default async function mount(ctx) {
     /* ------------------------------ Helpers ----------------------------- */
     function $(id) { return document.getElementById(id); }
     let CURRENT_ID = null;
+    let HISTORY = null;    // the History panel (history.js), mounted at boot
     let DB_CACHE = []; // for capacity + availability lookup
 
     function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
@@ -44,6 +46,7 @@ export default async function mount(ctx) {
     // A loaded slip is changed with Edit; Save (a new slip) is locked so it can't be duplicated by accident.
     function setCurrent(id) {
         CURRENT_ID = id ?? null;
+        HISTORY?.load(CURRENT_ID);
         const loaded = CURRENT_ID != null;
         $('btnSave').disabled = loaded || !!db.readonly;
         $('btnSave').title = loaded ? 'This slip is already saved — use Edit to change it (New Slip to start another)' : 'Save as a new slip';
@@ -644,6 +647,7 @@ export default async function mount(ctx) {
             delete data.createdAt; // keep original
             const id = await updateRecord(CURRENT_ID, data);
             $('status').textContent = `Updated #${id}`;
+            HISTORY?.load(CURRENT_ID);
             report(r, { tone: 'ok', title: `Updated ✓ — SH ${data.sh_no || '—'} (#${id})`, lead: `${data.building || ''}${r.okRooms.length ? ` · ${r.okRooms.length} room${r.okRooms.length === 1 ? '' : 's'}` : ' · no rooms yet'} · ${fmt(new Date(r.start))} → ${fmt(new Date(r.end))}` });
         } catch (err) {
             $('status').textContent = err instanceof UserError ? err.message : 'Edit failed. See console.';
@@ -757,6 +761,11 @@ export default async function mount(ctx) {
     });
 
     /* ------------------------------ Boot ------------------------------- */
+    // Version history of the loaded slip; making an older version the version in use reloads the form from it
+    HISTORY = mountSlipHistory({
+        host: $('slipHistory'), api: db, current: () => CURRENT_ID, canWrite: () => !db.readonly,
+        onActivated: async (slip) => { setFormData(slip); await refreshDBCache(); $('status').textContent = `Version in use changed — SH ${slip.sh_no || ''} (#${slip.id})`; },
+    });
     clearForm();
     addRow('gents'); addRow('ladies');
     if (db.readonly) $('status').textContent = db.readonlyReason;
