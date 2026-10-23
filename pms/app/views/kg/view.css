@@ -171,3 +171,20 @@ body { background: var(--kg-bg) url("../../../assets/pattern_gold_2x.png") repea
 .kg-prof-head { display: flex; gap: 10px; align-items: flex-start; }
 .kg-prof-head h3 { margin: 2px 0 0; font-size: 17px; color: var(--kg-ink); }
 .kg-prof-kpis .c-fe1 { color: var(--kg-fe1); } .kg-prof-kpis .c-fe2 { color: var(--kg-fe2); } .kg-prof-kpis .c-at { color: var(--kg-at); }
+
+/* Archived names: kept with their history, hidden from the assignment list */
+.kg-archived:empty { display: none; }
+.kg-arch-box { margin-top: 10px; border: 1px dashed var(--kg-edge); border-radius: 10px; background: #fcf7ec; }
+.kg-arch-box > summary { cursor: pointer; padding: 8px 12px; font-weight: 700; color: var(--kg-muted); list-style: none; display: flex; align-items: center; gap: 8px; }
+.kg-arch-box > summary::-webkit-details-marker { display: none; }
+.kg-arch-box > summary::before { content: "▸"; font-size: 12px; transition: transform .15s; }
+.kg-arch-box[open] > summary::before { transform: rotate(90deg); }
+.kg-arch-n { font-size: 12px; font-weight: 800; padding: 0 8px; border-radius: 999px; background: #efe2c0; color: #7a5b13; }
+.kg-arch-box .kg-note { padding: 0 12px; }
+.kg-arch-list { list-style: none; margin: 6px 0 10px; padding: 0 8px; display: grid; gap: 6px; }
+.kg-arch-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 10px; border-radius: 8px; background: #fff; border: 1px solid var(--kg-edge); }
+.kg-arch-nm { font-weight: 700; white-space: nowrap; }
+.kg-arch-st { color: var(--kg-muted); font-size: 11.5px; margin-right: auto; }
+.kg-arch-list .kg-btn { padding: 5px 10px; font-size: 12.5px; }
+.kg-arch-list .kg-del { width: 28px; height: 28px; font-size: 13px; flex: none; }
+@media (max-width: 560px) { .kg-arch-nm { flex-basis: 100%; } .kg-arch-st { flex-basis: 100%; order: 3; margin: 2px 0 0; } }

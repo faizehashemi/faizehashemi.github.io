@@ -88,7 +88,8 @@ CREATE TABLE IF NOT EXISTS desk_prefs (
 -- and one row per saved assignment.
 CREATE TABLE IF NOT EXISTS kg_meta (
     site        TEXT PRIMARY KEY CHECK (site IN ('makkah', 'medina')),
-    people      TEXT NOT NULL DEFAULT '[]', -- JSON list of names, in list order
+    people      TEXT NOT NULL DEFAULT '[]', -- JSON list of active names, in list order
+    archived    TEXT NOT NULL DEFAULT '[]', -- JSON list of archived names: kept with their history, hidden from assignment
     bookmark    TEXT NOT NULL DEFAULT '',
     version     INTEGER NOT NULL DEFAULT 1,
     updated_at  TEXT NOT NULL,

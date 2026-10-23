@@ -27,6 +27,7 @@ export default async function mount(ctx) {
     const $$ = (s) => [...root.querySelectorAll(s)];
 
     let people = [];
+    let archived = [];     // names kept with their history but out of the assignment list
     let history = [];      // { id, ts, person, type, location }
     let fe1Bookmark = '';
     let kgVersion = '';    // last state drawn (skip redraws when nothing changed)
@@ -99,7 +100,7 @@ export default async function mount(ctx) {
                     <input class="kg-bus" data-bus type="text" maxlength="6" placeholder="Bus" aria-label="Bus number for ${esc(name)}" value="${esc(t?.bus || '')}" ${t?.type.has('Atraaf') ? '' : 'hidden'}>
                 </div>
                 <select data-loc aria-label="Location for ${esc(name)}"><option value="">Location…</option>${LOCATIONS.map(l => `<option ${t?.location === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
-                <button type="button" class="kg-del" data-del title="Remove ${esc(name)} from the list (history stays)" aria-label="Remove ${esc(name)}">✕</button>
+                <button type="button" class="kg-del" data-arch title="Archive ${esc(name)} — keeps the record, hides them from assignment" aria-label="Archive ${esc(name)}">📦</button>
             </div>`;
         }).join('') : '<p class="kg-empty">No names yet — add the first one below.</p>';
         renderTickCount();
@@ -108,6 +109,33 @@ export default async function mount(ctx) {
         const n = [...transient.values()].filter(t => t.type.size).length;
         $('#tickCount').textContent = `${n} ticked`;
     }
+
+    // Archived names: kept with their saved history, hidden from the assignment list. Restore brings one back;
+    // "remove from list" takes the name off the roster entirely (its saved assignments still stay in the records).
+    function renderArchived() {
+        const box = $('#archivedBox');
+        if (!box) return;
+        if (!archived.length) { box.innerHTML = ''; return; }
+        const names = [...archived].sort(natural);
+        box.innerHTML = `<details class="kg-arch-box">
+            <summary>Archived <span class="kg-arch-n">${names.length}</span></summary>
+            <p class="kg-note">Hidden from the assignment list; their saved history is kept. Restore to assign them again.</p>
+            <ul class="kg-arch-list">${names.map(n => { const s = st(n); return `<li data-arch-row="${esc(n)}">
+                <span class="kg-arch-nm">${esc(n)}</span>
+                <small class="kg-arch-st">FE1 ${s.FE1} · FE2 ${s.FE2} · AT ${s.Atraaf}${s.last ? ` · last ${esc(shortDate(s.last))}` : ' · no history'}</small>
+                <button type="button" class="kg-btn ghost" data-unarch="${esc(n)}">↩ Restore</button>
+                <button type="button" class="kg-del" data-archdel="${esc(n)}" title="Take ${esc(n)} off the roster entirely (saved history still kept)" aria-label="Remove ${esc(n)} from the roster">✕</button>
+            </li>`; }).join('')}</ul></details>`;
+    }
+    $('#archivedBox').addEventListener('click', (e) => {
+        const u = e.target.closest('[data-unarch]');
+        if (u) { kgOp('unarchive-person', u.dataset.unarch, `${u.dataset.unarch} restored.`); return; }
+        const d = e.target.closest('[data-archdel]');
+        if (!d) return;
+        const name = d.dataset.archdel;
+        if (!confirm(`Remove ${name} from the roster entirely? Their saved assignments stay in the records, but the name is taken off the list. (Use Restore instead to keep them.)`)) return;
+        kgOp('remove-person', name, `${name} removed from the roster.`);
+    });
 
     // one set of listeners for every row
     $('#peopleList').addEventListener('change', (e) => {
@@ -134,12 +162,12 @@ export default async function mount(ctx) {
         updatePreview();
     });
     $('#peopleList').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-del]');
+        const b = e.target.closest('[data-arch]');
         if (!b) return;
         const name = b.closest('.kg-row').dataset.person;
-        if (!confirm(`Remove ${name}? Their saved history stays.`)) return;
+        if (!confirm(`Archive ${name}? They stay out of the assignment list but keep their record and history — restore them any time from "Archived".`)) return;
         transient.delete(name);
-        kgOp('remove-person', name, `${name} removed.`);
+        kgOp('archive-person', name, `${name} archived.`);
     });
     $('#sortBy').addEventListener('change', renderPeople);
     $('#btnShuffle').addEventListener('click', () => { shuffleRank.clear(); $('#sortBy').value = 'random'; renderPeople(); });
@@ -353,7 +381,7 @@ export default async function mount(ctx) {
                 <div class="kg-prof-head">
                     <button type="button" class="kg-btn ghost" data-profile="">← Everyone</button>
                     <div><h3>${esc(profileOf)}</h3>
-                        <p class="kg-note">${mine.length ? `${mine.length} assignment${mine.length === 1 ? '' : 's'} · first ${esc(whenTxt(first.ts))} · last ${esc(whenTxt(last.ts))}` : 'No saved assignments yet.'}${people.includes(profileOf) ? '' : ' · no longer in the name list'}</p></div>
+                        <p class="kg-note">${mine.length ? `${mine.length} assignment${mine.length === 1 ? '' : 's'} · first ${esc(whenTxt(first.ts))} · last ${esc(whenTxt(last.ts))}` : 'No saved assignments yet.'}${people.includes(profileOf) ? '' : archived.includes(profileOf) ? ' · archived' : ' · no longer in the name list'}</p></div>
                 </div>
                 <div class="kg-kpis kg-prof-kpis">
                     <div><b class="c-fe1">${fe1}</b><span>FE1</span></div>
@@ -452,15 +480,15 @@ export default async function mount(ctx) {
     }
     function renderEverything() {
         computeStats();
-        renderPeople(); renderHistory(); renderKPIs(); renderFE1Board(); renderBookmarkUI(); updatePreview();
+        renderPeople(); renderArchived(); renderHistory(); renderKPIs(); renderFE1Board(); renderBookmarkUI(); updatePreview();
         if (!$('[data-pane="stats"]').hidden) drawHistogram();
     }
     // Draw the server's state. While ticks are pending, an auto-refresh keeps the rows as they are.
     function applyState(s, { keepTicks = false } = {}) {
-        const sig = JSON.stringify([s.people, s.bookmark, s.log.length, s.log.at(-1)?.id]);
+        const sig = JSON.stringify([s.people, s.archived, s.bookmark, s.log.length, s.log.at(-1)?.id]);
         const changed = sig !== kgVersion;
         kgVersion = sig;
-        people = s.people; fe1Bookmark = s.bookmark || ''; history = s.log;
+        people = s.people; archived = s.archived || []; fe1Bookmark = s.bookmark || ''; history = s.log;
         for (const n of [...transient.keys()]) if (!people.includes(n)) transient.delete(n);
         if (!changed) return;
         if (keepTicks && transient.size) {

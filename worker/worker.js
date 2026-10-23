@@ -830,9 +830,9 @@ const kgName = (v) => String(v == null ? '' : v).replace(/[<>]/g, '').replace(/\
 
 async function getKg(env, site) {
     if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
-    const meta = await env.DB.prepare('SELECT people, bookmark, version, updated_at FROM kg_meta WHERE site = ?').bind(site).first();
+    const meta = await env.DB.prepare('SELECT people, archived, bookmark, version, updated_at FROM kg_meta WHERE site = ?').bind(site).first();
     const { results } = await env.DB.prepare('SELECT id, ts, person, type, location FROM kg_log WHERE site = ? ORDER BY ts, id').bind(site).all();
-    return json({ site, people: meta ? JSON.parse(meta.people) : [], bookmark: meta ? meta.bookmark : '', version: meta ? meta.version : 0, log: results });
+    return json({ site, people: meta ? JSON.parse(meta.people) : [], archived: meta ? JSON.parse(meta.archived || '[]') : [], bookmark: meta ? meta.bookmark : '', version: meta ? meta.version : 0, log: results });
 }
 
 // Name list / bookmark changes as small operations, applied on the latest list (retried if two desks collide)
@@ -841,18 +841,22 @@ async function kgOp(req, env, me) {
     assertWrite(me, site);
     const n = kgName(name);
     for (let attempt = 0; attempt < 4; attempt++) {
-        const meta = await env.DB.prepare('SELECT people, bookmark, version FROM kg_meta WHERE site = ?').bind(site).first();
-        let people = meta ? JSON.parse(meta.people) : [], bookmark = meta ? meta.bookmark : '';
+        const meta = await env.DB.prepare('SELECT people, archived, bookmark, version FROM kg_meta WHERE site = ?').bind(site).first();
+        let people = meta ? JSON.parse(meta.people) : [], archived = meta ? JSON.parse(meta.archived || '[]') : [], bookmark = meta ? meta.bookmark : '';
         const extra = [];
-        if (op === 'add-person') { if (!n) throw new HttpError(400, 'Enter a name.'); if (!people.includes(n)) people.push(n); }
-        else if (op === 'remove-person') { people = people.filter(p => p !== n); if (bookmark === n) bookmark = ''; }
+        if (op === 'add-person') { if (!n) throw new HttpError(400, 'Enter a name.'); archived = archived.filter(p => p !== n); if (!people.includes(n)) people.push(n); }
+        else if (op === 'remove-person') { people = people.filter(p => p !== n); archived = archived.filter(p => p !== n); if (bookmark === n) bookmark = ''; }
+        // archive = keep the name and its saved history, take it out of the assignment list; unarchive puts it back
+        else if (op === 'archive-person') { if (!people.includes(n) && !archived.includes(n)) throw new HttpError(400, 'That name is not in the list.'); people = people.filter(p => p !== n); if (!archived.includes(n)) archived.push(n); if (bookmark === n) bookmark = ''; }
+        else if (op === 'unarchive-person') { archived = archived.filter(p => p !== n); if (n && !people.includes(n)) people.push(n); }
         else if (op === 'bookmark') { if (n && !people.includes(n)) throw new HttpError(400, 'That name is not in the list.'); bookmark = n; }
-        else if (op === 'reset') { requireAdminOrDesk(me); people = []; bookmark = ''; extra.push(env.DB.prepare('DELETE FROM kg_log WHERE site = ?').bind(site)); }
+        else if (op === 'reset') { requireAdminOrDesk(me); people = []; archived = []; bookmark = ''; extra.push(env.DB.prepare('DELETE FROM kg_log WHERE site = ?').bind(site)); }
         else throw new HttpError(400, 'Unknown KG operation.');
         if (people.length > 500) throw new HttpError(413, 'At most 500 names.');
+        if (archived.length > 2000) throw new HttpError(413, 'At most 2000 archived names.');
         const write = meta
-            ? env.DB.prepare('UPDATE kg_meta SET people = ?, bookmark = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE site = ? AND version = ?').bind(JSON.stringify(people), bookmark, now(), me.id, site, meta.version)
-            : env.DB.prepare('INSERT OR IGNORE INTO kg_meta (site, people, bookmark, version, updated_at, updated_by) VALUES (?, ?, ?, 1, ?, ?)').bind(site, JSON.stringify(people), bookmark, now(), me.id);
+            ? env.DB.prepare('UPDATE kg_meta SET people = ?, archived = ?, bookmark = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE site = ? AND version = ?').bind(JSON.stringify(people), JSON.stringify(archived), bookmark, now(), me.id, site, meta.version)
+            : env.DB.prepare('INSERT OR IGNORE INTO kg_meta (site, people, archived, bookmark, version, updated_at, updated_by) VALUES (?, ?, ?, ?, 1, ?, ?)').bind(site, JSON.stringify(people), JSON.stringify(archived), bookmark, now(), me.id);
         const [res] = await env.DB.batch([write, ...extra, ...(op === 'bookmark' ? [] : [auditStmt(env, me, 'kg-' + op, null, `${site}${n ? ': ' + n : ''}`)])]);
         if (res.meta.changes) return getKg(env, site);
     }
