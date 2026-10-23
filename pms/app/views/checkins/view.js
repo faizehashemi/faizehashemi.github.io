@@ -31,7 +31,9 @@ export default async function mount(ctx) {
         return ymd(dt);
     }
     // a partial departure (delayed group, core/stay.js) lists only the rooms leaving then
-    function roomsFromSlip(r) { if (r._dep) return [...new Set(r._dep.rooms.map(x => String(x.room_no)))]; const bag = []; (r.rooms?.gents || []).forEach(x => bag.push(String(x.room_no || '').trim())); (r.rooms?.ladies || []).forEach(x => bag.push(String(x.room_no || '').trim())); return Array.from(new Set(bag.filter(Boolean))); }
+    // ascending, numbers in number order (2, 10, 101; 12A after 12)
+    const byRoom = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    function roomsFromSlip(r) { if (r._dep) return [...new Set(r._dep.rooms.map(x => String(x.room_no)))].sort(byRoom); const bag = []; (r.rooms?.gents || []).forEach(x => bag.push(String(x.room_no || '').trim())); (r.rooms?.ladies || []).forEach(x => bag.push(String(x.room_no || '').trim())); return Array.from(new Set(bag.filter(Boolean))).sort(byRoom); }
     function guests(r) { if (r._dep) return r._dep.pax; const tot = num(r.total); if (tot) return tot; const kids = num(r.children ?? r.child); const inf = num(r.infants ?? r.infant); return num(r.gents) + num(r.ladies) + kids + inf; }
     function fmtDT(dt) { if (!dt) return ''; try { return dt.toLocaleString([], { year: '2-digit', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch (e) { return dt.toISOString().slice(0, 16).replace('T', ' ') } }
     function within(dt, start, end) { return dt && dt >= start && dt <= end; }
