@@ -212,7 +212,7 @@ export function staysOf(g, cfg = UMS) {
 /* ----------------------------------- plan ----------------------------------- */
 
 // Fields UMS owns. building / rooms and anything else on a slip belong to the PMS.
-export const MANAGED = ['tour_name', 'group_leader', 'sh_no', 'checkin_date', 'checkin_time', 'checkout_date', 'checkout_time', 'gents', 'ladies', 'children', 'infants', 'total'];
+export const MANAGED = ['tour_name', 'group_leader', 'sh_no', 'checkin_date', 'checkin_time', 'checkout_date', 'checkout_time', 'gents', 'ladies', 'children', 'infants', 'total', 'from_place', 'to_place'];
 const DATE_FIELDS = ['checkin_date', 'checkin_time', 'checkout_date', 'checkout_time'];
 const eq = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
 const dayNo = (ymd) => { const [y, m, d] = String(ymd || '').split('-').map(Number); return y ? Date.UTC(y, m - 1, d) / 864e5 : NaN; };
@@ -221,9 +221,30 @@ export const secondSh = (sh) => `S${baseSh(sh)}`;
 /** The UMS SH without the second-check-in S: "S44030" → "44030", 44030 → "44030" */
 export const baseSh = (sh) => String(sh ?? '').trim().toUpperCase().replace(/^S+(?=\d)/, '');
 
-function umsValues(g, stay) {
+// The slip's From / To (Slip page, Settings → From / To) from the itinerary. The first stay comes from where the group
+// arrived (flight port JEDDAH / MADINA → airport; CAR / BUS / TRAIN → by car / bus / train), a later one from the city
+// before; the last stay goes to the departure point, an earlier one to the next city. '' when UMS names nothing known.
+const LEG_WORD = { CAR: 'By car', BUS: 'By bus', TRAIN: 'By train' };
+const PORT_PLACE = { JEDDAH: 'Jeddah Airport', MADINA: 'Madina Airport', MEDINA: 'Madina Airport', MADINAH: 'Madina Airport' };
+function legPlace(leg) {
+    const word = String(leg?.flight || '').trim().match(/^(CAR|BUS|TRAIN)\b/i);
+    if (word) return LEG_WORD[word[1].toUpperCase()];
+    return PORT_PLACE[String(leg?.port || '').trim().toUpperCase()] || '';
+}
+const CITY_PLACE = (site) => ({ makkah: 'Makkah', medina: 'Medina' }[site] || '');
+function placesOf(g, stays, stay) {
+    const i = stays.indexOf(stay);
+    if (i < 0) return { from_place: '', to_place: '' };
+    return {
+        from_place: i === 0 ? legPlace(g.arrival) : CITY_PLACE(stays[i - 1].site),
+        to_place: i === stays.length - 1 ? legPlace(g.departure) : CITY_PLACE(stays[i + 1].site),
+    };
+}
+
+function umsValues(g, stay, stays = []) {
     const op = g.operator;
     return {
+        ...placesOf(g, stays, stay),
         tour_name: op.name || `${op.family ? 'FAMILY' : 'GROUP'} SH ${g.sh}`,
         group_leader: op.glName,
         // a group's second stay at the same site (e.g. Makkah again after Madina) is S44030, so the two
@@ -286,7 +307,7 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
 
         for (const stay of mine) {
             plan.stays++;
-            const vals = umsValues(g, stay);
+            const vals = umsValues(g, stay, stays);
             const meta = umsMeta(g, stay, now);
             seenKeys.add(meta.key);
             if (!fromDay || vals.checkin_date < fromDay) fromDay = vals.checkin_date;
@@ -317,8 +338,9 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
             const changes = {}, kept = {}, notes = [];
             for (const f of MANAGED) {
                 const u = vals[f];
-                if (f === 'group_leader' && !u) continue; // UMS often has no GL yet; keep whatever the desk typed
+                if ((f === 'group_leader' || f === 'from_place' || f === 'to_place') && !u) continue; // UMS often has no GL yet / no known port; keep whatever the desk typed
                 const cur = slip[f];
+                if ((f === 'from_place' || f === 'to_place') && !(slip.ums?.applied && f in slip.ums.applied) && String(cur ?? '').trim()) continue;   // a place the desk set before UMS filled these: keep it
                 if (eq(cur, u)) continue;
                 // a delayed departure (Slip page / Delayed departures) keeps its check-out: old flight data must not shorten it
                 if (slip.delayed?.on && (f === 'checkout_date' || f === 'checkout_time')) { kept[f] = { yours: cur, ums: u, delayed: true }; continue; }

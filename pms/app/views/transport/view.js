@@ -9,6 +9,7 @@ import { loadSignage, saveSignageConfig } from '../../core/signage-api.js';
 import { loadBuildings, buildingNames } from '../../core/rooms.js';
 import { baseSh } from '../../core/ums.js';
 import { isZiyarat, openZiyaratSplit } from '../../core/ziyarat.js';
+import { openCheckoutPlan } from './plan.js';
 
 export default async function mount(ctx) {
     const $ = (id) => ctx.root.querySelector('#' + id);
@@ -23,7 +24,7 @@ export default async function mount(ctx) {
     $('tpSignage').href = `${ctx.siteId}/signage`; // public board: today and tomorrow, no login
     $('tpImport').hidden = !canOpen('transport-import', desk) || !writable;
     $('tpPrint').hidden = !canOpen('transport-print', desk);
-    $('tpRenumber').hidden = $('tpDelete').hidden = !writable;
+    $('tpRenumber').hidden = $('tpDelete').hidden = $('tpPlan').hidden = !writable;
 
     // "3 buses · 1 car · 1 Self- Bus"
     const fleet = (list) => fleetText(list, '0 buses');
@@ -518,6 +519,16 @@ export default async function mount(ctx) {
         save(rows, `${title}: numbered by departure time (${moved.length} changed)`);
     });
 
+    // plan the day's vehicles from the groups checking out (slips): ticked ones become trips, numbered after the existing ones
+    $('tpPlan').addEventListener('click', async () => {
+        if (saving) return;
+        let slips;
+        try { slips = await ctx.guard(ctx.db.all()); } catch { msg('Could not read the slips.', 'bad'); return; }
+        const trips = await openCheckoutPlan({ day, siteId: ctx.siteId, slips, rows: doc.rows });
+        if (!trips?.length) return;
+        const rows = assignBuses([...doc.rows.map(r => ({ ...r })), ...trips].sort((a, b) => a.at.localeCompare(b.at)), doc.rows);
+        save(rows, `planned from check-outs: ${trips.length} group${trips.length === 1 ? '' : 's'} (SH ${trips.map(t => t.ref).join(', ')})`);
+    });
     $('tpRenumber').addEventListener('click', () => {
         if (!confirm('Number every destination again from 1, in time order?\nBuses and cars count apart. Numbers typed in by hand are replaced, and sheets already stuck on buses may no longer match.')) return;
         save(renumber(doc.rows), 'renumbered');

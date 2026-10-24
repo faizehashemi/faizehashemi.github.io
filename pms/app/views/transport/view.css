@@ -39,3 +39,20 @@
 .tp-part { display: inline-block; font-size: 10.5px; font-weight: 900; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; color: #fff; }
 .tp-part.gents { background: #2f6fb3; } .tp-part.ladies { background: #b33a6f; }
 .tp-zsplit { border-color: #b33a6f !important; color: #8a2a55 !important; }
+
+/* Plan from check-outs */
+dialog.tp-plan { border: 0; border-radius: 16px; padding: 18px 20px; width: min(96vw, 860px); max-height: 88vh; box-shadow: 0 24px 70px rgba(0, 0, 0, .3); color: var(--ink); }
+dialog.tp-plan::backdrop { background: rgba(43, 30, 21, .4); }
+dialog.tp-plan h2 { margin: 0 0 6px; font-size: 18px; }
+.tp-plan-scroll { overflow: auto; max-height: 56vh; margin: 10px 0; border: 1px solid var(--edge); border-radius: 10px; }
+.tp-plan-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tp-plan-tbl th, .tp-plan-tbl td { padding: 6px 9px; text-align: left; border-bottom: 1px solid var(--edge); vertical-align: middle; }
+.tp-plan-tbl thead th { position: sticky; top: 0; background: #fff8e1; font-size: 12px; }
+.tp-plan-tbl td.n { text-align: right; font-weight: 700; }
+.tp-plan-tbl small { display: block; color: var(--muted); font-size: 11.5px; }
+.tp-plan-tbl tr.listed { opacity: .6; }
+.tp-plan-tbl select, .tp-plan-tbl input[type=time] { font: inherit; padding: 4px 6px; border: 1px solid var(--edge); border-radius: 8px; }
+.tp-plan-share { display: block; margin: 4px 0 10px; font-size: 13px; }
+.tp-plan-share input[type=number] { width: 64px; font: inherit; padding: 2px 6px; border: 1px solid var(--edge); border-radius: 8px; }
+.tp-plan-foot { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.tp-plan-foot .tp-muted { margin-right: auto; }

@@ -7,6 +7,7 @@
 
 import { loadScript } from './lib.js';
 import { loadSettings, DEFAULTS } from './settings.js';
+import { getPrefs } from './prefs.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function ymdToDMY(ymd) { if (!ymd) return ''; const [y, m, d] = ymd.split('-'); return `${d}/${m}/${y}`; }
@@ -83,6 +84,7 @@ export function slipHTML(rec, rows) {
         <tr><th>CHECK IN</th><td>${ymdToDMY(rec.checkin_date || '')}</td><td>${hhmmToHMS(rec.checkin_time || '')}</td><td></td></tr>
         <tr><th>CHECK OUT</th><td>${ymdToDMY(rec.checkout_date || '')}</td><td>${hhmmToHMS(rec.checkout_time || '')}</td><td></td></tr>
         <tr><th>BUILDING</th><td colspan="3">${esc(rec.building)}</td></tr>
+        ${getPrefs().slipFromTo ? `<tr><th>FROM</th><td>${esc(rec.from_place || '-')}</td><th>TO</th><td>${esc(rec.to_place || '-')}</td></tr>` : ''}   <!-- only with Settings → Slip page → From / To -->
         <tr><th>SH NO.</th><td>${esc(rec.sh_no)}</td><th>TOTAL</th><td>${esc(rec.total)}</td></tr>
         <tr><th>GENTS</th><td>${esc(rec.gents)}</td><th>LADIES</th><td>${esc(rec.ladies)}</td></tr>
         <tr><th>CHILDREN</th><td>${esc(rec.children)}</td><th>INFANTS</th><td>${esc(rec.infants)}</td></tr>
