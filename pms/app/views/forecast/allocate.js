@@ -13,7 +13,7 @@
 
 import { findBuilding, normRoom, floorOf } from '../../core/rooms.js';
 import { recordApply } from './alloclog.js';
-import { rowsOf } from '../../core/stay.js';
+import { rowsOf, normB } from '../../core/stay.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -49,10 +49,8 @@ export function mountAllocator({ ctx, host, planner }) {
         const addBooking = (b, room, start, end, beds, side) => { const k = key(b, room); if (!book.has(k)) book.set(k, []); book.get(k).push({ start, end, beds, side }); };
         for (const r of slips) {
             if (r.deleted) continue;
-            const b = String(r.building || '').trim().toUpperCase();
-            if (!b) continue;
-            // each room row's own window (delayed departures — core/stay.js)
-            for (const w of rowsOf(r)) if (w.start && w.end && w.beds > 0) addBooking(b, w.room_no, w.start, w.end, w.beds, w.side);
+            // each room row's own window and building; an Exclusive row keeps the whole room (core/stay.js)
+            for (const w of rowsOf(r)) { const b = normB(w.building); if (b && w.start && w.end && w.block > 0) addBooking(b, w.room_no, w.start, w.end, w.block, w.side); }
         }
         // busiest moment in [ci, co) for a room
         const peak = (b, room, ci, co) => {

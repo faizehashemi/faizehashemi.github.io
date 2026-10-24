@@ -44,6 +44,13 @@
                     <td><input placeholder="Children" id="children" type="number" inputmode="numeric" min="0" step="1" /></td>
 
                 </tr>
+                <!-- From / To: where the group or self comes from and goes to — shown only when switched on in Settings → Slip page -->
+                <tr id="fromToRow" hidden>
+                    <th>FROM</th>
+                    <td colspan="6"><select id="from_place" aria-label="Coming from"><option value="">—</option></select></td>
+                    <th>TO</th>
+                    <td colspan="6"><select id="to_place" aria-label="Going to"><option value="">—</option></select></td>
+                </tr>
                 <tr>
                 </tr>
 
@@ -82,9 +89,10 @@
                 <!-- GENTS header: was Room No | Capacity | [X] -->
                 <thead>
                     <tr>
-                        <th style="width:50%">Room No</th>
-                        <th style="width:22%">Capacity</th>
-                        <th style="width:18%">Assigned</th>
+                        <th style="width:34%">Room No</th>
+                        <th style="width:16%">Capacity</th>
+                        <th style="width:16%">Assigned</th>
+                        <th class="excl-cell" title="Exclusive: the room is kept for these guests alone (a couple or a single who wants privacy) — the whole room is blocked, only the guests assigned are counted as pax">Exclusive</th>
                         <th class="out-cell">Leaves <span class="muted">(date · time · status)</span></th>
                         <th style="width:10%"></th>
                     </tr>
@@ -101,9 +109,10 @@
                 <!-- LADIES header: same change -->
                 <thead>
                     <tr>
-                        <th style="width:50%">Room No</th>
-                        <th style="width:22%">Capacity</th>
-                        <th style="width:18%">Assigned</th>
+                        <th style="width:34%">Room No</th>
+                        <th style="width:16%">Capacity</th>
+                        <th style="width:16%">Assigned</th>
+                        <th class="excl-cell" title="Exclusive: the room is kept for these guests alone (a couple or a single who wants privacy) — the whole room is blocked, only the guests assigned are counted as pax">Exclusive</th>
                         <th class="out-cell">Leaves <span class="muted">(date · time · status)</span></th>
                         <th style="width:10%"></th>
                     </tr>

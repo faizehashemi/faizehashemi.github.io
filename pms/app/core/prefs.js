@@ -54,6 +54,8 @@ export const DEFAULT_PREFS = {
     slipCheckoutTime: '',
     slipAutoLoadSh: true,      // load the slip when an SH is typed into an empty form
     pickerOnlyFree: true,      // Pick rooms…: hide full rooms at first
+    slipFromTo: false,         // From / To on the slip (where the group comes from and goes to) — hidden unless switched on
+    time24: false,             // Slip page times as 24-hour (default: 12-hour)
     // check-ins page
     checkinsSplit: false,      // split the tables by where groups come from / go to (airport or the other city)
     // columns hidden in the Check-ins / Check-outs tables (ids in CHECKINS_COLS); by default each shows only its own time

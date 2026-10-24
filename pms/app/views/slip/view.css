@@ -373,3 +373,21 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .sh-use:hover { background: #fff6dd; }
 .sh-det { margin-top: 6px; border-collapse: collapse; font-size: 12.5px; width: 100%; max-width: 640px; }
 .sh-det th { text-align: left; width: 110px; color: #6b5e4a; padding: 2px 8px 2px 0; vertical-align: top; } .sh-det td { padding: 2px 0; overflow-wrap: anywhere; }
+
+/* Pick rooms: a gents / ladies room refused for the other side; Exclusive */
+.rp .rp-err { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #fde2df; border: 1px solid #e3a7a1; color: #8f1d12; font-size: 13px; }
+.rp .rp-err a { color: #8f1d12; font-weight: 800; }
+.rp .rp-msg.warn { background: #fde2df; color: #8f1d12; font-weight: 700; padding: 8px 18px; }
+.rp .rp-excl { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-weight: 700; font-size: 13px; }
+.rp .rp-excl.off { opacity: .55; } .rp .rp-excl input { width: auto; margin: 0; }
+
+/* Slip page: Exclusive room rows (the whole room kept for the guests assigned; may be in another building) */
+.excl-cell { white-space: nowrap; }
+.excl-cell .excl-on { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.excl-cell .excl-chk { width: auto; margin: 0; }
+.excl-cell .excl-bld { display: block; margin-top: 4px; font-size: 12px; max-width: 150px; }
+tr.excl > td:first-child { box-shadow: inset 4px 0 0 #7b3fb2; }
+tr.excl .excl-on { color: #5b2a8f; }
+/* 24-hour time fields (Settings → Slip page → 24-hour times) */
+.t24 { display: inline-flex; align-items: center; gap: 2px; }
+.t24 select { width: auto; min-width: 0; padding: 4px 2px; }

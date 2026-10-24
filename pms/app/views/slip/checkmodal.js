@@ -2,10 +2,12 @@
 // OK rooms are summed up in one short list; every problem is shown in bold with what it means, what to do about it,
 // and — when nothing else helps — a link that opens the Timeline on that room for this slip's stay.
 
+import { use24 } from '../../core/timefmt.js';
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
 const localDT = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-const when = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const when = (ms) => new Date(ms).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: use24() ? '2-digit' : 'numeric', minute: '2-digit', hour12: !use24() });   // 12-hour unless Settings → 24-hour times
 
 /**
  * report: { title, tone: 'ok' | 'bad' | 'warn', lead, ok: [{ room, before, after, cap }], issues: [{ kind, room, … }],
@@ -15,14 +17,15 @@ export function showSlipReport(report, timelineHref) {
     document.getElementById('slipReport')?.remove();
     const dlg = document.createElement('dialog');
     dlg.id = 'slipReport';
-    const tl = (room) => timelineHref({ building: report.building, room, from: localDT(report.start - 864e5), to: localDT(report.end + 864e5) });
+    const tl = (room, building) => timelineHref({ building: building || report.building, room, from: localDT(report.start - 864e5), to: localDT(report.end + 864e5) });
     const issue = (x) => {
-        const link = x.room && report.building && report.start ? `<li>Still stuck? <a href="${esc(tl(x.room))}" target="_blank" rel="noopener">Open the Timeline for room ${esc(x.room)}</a>
+        const at = x.building ? ` (${esc(x.building)})` : '';                      // an Exclusive room in another building says which
+        const link = x.room && (x.building || report.building) && report.start ? `<li>Still stuck? <a href="${esc(tl(x.room, x.building))}" target="_blank" rel="noopener">Open the Timeline for room ${esc(x.room)}</a>
             — it shows who is in that room around this stay (${esc(when(report.start))} → ${esc(when(report.end))}).</li>` : '';
         if (x.kind === 'blocked') {
             const free = Math.max(0, x.cap - x.existing);
-            return `<li class="sr-issue"><b>Room ${esc(x.room)} is over its beds on ${esc(when(x.at))}: ${x.total}/${x.cap}.</b>
-              <span>${x.who.length ? x.who.map(w => `SH ${esc(w.sh)} uses ${w.beds} bed${w.beds === 1 ? '' : 's'} (${esc(when(w.start))} → ${esc(when(w.end))})`).join('; ') + (x.who.length > 1 ? ` — ${x.existing} beds in all` : '') : `Other groups use ${x.existing} bed${x.existing === 1 ? '' : 's'}`}; this slip puts ${x.want} there.</span>
+            return `<li class="sr-issue"><b>Room ${esc(x.room)}${at} is over its beds on ${esc(when(x.at))}: ${x.total}/${x.cap}.</b>
+              <span>${x.who.length ? x.who.map(w => `SH ${esc(w.sh)} ${w.excl ? `keeps the whole room — exclusive, ${w.pax} guest${w.pax === 1 ? '' : 's'} (${w.beds} beds)` : `uses ${w.beds} bed${w.beds === 1 ? '' : 's'}`} (${esc(when(w.start))} → ${esc(when(w.end))})`).join('; ') + (x.who.length > 1 ? ` — ${x.existing} beds in all` : '') : `Other groups use ${x.existing} bed${x.existing === 1 ? '' : 's'}`}; this slip puts ${x.want} there${x.excl ? ' (Exclusive: it keeps the whole room)' : ''}.</span>
               <ul>
                 <li>${free ? `Put at most <b>${free}</b> bed${free === 1 ? '' : 's'} in room ${esc(x.room)} — that is what is free then.` : `Room ${esc(x.room)} has <b>no free bed</b> then — move these guests to another room.`}</li>
                 <li>Move some guests to another room: <b>Pick rooms…</b> shows the rooms with free beds for the whole stay.</li>
@@ -31,7 +34,10 @@ export function showSlipReport(report, timelineHref) {
                 ${link}
               </ul></li>`;
         }
-        if (x.kind === 'nocap') return `<li class="sr-issue"><b>Room ${esc(x.room)} has no bed count.</b>
+        if (x.kind === 'roomtype') return `<li class="sr-issue"><b>Room ${esc(x.room)}${at} is a ${esc(String(x.type).toUpperCase())} room, but it is on the ${x.side === 'ladies' ? 'Ladies' : 'Gents'} list.</b>
+              <ul><li>A ${esc(x.type)} room cannot take ${x.side === 'ladies' ? 'ladies' : 'gents'}. Move it to the ${x.type === 'ladies' ? 'Ladies' : 'Gents'} list, or choose another room (<b>Pick rooms…</b> only offers rooms that fit).</li>
+              <li>Only if there is no other option: first remove “${esc(x.type)}” from room ${esc(x.room)} in <b>Rooms &amp; Buildings</b> (set its type to any), then save again.</li></ul></li>`;
+        if (x.kind === 'nocap') return `<li class="sr-issue"><b>Room ${esc(x.room)}${at} has no bed count${x.excl ? ' (an Exclusive room blocks its whole capacity, so it needs one)' : ''}.</b>
               <ul><li>Type the room's beds in this row's <b>Capacity</b>, or add the room in <b>Rooms &amp; Buildings</b> — then save again.</li>${link}</ul></li>`;
         if (x.kind === 'badtime') return `<li class="sr-issue"><b>Room ${esc(x.room)}: its own check-out is before the check-in.</b>
               <ul><li>Fix that row's leave date (delayed departure) or remove the row, then save again.</li></ul></li>`;
@@ -40,7 +46,7 @@ export function showSlipReport(report, timelineHref) {
         return `<li class="sr-issue"><b>${esc(x.text || 'Problem')}</b>${x.help ? `<ul>${x.help.map(h => `<li>${h}</li>`).join('')}</ul>` : ''}</li>`;
     };
     const okList = report.ok?.length ? `<details class="sr-ok" ${report.issues?.length ? '' : 'open'}><summary>✓ ${report.ok.length} room${report.ok.length === 1 ? '' : 's'} OK</summary>
-        <p>${report.ok.map(o => `<span><b>${esc(o.room)}</b> ${o.before}/${o.cap} → ${o.after}/${o.cap}${o.after < o.cap ? ` · ${o.cap - o.after} free` : ' · full'}</span>`).join('')}</p></details>` : '';
+        <p>${report.ok.map(o => `<span><b>${esc(o.room)}</b>${o.building ? ` <small>${esc(o.building)}</small>` : ''} ${o.before}/${o.cap} → ${o.after}/${o.cap}${o.excl ? ' · exclusive' : o.after < o.cap ? ` · ${o.cap - o.after} free` : ' · full'}</span>`).join('')}</p></details>` : '';
     dlg.innerHTML = `
       <style>
         #slipReport { border: 0; border-radius: 16px; padding: 0; width: min(94vw, 680px); max-height: 86vh; box-shadow: 0 24px 70px rgba(0, 0, 0, .3); color: #2b1e15;

@@ -11,12 +11,13 @@
 // (gents unless changed), counted inside that side's number. The row is saved with gl: true.
 
 import { findBuilding, normRoom, floorOf } from '../../core/rooms.js';
-import { rowsOf } from '../../core/stay.js';
+import { rowsOf, normB } from '../../core/stay.js';
+import { fmtDT } from '../../core/timefmt.js';
 
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const parseDT = (d, t) => { if (!d) return null; const v = new Date(`${d}T${t && t.length ? t : '00:00'}`); return isNaN(v) ? null : v; };
-const fmt = (dt) => dt.toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmt = (dt) => fmtDT(dt);      // 12-hour unless Settings → 24-hour times
 const SIDES = { gents: 'Gents', ladies: 'Ladies' };
 
 /** Busiest moment and the occupancy profile of a room across [from, to). */
@@ -57,19 +58,20 @@ export function openRoomPicker(o) {
     const useBuilder = rooms.size > 0;
     const usage = new Map(); // norm → [events]
     for (const s of o.slips) {
-        if (s.id === o.excludeId || String(s.building || '').trim().toUpperCase() !== bld) continue;
-        // each room row's own window (a delayed departure gives rows their own check-out — core/stay.js)
+        if (s.id === o.excludeId) continue;
+        // each room row's own window and building (a delayed departure gives rows their own check-out — core/stay.js)
         for (const w of rowsOf(s)) {
+            if (normB(w.building) !== bld) continue;               // an Exclusive row can be in another building
             const k = normRoom(w.room_no);
             if (!k) continue;
             if (!rooms.has(k) && !useBuilder) { // a room only known from slips
                 const cap = o.historyCap(w.room_no);
                 rooms.set(k, { room_no: String(w.room_no).trim(), cap: cap ?? (Number(w.row.capacity) || 0), type: '', floor: floorOf(w.room_no), known: 'slips' });
             }
-            const beds = Number(w.row.assigned) || 0;
+            const pax = Number(w.row.assigned) || 0, beds = w.exclusive ? w.block : pax;      // beds kept: the whole room when Exclusive
             if (!w.start || !w.end || !(w.start < +co && w.end > +ci) || beds <= 0) continue;
             if (!usage.has(k)) usage.set(k, []);
-            usage.get(k).push({ start: new Date(Math.max(w.start, +ci)), end: new Date(Math.min(w.end, +co)), fullStart: new Date(w.start), fullEnd: new Date(w.end), beds, side: w.side, sh: s.sh_no, tour: s.tour_name || '', delayed: w.status !== 'booked' });
+            usage.get(k).push({ start: new Date(Math.max(w.start, +ci)), end: new Date(Math.min(w.end, +co)), fullStart: new Date(w.start), fullEnd: new Date(w.end), beds, pax, excl: w.exclusive, side: w.side, sh: s.sh_no, tour: s.tour_name || '', delayed: w.status !== 'booked' });
         }
     }
     for (const side of ['gents', 'ladies']) for (const x of o.current[side] || []) {
@@ -82,14 +84,22 @@ export function openRoomPicker(o) {
         r.free = r.known === 'removed' ? 0 : Math.max(0, (r.cap || 0) - r.peak); // never hand out a removed room's beds
     }
 
+    /* ------------------------------- room types ------------------------------- */
+    // Rooms & Buildings marks a room gents / ladies / family / any. A gents room never takes ladies and a ladies room never
+    // takes gents (family and any take both). Not a warning: the room cannot be given to the wrong side here — to use it
+    // anyway, its type must first be changed (to any) in Rooms & Buildings.
+    const wrongSide = (r, side) => (r.type === 'gents' || r.type === 'ladies') && r.type !== side;
+    const typeMsg = (r, side) => `Room ${r.room_no} is a ${r.type.toUpperCase()} room in Rooms & Buildings, so it cannot be given to ${SIDES[side].toLowerCase()}. `
+        + `Choose a ${SIDES[side].toLowerCase()}, family or any room. Only if there is no other option: first remove ${r.type} from room ${r.room_no} in Rooms & Buildings (set its type to any), then come back and assign it.`;
+
     /* ------------------------------- allocation ------------------------------- */
-    const alloc = new Map(); // norm → { side, beds, gl? }
+    const alloc = new Map(); // norm → { side, beds, gl?, excl?, building? }
     let glOn = true, glSide = 'gents', glRoom = null; // group leader's room
     for (const side of ['gents', 'ladies']) for (const x of o.current[side] || []) {
         const k = normRoom(x.room_no);
         const beds = Number(x.assigned) || Number(x.capacity) || 0;
         if (k && beds > 0 && !alloc.has(k)) {
-            alloc.set(k, { side, beds, gl: !!x.gl && !glRoom });
+            alloc.set(k, { side, beds, gl: !!x.gl && !glRoom, excl: !!x.exclusive, building: x.building || '' });
             if (x.gl && !glRoom) { glRoom = k; glSide = side; }
         }
     }
@@ -181,6 +191,8 @@ export function openRoomPicker(o) {
                 : `The next room you click is the group leader's (1 ${SIDES[glSide].toLowerCase()} bed)`}</span>`;
     }
     function setGlSide(side) {
+        const g = glRoom && rooms.get(glRoom);
+        if (g && wrongSide(g, side)) { say(typeMsg(g, side), true); return; }
         glSide = side;
         const a = glRoom && alloc.get(glRoom);
         if (a) a.side = side;
@@ -203,7 +215,7 @@ export function openRoomPicker(o) {
                 return `<button type="button" class="rp-tile ${state} ${selected === k ? 'sel' : ''}" data-room="${esc(k)}"
                     title="${esc(r.room_no)}: ${r.known === 'removed' ? 'not an active room in Rooms & Buildings — take it off this slip' : `${r.free} of ${r.cap} beds free for the whole stay`}${r.events.length ? ` · shared with ${r.events.map(e => 'SH ' + e.sh).join(', ')}` : ''}">
                     <span class="rp-no">${esc(r.room_no)}${r.type ? `<em>${esc(r.type[0].toUpperCase())}</em>` : ''}</span>
-                    <span class="rp-free">${r.known === 'removed' ? `${a ? `${SIDES[a.side][0]} ${a.beds} · ` : ''}removed` : a ? `${a.gl ? 'GL · ' : ''}${SIDES[a.side][0]} ${a.beds} · ${left} left` : `${r.free}/${r.cap} free`}</span>
+                    <span class="rp-free">${r.known === 'removed' ? `${a ? `${SIDES[a.side][0]} ${a.beds} · ` : ''}removed` : a ? `${a.gl ? 'GL · ' : ''}${SIDES[a.side][0]} ${a.beds}${a.excl ? ' · Exclusive' : ` · ${left} left`}${wrongSide(r, a.side) ? ' · ⚠ wrong side' : ''}` : `${r.free}/${r.cap} free`}</span>
                     ${bar(r)}
                 </button>`;
             }).join('')}</div></div>`).join('') || `<p class="rp-muted">${rooms.size ? 'No room matches. Untick “Only rooms with space” to see full rooms.' : `No rooms known for ${esc(bld)}. Add them in Rooms & Buildings.`}</p>`;
@@ -214,20 +226,23 @@ export function openRoomPicker(o) {
         const r = rooms.get(selected), a = alloc.get(selected);
         const side = a?.side || (r.type === 'ladies' ? 'ladies' : 'gents');
         const beds = a?.beds || 0;
-        const clash = r.type && r.type !== 'family' && r.type !== side;
+        const clash = wrongSide(r, side);
+        const canExcl = r.known !== 'removed' && r.cap > 0 && r.free === r.cap;          // the whole room must be free for the stay
         $('rpDetail').innerHTML = `
             <div class="rp-dhead"><b>Room ${esc(r.room_no)}</b><span>${r.cap} bed${r.cap === 1 ? '' : 's'}${r.type ? ' · ' + esc(r.type) : ''}${r.known === 'slips' ? ' · capacity from old slips' : ''}</span></div>
             ${r.known === 'removed' ? '<p class="rp-warn">This room is deleted or switched off in Rooms &amp; Buildings. Take it off this slip and pick another.</p>' : ''}
             <p class="rp-big">${r.free} free for the whole stay${r.peakSeg && r.peak ? ` <span class="rp-muted">(busiest ${esc(fmt(new Date(r.peakSeg.from)))} → ${esc(fmt(new Date(r.peakSeg.to)))}: ${r.peak} taken)</span>` : ''}</p>
             ${bar(r, true)}
             <div class="rp-axis"><span>${esc(fmt(ci))}</span><span>${esc(fmt(co))}</span></div>
-            ${r.events.length ? `<ul class="rp-others">${r.events.map(e => `<li><b>SH ${esc(e.sh)}</b> ${esc(e.tour)} · ${e.beds} ${esc(e.side)} bed${e.beds === 1 ? '' : 's'}<br><span class="rp-muted">${esc(fmt(e.fullStart))} → ${esc(fmt(e.fullEnd))}</span></li>`).join('')}</ul>` : '<p class="rp-muted">Nobody else in this room during the stay.</p>'}
+            ${r.events.length ? `<ul class="rp-others">${r.events.map(e => `<li><b>SH ${esc(e.sh)}</b> ${esc(e.tour)} · ${e.excl ? `exclusive — the whole room (${e.pax} guest${e.pax === 1 ? '' : 's'})` : `${e.beds} ${esc(e.side)} bed${e.beds === 1 ? '' : 's'}`}<br><span class="rp-muted">${esc(fmt(e.fullStart))} → ${esc(fmt(e.fullEnd))}</span></li>`).join('')}</ul>` : '<p class="rp-muted">Nobody else in this room during the stay.</p>'}
             <div class="rp-assign">
               <div class="rp-seg" role="group" aria-label="Side">${Object.entries(SIDES).map(([k, l]) => `<button type="button" data-side="${k}" aria-pressed="${k === side}">${l}</button>`).join('')}</div>
               <div class="rp-step"><button type="button" data-step="-1" aria-label="One bed less">−</button><output id="rpBeds">${beds}</output><button type="button" data-step="1" aria-label="One bed more">+</button></div>
               <button type="button" data-act="max">All ${r.free}</button>
             </div>
-            ${clash ? `<p class="rp-warn">This room is marked for ${esc(r.type)}.</p>` : ''}
+            ${a ? `<label class="rp-excl${canExcl || a.excl ? '' : ' off'}" title="Keep the whole room for these guests (a couple or a single who wants privacy)"><input type="checkbox" id="rpExcl" ${a.excl ? 'checked' : ''} ${canExcl || a.excl ? '' : 'disabled'}> Exclusive — block all ${r.cap} beds${a.excl ? `, ${beds} guest${beds === 1 ? '' : 's'} counted` : ''}</label>
+              ${!canExcl && !a.excl ? '<p class="rp-muted">Exclusive needs the whole room free for the stay.</p>' : ''}` : ''}
+            ${clash ? `<p class="rp-err"><b>${esc(typeMsg(r, side))}</b>${o.builderHref ? ` <a href="${esc(o.builderHref)}" target="_blank" rel="noopener">Open Rooms &amp; Buildings</a>` : ''}</p>` : ''}
             ${r.free <= 0 && !a ? '<p class="rp-warn">No bed is free for the whole stay.</p>' : ''}`;
         dlg._side = side;
     }
@@ -243,13 +258,13 @@ export function openRoomPicker(o) {
         const r = rooms.get(k);
         const mine = alloc.get(k)?.side === side ? alloc.get(k).beds : 0;
         beds = Math.max(0, Math.min(r.known === 'removed' ? mine : r.free, beds, mine + remaining(side)));
-        const gl = alloc.get(k)?.gl;
+        const gl = alloc.get(k)?.gl, prev = alloc.get(k);
         if (!beds) { alloc.delete(k); if (k === glRoom) glRoom = null; }
-        else { alloc.set(k, { side, beds, gl }); if (gl) glSide = side; }
+        else { alloc.set(k, { side, beds, gl, excl: prev?.excl, building: prev?.building }); if (gl) glSide = side; }
         renderAll();
     }
 
-    const fits = (r, side) => !r.type || r.type === 'family' || r.type === side;
+    const fits = (r, side) => !wrongSide(r, side);
     function autoFill() {
         // the group leader first: the smallest free room of their side
         if (glOn && !glRoom && (!anyNeed() || remaining(glSide) > 0)) {
@@ -279,7 +294,7 @@ export function openRoomPicker(o) {
         $('rpMsg').textContent = text;
         $('rpMsg').className = `rp-msg${warn ? ' warn' : ''}`;
         clearTimeout(msgTimer);
-        msgTimer = setTimeout(() => { $('rpMsg').textContent = ''; }, 4500);
+        msgTimer = setTimeout(() => { $('rpMsg').textContent = ''; }, warn ? 14000 : 4500);   // a refusal stays long enough to read
     };
 
     // click a room: give it beds (as many as are free, but no more than still needed); click again: take them back
@@ -292,10 +307,10 @@ export function openRoomPicker(o) {
         // the group leader's room comes first while the toggle is on
         if (glOn && !glRoom) {
             if (anyNeed() && remaining(glSide) <= 0) { say(`No ${SIDES[glSide].toLowerCase()} bed is left for the group leader — switch the side or take a room back.`, true); renderAll(); return; }
+            if (wrongSide(r, glSide)) { say(typeMsg(r, glSide), true); renderAll(); return; }
             alloc.set(k, { side: glSide, beds: 1, gl: true });
             glRoom = k;
-            const typeWarn = !fits(r, glSide) ? ` (room is marked ${r.type})` : '';
-            say(`Room ${r.room_no}: the group leader (1 ${SIDES[glSide].toLowerCase()} bed)${typeWarn}.`, !!typeWarn);
+            say(`Room ${r.room_no}: the group leader (1 ${SIDES[glSide].toLowerCase()} bed).`);
             renderAll();
             return;
         }
@@ -304,10 +319,14 @@ export function openRoomPicker(o) {
             if (remaining(other) > 0) activeSide = other;
             else { say(`All ${need('gents') + need('ladies')} beds are given. Click a chosen room to take it back first.`, true); renderAll(); return; }
         }
+        // a gents / ladies room goes to its own side: switch to it when that side still needs beds, else the room is refused
+        if (wrongSide(r, activeSide)) {
+            if (remaining(r.type) > 0) { activeSide = r.type; say(`Room ${r.room_no} is a ${r.type.toUpperCase()} room — given to ${SIDES[r.type]}.`); }
+            else { say(typeMsg(r, activeSide), true); renderAll(); return; }
+        }
         const beds = Math.min(r.free, remaining(activeSide));
         alloc.set(k, { side: activeSide, beds });
-        const typeWarn = r.type && r.type !== 'family' && r.type !== activeSide ? ` (room is marked ${r.type})` : '';
-        say(`Room ${r.room_no}: ${beds} ${SIDES[activeSide].toLowerCase()} bed${beds === 1 ? '' : 's'}${beds < r.free ? ` of ${r.free} free` : ''}${typeWarn}.`, !!typeWarn);
+        say(`Room ${r.room_no}: ${beds} ${SIDES[activeSide].toLowerCase()} bed${beds === 1 ? '' : 's'}${beds < r.free ? ` of ${r.free} free` : ''}.`);
         // this side is done: carry on with the other one
         if (remaining(activeSide) <= 0) { const other = activeSide === 'gents' ? 'ladies' : 'gents'; if (remaining(other) > 0) activeSide = other; }
         renderAll();
@@ -322,6 +341,7 @@ export function openRoomPicker(o) {
         if (t.dataset.room && t.classList.contains('rp-tile')) { toggleRoom(t.dataset.room); return; }
         if (t.dataset.room) { selected = t.dataset.room; renderAll(); return; }
         if (t.dataset.remove) { alloc.delete(t.dataset.remove); if (t.dataset.remove === glRoom) glRoom = null; renderAll(); return; }
+        if (t.dataset.side && selected && wrongSide(rooms.get(selected), t.dataset.side)) { say(typeMsg(rooms.get(selected), t.dataset.side), true); return; }
         if (t.dataset.side && selected) { const a = alloc.get(selected); if (a) setAlloc(selected, t.dataset.side, a.beds); else { dlg._side = t.dataset.side; renderDetail(); dlg.querySelectorAll('[data-side]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.side === t.dataset.side))); } return; }
         if (t.dataset.step && selected) { const a = alloc.get(selected); setAlloc(selected, a?.side || dlg._side, (a?.beds || 0) + Number(t.dataset.step)); return; }
         if (act === 'max' && selected) { setAlloc(selected, alloc.get(selected)?.side || dlg._side, rooms.get(selected).free); return; }
@@ -330,8 +350,10 @@ export function openRoomPicker(o) {
         if (act === 'close') dlg.close();
         if (act === 'apply') {
             if (!alloc.size && !confirm("No rooms are chosen. Apply anyway (this empties the slip's room tables)?")) return;
+            const wrong = [...alloc].filter(([k, a]) => wrongSide(rooms.get(k), a.side));
+            if (wrong.length) { const [k, a] = wrong[0]; selected = k; say(`${typeMsg(rooms.get(k), a.side)}${wrong.length > 1 ? ` (${wrong.length} rooms are on the wrong side.)` : ''}`, true); renderAll(); return; }
             const out = { gents: [], ladies: [] };
-            for (const [k, a] of alloc) { const r = rooms.get(k); out[a.side].push({ room_no: r.room_no, capacity: r.cap, assigned: a.beds, ...(a.gl ? { gl: true } : {}) }); }
+            for (const [k, a] of alloc) { const r = rooms.get(k); out[a.side].push({ room_no: r.room_no, capacity: r.cap, assigned: a.beds, ...(a.gl ? { gl: true } : {}), ...(a.excl ? { exclusive: true, ...(a.building ? { building: a.building } : {}) } : {}) }); }
             out.gents.sort((x, y) => natural(x.room_no, y.room_no));
             out.ladies.sort((x, y) => natural(x.room_no, y.room_no));
             o.onApply(out.gents, out.ladies);
@@ -340,6 +362,11 @@ export function openRoomPicker(o) {
     });
     // turning it off keeps the room but makes it an ordinary one
     dlg.addEventListener('change', (e) => {
+        if (e.target.id === 'rpExcl') {                    // Exclusive: keep the whole room for the guests given, count only them as pax
+            const a = selected && alloc.get(selected);
+            if (a) { a.excl = e.target.checked; say(a.excl ? `Room ${rooms.get(selected).room_no}: the whole room is kept for ${a.beds} guest${a.beds === 1 ? '' : 's'}; only they count as guests.` : `Room ${rooms.get(selected).room_no}: an ordinary room again.`); renderAll(); }
+            return;
+        }
         if (e.target.id !== 'rpGlOn') return;
         glOn = e.target.checked;
         if (!glOn && glRoom) { const a = alloc.get(glRoom); if (a) a.gl = false; glRoom = null; }

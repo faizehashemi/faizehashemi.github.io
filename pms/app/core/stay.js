@@ -6,7 +6,11 @@
 // slip. Rows without `out` end at the slip's check-out. Every page that asks "who is here when" uses these helpers,
 // so rooms, meals, counts and check-outs agree.
 //
-//   rowsOf(slip)        [{ side, room_no, beds, start, end, status }]  (ms timestamps; beds = assigned, else capacity)
+//   rowsOf(slip)        [{ side, room_no, beds, block, building, exclusive, start, end, status }]  (ms timestamps;
+//                       beds = guests in the room (assigned, else capacity) — what pax counts use;
+//                       block = beds the room is kept for — what occupancy and availability use: an EXCLUSIVE row
+//                       (couple / single room) blocks the whole room capacity while only `beds` guests are in it;
+//                       building = the row's own building (exclusive rows may sit in another building) else the slip's)
 //   slipStart / slipEnd (ms) — slipEnd is the latest row end (or the slip check-out)
 //   isDelayed(slip)
 //   presentAt(slip, t)  true while any part of the group is in house at t
@@ -24,6 +28,19 @@ export const isDelayed = (s) => !!(s && s.delayed && s.delayed.on);
 export const slipStart = (s) => parseDT(s.checkin_date, s.checkin_time);
 const baseEnd = (s) => parseDT(s.checkout_date, s.checkout_time);
 const rowBeds = (x) => x.assigned !== '' && x.assigned != null ? num(x.assigned) : num(x.capacity);
+/** Beds a row keeps for itself: the whole room for an Exclusive row (at least the guests in it), else the guests' beds. */
+export const rowBlocks = (x) => x && x.exclusive ? Math.max(num(x.capacity), rowBeds(x)) : rowBeds(x);
+/** A building name for comparing: trimmed, upper case. */
+export const normB = (b) => String(b == null ? '' : b).trim().toUpperCase();
+/** The building a room row is in: its own (Exclusive rows may be given another building) or the slip's. */
+export const rowBuilding = (s, x) => String((x && x.building) || '').trim() || String((s && s.building) || '').trim();
+/** Does the slip have a room row in this building? (the slip's building, or an Exclusive row's own) */
+export const slipTouches = (s, building) => {
+    const b = normB(building);
+    if (normB(s.building) === b) return true;
+    for (const side of ['gents', 'ladies']) for (const x of s.rooms?.[side] || []) if (x && x.building && normB(x.building) === b) return true;
+    return false;
+};
 
 /** Room rows with their own windows. */
 export function rowsOf(s) {
@@ -32,7 +49,8 @@ export function rowsOf(s) {
     for (const side of ['gents', 'ladies']) for (const x of s.rooms?.[side] || []) {
         if (!String(x.room_no || '').trim()) continue;
         const own = isDelayed(s) && x.out ? parseDT(x.out.date, x.out.time) : null;
-        out.push({ side, room_no: String(x.room_no).trim(), beds: rowBeds(x), start, end: own || end0, status: own ? (x.out_status || 'confirmed') : 'booked', row: x });
+        out.push({ side, room_no: String(x.room_no).trim(), beds: rowBeds(x), block: rowBlocks(x), building: rowBuilding(s, x), exclusive: !!x.exclusive,
+            start, end: own || end0, status: own ? (x.out_status || 'confirmed') : 'booked', row: x });
     }
     return out;
 }
@@ -93,19 +111,19 @@ export function departuresOf(s) {
  * capOf(building, room) → beds (Rooms & Buildings); the row's own capacity is the fallback.
  */
 export function roomConflicts(slip, slips, capOf, now = Date.now()) {
-    const b = String(slip.building || '').trim().toUpperCase();
     const mineAll = rowsOf(slip);
     const out = [];
     for (const w of mineAll) {
         if (!w.end || w.end <= now) continue;
+        const b = normB(w.building);                                  // the row's own building (an Exclusive row may be elsewhere)
         const room = w.room_no.toUpperCase();
         const from = Math.max(now, w.start || now);
         const others = [];
         for (const s of slips) {
-            if (s.deleted || s.id === slip.id || String(s.building || '').trim().toUpperCase() !== b) continue;
-            for (const o of rowsOf(s)) if (o.room_no.toUpperCase() === room && o.beds > 0 && o.end > from) others.push({ ...o, sh: s.sh_no, id: s.id });
+            if (s.deleted || s.id === slip.id) continue;
+            for (const o of rowsOf(s)) if (normB(o.building) === b && o.room_no.toUpperCase() === room && o.block > 0 && o.end > from) others.push({ ...o, beds: o.block, sh: s.sh_no, id: s.id });
         }
-        const mine = mineAll.filter(x => x.room_no.toUpperCase() === room);
+        const mine = mineAll.filter(x => normB(x.building) === b && x.room_no.toUpperCase() === room).map(x => ({ ...x, beds: x.block }));
         const cap = num(capOf(b, w.room_no)) || num(w.row.capacity);
         let worst = { total: 0, who: [], at: null };
         for (const t of new Set([from, ...others.map(o => o.start).filter(t => t > from && t < w.end)])) {

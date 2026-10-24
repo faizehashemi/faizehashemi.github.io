@@ -1,7 +1,7 @@
 // Ported from pms/timeline_db.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
 
 import { loadBuildings, buildingsOfSite } from '../../core/rooms.js';
-import { rowsOf } from '../../core/stay.js';
+import { rowsOf, normB, slipTouches } from '../../core/stay.js';
 
 export default async function mount(app) {
 const { db } = app; // not "ctx": this page uses ctx for its canvas
@@ -60,7 +60,8 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
     /* ===== Data (this site) ===== */
     const getAllRecords = () => db.all();
     // exact match on the stored value, like the old IDBKeyRange.only() index lookup
-    const getByBuilding = async (building) => (await db.all()).filter(r => r.building === building);
+    // slips with a room in this building (an Exclusive row can be in another building than its slip)
+    const getByBuilding = async (building) => (await db.all()).filter(r => slipTouches(r, building));
 
     // Populate building/rooms
     (async function hydrate(){
@@ -68,14 +69,15 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
         const all = await getAllRecords();
         const byB=new Map();
         for(const r of all){
-          const b=(r.building||'').trim();
-          if(!b) continue;
-          if(!byB.has(b)) byB.set(b,new Set());
           const eat=arr=>arr?.forEach(x=>{
+            const b=String(x.building||r.building||'').trim();       // an Exclusive row may have its own building
+            if(!b) return;
             const rm=String(x.room_no||'').trim();
+            if(!byB.has(b)) byB.set(b,new Set());
             if(rm) byB.get(b).add(rm);
           });
           eat(r.rooms?.gents); eat(r.rooms?.ladies);
+          const b0=(r.building||'').trim(); if(b0 && !byB.has(b0)) byB.set(b0,new Set());
         }
         // plus every room set up in Rooms & Buildings
         for (const b of buildingsOfSite(await app.guard(loadBuildings()), app.siteId)) {
@@ -135,8 +137,9 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
         // each room row's own window (a delayed departure gives rows their own check-out — core/stay.js)
         for(const w of rowsOf(r)){
           const assigned=Number(w.row.assigned||0);
+          if(normB(w.building)!==normB(building)) continue;
           if(w.room_no===room && assigned>0 && w.start && w.end && w.end>w.start)
-            out.push({ sh_no:r.sh_no, start:new Date(w.start), end:new Date(w.end), assigned:assigned });
+            out.push({ sh_no:r.sh_no, start:new Date(w.start), end:new Date(w.end), assigned:assigned, block:w.block, excl:w.exclusive });
         }
       }
 
@@ -308,7 +311,7 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
         for (const ev of EVENTS){
           const s = Math.max(+ev.start, tms);
           const e = Math.min(+ev.end,   tms + granMs);
-          if (e > s) sum += Number(ev.assigned || 1);
+          if (e > s) sum += Number(ev.block || ev.assigned || 1);     // beds kept (the whole room for an Exclusive row)
         }
         totals.push({ tms, sum });
       }
@@ -368,7 +371,7 @@ const { db } = app; // not "ctx": this page uses ctx for its canvas
         tip.style.left=(clientX+12)+'px';
         tip.style.top=(clientY+12)+'px';
         tip.innerHTML=`<b>SH ${escapeHTML(d.sh_no)}</b><br>${fmt(d.start)} → ${fmt(d.end)}\
-<br>Assigned: ${d.assigned ?? 1}<br>${dur(d.start,d.end)}`;
+<br>Assigned: ${d.assigned ?? 1}${d.excl ? ` · Exclusive (${d.block} beds kept)` : ''}<br>${dur(d.start,d.end)}`;
       } else {
         tip.style.display='none';
       }

@@ -341,3 +341,9 @@ td.fl .fl-say { max-width: 220px; }
 .fl-links a:hover { color: #0b3d5c; }
 .fl-links .fl-na { color: #a99f8c; text-decoration: line-through; cursor: help; }
 .fl-links .fl-for { display: block; white-space: normal; font-size: 10.5px; color: #8a7d68; line-height: 1.3; }
+
+/* Totals row at the bottom of each Check-ins / Check-outs table (and each part of a split table) */
+tr.tot-row td { font-weight: 800; background: #f6ecd2; color: #4a3708; border-top: 2px solid #b8931f; padding-top: 8px; padding-bottom: 8px; }
+tr.tot-row.tot-sub td { background: #fbf3df; border-top: 1px solid #d9c488; }
+tr.tot-row td.tot-l { text-transform: uppercase; letter-spacing: .04em; font-size: 12px; }
+tfoot { display: table-footer-group; }

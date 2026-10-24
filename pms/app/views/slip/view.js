@@ -3,12 +3,13 @@
 
 import { UserError, sync, state } from '../../core/cloud.js';
 import { recordSlipDenial } from '../../core/telemetry.js';
-import { loadBuildings, buildingNames, builderCapacity } from '../../core/rooms.js';
+import { loadBuildings, buildingNames, builderCapacity, findBuilding, normRoom } from '../../core/rooms.js';
 import { baseSh } from '../../core/ums.js';
 import { openRoomPicker } from './room-picker.js';
 import { getPrefs } from '../../core/prefs.js';
 import { loadSettings, DEFAULTS, shPattern } from '../../core/settings.js';
-import { rowsOf } from '../../core/stay.js';
+import { rowsOf, normB } from '../../core/stay.js';
+import { enhanceTimes, use24 } from '../../core/timefmt.js';
 
 // SH numbers: 44030, or with a prefix from Setup → SH prefixes (S44030 a group's second check-in at this site, E…, ES…)
 let SH_PREFIXES = DEFAULTS.sh_prefixes;
@@ -40,7 +41,7 @@ export default async function mount(ctx) {
     let DB_CACHE = []; // for capacity + availability lookup
 
     function parseDT(d, t) { if (!d) return null; const tt = t && t.length ? t : '00:00'; const v = new Date(`${d}T${tt}`); return isNaN(v) ? null : v; }
-    function fmt(dt) { if (!dt) return ''; return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(dt); }
+    function fmt(dt) { if (!dt) return ''; return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', hour12: !use24() }).format(dt); }   // 12-hour unless Settings → 24-hour times
     function cleanRoom(x) { return String(x ?? '').trim(); }
 
     // A loaded slip is changed with Edit; Save (a new slip) is locked so it can't be duplicated by accident.
@@ -69,6 +70,22 @@ export default async function mount(ctx) {
         $('building').appendChild(o);
     };
     buildingNames(BUILDINGS, ctx.siteId).forEach(addBuildingOption);
+
+    // the buildings an Exclusive room can be given: "same as the slip", then the site's buildings (and the row's own if it is not listed)
+    function fillExclBuildings(sel, current) {
+        const names = [...buildingNames(BUILDINGS, ctx.siteId)];
+        if (current && !names.some(n => normB(n) === normB(current))) names.push(current);
+        sel.innerHTML = `<option value="">Same as the slip</option>` + names.map(n => `<option>${n.replace(/[<>&"]/g, '')}</option>`).join('');
+    }
+    // an Exclusive row blocks the room's whole capacity, so the bed count must be known: take it from Rooms & Buildings
+    // for the row's building (its own, else the slip's); the guests assigned (pax) are not touched
+    function fillExclCapacity(tr) {
+        const [roomEl, capEl] = tr.querySelectorAll('input');
+        const room = cleanRoom(roomEl.value), b = (tr.querySelector('.excl-bld')?.value || '').trim() || ($('building').value || '').trim();
+        if (!room || !b) return;
+        const cap = builderCapacity(BUILDINGS, b, room);
+        if (cap != null && cap > 0) { capEl.placeholder = ''; if (String(capEl.value) !== String(cap)) capEl.value = cap; }
+    }
 
     function addRow(group, data = { room_no: '', capacity: '', assigned: '' }) {
         const tbody = $(group + '-tbody');
@@ -147,6 +164,28 @@ export default async function mount(ctx) {
             });
         }
 
+        // Exclusive: the room is kept for these guests alone (a couple, a single who wants privacy) — its WHOLE capacity is
+        // blocked although fewer guests are assigned (Assigned stays the guests = pax; the blocked beds are not pax).
+        // An Exclusive room may be in another building than the slip's: pick it here.
+        const tdEx = document.createElement('td');
+        tdEx.className = 'excl-cell';
+        tdEx.innerHTML = `<label class="excl-on" title="Keep the whole room for these guests"><input type="checkbox" class="excl-chk" aria-label="Exclusive room"> <span>Excl.</span></label>
+            <select class="excl-bld" aria-label="Building of this exclusive room" hidden></select>`;
+        const exChk = tdEx.querySelector('.excl-chk'), exBld = tdEx.querySelector('.excl-bld');
+        fillExclBuildings(exBld, data.building);
+        exChk.checked = !!data.exclusive;
+        exBld.hidden = !exChk.checked;
+        if (data.exclusive && data.building) exBld.value = data.building;
+        tr.classList.toggle('excl', exChk.checked);
+        exChk.addEventListener('change', () => {
+            exBld.hidden = !exChk.checked;
+            if (!exChk.checked) exBld.value = '';
+            tr.classList.toggle('excl', exChk.checked);
+            if (exChk.checked) { fillExclCapacity(tr); inpAsg.focus(); inpAsg.select(); }
+            showAllocSum();
+        });
+        exBld.addEventListener('change', () => fillExclCapacity(tr));
+
         // Leaves (delayed departure): this row's own check-out, status, and split
         const tdOut = document.createElement('td');
         tdOut.className = 'out-cell';
@@ -171,7 +210,7 @@ export default async function mount(ctx) {
         btnDel.onclick = () => { tr.remove(); showAllocSum(); };
         tdDel.appendChild(btnDel);
 
-        tr.append(tdRoom, tdCap, tdAsg, tdOut, tdDel);
+        tr.append(tdRoom, tdCap, tdAsg, tdEx, tdOut, tdDel);
         tbody.appendChild(tr);
     }
 
@@ -186,6 +225,11 @@ export default async function mount(ctx) {
             const assigned = /^\d+$/.test(asgRaw) ? Number(asgRaw) : '';
             if (room_no !== '' || capRaw !== '' || asgRaw !== '') {
                 const row = { room_no, capacity, assigned, ...(tr.dataset.gl ? { gl: true } : {}) };
+                if (tr.querySelector('.excl-chk')?.checked) {            // Exclusive: the whole room is kept; maybe in another building
+                    row.exclusive = true;
+                    const b = (tr.querySelector('.excl-bld')?.value || '').trim();
+                    if (b) row.building = b;
+                }
                 if (delayOn()) { // every row of a delayed slip carries its own check-out (blank = the slip's)
                     row.out = { date: tr.querySelector('.out-date')?.value || $('checkout_date').value || '', time: tr.querySelector('.out-time')?.value || $('checkout_time').value || '' };
                     row.out_status = tr.querySelector('.out-status')?.value || 'confirmed';
@@ -273,6 +317,7 @@ export default async function mount(ctx) {
         asgEl.value = String(beds - n);
         asgEl.dispatchEvent(new Event('input', { bubbles: true }));
         addRow(group, { room_no: roomEl.value, capacity: capEl.value, assigned: n,
+            ...(tr.querySelector('.excl-chk')?.checked ? { exclusive: true, building: tr.querySelector('.excl-bld')?.value || '' } : {}),
             out: { date: tr.querySelector('.out-date').value, time: tr.querySelector('.out-time').value }, out_status: tr.querySelector('.out-status').value });
         tr.after($(group + '-tbody').lastElementChild);
         showAllocSum();
@@ -296,6 +341,7 @@ export default async function mount(ctx) {
             checkout_date, checkout_time,
             building: $('building').value || '',
             sh_no: shValue($('sh_no').value),
+            from_place: $('from_place').value || '', to_place: $('to_place').value || '',     // kept even while hidden in Settings
             total: $('total').value === '' ? '' : Number($('total').value),
             gents: $('gents').value === '' ? '' : Number($('gents').value),
             ladies: $('ladies').value === '' ? '' : Number($('ladies').value),
@@ -307,7 +353,24 @@ export default async function mount(ctx) {
         };
     }
 
+    // From / To: where the group or self comes from and goes to. The row is shown only when Settings → Slip page → From / To is on.
+    const PLACES = ['Madina Airport', 'Jeddah Airport', 'Makkah', 'Medina', 'By car', 'By bus', 'By train'];
+    for (const id of ['from_place', 'to_place']) $(id).insertAdjacentHTML('beforeend', PLACES.map(p => `<option>${p}</option>`).join(''));
+    $('fromToRow').hidden = !getPrefs().slipFromTo;
+    function setPlace(id, v) {
+        const sel = $(id), val = String(v || '');
+        if (val && ![...sel.options].some(o => o.value === val)) sel.insertAdjacentHTML('beforeend', `<option>${val.replace(/[<>&"]/g, '')}</option>`);   // an older / other value stays selectable
+        sel.value = val;
+    }
+
+    // (side|room|building) of the rooms the loaded slip already has: the gents / ladies room rule is checked for new rooms only,
+    // so an older slip with a room on the "wrong" side can still be edited until that room is changed
+    let LOADED_ROOMS = new Set();
+    const roomKey = (side, room, building) => `${side}|${normRoom(room)}|${normB(building)}`;
+    const roomType = (building, room) => findBuilding(BUILDINGS, building)?.rooms?.find(r => normRoom(r.room_no) === normRoom(room))?.type || '';
+
     function setFormData(data) {
+        LOADED_ROOMS = new Set(['gents', 'ladies'].flatMap(side => (data.rooms?.[side] || []).map(x => roomKey(side, x.room_no, x.building || data.building))));
         $('tour_name').value = data.tour_name || '';
         $('group_leader').value = data.group_leader || '';
         $('checkin_date').value = data.checkin_date || '';
@@ -317,6 +380,7 @@ export default async function mount(ctx) {
         if (data.building) addBuildingOption(data.building); // a slip for a building not (or no longer) in the list
         $('building').value = data.building || '';
         $('sh_no').value = data.sh_no ?? '';
+        setPlace('from_place', data.from_place); setPlace('to_place', data.to_place);
         $('total').value = data.total ?? '';
         $('gents').value = data.gents ?? '';
         $('ladies').value = data.ladies ?? '';
@@ -352,14 +416,9 @@ export default async function mount(ctx) {
         const cap = new Map(); // key: building|room -> capacity
         const items = [...DB_CACHE].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
         for (const r of items) {
-            const b = (r.building || '').trim();
-            if (buildingFilter && b !== buildingFilter) continue;
-            (r.rooms?.gents || []).forEach(x => {
-                const key = `${b}|${cleanRoom(x.room_no)}`;
-                const c = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
-                if (!cap.has(key) && c != null) cap.set(key, c);
-            });
-            (r.rooms?.ladies || []).forEach(x => {
+            for (const side of ['gents', 'ladies']) (r.rooms?.[side] || []).forEach(x => {
+                const b = String(x.building || r.building || '').trim();                 // an Exclusive row can be in another building
+                if (buildingFilter && b !== buildingFilter) return;
                 const key = `${b}|${cleanRoom(x.room_no)}`;
                 const c = (x.capacity === '' || x.capacity == null) ? null : Number(x.capacity);
                 if (!cap.has(key) && c != null) cap.set(key, c);
@@ -378,7 +437,7 @@ export default async function mount(ctx) {
         await refreshDBCache();
         const b = ($('building').value || '').trim();
         if (!b) { alert('Select a building first.'); return; }
-        const capMap = buildCapacityMap(b);
+        const capMaps = new Map([[b, buildCapacityMap(b)]]);
         BUILDINGS = await ctx.guard(loadBuildings({ force: true })); // rooms edited on another desk count too
 
         let filled = 0, unknown = 0;
@@ -388,8 +447,11 @@ export default async function mount(ctx) {
                 const [roomEl, capEl] = tr.querySelectorAll('input');
                 const room = cleanRoom(roomEl.value);
                 if (!room) return;
-                const key = `${b}|${room}`;
-                const fromBuilder = builderCapacity(BUILDINGS, b, room);
+                const rb = (tr.querySelector('.excl-bld')?.value || '').trim() || b;      // an Exclusive room's own building
+                if (!capMaps.has(rb)) capMaps.set(rb, buildCapacityMap(rb));
+                const capMap = capMaps.get(rb);
+                const key = `${rb}|${room}`;
+                const fromBuilder = builderCapacity(BUILDINGS, rb, room);
                 if (fromBuilder != null || capMap.has(key)) {
                     capEl.value = fromBuilder != null ? fromBuilder : capMap.get(key);
                     capEl.placeholder = '';
@@ -441,31 +503,38 @@ export default async function mount(ctx) {
         if (!bld || !ci || !co || co <= ci) return { pass: false, okRooms: [], issues: [{ kind: 'window', missing: [!bld && 'building', !ci && 'check-in', !co && 'check-out', ci && co && co <= ci && 'check-out not after check-in'].filter(Boolean) }], building: bld, copy, own: [] };
         const issues = [], okRooms = [];
 
-        // This slip's rows: each row is a window (delayed departures give rows their own check-out)
+        // This slip's rows: each row is a window (delayed departures give rows their own check-out). A row is in the
+        // slip's building unless it is an Exclusive row given its own; an Exclusive row keeps the whole room.
         const own = [];
         const capLocalOf = new Map();
+        const keyOf = (building, room) => `${normB(building)}|${room}`;
         for (const side of ['gents', 'ladies']) for (const r of collectRows(side)) {
             const room = cleanRoom(r.room_no);
             if (!room) continue;
+            const building = (r.building || '').trim() || bld;
             const beds = Number.isFinite(+r.assigned) ? +r.assigned : 0;
             const end = (r.out && parseDT(r.out.date, r.out.time)) || co;
             if (end <= ci) { issues.push({ kind: 'badtime', room, out: r.out }); continue; }
-            own.push({ room, side, start: +ci, end: +end, beds, cap_row: Number(r.capacity) || null });
-            if (!capLocalOf.get(room) && Number.isFinite(+r.capacity) && +r.capacity > 0) capLocalOf.set(room, +r.capacity);
+            own.push({ room, building, key: keyOf(building, room), side, start: +ci, end: +end, beds, excl: !!r.exclusive, cap_row: Number(r.capacity) || null });
+            // a gents room never takes ladies and a ladies room never takes gents (Rooms & Buildings → type); family / any take both
+            const typ = roomType(building, room);
+            if ((typ === 'gents' || typ === 'ladies') && typ !== side && !LOADED_ROOMS.has(roomKey(side, room, building))) {
+                issues.push({ kind: 'roomtype', room, side, type: typ, ...(normB(building) === normB(bld) ? {} : { building }) });
+            }
+            if (!capLocalOf.get(keyOf(building, room)) && Number.isFinite(+r.capacity) && +r.capacity > 0) capLocalOf.set(keyOf(building, room), +r.capacity);
         }
-        const uniqRooms = [...new Set(own.map(o => o.room))];
+        const uniqKeys = [...new Set(own.map(o => o.key))];
         const lastEnd = Math.max(+co, ...own.map(o => o.end));
 
-        // Other slips' windows in the same rooms (their own per-row check-outs count too)
-        const others = new Map(uniqRooms.map(r => [r, []]));
+        // Other slips' windows in the same rooms (their own per-row check-outs count too; an Exclusive row keeps its whole room)
+        const others = new Map(uniqKeys.map(k => [k, []]));
         for (const r of DB_CACHE) {
             if (CURRENT_ID && r.id === CURRENT_ID) continue; // ignore self
-            if ((r.building || '').trim() !== bld) continue;
             for (const w of rowsOf(r)) {
-                const room = cleanRoom(w.room_no);
-                if (!others.has(room) || !w.start || !w.end || w.beds <= 0) continue;
+                const key = keyOf(w.building, cleanRoom(w.room_no));
+                if (!others.has(key) || !w.start || !w.end || w.block <= 0) continue;
                 if (!(w.start < lastEnd && w.end > +ci)) continue;
-                others.get(room).push({ start: w.start, end: w.end, beds: w.beds, sh: r.sh_no, id: r.id, status: w.status, ums: !!r.ums });
+                others.get(key).push({ start: w.start, end: w.end, beds: w.block, pax: w.beds, excl: w.exclusive, sh: r.sh_no, id: r.id, status: w.status, ums: !!r.ums });
             }
         }
 
@@ -473,17 +542,17 @@ export default async function mount(ctx) {
         // (capSource keeps which one was used and what the others said — a row capacity that disagrees with
         // Rooms & Buildings is a common reason for a surprise "over its beds")
         const capSource = new Map();
-        function resolveCapacity(room) {
-            const local = capLocalOf.get(room) || 0;
-            const fromBuilder = builderCapacity(BUILDINGS, bld, room);
+        function resolveCapacity(building, room) {
+            const key = keyOf(building, room);
+            const local = capLocalOf.get(key) || 0;
+            const fromBuilder = builderCapacity(BUILDINGS, building, room);
             const src = { row: local || null, builder: fromBuilder ?? null, used: null };
-            capSource.set(room, src);
+            capSource.set(key, src);
             if (local > 0) { src.used = 'row'; return local; }
             if (fromBuilder > 0) { src.used = 'builder'; return fromBuilder; }
             for (let i = DB_CACHE.length - 1; i >= 0; i--) {
                 const rec = DB_CACHE[i];
-                if ((rec.building || '').trim() !== bld) continue;
-                const arr = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])];
+                const arr = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])].filter(z => normB(z.building || rec.building) === normB(building));
                 const hit = arr.find(z => cleanRoom(z.room_no) === room);
                 const histCap = Number.isFinite(+hit?.capacity) ? +hit.capacity : 0;
                 if (histCap > 0) { src.used = 'history'; src.history = histCap; src.history_slip = rec.id; return histCap; }
@@ -493,26 +562,30 @@ export default async function mount(ctx) {
 
         // Per room: the busiest moment while this group is in it — other groups there then + this group's beds then
         const blocked = new Set();
-        for (const room of uniqRooms) {
-            const cap = resolveCapacity(room);
-            if (!cap) { blocked.add(room); issues.push({ kind: 'nocap', room, cap_source: capSource.get(room) }); continue; }
-            const mine = own.filter(o => o.room === room), theirs = others.get(room);
+        for (const key of uniqKeys) {
+            const mine = own.filter(o => o.key === key), theirs = others.get(key);
+            const room = mine[0].room, building = mine[0].building;
+            const cap = resolveCapacity(building, room);
+            const where = normB(building) === normB(bld) ? {} : { building };      // an Exclusive row in another building says which
+            if (!cap) { blocked.add(room); issues.push({ kind: 'nocap', room, ...where, excl: mine.some(o => o.excl), cap_source: capSource.get(key) }); continue; }
             const times = new Set([...mine.map(o => o.start), ...theirs.map(e => e.start)]);
             let worst = { total: -1, existing: 0, want: 0, t: null, who: [] };
             for (const t of times) {
-                const want = mine.filter(o => o.start <= t && t < o.end).reduce((s, o) => s + o.beds, 0);
+                // beds this group keeps then: its guests' beds, or the whole room for an Exclusive row
+                const want = mine.filter(o => o.start <= t && t < o.end).reduce((s, o) => s + (o.excl ? Math.max(cap, o.beds) : o.beds), 0);
                 if (!want) continue;
                 const here = theirs.filter(e => e.start <= t && t < e.end);
                 const existing = here.reduce((s, e) => s + e.beds, 0);
                 if (existing + want > worst.total) worst = { total: existing + want, existing, want, t, who: here };
             }
             if (worst.total < 0) continue;
+            const excl = mine.some(o => o.excl);
             if (worst.total <= cap) {
-                okRooms.push({ room, before: worst.existing, after: worst.total, cap, cap_source: capSource.get(room) });
+                okRooms.push({ room, ...where, before: worst.existing, after: worst.total, cap, excl, cap_source: capSource.get(key) });
             } else {
                 blocked.add(room);
-                issues.push({ kind: 'blocked', room, at: worst.t, cap, existing: worst.existing, want: worst.want, total: worst.total, who: worst.who,
-                    cap_source: capSource.get(room), others: theirs });
+                issues.push({ kind: 'blocked', room, ...where, excl, at: worst.t, cap, existing: worst.existing, want: worst.want, total: worst.total, who: worst.who,
+                    cap_source: capSource.get(key), others: theirs });
             }
         }
 
@@ -740,15 +813,19 @@ export default async function mount(ctx) {
         await refreshDBCache();
         BUILDINGS = await ctx.guard(loadBuildings({ force: true })); // rooms edited on another desk count too
         const history = buildCapacityMap(building);
+        // the picker works on this slip's building; Exclusive rows kept in another building are left as they are
+        const cur = { gents: collectRows('gents'), ladies: collectRows('ladies') };
+        const here = (r) => !r.building || normB(r.building) === normB(building);
         openRoomPicker({
+            builderHref: ctx.href('builder'),
             building, host: ctx.root, onlyFree: getPrefs().pickerOnlyFree,
             checkin: { date: $('checkin_date').value, time: $('checkin_time').value },
             checkout: { date: $('checkout_date').value, time: $('checkout_time').value },
             slips: DB_CACHE, buildings: BUILDINGS, excludeId: CURRENT_ID,
             historyCap: (room) => history.get(`${building}|${cleanRoom(room)}`) ?? null,
-            current: { gents: collectRows('gents'), ladies: collectRows('ladies') },
+            current: { gents: cur.gents.filter(here), ladies: cur.ladies.filter(here) },
             needs: { gents: $('gents').value, ladies: $('ladies').value, children: $('children').value, infants: $('infants').value },
-            onApply: (gents, ladies) => { setRows('gents', gents); setRows('ladies', ladies); },
+            onApply: (gents, ladies) => { setRows('gents', [...gents, ...cur.gents.filter(r => !here(r))]); setRows('ladies', [...ladies, ...cur.ladies.filter(r => !here(r))]); },
         });
     });
     document.querySelectorAll('[data-add-row]').forEach(b => b.addEventListener('click', () => addRow(b.dataset.addRow)));
@@ -777,4 +854,7 @@ export default async function mount(ctx) {
         $('sh_no').value = shParam;
         await fetchBySh();
     }
+    // 24-hour times (Settings → Slip page): the time fields become hour / minute pickers; off = the browser's own field
+    const stopTimes = enhanceTimes(ctx.root);
+    return () => stopTimes();
 }

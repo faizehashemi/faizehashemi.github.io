@@ -3,7 +3,7 @@
 
 import { loadBuildings, buildingsOfSite, buildingNames, builderCapacity, activeRooms } from '../../core/rooms.js';
 import { mountPlanner } from './planner.js';
-import { rowsOf, presentAt } from '../../core/stay.js';
+import { rowsOf, presentAt, normB, slipTouches } from '../../core/stay.js';
 import { mountAllocator } from './allocate.js';
 import { mountAllocLog } from './alloclog.js';
 
@@ -38,13 +38,13 @@ let BUILDINGS = [];
             if (!freq.size) return null; let best = null, bn = -1; for (const [cap, cnt] of freq) { if (cnt > bn || (cnt === bn && cap > (best ?? 0))) { best = cap; bn = cnt; } } return best;
         }
 
-        /* Sum assigned beds for a room at this exact instant (snapshot) */
+        /* Beds a room keeps at this exact instant (snapshot): guests' beds, the whole room for an Exclusive row */
         function assignedNow(building, room, when) {
             const target = normRoom(room); let sum = 0;
             for (const rec of DB_CACHE) {
-                if (clean(rec.building) !== building) continue;
+                if (!slipTouches(rec, building)) continue;
                 // each room row's own window (delayed departures — core/stay.js)
-                for (const w of rowsOf(rec)) if (normRoom(w.room_no) === target && w.start <= when && when < w.end) sum += toInt(w.row.assigned);
+                for (const w of rowsOf(rec)) if (normB(w.building) === normB(building) && normRoom(w.room_no) === target && w.start <= when && when < w.end) sum += w.exclusive ? w.block : toInt(w.row.assigned);
             }
             return sum;
         }
@@ -61,7 +61,7 @@ let BUILDINGS = [];
                 if (rooms.length) return unique(rooms).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
                 // the builder has no rooms for this building yet: fall back to what the slips show
             }
-            const bag = []; for (const r of recs) { if (building && building !== 'ALL' && clean(r.building) !== building) continue; (r.rooms?.gents || []).forEach(x => bag.push(cleanRoom(x.room_no))); (r.rooms?.ladies || []).forEach(x => bag.push(cleanRoom(x.room_no))); }
+            const bag = []; for (const r of recs) { if (building && building !== 'ALL' && !slipTouches(r, building)) continue; const inB = (x) => !building || building === 'ALL' || normB(x.building || r.building) === normB(building); (r.rooms?.gents || []).filter(inB).forEach(x => bag.push(cleanRoom(x.room_no))); (r.rooms?.ladies || []).filter(inB).forEach(x => bag.push(cleanRoom(x.room_no))); }
             return unique(bag.filter(Boolean)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
         }
 
@@ -84,15 +84,16 @@ let BUILDINGS = [];
             const inventory = getInventoryRooms(mode, manualText, DB_CACHE, building);
 
             // Active slips at snapshot
-            const active = DB_CACHE.filter(r => { if (building !== 'ALL' && clean(r.building) !== building) return false; return presentAt(r, +when); });
+            const active = DB_CACHE.filter(r => { if (building !== 'ALL' && clean(r.building) !== building) return false; return presentAt(r, +when); });   // headcount: a slip's guests count in its own building
+            const activeRooms = DB_CACHE.filter(r => { if (building !== 'ALL' && !slipTouches(r, building)) return false; return presentAt(r, +when); });   // rooms: also an Exclusive row in this building
 
             // Occupancy map: room -> list of active entries
             const occ = new Map();
             const pushOcc = (room, entry) => { const key = cleanRoom(room); if (!key) return; if (!occ.has(key)) occ.set(key, []); occ.get(key).push(entry); };
-            for (const r of active) {
-                const base = { tour: clean(r.tour_name), leader: clean(r.group_leader), sh: r.sh_no ?? '', bld: clean(r.building), win: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}` };
-                for (const w of rowsOf(r)) if (w.start <= when && when < w.end) // only the rooms still in house
-                    pushOcc(w.room_no, { ...base, gender: w.side === 'gents' ? 'Gents' : 'Ladies', cap: toInt(w.row.capacity), asg: toInt(w.row.assigned), win: `${fmt(new Date(w.start))} → ${fmt(new Date(w.end))}` });
+            for (const r of activeRooms) {
+                const base = { tour: clean(r.tour_name), leader: clean(r.group_leader), sh: r.sh_no ?? '', win: `${fmt(parseDT(r.checkin_date, r.checkin_time))} → ${fmt(parseDT(r.checkout_date, r.checkout_time))}` };
+                for (const w of rowsOf(r)) if (w.start <= when && when < w.end && (building === 'ALL' || normB(w.building) === normB(building))) // only the rooms still in house, in this building
+                    pushOcc(w.room_no, { ...base, bld: clean(w.building), gender: w.side === 'gents' ? 'Gents' : 'Ladies', cap: toInt(w.row.capacity), asg: w.exclusive ? w.block : toInt(w.row.assigned), excl: w.exclusive, win: `${fmt(new Date(w.start))} → ${fmt(new Date(w.end))}` });
             }
 
             // Render Occupied
@@ -106,7 +107,7 @@ let BUILDINGS = [];
           <td class="nowrap">${room}</td>
           <td>${e.tour}</td>
           <td>${e.leader}</td>
-          <td>${e.gender}</td>
+          <td>${e.gender}${e.excl ? ' · Exclusive' : ''}</td>
           <td class="right">${Number.isInteger(eff) ? eff : ''}</td>
           <td>${e.win}</td>
           <td>${e.bld}</td>

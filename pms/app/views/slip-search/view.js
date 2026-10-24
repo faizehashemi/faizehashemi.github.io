@@ -56,13 +56,14 @@ export default async function mount(ctx) {
         const rows = rowsOf(s);
         const side = (k) => rows.filter(r => r.side === k);
         const roomTbl = (k, label) => side(k).length ? `<h3>${label}</h3><table class="ss-mini"><thead><tr><th>Room</th><th>Beds</th>${isDelayed(s) ? '<th>Leaves</th>' : ''}</tr></thead><tbody>${side(k).map(r =>
-            `<tr><td>${esc(r.room_no)}</td><td class="n">${r.beds}</td>${isDelayed(s) ? `<td>${when(r.end)}${r.status !== 'booked' ? ` <em class="ss-dl">${esc(r.status)}</em>` : ''}</td>` : ''}</tr>`).join('')}</tbody></table>` : '';
+            `<tr><td>${esc(r.room_no)}${r.exclusive ? ` <em class="ss-dl" title="The whole room is kept for these guests">exclusive · ${r.block} beds kept</em>` : ''}${r.building && r.building !== String(s.building || '').trim() ? ` <small>${esc(r.building)}</small>` : ''}</td><td class="n">${r.beds}</td>${isDelayed(s) ? `<td>${when(r.end)}${r.status !== 'booked' ? ` <em class="ss-dl">${esc(r.status)}</em>` : ''}</td>` : ''}</tr>`).join('')}</tbody></table>` : '';
         const field = (l, v) => `<div><span>${l}</span><b>${v}</b></div>`;
         $('ssDetail').innerHTML = `<h2>SH ${esc(s.sh_no)}</h2>
             <div class="ss-fields">
                 ${field('Group', esc(s.tour_name || '—'))}
                 ${field('Group leader', esc(String(s.group_leader || '').trim() || '-'))}
                 ${field('Building', esc(s.building || '—'))}
+                ${s.from_place || s.to_place ? field('From → To', `${esc(s.from_place || '—')} → ${esc(s.to_place || '—')}`) : ''}
                 ${field('Check-in', when(slipStart(s)))}
                 ${field('Check-out', when(slipEnd(s)) + (isDelayed(s) ? ' <em class="ss-dl">delayed</em>' : ''))}
                 ${field('Total pax', pax(s) || '—')}

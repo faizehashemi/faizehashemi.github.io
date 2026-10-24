@@ -176,6 +176,19 @@ export default async function mount(ctx) {
             ? [['From the airport', pick('airport')], [`From ${otherLabel}`, pick(other)]]
             : [['Departing to the airport', pick('airport')], [`Departing to ${otherLabel}`, pick(other)]];
     }
+    // Totals of what the table shows, as a row: As. (assigned), T (guests), G, L, C, I — the same numbers as the rows above it
+    const countsOf = (list) => ({
+        n: list.length, as: list.reduce((s, r) => s + assignedCount(r), 0), t: list.reduce((s, r) => s + guests(r), 0),
+        g: list.reduce((s, r) => s + num(r.gents), 0), l: list.reduce((s, r) => s + num(r.ladies), 0),
+        c: list.reduce((s, r) => s + num(r.children ?? r.child), 0), i: list.reduce((s, r) => s + num(r.infants ?? r.infant), 0),
+    });
+    function totalsRow(list, label, cls) {
+        const k = countsOf(list), tr = document.createElement('tr');
+        tr.className = cls;
+        tr.innerHTML = `<td class="nowrap tot-l">${label}</td><td class="fl"></td><td class="c-sh"></td><td class="c-group">${k.n} slip${k.n === 1 ? '' : 's'}</td><td class="c-leader"></td><td class="c-building"></td><td class="c-rooms"></td>`
+            + `<td class="c-as">${k.as}</td><td class="c-t">${k.t}</td><td class="c-g">${k.g}</td><td class="c-l">${k.l}</td><td class="c-c">${k.c}</td><td class="c-i">${k.i}</td><td class="c-other"></td><td class="c-slip"></td>`;
+        return tr;
+    }
     const partSum = (list) => `${list.length} slip${list.length === 1 ? '' : 's'} · ${list.reduce((s, r) => s + guests(r), 0)} guests`;
 
     function renderTable(kind, rows, key) {
@@ -193,7 +206,13 @@ export default async function mount(ctx) {
             }
             table.appendChild(tbody);
             fillRows(tbody, list, key);
+            if (title && list.length) tbody.appendChild(totalsRow(list, 'Subtotal', 'tot-row tot-sub'));        // each part of a split table
         }
+        // the whole table's totals, at the bottom
+        table.querySelectorAll('tfoot').forEach(f => f.remove());
+        const tfoot = document.createElement('tfoot');
+        tfoot.appendChild(totalsRow(rows, 'Total', 'tot-row tot-all'));
+        table.appendChild(tfoot);
     }
     function fillRows(tbody, rows, key) {
         for (const r of rows) {
@@ -355,6 +374,8 @@ export default async function mount(ctx) {
                 const row = kind === 'in' ? [fmtDT(ci), ...fl, ...mid, fmtDT(co)] : [fmtDT(co), ...fl, ...mid, fmtDT(ci)];
                 lines.push(row.filter((_, i) => keepCol(i)).map(esc).join(','));
             }
+            const k = countsOf(list), fl = flightsShown() ? [''] : [];
+            lines.push(['Total', ...fl, '', `${k.n} slips`, '', '', '', k.as, k.t, k.g, k.l, k.c, k.i, ''].filter((_, i) => keepCol(i)).map(esc).join(','));
         }
         return lines.join('\r\n');
     }

@@ -6,7 +6,7 @@
 //   apart ("without rooms"); they are not in the %.
 
 import { loadBuildings, buildingsOfSite, normRoom, floorOf } from '../../core/rooms.js';
-import { rowsOf, slipEnd, isDelayed, paxAt } from '../../core/stay.js';
+import { rowsOf, slipEnd, isDelayed, paxAt, normB } from '../../core/stay.js';
 import { printAllocation } from './allocprint.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -51,27 +51,29 @@ export default async function mount(ctx) {
         const byName = new Map(blds.map(b => [b.name, b]));
         for (const s of slips) {
             if (s.deleted) continue;
-            const b = byName.get(String(s.building || '').trim().toUpperCase());
-            if (!b) continue;
             const ci = parseDT(s.checkin_date, s.checkin_time), co = slipEnd(s); // a delayed group: its last room
             if (!ci || !co) continue;
             const on = nights.map(t => ci <= t && t < co);
             if (!on.some(Boolean)) continue;
             const rows = rowsOf(s); // each room row's own window (core/stay.js)
             if (!rows.length) {
+                const b = byName.get(normB(s.building));
+                if (!b) continue;
                 const beds = (num(s.gents) + num(s.ladies) + num(s.children)) || num(s.total);
                 on.forEach((v, i) => { if (v) b.unroomed[i] += isDelayed(s) ? paxAt(s, nights[i]).total : beds; });
                 continue;
             }
             for (const w of rows) {
-                if (w.beds <= 0) continue;
+                if (w.block <= 0) continue;                       // an Exclusive row blocks the whole room, not just its guests
+                const b = byName.get(normB(w.building));          // the row's own building (Exclusive rows may be elsewhere)
+                if (!b) continue;
                 let room = b.byKey.get(normRoom(w.room_no));
                 if (!room) { // a room the slips use that is not active in Rooms & Buildings
                     const k = normRoom(w.room_no);
                     room = b.extra.get(k) || { no: w.room_no, key: k, floor: floorOf(w.room_no), cap: 0, used: days.map(() => 0), off: true };
                     b.extra.set(k, room);
                 }
-                nights.forEach((t, i) => { if (w.start <= t && t < w.end) { room.used[i] += w.beds; if (!room.off) b.used[i] += w.beds; } });
+                nights.forEach((t, i) => { if (w.start <= t && t < w.end) { room.used[i] += w.block; if (!room.off) b.used[i] += w.block; } });
             }
         }
         for (const b of blds) b.rooms.push(...[...b.extra.values()].sort((x, y) => natural(x.no, y.no)));

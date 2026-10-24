@@ -5,17 +5,19 @@
 // Lanes (the coloured rail) show branches: a version based on one that already has a later version starts a new lane.
 // Server: GET /api/slips/:id/versions, POST /api/slips/:id/activate (worker.js → listSlipVersions / activateSlipVersion).
 
+import { use24 } from '../../core/timefmt.js';
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const when = (iso) => iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+const when = (iso) => iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: use24() ? '2-digit' : 'numeric', minute: '2-digit', hour12: !use24() }) : '';   // 12-hour unless Settings → 24-hour times
 const SOURCE = { 'ums-import': 'UMS import', 'json-import': 'JSON import', planner: 'Forecast planner', 'allocate-day': 'Forecast: allocate day', 'alloc-undo': 'Forecast: undo', delay: 'Delayed departures', migrate: 'Old browser upload', 'sh-file-fix': 'Dates fixed from the SH file (bulk)' };
 
-const roomsText = (list) => (list || []).map(r => `${r.room_no}×${r.assigned ?? r.beds ?? '?'}${r.out && r.out.date ? ` → ${r.out.date}` : ''}`).join(', ') || '—';
+const roomsText = (list) => (list || []).map(r => `${r.room_no}×${r.assigned ?? r.beds ?? '?'}${r.exclusive ? ' (exclusive' + (r.building ? `, ${r.building}` : '') + ')' : ''}${r.out && r.out.date ? ` → ${r.out.date}` : ''}`).join(', ') || '—';
 // the fields worth showing, as [label, text]
 export function fields(d) {
     d = d || {};
     const dt = (a, b) => [a, b].filter(Boolean).join(' ') || '—';
     return [
-        ['SH', d.sh_no], ['Tour', d.tour_name], ['Leader', d.group_leader], ['Building', d.building],
+        ['SH', d.sh_no], ['Tour', d.tour_name], ['Leader', d.group_leader], ['Building', d.building], ['From', d.from_place], ['To', d.to_place],
         ['Check-in', dt(d.checkin_date, d.checkin_time)], ['Check-out', dt(d.checkout_date, d.checkout_time)],
         ['Gents', d.gents], ['Ladies', d.ladies], ['Children', d.children], ['Infants', d.infants], ['Total', d.total],
         ['Delayed', d.delayed && d.delayed.on ? `${d.delayed.status || 'tentative'}${d.delayed.note ? ` · ${d.delayed.note}` : ''}` : 'no'],

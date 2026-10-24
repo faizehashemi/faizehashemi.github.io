@@ -8,7 +8,7 @@
 // "Done" ticks stay on this device, per day and room.
 
 import { loadBuildings, buildingsOfSite, normRoom, floorOf } from '../../core/rooms.js';
-import { rowsOf } from '../../core/stay.js';
+import { rowsOf, normB } from '../../core/stay.js';
 import { getPrefs, setPrefs } from '../../core/prefs.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -49,10 +49,9 @@ export default async function mount(ctx) {
         const win = new Map();
         for (const s of SLIPS) {
             if (s.deleted) continue;
-            const b = String(s.building || '').trim().toUpperCase();
             for (const w of rowsOf(s)) {
                 if (!w.start || !w.end || w.beds <= 0) continue;
-                const k = `${b}|${normRoom(w.room_no)}`;
+                const k = `${normB(w.building)}|${normRoom(w.room_no)}`;      // the row's own building (an Exclusive row may be elsewhere)
                 if (!win.has(k)) win.set(k, []);
                 win.get(k).push({ ...w, sh: s.sh_no, tour: s.tour_name || '', delayed: w.status !== 'booked' });
             }

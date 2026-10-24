@@ -4,7 +4,7 @@
 // Only a building the builder has no rooms for falls back to the rooms named on its slips.
 
 import { loadBuildings, buildingsOfSite, findBuilding } from '../../core/rooms.js';
-import { rowsOf } from '../../core/stay.js';
+import { rowsOf, normB, slipTouches } from '../../core/stay.js';
 import { printGrid } from './export.js';
 
 export default async function mount(ctx) {
@@ -26,9 +26,11 @@ let BUILDINGS = [];
         const cleanRoom = x => String(x ?? '').trim();
         const normRoom = x => cleanRoom(x).replace(/\s+/g, '').toUpperCase();
 
-        function roomsFromSlip(rec) {
-            const g = (rec.rooms?.gents || []).map(x => normRoom(x.room_no ?? x));
-            const l = (rec.rooms?.ladies || []).map(x => normRoom(x.room_no ?? x));
+        // the slip's rooms — only those in `building` when given (an Exclusive row can be in another building)
+        function roomsFromSlip(rec, building) {
+            const mine = (x) => !building || normB(x.building || rec.building) === normB(building);
+            const g = (rec.rooms?.gents || []).filter(mine).map(x => normRoom(x.room_no ?? x));
+            const l = (rec.rooms?.ladies || []).filter(mine).map(x => normRoom(x.room_no ?? x));
             return [...g, ...l].filter(Boolean);
         }
 
@@ -53,11 +55,11 @@ let BUILDINGS = [];
             }
             const useBuilder = rooms.size > 0;
             records.forEach(r => {
-                if ((r.building || '').trim() !== b) return;
+                if (!slipTouches(r, b)) return;
                 if (useBuilder) { // only rooms someone is in at the chosen time
-                    if (!rowsOf(r).some(w => w.start && w.end && overlapsIn(when, w.start, w.end))) return;
+                    if (!rowsOf(r).some(w => normB(w.building) === normB(b) && w.start && w.end && overlapsIn(when, w.start, w.end))) return;
                 }
-                roomsFromSlip(r).forEach(k => {
+                roomsFromSlip(r, b).forEach(k => {
                     if (rooms.has(k)) return;
                     const inactive = builder.find(x => normRoom(x.room_no) === k);
                     rooms.set(k, { floor: String(inactive?.floor || '').trim() || parseRoomToken(k).floor, offList: useBuilder });
@@ -98,15 +100,16 @@ let BUILDINGS = [];
             if (IDX && IDX.b === b && IDX.cache === CACHE) return IDX;
             const rows = new Map(), slips = new Map(), ci = new Map();
             for (const r of CACHE) {
-                if ((r.building || '').trim() !== b) continue;
+                if (!slipTouches(r, b)) continue;
                 const mine = new Map();
                 for (const w of rowsOf(r)) {
+                    if (normB(w.building) !== normB(b)) continue;       // an Exclusive row can sit in another building
                     const k = normRoom(w.room_no);
                     if (!mine.has(k)) mine.set(k, []);
                     mine.get(k).push(w);
                 }
                 for (const [k, ws] of mine) { if (!rows.has(k)) rows.set(k, []); rows.get(k).push({ rec: r, ws }); }
-                for (const k of roomsFromSlip(r)) { if (!slips.has(k)) slips.set(k, []); slips.get(k).push(r); }
+                for (const k of roomsFromSlip(r, b)) { if (!slips.has(k)) slips.set(k, []); slips.get(k).push(r); }
                 ci.set(r, parseDT(r.checkin_date, r.checkin_time));
             }
             IDX = { b, cache: CACHE, rows, slips, ci };
@@ -136,9 +139,10 @@ let BUILDINGS = [];
             const b = (building || '').trim();
             const sorted = [...CACHE].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
             for (const r of sorted) {
-                if ((r.building || '').trim() !== b) continue;
+                if (!slipTouches(r, b)) continue;
                 for (const side of ['gents', 'ladies']) {
                     for (const it of (r.rooms?.[side] || [])) {
+                        if (normB(it.building || r.building) !== normB(b)) continue;
                         const rn = normRoom(it.room_no ?? it);
                         const c = (it.capacity === '' || it.capacity == null) ? null : Number(it.capacity);
                         if (!cap.has(rn) && c != null) cap.set(rn, c);
@@ -150,17 +154,19 @@ let BUILDINGS = [];
         }
 
         function aggregateRoomTotals(building, roomNorm, when, capMap) {
-            let assigned = 0, shNos = [], coTimes = [];
+            let assigned = 0, blocked = 0, excl = false, shNos = [], coTimes = [];
             for (const e of roomIndex(building).rows.get(roomNorm) || []) {
                 const here = hereNow(e.ws, when);
                 if (!here.length) continue;
                 assigned += here.reduce((s, w) => s + (Number(w.row.assigned ?? w.row.pax ?? w.row.count ?? 0) || 0), 0);
+                blocked += here.reduce((s, w) => s + w.block, 0);          // beds kept: the whole room for an Exclusive row
+                if (here.some(w => w.exclusive)) excl = true;
                 if (e.rec.sh_no != null) shNos.push(String(e.rec.sh_no));
                 for (const w of here) coTimes.push(new Date(w.end));
             }
             const capacity = capMap.get(roomNorm) ?? null;
             const earliestOut = coTimes.length ? new Date(Math.min(...coTimes.map(t => t.getTime()))) : null;
-            return { assigned, capacity, earliestOut, shNos };
+            return { assigned, blocked, excl, capacity, earliestOut, shNos };
         }
 
         function roomInstanceCount(building, roomNorm) {
@@ -234,8 +240,10 @@ let BUILDINGS = [];
                             const agg = aggregateRoomTotals(building, roomNorm, when, capMap);
                             const capVal = (agg.capacity != null && !Number.isNaN(agg.capacity)) ? agg.capacity : null;
                             const asgVal = Number.isFinite(agg.assigned) ? agg.assigned : 0;
-                            const under = (capVal != null) && (asgVal < capVal);
-                            const vacBeds = (capVal != null) ? Math.max(0, capVal - asgVal) : null;
+                            // an Exclusive row keeps the whole room: it is not "under" even when fewer guests are in it
+                            const blkVal = Number.isFinite(agg.blocked) ? agg.blocked : asgVal;
+                            const under = (capVal != null) && (blkVal < capVal);
+                            const vacBeds = (capVal != null) ? Math.max(0, capVal - blkVal) : null;
 
                             const capTxt = (capVal != null) ? `${asgVal}/${capVal}` : `${asgVal}/—`;
                             const shText = agg.shNos.length ? summarizeSH(agg.shNos) : '—';
@@ -246,7 +254,7 @@ let BUILDINGS = [];
                             if (offList.has(roomNorm)) { cell.classList.add('off-list'); cell.title = `Room ${roomNorm} is not an active room in Rooms & Buildings`; }
 
                             cell.innerHTML = `
-                    <div class="cap">${capTxt}${under && vacBeds != null ? ' · Vac ' + vacBeds : ''}</div>
+                    <div class="cap">${capTxt}${agg.excl ? ' · Excl.' : ''}${under && vacBeds != null ? ' · Vac ' + vacBeds : ''}</div>
                     <div class="meta">SH ${shText} • Out ${outText}</div>
                   `;
                         } else {

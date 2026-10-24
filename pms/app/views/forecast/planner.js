@@ -14,7 +14,7 @@
 
 import { buildingsOfSite, totalBeds, loadBuildings } from '../../core/rooms.js';
 import { recordApply } from './alloclog.js';
-import { rowsOf, slipEnd, isDelayed } from '../../core/stay.js';
+import { rowsOf, slipEnd, isDelayed, normB } from '../../core/stay.js';
 
 const DAY = 864e5, HOUR = 36e5;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -116,10 +116,10 @@ export function mountPlanner({ ctx, host }) {
             const b = String(r.building || '').trim().toUpperCase();
             const from = Math.max(ci, now), to = Math.min(co, end);
             if (b) {
-                if (capOf[b] == null) continue;
-                if (isDelayed(r)) { // each room row leaves on its own
-                    for (const w of rowsOf(r)) if (w.end > now && w.start < end && w.beds > 0) fixed.push({ b, from: Math.max(w.start, now), to: Math.min(w.end, end), beds: w.beds });
-                } else fixed.push({ b, from, to, beds: roomBeds(r) || bedsOf(r) });
+                const exclusive = ['gents', 'ladies'].some(s => (r.rooms?.[s] || []).some(x => x && x.exclusive));
+                if (isDelayed(r) || exclusive) { // each room row on its own: its own check-out, and an Exclusive row keeps the whole room (maybe in another building)
+                    for (const w of rowsOf(r)) { const wb = normB(w.building); if (capOf[wb] != null && w.end > now && w.start < end && w.block > 0) fixed.push({ b: wb, from: Math.max(w.start, now), to: Math.min(w.end, end), beds: w.block }); }
+                } else { if (capOf[b] == null) continue; fixed.push({ b, from, to, beds: roomBeds(r) || bedsOf(r) }); }
             }
             else if (bedsOf(r) > 0) groups.push({ r, ci, co, from, to, beds: bedsOf(r) });
         }
