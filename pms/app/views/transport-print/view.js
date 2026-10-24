@@ -5,6 +5,7 @@
 import { loadDay, listDays, signage, destsFor, vehicleWord, today, sheetDate, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { ziyaratSummary } from '../../core/ziyarat.js';
+import { tripRows } from './export.js';
 import { UserError, canOpen } from '../../core/cloud.js';
 
 // the destinations a desk unticked (a destination added later starts ticked); the old key kept the ticked ones
@@ -75,10 +76,10 @@ function table(day, { dest, buses }) {
             <tr class="band"><th class="d">${esc(sheetDate(day))}</th><th class="t" colspan="7">${esc(dest.label)}</th></tr>
             <tr class="cols"><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>BUILDING</th><th>VEHICLE</th><th>NO</th></tr>
           </thead>
-          <tbody>${[...buses].sort((a, b) => a.at.localeCompare(b.at) || ((a.vehicle === 'car') - (b.vehicle === 'car')) || (a.bus ?? 1e9) - (b.bus ?? 1e9))
-              .flatMap(b => b.rows.map((r, i) => `<tr${i ? ' class="rider"' : ''}>
+          <tbody>${tripRows(buses)
+              .map(({ r, b, rider }) => `<tr${rider ? ' class="rider"' : ''}>
             <td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td>
-            <td class="n">${esc(time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(vehicleWord(b.vehicle, b.vlabel))}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`)).join('')}</tbody>
+            <td class="n">${esc(time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(vehicleWord(b.vehicle, b.vlabel))}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`).join('')}</tbody>
           <tfoot><tr><td colspan="3">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="4"></td></tr></tfoot>
         </table>`;
     }
@@ -121,7 +122,7 @@ export default async function mount(ctx) {
         $('tqSheets').innerHTML = pages.join('') || `<p class="tq-none">${doc.rows.length ? 'No buses for this choice.' : 'No transport list saved for this day.'}</p>`;
         fitSheets();
         $('tqCount').textContent = `${pages.length} sheet${pages.length === 1 ? '' : 's'}`;
-        $('tqPrint').disabled = $('tqSummary').disabled = !pages.length;
+        $('tqPrint').disabled = $('tqSummary').disabled = $('tqXlSheets').disabled = $('tqXlSum').disabled = !pages.length;
     }
     $('tqDests').addEventListener('change', () => {
         picked = [...$('tqDests').querySelectorAll('input:checked')].map(x => x.value);
@@ -139,6 +140,18 @@ export default async function mount(ctx) {
         window.print();
         setTimeout(endSummary, 500); // print() returns once the dialog closes
     });
+    // Excel: the chosen sheets, or the summary (ExcelJS loads on first use; export.js)
+    const toExcel = (what) => async () => {
+        const b = $(what === 'sheets' ? 'tqXlSheets' : 'tqXlSum'), label = b.textContent;
+        b.disabled = true; b.textContent = '⏳ Building…';
+        try {
+            const { exportSheets, exportSummary } = await import('./export.js');
+            await (what === 'sheets' ? exportSheets : exportSummary)(day, chosen(), ctx.site.label);
+        } catch (e) { $('tqMsg').innerHTML = `<div class="tp-msg bad">${esc(e && e.message || 'Could not make the Excel file.')}</div>`; }
+        finally { b.disabled = false; b.textContent = label; }
+    };
+    $('tqXlSheets').addEventListener('click', toExcel('sheets'));
+    $('tqXlSum').addEventListener('click', toExcel('summary'));
     window.addEventListener('afterprint', () => { if (root.classList.contains('tq-print-summary')) endSummary(); });
     render();
 }

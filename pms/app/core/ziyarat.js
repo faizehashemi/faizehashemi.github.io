@@ -123,10 +123,13 @@ const isCoaster = (b) => b.vehicle === 'other' && /coaster/i.test(b.vlabel || ''
 const t12 = (at) => { const [h, m] = String(at).slice(11, 16).split(':').map(Number); return `${pad(h % 12 || 12)}:${pad(m)} ${h < 12 ? 'AM' : 'PM'}`; };
 
 /**
- * Print summary tables for the split Ziyarat buses of a day (one per part and departure time), as the desks' sheets.
- * group = the Medina Ziyarat destination from signage(); returns { html, rest } — rest = buses not split (normal table).
+ * The split Ziyarat buses of a day as tables, one per part and departure time, in the desks' sheet format. Used by the
+ * print summary (HTML, below) and the Excel export. group = the Medina Ziyarat destination from signage();
+ * returns { tables, rest } — rest = buses not split (they get the normal summary table).
+ * table: { G, part, at, title: 'MADINA ZIYARAT GENTS-04:00 PM 21/10/26', rows: [{ sn, ref, operator, leader, adults, c, inf, pax, hotel }],
+ *          perBus, coasters, perCoaster, bigN, total: { label, adults, c, inf, pax } }
  */
-export function ziyaratSummary(day, group) {
+export function ziyaratTables(day, group) {
     const parts = new Map(), rest = [];
     for (const b of group.buses) {
         const part = b.rows[0]?.part;
@@ -135,28 +138,42 @@ export function ziyaratSummary(day, group) {
         if (!parts.has(k)) parts.set(k, { part, at: b.at, buses: [] });
         parts.get(k).buses.push(b);
     }
-    const html = [...parts.values()].sort((a, b) => a.at.localeCompare(b.at) || a.part.localeCompare(b.part)).map(({ part, at, buses }) => {
+    const tables = [...parts.values()].sort((a, b) => a.at.localeCompare(b.at) || a.part.localeCompare(b.part)).map(({ part, at, buses }) => {
         const G = part === 'gents';
-        const rows = buses.flatMap(b => b.rows.map(r => ({ r, b }))).filter(({ r }) => (r.pax || 0) > 0);
+        const list = buses.flatMap(b => b.rows.map(r => ({ r, b }))).filter(({ r }) => (r.pax || 0) > 0);
         const adults = (r) => G ? (r.m || 0) : (r.f || 0);
-        const sum = (f) => rows.reduce((s, x) => s + f(x.r), 0);
+        const sum = (f) => list.reduce((s, x) => s + f(x.r), 0);
         const big = buses.filter(b => !isCoaster(b)), small = buses.filter(isCoaster);
-        const per = (list) => list.map(b => b.pax).join(' / ') || '00';
-        const total = sum(r => r.pax || 0);
+        const per = (l) => l.map(b => b.pax).join(' / ') || '00';
+        return {
+            G, part, at, title: `MADINA ZIYARAT ${G ? 'GENTS' : 'LADIES'}-${t12(at)} ${shortDate(day)}`,
+            rows: list.map(({ r, b }, i) => ({ sn: i + 1, ref: r.ref || '', operator: r.operator || '', leader: r.leader || '', adults: adults(r) || '', c: r.c || '', inf: r.inf || '', pax: r.pax || 0, hotel: r.building || b.building || '' })),
+            perBus: per(big), bigN: pad(big.length), coasters: pad(small.length), perCoaster: per(small),
+            total: { label: `TOTAL PAX. ${G ? 'GENTS' : 'LADIES'}`, adults: sum(adults), c: sum(r => r.c || 0), inf: sum(r => r.inf || 0), pax: sum(r => r.pax || 0) },
+        };
+    });
+    return { tables, rest };
+}
+
+/** The same tables as HTML for the print summary; returns { html, rest }. */
+export function ziyaratSummary(day, group) {
+    const { tables, rest } = ziyaratTables(day, group);
+    const html = tables.map((z) => {
+        const G = z.G, head = z.title.replace('ZIYARAT', '<span class="zy-red">ZIYARAT</span>');
         return `<table class="sum zy">
           <colgroup><col style="width:5%"><col style="width:9%"><col style="width:40%"><col style="width:8%"><col style="width:7%"><col style="width:6%"><col style="width:8%"><col style="width:17%"></colgroup>
           <thead>
-            <tr class="zy-title"><th colspan="8">MADINA <span class="zy-red">ZIYARAT</span> ${G ? 'GENTS' : 'LADIES'}-${esc(t12(at))} ${esc(shortDate(day))}</th></tr>
+            <tr class="zy-title"><th colspan="8">${head}</th></tr>
             <tr class="zy-cols"><th class="zy-red">S N</th><th class="zy-red">S H NO.</th><th>GRUP-NAME</th><th class="zy-red">${G ? 'GENTS' : 'LADIES'}</th><th>${G ? 'G-C' : 'L-C'}</th><th>IFN</th><th class="zy-red">T-P</th><th>HOTEL-NAME</th></tr>
           </thead>
-          <tbody>${rows.map(({ r, b }, i) => `<tr>
-            <td>${i + 1}</td><td>${esc(r.ref || '')}</td>
+          <tbody>${z.rows.map((r) => `<tr>
+            <td>${r.sn}</td><td>${esc(r.ref)}</td>
             <td class="zy-name">${r.operator ? `<span class="zy-red">${esc(r.operator)}</span>` : ''}${r.leader ? `<br>( ${esc(r.leader)} )` : ''}</td>
-            <td>${adults(r) || ''}</td><td>${r.c || ''}</td><td>${r.inf || ''}</td><td class="zy-tp">${r.pax || 0}</td><td>${esc(r.building || b.building || '')}</td></tr>`).join('')}</tbody>
+            <td>${r.adults}</td><td>${r.c}</td><td>${r.inf}</td><td class="zy-tp">${r.pax}</td><td>${esc(r.hotel)}</td></tr>`).join('')}</tbody>
           <tfoot>
-            <tr class="zy-note"><td colspan="8">NOTE:- <span class="zy-red">PER BUS-${esc(per(big))}</span> PAX ...... ${pad(small.length)}-COASTER-${esc(per(small))} PAX</td></tr>
-            <tr class="zy-total"><td colspan="3"><span class="zy-red">TOTAL PAX. ${G ? 'GENTS' : 'LADIES'}</span> - ${total} - ${pad(big.length)} BUS ${pad(small.length)}-COASTER</td>
-              <td>${sum(adults)}</td><td>${sum(r => r.c || 0)}</td><td>${sum(r => r.inf || 0)}</td><td class="zy-tp">${total}</td><td></td></tr>
+            <tr class="zy-note"><td colspan="8">NOTE:- <span class="zy-red">PER BUS-${esc(z.perBus)}</span> PAX ...... ${z.coasters}-COASTER-${esc(z.perCoaster)} PAX</td></tr>
+            <tr class="zy-total"><td colspan="3"><span class="zy-red">${z.total.label}</span> - ${z.total.pax} - ${z.bigN} BUS ${z.coasters}-COASTER</td>
+              <td>${z.total.adults}</td><td>${z.total.c}</td><td>${z.total.inf}</td><td class="zy-tp">${z.total.pax}</td><td></td></tr>
           </tfoot>
         </table>`;
     }).join('');

@@ -107,6 +107,8 @@ export function openRoomPicker(o) {
     dlg.className = 'rp';
     const nights = Math.max(0, Math.round((new Date(o.checkout.date) - new Date(o.checkin.date)) / 864e5));
     const floors = [...new Set([...rooms.values()].map(r => r.floor))].sort(natural);
+    // the bed counts that exist in this building, with how many rooms have each (for the capacity filter beside the search)
+    const caps = [...[...rooms.values()].reduce((m, r) => r.cap > 0 ? m.set(r.cap, (m.get(r.cap) || 0) + 1) : m, new Map())].sort((a, b) => a[0] - b[0]);
     dlg.innerHTML = `
       <form method="dialog" class="rp-wrap">
         <header class="rp-head">
@@ -125,6 +127,7 @@ export function openRoomPicker(o) {
               <select id="rpFloor" aria-label="Floor"><option value="">All floors</option>${floors.map(f => `<option value="${esc(f)}">Floor ${esc(f)}</option>`).join('')}</select>
               <label><input type="checkbox" id="rpSpace" ${o.onlyFree === false ? '' : 'checked'}> Only rooms with space</label>
               <input type="search" id="rpFind" placeholder="Find room…" aria-label="Find room">
+              <select id="rpCap" aria-label="Rooms with this many beds"><option value="">All capacities</option>${caps.map(([c, n]) => `<option value="${c}">${c} bed${c === 1 ? '' : 's'} (${n} room${n === 1 ? '' : 's'})</option>`).join('')}</select>
               <span class="rp-legend"><i class="l-free"></i>free <i class="l-part"></i>part used <i class="l-full"></i>full <i class="l-mine"></i>this slip</span>
             </div>
             <div class="rp-floors" id="rpFloors"></div>
@@ -185,8 +188,8 @@ export function openRoomPicker(o) {
     }
 
     function renderRooms() {
-        const floor = $('rpFloor').value, onlySpace = $('rpSpace').checked, q = normRoom($('rpFind').value);
-        const list = [...rooms.entries()].filter(([k, r]) => (!floor || r.floor === floor) && (!q || k.includes(q)) && (!onlySpace || r.free > 0 || alloc.has(k)));
+        const floor = $('rpFloor').value, onlySpace = $('rpSpace').checked, q = normRoom($('rpFind').value), cap = Number($('rpCap').value) || 0;
+        const list = [...rooms.entries()].filter(([k, r]) => (!floor || r.floor === floor) && (!q || k.includes(q)) && (!cap || r.cap === cap) && (!onlySpace || r.free > 0 || alloc.has(k)));
         const byFloor = new Map();
         for (const [k, r] of list.sort((a, b) => natural(a[1].room_no, b[1].room_no))) {
             if (!byFloor.has(r.floor)) byFloor.set(r.floor, []);
@@ -345,6 +348,7 @@ export function openRoomPicker(o) {
     $('rpFloor').addEventListener('change', renderRooms);
     $('rpSpace').addEventListener('change', renderRooms);
     $('rpFind').addEventListener('input', renderRooms);
+    $('rpCap').addEventListener('change', renderRooms);
     dlg.addEventListener('close', () => dlg.remove());
 
     renderAll();
