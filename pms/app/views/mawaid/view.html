@@ -97,6 +97,10 @@
                     <label>&nbsp;</label>
                     <button id="btnCSV" class="no-print">Export CSV</button>
                 </div>
+                <div class="col c2">
+                    <label>&nbsp;</label>
+                    <button id="btnCopyMain" class="no-print" data-copy-table="tbl" title="Put the table on the clipboard as a picture">Copy image</button>
+                </div>
             </div>
 
             <div class="table-wrap">
@@ -113,6 +117,7 @@
             <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
                 <strong>Cooking Count</strong>
                 <span class="muted small"> • HUSN+BAHA merged. Lunch & Dinner also merge MUFADDAL+MOHAMMEDI.</span>
+                <button type="button" class="no-print copy-img" data-copy-table="tblCook" title="Put the table on the clipboard as a picture">Copy image</button>
             </div>
             <div class="table-wrap">
                 <table id="tblCook">
@@ -128,6 +133,7 @@
             <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
                 <strong>Manda Counts</strong>
                 <span class="muted small"> • Only Lunch & Dinner thals. Multipliers applied.</span>
+                <button type="button" class="no-print copy-img" data-copy-table="tblManda" title="Put the table on the clipboard as a picture">Copy image</button>
             </div>
             <div class="table-wrap">
                 <table id="tblManda">

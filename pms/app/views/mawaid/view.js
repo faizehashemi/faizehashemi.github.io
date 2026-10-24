@@ -3,6 +3,7 @@
 // thals × multipliers). Slips come from the cloud for the site being viewed (ctx.db).
 
 import { computeByBuilding as mealsCompute, buildFirstMerged } from '../../core/meals.js';
+import { copyTableImage } from '../../core/table-image.js';
 
 export default async function mount(ctx) {
         const { db } = ctx;
@@ -412,6 +413,18 @@ export default async function mount(ctx) {
                     $('status').textContent = 'Could not load slips: ' + e.message;
                 }
             });
+
+            // Copy image: each table as a picture on the clipboard, to paste in WhatsApp
+            const TITLES = { tbl: 'Mawaid counts', tblCook: 'Cooking count', tblManda: 'Manda counts' };
+            ctx.root.querySelectorAll('[data-copy-table]').forEach(b => b.addEventListener('click', async () => {
+                const id = b.dataset.copyTable, t = $(id);
+                if (!t.rows.length) { $('status').textContent = 'Nothing to copy yet.'; return; }
+                const date = $('statDate').value || '';
+                try {
+                    const how = await copyTableImage(t, `${TITLES[id]} · ${ctx.site.label}${date ? ' · ' + date.split('-').reverse().join('/') : ''}`, `${id}-${date}.png`);
+                    $('status').textContent = how === 'copied' ? `${TITLES[id]} copied — paste it into the chat.` : 'This browser cannot copy pictures — the image was downloaded instead.';
+                } catch (e) { $('status').textContent = 'Could not make the image: ' + (e.message || e); }
+            }));
 
             // initial read
             try {
