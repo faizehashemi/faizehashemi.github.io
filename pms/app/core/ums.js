@@ -209,6 +209,32 @@ export function staysOf(g, cfg = UMS) {
     return { stays, warnings };
 }
 
+/**
+ * From / To for slips already in the database, worked out from what the import stored on each (arrival, departure,
+ * itinerary, which stay it is). Only blank fields are filled; a place already there is kept.
+ * @returns {{ slip, patch: {from_place?, to_place?} }[]}
+ */
+export function placesForSlips(slips) {
+    const CITY = { MAKKAH: 'makkah', MADINA: 'medina' };
+    const out = [];
+    for (const s of slips) {
+        const u = s.ums;
+        if (s.deleted || !u?.arrival || !u?.departure || !u.itinerary) continue;
+        const cities = String(u.itinerary).split('→').map(c => CITY[c.trim()]);
+        const site = s.site || String(u.key || '').split('|')[1];
+        let seen = 0, i = -1;
+        cities.forEach((c, k) => { if (c === site && ++seen === (u.seg || 1) && i < 0) i = k; });
+        if (i < 0) continue;
+        const from = i === 0 ? legPlace(u.arrival) : CITY_PLACE(cities[i - 1]);
+        const to = i === cities.length - 1 ? legPlace(u.departure) : CITY_PLACE(cities[i + 1]);
+        const patch = {};
+        if (from && !String(s.from_place ?? '').trim()) patch.from_place = from;
+        if (to && !String(s.to_place ?? '').trim()) patch.to_place = to;
+        if (Object.keys(patch).length) out.push({ slip: s, patch });
+    }
+    return out;
+}
+
 /* ----------------------------------- plan ----------------------------------- */
 
 // Fields UMS owns. building / rooms and anything else on a slip belong to the PMS.

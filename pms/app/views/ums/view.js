@@ -1,6 +1,6 @@
 // UMS Import: load a Group List export (file or Chrome extension), review, apply to this site.
 
-import { parseUms, planImport, summarize, readLog, lastApplied } from '../../core/ums.js';
+import { parseUms, planImport, summarize, readLog, lastApplied, placesForSlips } from '../../core/ums.js';
 import { ext, askExtension, getAutoSite, setAutoSite, runImport } from '../../core/ums-auto.js';
 import { umsConfig } from '../../core/settings.js';
 
@@ -149,6 +149,23 @@ export default async function mount(ctx) {
             renderPlan();
             $('applyStatus').textContent = b.dataset.missAct === 'delete' ? `SH ${s.sh_no} deleted.` : `SH ${s.sh_no} kept.`;
         } catch (err) { alert(err.message || String(err)); b.disabled = false; }
+    });
+
+    // From / To for the slips already in the database
+    $('btnPlaces').disabled = db.readonly;
+    $('btnPlaces').addEventListener('click', async () => {
+        const st = $('placesStatus');
+        try {
+            const todo = placesForSlips(await db.all());
+            if (!todo.length) { st.textContent = 'Every UMS slip already has its From / To.'; return; }
+            const n = (f) => todo.filter(t => f in t.patch).length;
+            if (!confirm(`Fill From on ${n('from_place')} slips and To on ${n('to_place')} slips (${todo.length} slips in all)?
+Places already set are not changed.`)) return;
+            $('btnPlaces').disabled = true; st.textContent = 'Saving…';
+            const r = await ctx.guard(db.bulkWrite({ put: todo.map(t => ({ ...t.slip, ...t.patch, updatedAt: new Date().toISOString() })) }, 'from-to-fill'));
+            st.textContent = `Done: ${r.updated} slips updated${r.skipped ? `, ${r.skipped} skipped` : ''}.`;
+        } catch (e) { st.textContent = e.message || 'Could not save.'; }
+        finally { $('btnPlaces').disabled = db.readonly; }
     });
 
     $('btnApply').addEventListener('click', async () => {

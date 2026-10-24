@@ -9,7 +9,7 @@ import { use24 } from '../../core/timefmt.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = (iso) => iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: use24() ? '2-digit' : 'numeric', minute: '2-digit', hour12: !use24() }) : '';   // 12-hour unless Settings → 24-hour times
-const SOURCE = { 'ums-import': 'UMS import', 'json-import': 'JSON import', planner: 'Forecast planner', 'allocate-day': 'Forecast: allocate day', 'alloc-undo': 'Forecast: undo', delay: 'Delayed departures', migrate: 'Old browser upload', 'sh-file-fix': 'Dates fixed from the SH file (bulk)' };
+const SOURCE = { 'ums-import': 'UMS import', 'json-import': 'JSON import', planner: 'Forecast planner', 'allocate-day': 'Forecast: allocate day', 'alloc-undo': 'Forecast: undo', delay: 'Delayed departures', migrate: 'Old browser upload', 'sh-file-fix': 'Dates fixed from the SH file (bulk)', 'from-to-fill': 'From / To filled from UMS data' };
 
 const roomsText = (list) => (list || []).map(r => `${r.room_no}×${r.assigned ?? r.beds ?? '?'}${r.exclusive ? ' (exclusive' + (r.building ? `, ${r.building}` : '') + ')' : ''}${r.out && r.out.date ? ` → ${r.out.date}` : ''}`).join(', ') || '—';
 // the fields worth showing, as [label, text]
