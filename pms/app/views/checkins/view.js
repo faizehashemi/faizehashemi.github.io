@@ -473,6 +473,7 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
 
     $('presetToday').addEventListener('click', () => { const df = ymd(new Date()); setRange(df, plusOneDay(df)); });
     $('presetYesterday').addEventListener('click', () => { const d = new Date(); d.setDate(d.getDate() - 1); const df = ymd(d); setRange(df, plusOneDay(df)); });
+    $('presetTomorrow').addEventListener('click', () => { const d = new Date(); d.setDate(d.getDate() + 1); const df = ymd(d); setRange(df, plusOneDay(df)); });
     $('preset7').addEventListener('click', () => { const end = new Date(); const start = new Date(); start.setDate(end.getDate() - 6); setRange(ymd(start), plusOneDay(ymd(end))); });
     $('preset30').addEventListener('click', () => { const end = new Date(); const start = new Date(); start.setDate(end.getDate() - 29); setRange(ymd(start), plusOneDay(ymd(end))); });
 
