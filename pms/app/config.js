@@ -45,6 +45,7 @@ export const VIEWS = [
     { id: 'movement',     label: 'Movement',           title: 'Check-ins & Check-outs — Mobile', hint: 'Phone-friendly arrivals and departures' },
     { id: 'group-export', label: 'Group export',       title: 'Groups Export',         hint: 'Group signs as PDF or Word' },
     { id: 'housekeeping', label: 'Room cleaning',      title: 'Room Cleaning',         hint: 'Which rooms housekeeping does first today, from check-ins and check-outs' },
+    { id: 'key-cards',    label: 'Room Key Cards',     title: 'Room Key Cards',        hint: 'Key cards given to the rooms of each group and how many came back' },
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'slip-search',  label: 'Search slips',       title: 'Search Slips',          hint: 'Find a slip and see its details — view only' },
@@ -68,7 +69,7 @@ export const VIEWS = [
 // Menu categories (top bar on laptops, drawer sections on phones)
 export const NAV = [
     { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'movement', 'print'] },
-    { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'builder'] },
+    { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'key-cards', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },

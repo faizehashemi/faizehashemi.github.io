@@ -199,6 +199,9 @@ async function route(req, env) {
     mm = p.match(/^\/api\/kg\/log\/(\d+)$/);
     if (mm && m === 'DELETE') return deleteKgLog(url, env, me, Number(mm[1]));
 
+    if (p === '/api/key-cards' && m === 'GET') return getKeyCards(url, env, me);
+    if (p === '/api/key-cards' && m === 'PUT') return putKeyCards(req, env, me);
+
     if (p === '/api/alloc-log' && m === 'GET') return getAllocLog(env, String(url.searchParams.get('site') || me.site));
     if (p === '/api/alloc-log' && m === 'POST') return addAllocLog(req, env, me);
     mm = p.match(/^\/api\/alloc-log\/(\d+)\/undo$/);
@@ -892,6 +895,41 @@ async function putPrefs(req, env, me) {
     await env.DB.prepare('INSERT INTO desk_prefs (desk_id, prefs, updated_at) VALUES (?, ?, ?) ON CONFLICT(desk_id) DO UPDATE SET prefs = excluded.prefs, updated_at = excluded.updated_at')
         .bind(me.id, text, at).run();
     return json({ ok: true, updated_at: at });
+}
+
+/* ----------------------------- room key cards ----------------------------- */
+// Rooms → Room Key Cards: the cards handed to a group's rooms come back at check-out. The page works out what was issued
+// (a room's assigned beds) from the slips; here only how many came back is kept, per slip, room and departure day.
+// Read: any login · write: desk of the site, admin. GET /api/key-cards?site=&day=  ·  PUT /api/key-cards { site, day, items }
+async function getKeyCards(url, env, me) {
+    const site = String(url.searchParams.get('site') || me.site);
+    if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+    const day = transportDay(url.searchParams.get('day'));
+    const { results } = await env.DB.prepare(
+        `SELECT k.slip_id, k.room_no, k.returned, k.updated_at, COALESCE(d.name, x.name || ' (deleted)') AS by_name
+         FROM key_cards k LEFT JOIN desks d ON d.id = k.updated_by LEFT JOIN deleted_desks x ON x.id = k.updated_by
+         WHERE k.site = ? AND k.day = ?`).bind(site, day).all();
+    return json({ site, day, rows: results });
+}
+async function putKeyCards(req, env, me) {
+    const { site, day, items } = await body(req);
+    assertWrite(me, site);
+    const d = transportDay(day);
+    if (!Array.isArray(items) || !items.length) throw new HttpError(400, 'Nothing to save.');
+    if (items.length > MAX_BULK) throw new HttpError(413, `At most ${MAX_BULK} rooms at once.`);
+    const clean = items.map(i => ({ slip_id: Number(i && i.slip_id), room_no: text(i && i.room_no, 12), returned: Number(i && i.returned) }));
+    if (clean.some(i => !Number.isInteger(i.slip_id) || i.slip_id <= 0 || !i.room_no || !Number.isInteger(i.returned) || i.returned < 0 || i.returned > 99)) {
+        throw new HttpError(400, 'Each room needs a slip, a room number and a card count from 0 to 99.');
+    }
+    const ids = [...new Set(clean.map(i => i.slip_id))];
+    const ok = new Set((await env.DB.prepare(`SELECT id FROM slips WHERE site = ? AND id IN (${ids.map(() => '?').join(',')})`).bind(site, ...ids).all()).results.map(r => r.id));
+    if (clean.some(i => !ok.has(i.slip_id))) throw new HttpError(400, `One of those slips is not a ${SITES[site]} slip.`);
+    const at = now();
+    await env.DB.batch(clean.map(i => env.DB.prepare(
+        `INSERT INTO key_cards (slip_id, room_no, day, site, returned, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(slip_id, room_no, day) DO UPDATE SET returned = excluded.returned, updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
+        .bind(i.slip_id, i.room_no, d, site, i.returned, at, me.id)));
+    return getKeyCards(new URL(`https://x/api/key-cards?site=${site}&day=${d}`), env, me);
 }
 
 /* ---------------------------------- KG roster ---------------------------------- */

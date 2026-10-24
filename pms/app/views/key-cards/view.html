@@ -1,0 +1,19 @@
+<div class="kc">
+    <header class="kc-head">
+        <div>
+            <h1>Room Key Cards</h1>
+            <p>Cards given to the rooms of every group leaving that day (one card per assigned bed). Record how many came back.</p>
+        </div>
+        <div class="kc-controls">
+            <label>Departure day<input type="date" id="kcDay"></label>
+            <div class="kc-chips"><button type="button" data-day="-1">Yesterday</button><button type="button" data-day="0">Today</button><button type="button" data-day="1">Tomorrow</button></div>
+            <label>Building<select id="kcBld"><option value="">All buildings</option></select></label>
+            <label>Find<input type="search" id="kcFind" placeholder="Group, leader, SH, room" autocomplete="off"></label>
+            <label class="kc-only"><input type="checkbox" id="kcOut"> Only cards still out</label>
+            <button type="button" class="kc-btn" id="kcPrint">🖨 Print</button>
+        </div>
+    </header>
+    <p class="kc-msg" id="kcMsg"></p>
+    <section class="kc-kpis" id="kcKpis"></section>
+    <section class="kc-grid" id="kcGrid"></section>
+</div>
