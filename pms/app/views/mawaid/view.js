@@ -426,6 +426,9 @@ export default async function mount(ctx) {
                 } catch (e) { $('status').textContent = 'Could not make the image: ' + (e.message || e); }
             }));
 
+            // Medina counts children in the pax by default (Makkah does not); the box can still be changed
+            if (ctx.siteId === 'medina') $('incChildren').checked = true;
+
             // initial read
             try {
                 DB_CACHE = await getAllSlips();
