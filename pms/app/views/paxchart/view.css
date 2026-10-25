@@ -28,3 +28,6 @@ body { background: #f7efe1 url("../../../assets/pattern_gold_2x.png") repeat; ba
 .px-cap { margin: 8px 14px 0; font-size: 11px; color: #6b5e4a; }
 @media (max-width: 760px) { .px-controls { grid-template-columns: 1fr 1fr; } .px-legend { grid-template-columns: 1fr 1fr; } }
 @media print { body { background: #fff; } .px-top .px-controls { display: none; } .px-tbl td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+/* narrow phones: the page's one column may shrink below its widest child (the 980px table scrolls inside .px-scroll) */
+.px { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.px > * { min-width: 0; max-width: 100%; }

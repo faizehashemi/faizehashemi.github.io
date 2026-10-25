@@ -96,6 +96,8 @@ dialog.la-dlg::backdrop { background: rgba(30, 20, 5, .5); }
 .la-dlg h3 { color: var(--gold-deep); margin: 14px 16px 6px; font-size: 15px; }
 .la-dlg > .la-t, .la-dlg > .la-scroll { margin-bottom: 14px; }
 .la-form { display: grid; gap: 10px; padding-bottom: 16px; margin: 0; }
+.la-dlg > form.la-form { margin: 0; }   /* the form fills the dialog; its header runs edge to edge */
+dialog.la-dlg { overflow-x: hidden; }
 .la-form label { display: grid; gap: 3px; font-size: 13px; font-weight: 600; }
 .la-form input, .la-form select, .la-form textarea { padding: 7px 9px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 400; }
 .la-form fieldset { border: 1px solid var(--edge); border-radius: 12px; padding: 8px 12px 12px; display: grid; gap: 8px; }
@@ -170,3 +172,9 @@ textarea#nText { width: 100%; padding: 8px 10px; border: 1px solid var(--edge); 
 .la-blditem small { color: var(--muted); font-size: 12px; }
 .la-blditem.zero { opacity: .45; }
 .la-blditem .la-ipic.icon { object-fit: contain; }
+/* phone: tick boxes sit beside their text, the Save / Cancel row stays in reach while the form scrolls */
+.la-form label.la-chk { display: flex; align-items: center; gap: 8px; }
+.la-form input[type="checkbox"] { width: 20px; height: 20px; flex: none; }
+@media (max-width: 600px) {
+    .la-dlg .la-actions { position: sticky; bottom: 0; background: var(--panel); padding: 10px 16px; margin: 0 !important; box-shadow: 0 -6px 14px rgba(40, 26, 6, .1); display: flex; gap: 8px; justify-content: flex-end; }
+}

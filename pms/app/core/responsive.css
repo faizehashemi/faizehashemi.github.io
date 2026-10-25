@@ -145,3 +145,7 @@
     /* bus sheet previews are fixed A4 pages: scroll inside their box instead of widening the page */
     .tq-sheets { overflow-x: auto; justify-items: start; }
 }
+@media (max-width: 700px) {
+    /* links inside modals and lists (SH numbers …) are finger-sized */
+    dialog a, #view a.hm-more { display: inline-block; min-height: 32px; padding: 6px 4px; box-sizing: border-box; }
+}
