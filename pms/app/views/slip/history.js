@@ -9,7 +9,7 @@ import { use24 } from '../../core/timefmt.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = (iso) => iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: use24() ? '2-digit' : 'numeric', minute: '2-digit', hour12: !use24() }) : '';   // 12-hour unless Settings → 24-hour times
-const SOURCE = { 'ums-import': 'UMS import', 'json-import': 'JSON import', planner: 'Forecast planner', 'allocate-day': 'Forecast: allocate day', 'alloc-undo': 'Forecast: undo', delay: 'Delayed departures', migrate: 'Old browser upload', 'sh-file-fix': 'Dates fixed from the SH file (bulk)', 'from-to-fill': 'From / To filled from UMS data' };
+const SOURCE = { 'ums-import': 'UMS import', 'json-import': 'JSON import', planner: 'Forecast planner', 'allocate-day': 'Forecast: allocate day', 'alloc-undo': 'Forecast: undo', delay: 'Delayed departures', migrate: 'Old browser upload', 'sh-file-fix': 'Dates fixed from the SH file (bulk)', 'from-to-fill': 'From / To filled from UMS data', checkin: 'Checked in', 'checkin-adjust': 'Check-in adjustment (slip changed to match)' };
 
 const roomsText = (list) => (list || []).map(r => `${r.room_no}×${r.assigned ?? r.beds ?? '?'}${r.exclusive ? ' (exclusive' + (r.building ? `, ${r.building}` : '') + ')' : ''}${r.out && r.out.date ? ` → ${r.out.date}` : ''}`).join(', ') || '—';
 // the fields worth showing, as [label, text]
@@ -20,6 +20,7 @@ export function fields(d) {
         ['SH', d.sh_no], ['Tour', d.tour_name], ['Leader', d.group_leader], ['Building', d.building], ['From', d.from_place], ['To', d.to_place],
         ['Check-in', dt(d.checkin_date, d.checkin_time)], ['Check-out', dt(d.checkout_date, d.checkout_time)],
         ['Gents', d.gents], ['Ladies', d.ladies], ['Children', d.children], ['Infants', d.infants], ['Total', d.total],
+        ['Checked in', d.actual && d.actual.in ? `${String(d.actual.in.at).replace('T', ' ')} · ${d.actual.in.pax} guests${d.actual.in.by ? ` · ${d.actual.in.by}` : ''}` : 'no'],
         ['Delayed', d.delayed && d.delayed.on ? `${d.delayed.status || 'tentative'}${d.delayed.note ? ` · ${d.delayed.note}` : ''}` : 'no'],
         ['Gents rooms', roomsText(d.rooms && d.rooms.gents)], ['Ladies rooms', roomsText(d.rooms && d.rooms.ladies)],
     ].map(([l, v]) => [l, v == null || v === '' ? '—' : String(v)]);

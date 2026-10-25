@@ -18,6 +18,9 @@ const shValue = (v) => { const s = String(v ?? '').trim().toUpperCase(); return 
 
 import { showSlipReport } from './checkmodal.js';
 import { mountSlipHistory } from './history.js';
+import { openCheckin } from '../checkins/checkin-modal.js';
+import { stayStatus, STATUS_LABEL } from '../../core/checkin.js';
+import { currentDesk } from '../../core/cloud.js';
 
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
@@ -55,6 +58,17 @@ export default async function mount(ctx) {
         $('btnEdit').classList.toggle('btn-hot', loaded);
         $('btnUnlockSave').hidden = !loaded || !!db.readonly;
         $('btnSave').classList.remove('btn-warn');
+        showCheckin();
+    }
+
+    // Check-in status of the loaded (saved) slip, and the button that opens the check-in window (checkins/checkin-modal.js)
+    let SINCE = '';
+    function showCheckin() {
+        const rec = CURRENT_ID != null ? DB_CACHE.find(r => r.id === CURRENT_ID) : null;
+        const st = rec ? stayStatus(rec, SINCE) : null;
+        $('ciChip').hidden = !rec;
+        if (rec) { $('ciChip').className = `ci-chip ci-${st}`; $('ciChip').textContent = STATUS_LABEL[st] + (rec.actual?.in ? ' ' + rec.actual.in.at.slice(11) : ''); }
+        $('btnCheckIn').hidden = !rec || st === 'arrived' || !!db.readonly;
     }
 
     async function refreshDBCache() {
@@ -842,6 +856,20 @@ export default async function mount(ctx) {
     HISTORY = mountSlipHistory({
         host: $('slipHistory'), api: db, current: () => CURRENT_ID, canWrite: () => !db.readonly,
         onActivated: async (slip) => { setFormData(slip); await refreshDBCache(); $('status').textContent = `Version in use changed — SH ${slip.sh_no || ''} (#${slip.id})`; },
+    });
+    try { SINCE = (await loadSettings()).settings.checkin_since || ''; } catch { }
+    $('btnCheckIn').addEventListener('click', async () => {
+        const rec = DB_CACHE.find(r => r.id === CURRENT_ID);
+        if (!rec) return;
+        const list = BUILDINGS;
+        const capOf = (b, room) => builderCapacity(list, b, room) || 0;
+        if (await openCheckin({ slip: rec, slips: DB_CACHE, capOf, db, by: currentDesk()?.name || '' })) {
+            await refreshDBCache();
+            const fresh = DB_CACHE.find(r => r.id === CURRENT_ID);
+            if (fresh) setFormData(fresh);                      // the form shows the slip as the check-in left it
+            HISTORY?.load(CURRENT_ID); showCheckin();
+            $('status').textContent = `SH ${rec.sh_no} checked in.`;
+        }
     });
     clearForm();
     addRow('gents'); addRow('ladies');

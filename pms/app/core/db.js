@@ -94,12 +94,13 @@ export function createDb(siteId) {
             return slip.id;
         },
 
-        async update(id, patch) {
+        // note: 'checkin' | 'checkin-adjust' labels the version in the slip's history (check-in window)
+        async update(id, patch, note) {
             guard();
             const old = await mirrorGet(id);
             if (!old) throw new ConflictError('This slip is no longer there (deleted on another desk?). Reload the page.');
             const next = { ...payload(old), ...payload(patch), createdAt: old.createdAt, updatedAt: new Date().toISOString() };
-            const { slip } = await send(() => request('PUT', `/api/slips/${Number(id)}`, { slip: next, version: old._v }));
+            const { slip } = await send(() => request('PUT', `/api/slips/${Number(id)}`, { slip: next, version: old._v, ...(note ? { note } : {}) }));
             await mirrorPut(slip);
             track('slip_updated', { site: slip.site });
             return slip.id;

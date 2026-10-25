@@ -8,6 +8,11 @@ import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
 import { CHECKINS_COLS } from '../../core/checkins-cols.js';
 import { baseSh } from '../../core/ums.js';
+import { stayStatus, STATUS_LABEL } from '../../core/checkin.js';
+import { openCheckin } from './checkin-modal.js';
+import { loadSettings } from '../../core/settings.js';
+import { loadBuildings, builderCapacity, normBuilding } from '../../core/rooms.js';
+import { currentDesk } from '../../core/cloud.js';
 import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
 import { legOf as flightLeg, loadFlightStatus, describe as describeFlight, checkLinks } from '../../core/flights.js';
 
@@ -54,6 +59,8 @@ export default async function mount(ctx) {
     }
 
     let CACHE = [];
+    let SINCE = '';           // Setup → check-ins tracked from this day; earlier slips show "Not recorded"
+    try { SINCE = (await loadSettings()).settings.checkin_since || ''; } catch { }
 
     // Cross-links follow the login's page access (Setup → Page access): no Slip page → no Open column,
     // no Print slips page → no Print slips / GL copy buttons.
@@ -182,11 +189,11 @@ export default async function mount(ctx) {
         g: list.reduce((s, r) => s + num(r.gents), 0), l: list.reduce((s, r) => s + num(r.ladies), 0),
         c: list.reduce((s, r) => s + num(r.children ?? r.child), 0), i: list.reduce((s, r) => s + num(r.infants ?? r.infant), 0),
     });
-    function totalsRow(list, label, cls) {
+    function totalsRow(list, label, cls, kind) {
         const k = countsOf(list), tr = document.createElement('tr');
         tr.className = cls;
         tr.innerHTML = `<td class="nowrap tot-l">${label}</td><td class="fl"></td><td class="c-sh"></td><td class="c-group">${k.n} slip${k.n === 1 ? '' : 's'}</td><td class="c-leader"></td><td class="c-building"></td><td class="c-rooms"></td>`
-            + `<td class="c-as">${k.as}</td><td class="c-t">${k.t}</td><td class="c-g">${k.g}</td><td class="c-l">${k.l}</td><td class="c-c">${k.c}</td><td class="c-i">${k.i}</td><td class="c-other"></td><td class="c-slip"></td>`;
+            + `<td class="c-as">${k.as}</td><td class="c-t">${k.t}</td><td class="c-g">${k.g}</td><td class="c-l">${k.l}</td><td class="c-c">${k.c}</td><td class="c-i">${k.i}</td><td class="c-other"></td><td class="c-slip"></td>${kind === 'In' ? '<td class="c-status"></td>' : ''}`;
         return tr;
     }
     const partSum = (list) => `${list.length} slip${list.length === 1 ? '' : 's'} · ${list.reduce((s, r) => s + guests(r), 0)} guests`;
@@ -206,13 +213,20 @@ export default async function mount(ctx) {
             }
             table.appendChild(tbody);
             fillRows(tbody, list, key);
-            if (title && list.length) tbody.appendChild(totalsRow(list, 'Subtotal', 'tot-row tot-sub'));        // each part of a split table
+            if (title && list.length) tbody.appendChild(totalsRow(list, 'Subtotal', 'tot-row tot-sub', kind));        // each part of a split table
         }
         // the whole table's totals, at the bottom
         table.querySelectorAll('tfoot').forEach(f => f.remove());
         const tfoot = document.createElement('tfoot');
-        tfoot.appendChild(totalsRow(rows, 'Total', 'tot-row tot-all'));
+        tfoot.appendChild(totalsRow(rows, 'Total', 'tot-row tot-all', kind));
         table.appendChild(tfoot);
+    }
+    // Check-in status chip + button (the slip stays the truth: see core/checkin.js and checkin-modal.js)
+    function statusCell(r) {
+        const st = stayStatus(r, SINCE);
+        const arrived = r.actual?.in;
+        const chip = `<span class="ci-chip ci-${st}"${arrived ? ` title="${escapeHTML(`Checked in ${arrived.at.replace('T', ' ')}${arrived.by ? ' by ' + arrived.by : ''}${arrived.adjusted ? ' (slip adjusted)' : ''}`)}"` : ''}>${STATUS_LABEL[st]}${arrived ? ' ' + escapeHTML(arrived.at.slice(11)) : ''}</span>`;
+        return st !== 'arrived' && db.readonly !== true ? `${chip} <button type="button" class="ci-open" data-checkin="${escapeHTML(String(r.id))}">Check in</button>` : chip;
     }
     function fillRows(tbody, rows, key) {
         for (const r of rows) {
@@ -243,6 +257,7 @@ export default async function mount(ctx) {
       <td class="c-i">${num(r.infants ?? r.infant)}</td>
       <td class="nowrap c-other">${key === 'checkin' ? fmtDT(co) : fmtDT(ci)}</td>
       <td class="nowrap c-slip">${openCell}</td>
+      ${key === 'checkin' ? `<td class="nowrap c-status">${statusCell(r)}</td>` : ''}
     `;
             tbody.appendChild(tr);
         }
@@ -513,6 +528,16 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
         $('flFold').setAttribute('aria-expanded', String(open));
         $('flightsBody').hidden = !open;
         $('panelFlights').classList.toggle('folded', !open);
+    });
+    // Check in: the window compares what happened with the slip (core/checkin.js)
+    $('tblIn').addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-checkin]');
+        if (!b) return;
+        const slip = CACHE.find(s => String(s.id) === b.dataset.checkin);
+        if (!slip) return;
+        let capOf = () => 0;
+        try { const list = await loadBuildings(); capOf = (bld, room) => builderCapacity(list, bld, room) || 0; } catch { }
+        if (await openCheckin({ slip, slips: CACHE, capOf: (b2, room) => capOf(normBuilding(b2), room), db, by: currentDesk()?.name || '' })) { CACHE = await getAllRecords(); run(); }
     });
     $('csvIn').addEventListener('click', () => exportRows('in'));
     $('csvOut').addEventListener('click', () => exportRows('out'));
