@@ -56,3 +56,8 @@ dialog.tp-plan h2 { margin: 0 0 6px; font-size: 18px; }
 .tp-plan-share input[type=number] { width: 64px; font: inherit; padding: 2px 6px; border: 1px solid var(--edge); border-radius: 8px; }
 .tp-plan-foot { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .tp-plan-foot .tp-muted { margin-right: auto; }
+
+/* pax on the vehicle, top right of the first row of each bus; red past the limit */
+.tp-tbl td.tp-remarks { position: relative; padding-right: 64px; }
+.tp-load { position: absolute; top: 4px; right: 6px; font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #e3f4ea; color: #1f6f43; white-space: nowrap; }
+.tp-load.over { background: #fde8e8; color: #a12a2a; }

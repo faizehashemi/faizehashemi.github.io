@@ -148,21 +148,6 @@ export default async function mount(ctx) {
     });
     await renderDly();
 
-    /* ------------------------------ Check-in tracking ------------------------------ */
-    async function renderCi() {
-        const s = await ctx.guard(loadSettings());
-        $('ciSince').value = s.settings.checkin_since || DEFAULTS.checkin_since;
-        $('ciSince').disabled = !isAdmin; $('ciSave').hidden = !isAdmin;
-    }
-    $('ciSave').addEventListener('click', async () => {
-        const v = $('ciSince').value;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { $('ciMsg').textContent = 'Pick a date.'; return; }
-        $('ciSave').disabled = true;
-        try { await ctx.guard(saveSettings({ checkin_since: v })); $('ciMsg').textContent = 'Saved.'; }
-        catch (err) { $('ciMsg').textContent = err.message || String(err); }
-        finally { $('ciSave').disabled = false; }
-    });
-    await renderCi();
 
     /* ------------------------------- SH prefixes ------------------------------- */
     let shp = [];

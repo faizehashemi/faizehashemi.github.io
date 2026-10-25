@@ -8,11 +8,7 @@ import { canOpen, mirrorAll } from '../../core/cloud.js';
 import { getPrefs } from '../../core/prefs.js';
 import { CHECKINS_COLS } from '../../core/checkins-cols.js';
 import { baseSh } from '../../core/ums.js';
-import { stayStatus, STATUS_LABEL } from '../../core/checkin.js';
-import { openCheckin } from './checkin-modal.js';
-import { loadSettings } from '../../core/settings.js';
-import { loadBuildings, builderCapacity, normBuilding } from '../../core/rooms.js';
-import { currentDesk } from '../../core/cloud.js';
+import { isCheckedIn, setCheckedIn } from '../../core/checkin.js';
 import { departuresOf, isDelayed, paxAt } from '../../core/stay.js';
 import { legOf as flightLeg, loadFlightStatus, describe as describeFlight, checkLinks } from '../../core/flights.js';
 
@@ -59,8 +55,6 @@ export default async function mount(ctx) {
     }
 
     let CACHE = [];
-    let SINCE = '';           // Setup → check-ins tracked from this day; earlier slips show "Not recorded"
-    try { SINCE = (await loadSettings()).settings.checkin_since || ''; } catch { }
 
     // Cross-links follow the login's page access (Setup → Page access): no Slip page → no Open column,
     // no Print slips page → no Print slips / GL copy buttons.
@@ -221,12 +215,10 @@ export default async function mount(ctx) {
         tfoot.appendChild(totalsRow(rows, 'Total', 'tot-row tot-all', kind));
         table.appendChild(tfoot);
     }
-    // Check-in status chip + button (the slip stays the truth: see core/checkin.js and checkin-modal.js)
+    // Check-in flag: a signal to the other desks that the group has checked in (core/checkin.js) — nothing else depends on it
     function statusCell(r) {
-        const st = stayStatus(r, SINCE);
-        const arrived = r.actual?.in;
-        const chip = `<span class="ci-chip ci-${st}"${arrived ? ` title="${escapeHTML(`Checked in ${arrived.at.replace('T', ' ')}${arrived.by ? ' by ' + arrived.by : ''}${arrived.adjusted ? ' (slip adjusted)' : ''}`)}"` : ''}>${STATUS_LABEL[st]}${arrived ? ' ' + escapeHTML(arrived.at.slice(11)) : ''}</span>`;
-        return st !== 'arrived' && db.readonly !== true ? `${chip} <button type="button" class="ci-open" data-checkin="${escapeHTML(String(r.id))}">Check in</button>` : chip;
+        if (isCheckedIn(r)) return `<span class="ci-chip ci-arrived">✓ Checked in</span>${db.readonly ? '' : ` <button type="button" class="ci-undo" data-checkin="${escapeHTML(String(r.id))}" data-on="0" title="Undo: the group has not checked in">Undo</button>`}`;
+        return db.readonly ? '<span class="ci-chip">—</span>' : `<button type="button" class="ci-open" data-checkin="${escapeHTML(String(r.id))}" data-on="1">Check in</button>`;
     }
     function fillRows(tbody, rows, key) {
         for (const r of rows) {
@@ -529,15 +521,14 @@ window.addEventListener('load', function () { setTimeout(function () { window.fo
         $('flightsBody').hidden = !open;
         $('panelFlights').classList.toggle('folded', !open);
     });
-    // Check in: the window compares what happened with the slip (core/checkin.js)
     $('tblIn').addEventListener('click', async (e) => {
         const b = e.target.closest('[data-checkin]');
-        if (!b) return;
+        if (!b || b.disabled) return;
         const slip = CACHE.find(s => String(s.id) === b.dataset.checkin);
         if (!slip) return;
-        let capOf = () => 0;
-        try { const list = await loadBuildings(); capOf = (bld, room) => builderCapacity(list, bld, room) || 0; } catch { }
-        if (await openCheckin({ slip, slips: CACHE, capOf: (b2, room) => capOf(normBuilding(b2), room), db, by: currentDesk()?.name || '' })) { CACHE = await getAllRecords(); run(); }
+        b.disabled = true;
+        try { await setCheckedIn(db, slip, b.dataset.on === '1'); CACHE = await getAllRecords(); run(); }
+        catch (err) { $('status').textContent = err.message || 'Could not save the check-in.'; b.disabled = false; }
     });
     $('csvIn').addEventListener('click', () => exportRows('in'));
     $('csvOut').addEventListener('click', () => exportRows('out'));

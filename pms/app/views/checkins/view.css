@@ -351,24 +351,6 @@ tfoot { display: table-footer-group; }
 /* Check-in status + window */
 .ci-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #eee; color: #555; }
 .ci-chip.ci-arrived { background: #e3f4ea; color: #1f6f43; }
-.ci-chip.ci-expected { background: #eef2ff; color: #364fc7; }
-.ci-chip.ci-late { background: #fff1d6; color: #9a5b00; }
 .ci-open { font: inherit; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; border: 1px solid #c9a227; background: #fffaf0; color: #7a5410; cursor: pointer; }
 .ci-open:hover { background: #fff1c9; }
-dialog.ci-dlg { border: 0; border-radius: 16px; padding: 18px 20px; width: min(94vw, 560px); box-shadow: 0 24px 70px rgba(0, 0, 0, .3); }
-dialog.ci-dlg::backdrop { background: rgba(43, 30, 21, .4); }
-.ci-dlg h2 { margin: 0 0 6px; font-size: 18px; }
-.ci-muted { color: #7a6a58; font-size: 13px; font-weight: 500; }
-.ci-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0; }
-.ci-grid label, .ci-note { display: grid; gap: 3px; font-size: 12.5px; font-weight: 700; color: #7a6a58; }
-.ci-dlg input { font: inherit; font-size: 15px; padding: 6px 9px; border: 1px solid #d9cbb0; border-radius: 9px; width: 100%; box-sizing: border-box; }
-.ci-fit { margin: 10px 0; }
-.ci-ok { color: #1f6f43; font-weight: 700; margin: 0; }
-.ci-warn { color: #9a5b00; font-weight: 700; margin: 0 0 6px; }
-.ci-chg, .ci-block { margin: 4px 0; padding-left: 20px; font-size: 14px; }
-.ci-block { color: #a12a2a; font-weight: 600; }
-.ci-foot { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
-.ci-foot .ci-muted { margin-right: auto; color: #a12a2a; }
-.ci-btn { font: inherit; font-weight: 800; padding: 8px 16px; border-radius: 999px; border: 1px solid #d9cbb0; background: #fff; cursor: pointer; }
-.ci-btn.gold { background: #9a7414; border-color: #9a7414; color: #fff; }
-.ci-btn:disabled { opacity: .45; cursor: default; }
+.ci-undo { font: inherit; font-size: 11.5px; padding: 1px 8px; border: 0; background: none; color: #7a6a58; text-decoration: underline; cursor: pointer; }

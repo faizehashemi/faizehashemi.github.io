@@ -52,6 +52,8 @@
                     <td colspan="6"><select id="to_place" aria-label="Going to"><option value="">—</option></select></td>
                 </tr>
                 <tr>
+                    <th>NOTES</th>
+                    <td colspan="13"><textarea id="notes" rows="2" maxlength="500" placeholder="Notes for this slip (printed on the slip and the GL copy)" aria-label="Notes"></textarea></td>
                 </tr>
 
             </tbody>
@@ -139,7 +141,7 @@
             <button id="btnNew">New Slip</button>
             <button id="btnSave" title="Save as a new slip">Save</button>
             <button id="btnEdit">Edit</button>
-            <button id="btnCheckIn" type="button" hidden title="Record the real arrival: it must match the slip, or the slip is updated to match">Check in</button>
+            <button id="btnCheckIn" type="button" hidden title="Tell the other desks this group has checked in">Check in</button>
             <span class="ci-chip" id="ciChip" hidden></span>
             <button id="btnUnlockSave" type="button" class="linkish" hidden title="Only if you really want a second, separate slip">Save a copy instead…</button>
             <span class="muted" id="status"></span>

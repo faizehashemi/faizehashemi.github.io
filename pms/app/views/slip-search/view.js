@@ -65,7 +65,7 @@ export default async function mount(ctx) {
                 ${field('Building', esc(s.building || '—'))}
                 ${s.from_place || s.to_place ? field('From → To', `${esc(s.from_place || '—')} → ${esc(s.to_place || '—')}`) : ''}
                 ${field('Check-in', when(slipStart(s)))}
-                ${s.actual?.in ? field('Checked in', `${esc(s.actual.in.at.replace('T', ' '))} · ${s.actual.in.pax} guests${s.actual.in.adjusted ? ' <em class="ss-dl">slip adjusted</em>' : ''}`) : ''}
+                ${s.checked_in ? field('Checked in', 'yes') : ''}
                 ${field('Check-out', when(slipEnd(s)) + (isDelayed(s) ? ' <em class="ss-dl">delayed</em>' : ''))}
                 ${field('Total pax', pax(s) || '—')}
                 ${field('Gents · Ladies', `${num(s.gents)} · ${num(s.ladies)}`)}

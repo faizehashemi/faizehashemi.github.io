@@ -3,7 +3,7 @@
 // imports unless the list's own time changes), and links to the import page, bus sheets and signage.
 // Day in the address: #/<site>/transport?day=YYYY-MM-DD (default today).
 import { canWrite, canOpen, currentDesk, UserError } from '../../core/cloud.js';
-import { destsFor, resolve, signage, renumber, assignBuses, vehicleOf, vehicleNo, fleetText, VEHICLES, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
+import { destsFor, resolve, signage, renumber, assignBuses, vehicleOf, vehicleNo, fleetText, VEHICLES, BUS_LIMIT, vehiclePax, limited, loadDay, listDays, saveDay, deleteDay, today, time12 } from '../../core/transport.js';
 import { esc, renderDayNav } from '../../core/transport-ui.js';
 import { loadSignage, saveSignageConfig } from '../../core/signage-api.js';
 import { loadBuildings, buildingNames } from '../../core/rooms.js';
@@ -79,7 +79,7 @@ export default async function mount(ctx) {
                     ${nameCell(r, 'leader')}
                     <td class="n">${pax(r)}</td>
                     ${trCell(r, !!i)}
-                    <td>${r.part ? `<span class="tp-part ${r.part}">${r.part === 'gents' ? 'GENTS' : 'LADIES'}</span> ` : ''}${esc(r.remarks)}${!i && writable ? `<button type="button" class="tp-addsh" data-addsh="${esc(r.key)}" title="Add a group (SH) to this ${esc(VEHICLES[b.vehicle].title.toLowerCase())}">＋ SH</button>` : ''}${!i && writable && isZiyarat(ctx.siteId, r.route) ? `<button type="button" class="tp-addsh tp-zsplit" data-zsplit="${esc(r.key.replace(/-L$/, ''))}" title="Gents and ladies on their own Ziyarat trips">${r.part ? '⚥ Gents / Ladies…' : '⚥ Split gents / ladies'}</button>` : ''}</td>
+                    <td class="tp-remarks">${!i ? `<span class="tp-load${limited(r) && b.pax > BUS_LIMIT ? ' over' : ''}" title="Pax on this ${esc(VEHICLES[b.vehicle].title.toLowerCase())}${limited(r) ? ` (a bus carries at most ${BUS_LIMIT})` : ''}">${b.pax}${limited(r) ? ` / ${BUS_LIMIT}` : ''}</span>` : ''}${r.part ? `<span class="tp-part ${r.part}">${r.part === 'gents' ? 'GENTS' : 'LADIES'}</span> ` : ''}${esc(r.remarks)}${!i && writable ? `<button type="button" class="tp-addsh" data-addsh="${esc(r.key)}" title="Add a group (SH) to this ${esc(VEHICLES[b.vehicle].title.toLowerCase())}">＋ SH</button>` : ''}${!i && writable && isZiyarat(ctx.siteId, r.route) ? `<button type="button" class="tp-addsh tp-zsplit" data-zsplit="${esc(r.key.replace(/-L$/, ''))}" title="Gents and ladies on their own Ziyarat trips">${r.part ? '⚥ Gents / Ladies…' : '⚥ Split gents / ladies'}</button>` : ''}</td>
                     ${delCell(r)}
                   </tr>`).join('');
                 const order = air && s.buses.length > 1 && writable
@@ -399,6 +399,8 @@ export default async function mount(ctx) {
         const patch = nums.length === 1 ? { pax: nums[0] } : { m: nums[0] || 0, f: nums[1] || 0, c: nums[2] || 0, pax: (nums[0] || 0) + (nums[1] || 0) + (nums[2] || 0) };
         if (patch.pax === Number(row.pax) && (nums.length === 1 || (patch.m === (row.m || 0) && patch.f === (row.f || 0) && patch.c === (row.c || 0)))) return;
         const rows = doc.rows.map(r => r.key === row.key ? { ...r, ...patch, pax_manual: true } : r);
+        const main = resolve(rows).get(row.key)?.parent || rows.find(r => r.key === row.key);
+        if (main && limited(main) && vehiclePax(rows, main.key) > BUS_LIMIT && patch.pax > Number(row.pax)) { msg(`That would put ${vehiclePax(rows, main.key)} pax on one bus. A bus carries at most ${BUS_LIMIT}: put some of the groups on another bus first.`, 'bad'); return; }
         save(rows, `pax of ${row.ref ? `SH ${row.ref}` : 'a vehicle'}: ${row.pax} → ${patch.pax}`);
     });
 
@@ -441,6 +443,7 @@ export default async function mount(ctx) {
                 add = { ...add, ref: sh, pax: Math.max(0, parseInt(p, 10) || 0) };
             }
         }
+        if (el.veh.value !== 'car' && Number(add.pax) > BUS_LIMIT) { msg(`SH ${add.ref} has ${add.pax} pax — a bus carries at most ${BUS_LIMIT}. Add it as two buses (type the pax of each part), or use a car.`, 'bad'); return; }
         const T = clean(el.transporter.value).slice(0, 60), V = clean(el.vch.value).slice(0, 20);
         const trip = {
             key: `M${Date.now().toString(36).toUpperCase()}`, dora: '', vch: V, transporter: T, at: `${day}T${time}`, route: dest.route,
@@ -470,6 +473,8 @@ export default async function mount(ctx) {
             ...(missing.length ? ['', `Not in this site's slips: ${missing.join(', ')} — you will be asked their pax next.`] : []),
             ...(already.length ? ['', `Already on this day's list: ${already.join(', ')} — they are added again.`] : [])].join('\n'))) return;
         const adds = found.map(g => g.add);
+        const already_ = vehiclePax(doc.rows, parent.key);
+        if (limited(parent) && already_ + adds.reduce((s, a) => s + (Number(a.pax) || 0), 0) > BUS_LIMIT) { msg(`This bus has ${already_} pax; adding ${adds.reduce((s, a) => s + (Number(a.pax) || 0), 0)} more would pass the limit of ${BUS_LIMIT} per bus. Put the group on another bus.`, 'bad'); return; }
         for (const sh of missing) {
             const p = prompt(`SH ${sh} is not in this site's slips. Add it anyway? Number of pax (Cancel to skip):`);
             if (p === null || !n(p)) continue;

@@ -90,6 +90,7 @@ export function slipHTML(rec, rows) {
         <tr><th>CHILDREN</th><td>${esc(rec.children)}</td><th>INFANTS</th><td>${esc(rec.infants)}</td></tr>
       </tbody>
     </table>
+    ${String(rec.notes || '').trim() ? `<table class="grid pair" style="margin-top:2mm"><tbody><tr><th>NOTES</th><td colspan="3" style="text-align:left!important;white-space:pre-wrap">${esc(String(rec.notes).trim())}</td></tr></tbody></table>` : ''}
     <div class="subtables">
       <table class="mini"><caption>GENTS</caption><thead><tr><th>Room No</th><th>Assigned Beds</th></tr></thead><tbody>${fillRows(gents)}</tbody></table>
       <table class="mini"><caption>LADIES</caption><thead><tr><th>Room No</th><th>Assigned Beds</th></tr></thead><tbody>${fillRows(ladies)}</tbody></table>

@@ -3,7 +3,7 @@
 // last stay, the UMS departure airport) and time (the check-out time); the desk ticks, changes, and adds the trips.
 // Groups can share a vehicle (same destination, leaving within N minutes of the first). Nothing is saved here:
 // the caller gets the new trips and saves the day.
-import { destsFor, ymd } from '../../core/transport.js';
+import { destsFor, ymd, BUS_LIMIT } from '../../core/transport.js';
 import { departuresOf, isDelayed } from '../../core/stay.js';
 import { baseSh } from '../../core/ums.js';
 
@@ -72,7 +72,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
               <td><input type="time" class="pl-time" value="${l.at.slice(11)}" aria-label="Departure time"></td>
               <td><select class="pl-dest" aria-label="Destination">${opts(l.dest)}</select>${l.listed ? '<small>already on this day’s list</small>' : l.to && !l.dest ? `<small>slip says To: ${esc(l.to)}</small>` : ''}</td>
             </tr>`).join('')}</tbody></table></div>
-            <label class="tp-plan-share"><input type="checkbox" id="plShare"> Put groups going to the same place into one vehicle when they leave within <input type="number" id="plMin" min="5" max="240" value="30"> minutes of the first</label>` : ''}
+            <label class="tp-plan-share"><input type="checkbox" id="plShare"> Put groups going to the same place into one vehicle (at most ${BUS_LIMIT} pax) when they leave within <input type="number" id="plMin" min="5" max="240" value="30"> minutes of the first</label>` : ''}
           <div class="tp-plan-foot"><span class="tp-muted" id="plSum"></span><button type="button" class="tp-btn" data-x>Cancel</button>${lines.length ? '<button type="button" class="tp-btn gold" data-ok>Add trips to this day</button>' : ''}</div>`;
         document.body.appendChild(dlg);
 
@@ -107,12 +107,13 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
                 const base = { key: `P${stamp}${i}`, ref: l.sh, operator: l.name, leader: l.leader, m: l.m, f: l.f, c: l.c, pax: l.pax, rooms: l.rooms,
                     dora: '', vch: '', transporter: '', adj: '', loc: '', at: `${day}T${x.time}`, manual: true };
                 const mins = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-                const host = share && (mainOf.get(dest.id) || []).find(h => mins(x.time) - mins(h.time) <= gap);
+                const host = share && (mainOf.get(dest.id) || []).find(h => mins(x.time) - mins(h.time) <= gap && h.pax + l.pax <= BUS_LIMIT);
+                if (host) host.pax += l.pax;
                 if (host) trips.push({ ...base, route: '', at: host.trip.at, with: host.trip.key, remarks: `planned from check-outs, with SH ${host.trip.ref}` });
                 else {
                     const trip = { ...base, route: dest.route, remarks: 'planned from check-outs' };
                     trips.push(trip);
-                    mainOf.set(dest.id, [...(mainOf.get(dest.id) || []), { trip, time: x.time }]);
+                    mainOf.set(dest.id, [...(mainOf.get(dest.id) || []), { trip, time: x.time, pax: l.pax }]);
                 }
             });
             finish(trips);

@@ -26,8 +26,6 @@ export const DEFAULTS = {
     delay_hold_days: 30,
     // SH number prefixes the Slip page accepts (Setup → SH prefixes): S44030, E44030, ES44030 …
     sh_prefixes: ['S', 'E', 'ES'],
-    // Check-in button (Check-ins page): slips checking in before this day show "Not recorded" instead of Expected / Late
-    checkin_since: '2026-10-26',
     // GL copy ink per building (Setup → GL copy colours); a building not listed prints black
     gl_colors: { MOHAMMEDI: '#e8590c', MUFADDAL: '#7b2cbf', SNOOD: '#66bb6a', BAHA: '#808080', HUSN: '#8b5a2b' },
     // /<site>/signage (Setup → Signage window): from 'now' or 'HH:MM' today, until to_day (0 today, 1 tomorrow, 2) at to_time

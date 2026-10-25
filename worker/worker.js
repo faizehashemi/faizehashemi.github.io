@@ -478,19 +478,8 @@ async function createSlip(req, env, me) {
     return json({ slip: rowToSlip(await getRow(env, id)) }, 201);
 }
 
-// A check-in committed on a slip (slip.actual.in = { at: 'YYYY-MM-DDTHH:MM', pax, … }) must agree with the slip itself:
-// on the slip's check-in day, not before its check-in time, and for the slip's pax. A client that skips the check-in
-// window cannot set it — the slip is changed first (the window does it in one save).
-function assertCheckinFits(old, next) {
-    const was = old && old.actual && old.actual.in, now_ = next && next.actual && next.actual.in;
-    if (!now_ || JSON.stringify(was) === JSON.stringify(now_)) return;
-    const at = String(now_.at || ''), t = (n) => Number(n) || 0;
-    const total = t(next.total) || t(next.gents) + t(next.ladies) + t(next.children) + t(next.infants);
-    const ok = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(at) && at.slice(0, 10) === String(next.checkin_date || '')
-        && at.slice(11, 16) >= String(next.checkin_time || '00:00') && t(now_.pax) === total;
-    if (!ok) throw new HttpError(409, 'The check-in does not match the slip (day, time or pax). Update the slip first, then check in.');
-}
-const SLIP_NOTES = new Set(['checkin', 'checkin-adjust']);
+// version labels for a check-in flag toggled on the Check-ins / Slip page
+const SLIP_NOTES = new Set(['checkin', 'checkin-undo']);
 
 async function updateSlip(req, env, me, id) {
     const { slip, version, note } = await body(req);
@@ -499,7 +488,6 @@ async function updateSlip(req, env, me, id) {
     assertWrite(me, row.site);
     if (slip && slip.site && slip.site !== row.site && me.role !== 'admin') throw new HttpError(403, 'Only an admin can move a slip to the other site.');
     const s = prepareSlip(slip);
-    assertCheckinFits(JSON.parse(row.data), JSON.parse(s.text));
     const at = now();
     const [res] = await env.DB.batch([updateStmt(env, me, id, Number(version), s, at), verStmt(env, me, at, 'edit', 'edit', SLIP_NOTES.has(note) ? note : null)]);
     if (!res.meta.changes) {
@@ -665,8 +653,6 @@ const SETTINGS = {
         check: (v) => Array.isArray(v) && v.length <= 20 && v.every(p => typeof p === 'string' && /^[A-Z]{1,4}$/.test(p)) && new Set(v).size === v.length,
         msg: 'SH prefixes: up to 20, each 1–4 capital letters, no repeats.',
     },
-    // Check-ins: slips checking in before this day are "not recorded" (no Expected / Late), the button was not there yet
-    checkin_since: { check: (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v), msg: 'Check-in tracking starts on a date YYYY-MM-DD.' },
     // GL copy ink per building (Print slips page and Check-ins → GL copy): { "MOHAMMEDI": "#e8590c", … }
     gl_colors: {
         check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= 100

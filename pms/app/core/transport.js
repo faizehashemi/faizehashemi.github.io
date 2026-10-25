@@ -231,6 +231,16 @@ export function signage(rows, site = 'makkah') {
     });
 }
 
+/** A bus carries at most this many pax (cars are not limited) */
+export const BUS_LIMIT = 49;
+/** The pax on the vehicle of trip `mainKey`: its own and the groups adjusted into it */
+export function vehiclePax(rows, mainKey) {
+    const info = resolve(rows);
+    return rows.filter(r => r.key === mainKey || info.get(r.key)?.parent?.key === mainKey).reduce((s, r) => s + (Number(r.pax) || 0), 0);
+}
+/** Does the vehicle limit apply to this trip's vehicle? (buses and custom vehicles, not cars) */
+export const limited = (r) => vehicleOf(r) !== 'car';
+
 /* ---------------------------------- display ---------------------------------- */
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -18,9 +18,7 @@ const shValue = (v) => { const s = String(v ?? '').trim().toUpperCase(); return 
 
 import { showSlipReport } from './checkmodal.js';
 import { mountSlipHistory } from './history.js';
-import { openCheckin } from '../checkins/checkin-modal.js';
-import { stayStatus, STATUS_LABEL } from '../../core/checkin.js';
-import { currentDesk } from '../../core/cloud.js';
+import { isCheckedIn, setCheckedIn } from '../../core/checkin.js';
 
 export default async function mount(ctx) {
     const { db, site, params } = ctx;
@@ -61,14 +59,14 @@ export default async function mount(ctx) {
         showCheckin();
     }
 
-    // Check-in status of the loaded (saved) slip, and the button that opens the check-in window (checkins/checkin-modal.js)
-    let SINCE = '';
+    // Check-in flag of the loaded (saved) slip: a signal to the other desks (core/checkin.js), nothing else uses it
     function showCheckin() {
         const rec = CURRENT_ID != null ? DB_CACHE.find(r => r.id === CURRENT_ID) : null;
-        const st = rec ? stayStatus(rec, SINCE) : null;
-        $('ciChip').hidden = !rec;
-        if (rec) { $('ciChip').className = `ci-chip ci-${st}`; $('ciChip').textContent = STATUS_LABEL[st] + (rec.actual?.in ? ' ' + rec.actual.in.at.slice(11) : ''); }
-        $('btnCheckIn').hidden = !rec || st === 'arrived' || !!db.readonly;
+        const on = isCheckedIn(rec);
+        $('ciChip').hidden = !on;
+        $('ciChip').className = 'ci-chip ci-arrived'; $('ciChip').textContent = '✓ Checked in';
+        $('btnCheckIn').hidden = !rec || !!db.readonly;
+        $('btnCheckIn').textContent = on ? 'Undo check-in' : 'Check in';
     }
 
     async function refreshDBCache() {
@@ -355,6 +353,7 @@ export default async function mount(ctx) {
             checkout_date, checkout_time,
             building: $('building').value || '',
             sh_no: shValue($('sh_no').value),
+            notes: $('notes').value.trim(),
             from_place: $('from_place').value || '', to_place: $('to_place').value || '',     // kept even while hidden in Settings
             total: $('total').value === '' ? '' : Number($('total').value),
             gents: $('gents').value === '' ? '' : Number($('gents').value),
@@ -395,6 +394,7 @@ export default async function mount(ctx) {
         $('building').value = data.building || '';
         $('sh_no').value = data.sh_no ?? '';
         setPlace('from_place', data.from_place); setPlace('to_place', data.to_place);
+        $('notes').value = data.notes ?? '';
         $('total').value = data.total ?? '';
         $('gents').value = data.gents ?? '';
         $('ladies').value = data.ladies ?? '';
@@ -857,19 +857,19 @@ export default async function mount(ctx) {
         host: $('slipHistory'), api: db, current: () => CURRENT_ID, canWrite: () => !db.readonly,
         onActivated: async (slip) => { setFormData(slip); await refreshDBCache(); $('status').textContent = `Version in use changed — SH ${slip.sh_no || ''} (#${slip.id})`; },
     });
-    try { SINCE = (await loadSettings()).settings.checkin_since || ''; } catch { }
     $('btnCheckIn').addEventListener('click', async () => {
         const rec = DB_CACHE.find(r => r.id === CURRENT_ID);
         if (!rec) return;
-        const list = BUILDINGS;
-        const capOf = (b, room) => builderCapacity(list, b, room) || 0;
-        if (await openCheckin({ slip: rec, slips: DB_CACHE, capOf, db, by: currentDesk()?.name || '' })) {
+        $('btnCheckIn').disabled = true;
+        try {
+            await setCheckedIn(db, rec, !isCheckedIn(rec));
             await refreshDBCache();
             const fresh = DB_CACHE.find(r => r.id === CURRENT_ID);
-            if (fresh) setFormData(fresh);                      // the form shows the slip as the check-in left it
-            HISTORY?.load(CURRENT_ID); showCheckin();
-            $('status').textContent = `SH ${rec.sh_no} checked in.`;
-        }
+            if (fresh) setFormData(fresh);
+            HISTORY?.load(CURRENT_ID);
+            $('status').textContent = isCheckedIn(fresh) ? `SH ${rec.sh_no} checked in.` : `SH ${rec.sh_no} check-in undone.`;
+        } catch (e) { $('status').textContent = e.message || 'Could not save the check-in.'; }
+        finally { $('btnCheckIn').disabled = false; showCheckin(); }
     });
     clearForm();
     addRow('gents'); addRow('ladies');

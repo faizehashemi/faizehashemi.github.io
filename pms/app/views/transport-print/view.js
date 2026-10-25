@@ -56,6 +56,22 @@ function sheet(day, dest, b) {
     </section>`;
 }
 
+// Luggage sheet: A4 portrait, one per bus. The bus number small on top, the groups (group · leader · SH · pax) in a table of
+// big bold black type, then LUGGAGE BELOW and a big arrow pointing down at where the luggage is put.
+function luggageSheet(b) {
+    const n = b.rows.length, size = n <= 3 ? 'l1' : n <= 6 ? 'l2' : n <= 10 ? 'l3' : 'l4';
+    return `<section class="lug ${size}">
+      <div class="lug-no">${esc(vehicleWord(b.vehicle, b.vlabel))} No. ${esc(b.bus ?? '')}</div>
+      <table class="lug-tbl">
+        <thead><tr><th>GROUP NAME</th><th>GROUP LEADER</th><th>SH NO.</th><th>PAX</th></tr></thead>
+        <tbody>${b.rows.map(r => `<tr><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td></tr>`).join('')}</tbody>
+        ${n > 1 ? `<tfoot><tr><td colspan="3">TOTAL</td><td class="n">${esc(b.pax)}</td></tr></tfoot>` : ''}
+      </table>
+      <div class="lug-say">LUGGAGE BELOW</div>
+      <svg class="lug-arrow" viewBox="0 0 100 100" aria-hidden="true"><path d="M30 0h40v50h25L50 100 5 50h25z" fill="#000"/></svg>
+    </section>`;
+}
+
 // The day's summary: per destination, in the sheet yellows — every chosen trip with its time, vehicle and number
 function summary(day, groups) {
     return groups.map((g) => {
@@ -131,6 +147,24 @@ export default async function mount(ctx) {
     });
     $('tqOnly').addEventListener('input', render);
     $('tqPrint').addEventListener('click', () => window.print());
+    // Luggage sheet: tick the routes, print one A4 page per bus of them
+    let lugOff = new Set();
+    function lugDraw() {
+        $('tqLugRoutes').innerHTML = groups.filter(g => g.buses.length).map(g => `<label><input type="checkbox" value="${g.dest.id}"${lugOff.has(g.dest.id) ? '' : ' checked'}> ${esc(g.dest.title)} <span class="tp-muted">(${g.buses.length})</span></label>`).join('')
+            || '<span class="tp-muted">No buses on this day.</span>';
+        const n = groups.filter(g => !lugOff.has(g.dest.id)).reduce((s, g) => s + g.buses.length, 0);
+        $('tqLugCount').textContent = `${n} page${n === 1 ? '' : 's'}`;
+        $('tqLugPrint').disabled = !n;
+    }
+    $('tqLugBtn').addEventListener('click', () => { $('tqLugPanel').hidden = !$('tqLugPanel').hidden; if (!$('tqLugPanel').hidden) lugDraw(); });
+    $('tqLugRoutes').addEventListener('change', (e) => { const id = e.target.value; if (e.target.checked) lugOff.delete(id); else lugOff.add(id); lugDraw(); });
+    const endLug = () => { document.documentElement.classList.remove('tq-print-lug'); const el = $('tqLug'); if (el) el.innerHTML = ''; };
+    $('tqLugPrint').addEventListener('click', () => {
+        $('tqLug').innerHTML = groups.filter(g => !lugOff.has(g.dest.id)).flatMap(g => g.buses.map(luggageSheet)).join('');
+        document.documentElement.classList.add('tq-print-lug');
+        window.print();
+        setTimeout(endLug, 500);
+    });
     // Print summary: the same choice as one list; the sheets step aside while it prints
     const root = document.documentElement;
     const endSummary = () => { root.classList.remove('tq-print-summary'); const el = $('tqSum'); if (el) el.innerHTML = ''; }; // the page may be gone
@@ -152,6 +186,6 @@ export default async function mount(ctx) {
     };
     $('tqXlSheets').addEventListener('click', toExcel('sheets'));
     $('tqXlSum').addEventListener('click', toExcel('summary'));
-    window.addEventListener('afterprint', () => { if (root.classList.contains('tq-print-summary')) endSummary(); });
+    window.addEventListener('afterprint', () => { if (root.classList.contains('tq-print-summary')) endSummary(); if (root.classList.contains('tq-print-lug')) endLug(); });
     render();
 }

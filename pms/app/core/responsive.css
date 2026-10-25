@@ -128,3 +128,20 @@
 
 /* Settings → Menu → Left side (core/nav.js sets html[data-nav=side] on laptops): pages sit right of the sidebar */
 @media (min-width: 901px) { html[data-nav="side"] body { padding-left: 252px; } }
+
+/* ---------------- phone audit: touch targets, modals, previews ---------------- */
+@media (max-width: 700px) {
+    /* fields and buttons are finger-sized everywhere; 16px text stops phones zooming in on focus */
+    #view input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), #view select { min-height: 38px; }
+    #view button { min-width: 36px; }
+    body input:not([type=checkbox]):not([type=radio]):not([type=range]), body select, body textarea { font-size: 16px !important; }
+    /* modals (dialogs sit outside #view): never wider or taller than the screen, scroll inside */
+    dialog { max-width: calc(100vw - 12px); max-height: calc(100dvh - 12px); overflow: auto; box-sizing: border-box; }
+    dialog input:not([type=checkbox]):not([type=radio]):not([type=range]), dialog select { min-height: 40px; }
+    dialog button { min-height: 40px; }
+    dialog table { max-width: 100%; }
+    /* the change log's commit links */
+    #view a.cl-h { display: inline-block; padding: 8px 6px; }
+    /* bus sheet previews are fixed A4 pages: scroll inside their box instead of widening the page */
+    .tq-sheets { overflow-x: auto; justify-items: start; }
+}
