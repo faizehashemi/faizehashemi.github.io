@@ -56,8 +56,8 @@ function sheet(day, dest, b) {
     </section>`;
 }
 
-// Luggage sheet: A4 portrait, one per bus. The bus number small on top, the groups (group · leader · SH · pax) in a table of
-// big bold black type, then LUGGAGE BELOW and a big arrow pointing down at where the luggage is put.
+// Luggage sheet: A4 landscape, one per bus. The bus number small on top, the groups (group · leader · SH · pax) in a table of
+// big bold black type, then a big arrow pointing down at where the luggage is put.
 function luggageSheet(b) {
     const n = b.rows.length, size = n <= 3 ? 'l1' : n <= 6 ? 'l2' : n <= 10 ? 'l3' : 'l4';
     return `<section class="lug ${size}">
@@ -67,8 +67,7 @@ function luggageSheet(b) {
         <tbody>${b.rows.map(r => `<tr><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td></tr>`).join('')}</tbody>
         ${n > 1 ? `<tfoot><tr><td colspan="3">TOTAL</td><td class="n">${esc(b.pax)}</td></tr></tfoot>` : ''}
       </table>
-      <div class="lug-say">LUGGAGE BELOW</div>
-      <svg class="lug-arrow" viewBox="0 0 100 100" aria-hidden="true"><path d="M30 0h40v50h25L50 100 5 50h25z" fill="#000"/></svg>
+      <svg class="lug-arrow" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="M30 0h40v50h25L50 100 5 50h25z" fill="#000"/></svg>
     </section>`;
 }
 
