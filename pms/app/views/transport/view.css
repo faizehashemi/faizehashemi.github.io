@@ -61,3 +61,10 @@ dialog.tp-plan h2 { margin: 0 0 6px; font-size: 18px; }
 .tp-tbl td.tp-remarks { position: relative; padding-right: 64px; }
 .tp-load { position: absolute; top: 4px; right: 6px; font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #e3f4ea; color: #1f6f43; white-space: nowrap; }
 .tp-load.over { background: #fde8e8; color: #a12a2a; }
+
+/* the day's check: all good / SH listed twice */
+.tp-check { margin: 8px 0; padding: 10px 14px; border-radius: 12px; font-weight: 700; }
+.tp-check.ok { background: #e3f4ea; color: #1f6f43; border: 1px solid #b7dfc6; }
+.tp-check.bad { background: #fde8e8; color: #7a1a12; border: 2px solid #c0392b; }
+.tp-check ul { margin: 6px 0; padding-left: 20px; font-weight: 500; }
+dialog.tp-dupe { width: min(94vw, 520px); }

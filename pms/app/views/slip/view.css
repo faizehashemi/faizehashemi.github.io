@@ -398,3 +398,4 @@ tr.excl .excl-on { color: #5b2a8f; }
 #notes { width: 100%; box-sizing: border-box; font: inherit; padding: 6px 9px; border: 1px solid var(--edge, #d9cbb0); border-radius: 8px; resize: vertical; }
 /* Notes row: the text box takes the rest of the row (phone layout is a 4-column grid) */
 td:has(> #notes) { grid-column: 2 / -1; min-width: 0; }
+.ums-held { margin: 8px 0; padding: 10px 14px; border: 2px solid #c0392b; border-radius: 12px; background: #fde8e8; color: #7a1a12; font-weight: 700; }

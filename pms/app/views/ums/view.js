@@ -1,6 +1,6 @@
 // UMS Import: load a Group List export (file or Chrome extension), review, apply to this site.
 
-import { parseUms, planImport, summarize, readLog, lastApplied, placesForSlips } from '../../core/ums.js';
+import { parseUms, planImport, summarize, readLog, lastApplied, placesForSlips, heldText, wantedText } from '../../core/ums.js';
 import { ext, askExtension, getAutoSite, setAutoSite, runImport } from '../../core/ums-auto.js';
 import { umsConfig } from '../../core/settings.js';
 
@@ -66,6 +66,7 @@ export default async function mount(ctx) {
     const TABS = [
         ['create', 'New', () => plan.create],
         ['update', 'Updated', () => plan.update.filter(u => !u.relinkOnly)],
+        ['held', 'Needs a decision', () => plan.held || []],
         ['attention', 'Needs attention', () => plan.update.filter(u => u.notes.length)],
         ['kept', 'Your edits kept', () => plan.kept],
         ['relink', 'Linked, no change', () => plan.update.filter(u => u.relinkOnly)],
@@ -90,6 +91,13 @@ export default async function mount(ctx) {
                 <td>${esc(rec.sh_no)}</td><td>${esc(rec.tour_name)}${rec.ums.family ? ' <span class="pill">family</span>' : ''}</td>
                 <td>${esc(rec.group_leader)}</td><td class="nowrap">${stay(rec)}</td><td class="nowrap">${pax(rec)}</td>
                 <td class="nowrap">${esc(rec.ums.itinerary)} #${rec.ums.seg}</td><td>${esc(rec.ums.country)}</td></tr>`).join('');
+        } else if (tab === 'held') {
+            $('planNote').hidden = false;
+            $('planNote').innerHTML = 'UMS changed the dates of these slips, but a room would then hold more guests than its beds. <b>The dates were not changed.</b> Sort the room out (move one group to another room, or correct the stay); the next import applies the UMS dates by itself.';
+            thead.innerHTML = '<tr><th>SH</th><th>Group</th><th>Stay now</th><th>UMS wants</th><th>Why it was held</th><th></th></tr>';
+            tbody.innerHTML = rows.map(h => `<tr><td>${esc(h.slip.sh_no)}</td><td>${esc(h.slip.tour_name)}</td><td class="nowrap">${stay(h.slip)}</td>
+                <td class="nowrap">${esc(wantedText(h.slip, h))}</td><td><span class="note">⚠ ${esc(heldText(h))}</span></td>
+                <td><a class="btn-link" href="${esc(ctx.href('slip', { sh_no: h.slip.sh_no }))}" target="_blank" rel="noopener">Open slip</a></td></tr>`).join('');
         } else if (tab === 'kept') {
             thead.innerHTML = '<tr><th>SH</th><th>Group</th><th>Stay</th><th>Kept (yours → UMS says)</th></tr>';
             tbody.innerHTML = rows.map(({ slip, kept }) => `<tr>
@@ -119,7 +127,7 @@ export default async function mount(ctx) {
                     || '<span class="muted">linked to UMS stay ' + esc(u.key) + '</span>'}
                     ${u.notes.map(n => `<span class="note">⚠ ${esc(n)}</span>`).join('')}</td></tr>`).join('');
         }
-        if (tab !== 'missing') $('planNote').hidden = true;
+        if (tab !== 'missing' && tab !== 'held') $('planNote').hidden = true;
         if (!rows.length) tbody.innerHTML = `<tr class="empty"><td colspan="7">Nothing here.</td></tr>`;
 
         const s = summarize(plan);
@@ -251,7 +259,7 @@ Places already set are not changed.`)) return;
         tb.innerHTML = log.length ? log.map(l => `<tr>
             <td class="nowrap">${when(l.at)}</td><td>${esc(l.via)}</td>
             <td><span class="pill ${l.result === 'applied' ? 'ok' : l.result === 'held' ? 'warn' : 'bad'}">${esc(l.result)}</span></td>
-            <td>${l.rows ?? ''}</td><td>${l.created ?? ''}</td><td>${l.updated ?? ''}</td><td>${l.attention ?? ''}</td><td>${l.missing ?? ''}</td>
+            <td>${l.rows ?? ''}</td><td>${l.created ?? ''}</td><td>${l.updated ?? ''}</td><td>${l.attention ?? ''}${l.held ? ` <span class="note" title="UMS date changes held: a room would be over capacity">⚠ ${l.held} held</span>` : ''}</td><td>${l.missing ?? ''}</td>
             <td class="small">${esc(l.error || (l.warnings ? l.warnings + ' note(s)' : ''))}</td></tr>`).join('')
             : '<tr class="empty"><td colspan="9">No imports yet.</td></tr>';
     }

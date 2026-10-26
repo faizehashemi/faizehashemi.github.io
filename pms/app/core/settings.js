@@ -4,6 +4,7 @@
 import { UMS } from '../config.js';
 import { request, OfflineError, ApiError } from './cloud.js';
 import { track } from './analytics.js';
+import { loadBuildings, builderCapacity } from './rooms.js';
 
 const CACHE_KEY = 'pms_settings_cache';
 
@@ -64,8 +65,12 @@ export async function saveSettings(settings) {
 /** The UMS import rules with the current settings applied (see staysOf in ums.js). */
 export async function umsConfig() {
     const { settings: s } = await loadSettings();
+    // room capacities from Rooms & Buildings, for the import guard (a date change must not overfill a room)
+    let capOf = () => 0;
+    try { const list = await loadBuildings(); capOf = (b, room) => builderCapacity(list, b, room) || 0; } catch { }
     return {
         ...UMS,
+        capOf,
         arrivalCommuteHours: s.arrival_commute_hours,
         departureLeadHours: s.departure_lead_hours,
         transferCheckinTime: s.transfer_checkin_time,

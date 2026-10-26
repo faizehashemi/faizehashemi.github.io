@@ -176,7 +176,49 @@ export default async function mount(ctx) {
         $('tpDelete').disabled = $('tpRenumber').disabled = !doc.version;
     }
 
-    function draw() { nav(); tiles(); list(); meta(); }
+    // The day's check: an SH listed more than once (two trips of one group, or a group added twice) → warning card on top
+    // and a pop-up (once per change of the repeated SHs); nothing repeated → "all good to go".
+    let warnedSig = '';
+    function dupes() {
+        const by = new Map();
+        for (const r of doc.rows) {
+            const k = String(r.ref || '').trim().toUpperCase();
+            if (!k || k === '0') continue;
+            if (!by.has(k)) by.set(k, []);
+            by.get(k).push(r);
+        }
+        return [...by].filter(([, rs]) => rs.length > 1).map(([ref, rs]) => ({ ref, rows: rs }));
+    }
+    function dupeLines(d) {
+        const info = resolve(doc.rows);
+        return d.rows.map(r => { const i = info.get(r.key); const to = i?.route || r.route || 'no route'; return `${time12(r.at)} · ${to}${i?.bus != null && !i.parent ? ' · bus ' + i.bus : i?.parent ? ' · grouped' : ''}`; });
+    }
+    function check() {
+        const el = $('tpCheck');
+        if (!doc.rows.length) { el.innerHTML = ''; warnedSig = ''; return; }
+        const d = dupes();
+        if (!d.length) { el.innerHTML = '<div class="tp-check ok" role="status">✓ All good to go — no SH is listed twice on this day.</div>'; warnedSig = ''; return; }
+        el.innerHTML = `<div class="tp-check bad" role="alert"><b>⚠ ${d.length === 1 ? `SH ${esc(d[0].ref)} is` : d.length + ' SHs are'} listed more than once on this day.</b>
+            <ul>${d.map(x => `<li><b>SH ${esc(x.ref)}</b> × ${x.rows.length}: ${dupeLines(x).map(esc).join(' &nbsp;|&nbsp; ')}</li>`).join('')}</ul>
+            <span class="tp-muted">Check each one: a group should ride one vehicle per route. Delete the extra trip (🗑) if it is a mistake.</span></div>`;
+        const sig = d.map(x => `${x.ref}:${x.rows.length}`).join(',');
+        if (sig !== warnedSig) { warnedSig = sig; dupePopup(d); }
+    }
+    function dupePopup(d) {
+        const dlg = document.createElement('dialog');
+        dlg.className = 'tp-plan tp-dupe';
+        dlg.innerHTML = `<h2>⚠ ${d.length === 1 ? `SH ${esc(d[0].ref)} is` : d.length + ' SHs are'} listed twice</h2>
+            <p class="tp-muted">On ${esc(day)}:</p><ul>${d.map(x => `<li><b>SH ${esc(x.ref)}</b> × ${x.rows.length}<br><span class="tp-muted">${dupeLines(x).map(esc).join('<br>')}</span></li>`).join('')}</ul>
+            <div class="tp-plan-foot"><button type="button" class="tp-btn gold" data-ok>OK, I will check</button></div>`;
+        document.body.appendChild(dlg);
+        let done = false;
+        const finish = () => { if (done) return; done = true; if (dlg.open) dlg.close(); dlg.remove(); };
+        dlg.addEventListener('click', (e) => { if (e.target.closest('[data-ok]')) finish(); });
+        dlg.addEventListener('close', finish);
+        dlg.showModal();
+    }
+
+    function draw() { nav(); check(); tiles(); list(); meta(); }
 
     async function load({ quiet = false } = {}) {
         try {
@@ -257,7 +299,9 @@ export default async function mount(ctx) {
         } finally { $('sgSave').disabled = false; }
     });
 
-    // delete a trip: confirm, then the day is saved without it (a re-import offers it again as "New" — untick it there)
+    // delete a trip: confirm, then the day is saved without it (a re-import offers it again as "New" — untick it there).
+    // Groups that ride with the deleted one stay on the bus: the first of them becomes the bus's own trip (it takes over the
+    // route, vehicle, number, building, transporter and Vch No) and the others stay adjusted into it.
     $('tpList').addEventListener('click', (e) => {
         const b = e.target.closest('button[data-del]');
         if (!b || saving) return;
@@ -265,13 +309,22 @@ export default async function mount(ctx) {
         if (!row) return;
         const info = resolve(doc.rows);
         const riders = doc.rows.filter(r => info.get(r.key)?.parent === row);
+        const heir = riders[0];
         const ok = confirm([
             `Delete SH ${row.ref}${row.leader ? ` (${row.leader})` : ''} — ${time12(row.at)}${info.get(row.key)?.route ? ', ' + info.get(row.key).route : ''}?`,
-            ...(riders.length ? ['', `${riders.length} grouped trip${riders.length === 1 ? '' : 's'} ride${riders.length === 1 ? 's' : ''} with it (${riders.map(r => r.ref).join(', ')}) — ${riders.length === 1 ? 'it keeps' : 'they keep'} ${riders.length === 1 ? 'its' : 'their'} own entr${riders.length === 1 ? 'y' : 'ies'} but no longer ${riders.length === 1 ? 'has' : 'have'} this bus.`] : []),
-            '', 'It disappears from the signage and the bus sheets. A later import of the list would offer it again as “New”.',
+            ...(riders.length ? ['', `${riders.length === 1 ? '1 group rides' : riders.length + ' groups ride'} with it (${riders.map(r => r.ref).join(', ')}). ${riders.length === 1 ? 'It stays' : 'They stay'} on this bus — SH ${heir.ref} becomes its first group.`] : []),
+            '', `${riders.length ? 'Only this group' : 'It'} disappears from the signage and the bus sheets. A later import of the list would offer it again as “New”.`,
         ].join('\n'));
         if (!ok) return;
-        save(doc.rows.filter(r => r.key !== row.key), `deleted SH ${row.ref}`);
+        let rows = doc.rows.filter(r => r.key !== row.key);
+        if (heir) {
+            const carry = ['route', 'at', 'bus', 'bus_manual', 'vehicle', 'vehicle_label', 'building', 'transporter', 'transporter_manual', 'vch', 'vch_import', 'dora', 'at_manual', 'at_import'];
+            const main = { ...heir, route: row.route || info.get(row.key)?.route || '' };
+            for (const k of carry) if (row[k] !== undefined) main[k] = row[k];
+            delete main.with; main.adj = '';
+            rows = rows.map(r => r.key === heir.key ? main : (r.with === row.key ? { ...r, with: heir.key } : r));
+        }
+        save(rows, `deleted SH ${row.ref}${heir ? `; SH ${heir.ref} is now first on its bus` : ''}`);
     });
 
     // departure building: saved at once (signage, bus sheets and summary show it)

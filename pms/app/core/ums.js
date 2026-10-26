@@ -11,6 +11,7 @@
 
 import { SITES, UMS } from '../config.js';
 import { shiftTime } from './settings.js';
+import { roomConflicts } from './stay.js';
 
 /* --------------------------------- parse --------------------------------- */
 
@@ -396,6 +397,12 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
     // Slips in the PMS checking in within the dates this file covers but not in it — the SH may have been cancelled or
     // postponed in UMS. From UMS before (its stay is gone now), or made in the PMS with an SH the file doesn't have.
     // A slip the admin chose to keep for this reason (ums_absent_kept) is not listed again.
+    // Import guard: a rooms-assigned slip never gets a UMS date change that would put a room over its capacity
+    // (an extended stay running into the next group booked in the same room). Its dates stay as they are, the slip is
+    // listed under "Needs a decision" with the room and the group in the way, and the change is offered again by every
+    // later import until the room is sorted out (UMS's new dates are not recorded as applied).
+    guardRooms(plan, existing, cfg);
+
     plan.missingRange = fromDay ? { from: fromDay, to: toDay } : null;
     for (const s of existing) {
         if (s.deleted || s.site !== siteId || !fromDay || s.ums_absent_kept) continue;
@@ -406,6 +413,45 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
     return plan;
 }
 
+const clashKeys = (list) => new Set(list.filter(x => x.clash).map(x => `${String(x.row.building).trim().toUpperCase()}|${x.row.room_no.toUpperCase()}`));
+const dmyT = (d, t) => `${String(d || '').split('-').reverse().join('/')} ${t || ''}`.trim();
+
+function guardRooms(plan, existing, cfg) {
+    const capOf = cfg.capOf || (() => 0);
+    const now = cfg.nowMs ?? Date.now();
+    const planned = new Map(plan.update.map(u => [u.id, u]));
+    const world = () => existing.map(s => planned.get(s.id)?.rec || s);
+    plan.held = [];
+    for (const u of plan.update) {
+        const dateFields = Object.keys(u.changes).filter(f => DATE_FIELDS.includes(f));
+        if (!dateFields.length || !hasRooms(u.before)) continue;
+        const others = world();
+        const before = clashKeys(roomConflicts(u.before, others, capOf, now));
+        const now_ = roomConflicts(u.rec, others, capOf, now).filter(x => x.clash && !before.has(`${String(x.row.building).trim().toUpperCase()}|${x.row.room_no.toUpperCase()}`));
+        if (!now_.length) continue;
+        const wanted = {};
+        for (const f of dateFields) { wanted[f] = u.changes[f].to; u.rec[f] = u.before[f]; delete u.changes[f]; if (u.rec.ums?.applied) u.rec.ums.applied[f] = u.before[f]; }
+        const clashes = now_.map(x => ({ room: x.row.room_no, building: x.row.building, peak: x.peak, cap: x.cap, who: x.who.map(w => w.sh) }));
+        const was = u.before.ums?.held;
+        const same = was && JSON.stringify(was.wanted) === JSON.stringify(wanted) && JSON.stringify(was.clashes) === JSON.stringify(clashes);
+        u.rec.ums = { ...u.rec.ums, held: { at: same ? was.at : new Date().toISOString(), wanted, clashes } };
+        u.relinkOnly = !Object.keys(u.changes).length;
+        u.notes.push('UMS date change held: room over capacity');
+        plan.held.push({ key: u.key, slip: u.before, wanted, clashes });
+    }
+    // a slip no longer held (its room was sorted out): drop the marker
+    for (const u of plan.update) if (!plan.held.some(h => h.key === u.key) && u.rec.ums?.held) { u.rec.ums = { ...u.rec.ums }; delete u.rec.ums.held; }
+    // a hold that is the same as last hour's changes nothing: no write, no new slip version
+    const core = (m) => { const { importedAt, ...rest } = m || {}; return JSON.stringify(rest); };
+    plan.update = plan.update.filter(u => {
+        if (!(u.relinkOnly && plan.held.some(h => h.key === u.key) && u.before.ums?.held && core(u.rec.ums) === core(u.before.ums))) return true;
+        plan.unchanged++;
+        return false;
+    });
+}
+export const heldText = (h) => `${h.clashes.map(c => `room ${c.room} (${c.building}) would hold ${c.peak}/${c.cap}${c.who.length ? ` with SH ${c.who.join(', SH ')}` : ''}`).join('; ')}`;
+export const wantedText = (s, h) => `${dmyT(h.wanted.checkin_date ?? s.checkin_date, h.wanted.checkin_time ?? s.checkin_time)} → ${dmyT(h.wanted.checkout_date ?? s.checkout_date, h.wanted.checkout_time ?? s.checkout_time)}`;
+
 /** Write a plan (chunked bulk writes to the server). Returns { created, updated, skipped }. */
 export async function applyPlan(db, plan) {
     return db.bulkWrite({ add: plan.create.map(c => c.rec), put: plan.update.map(u => u.rec) }, 'ums-import');
@@ -413,7 +459,7 @@ export async function applyPlan(db, plan) {
 
 export function summarize(plan) {
     const attention = plan.update.filter(u => u.notes.length).length;
-    return { created: plan.create.length, updated: plan.update.filter(u => !u.relinkOnly).length, relinked: plan.update.filter(u => u.relinkOnly).length, unchanged: plan.unchanged, attention, missing: plan.missing.length, stays: plan.stays, groups: plan.groups };
+    return { created: plan.create.length, updated: plan.update.filter(u => !u.relinkOnly).length, relinked: plan.update.filter(u => u.relinkOnly).length, unchanged: plan.unchanged, attention, held: (plan.held || []).length, missing: plan.missing.length, stays: plan.stays, groups: plan.groups };
 }
 
 // FNV-1a — identifies a file so the same export is not applied twice

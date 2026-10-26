@@ -4,7 +4,7 @@
 import { UserError, sync, state } from '../../core/cloud.js';
 import { recordSlipDenial } from '../../core/telemetry.js';
 import { loadBuildings, buildingNames, builderCapacity, findBuilding, normRoom } from '../../core/rooms.js';
-import { baseSh } from '../../core/ums.js';
+import { baseSh, heldText, wantedText } from '../../core/ums.js';
 import { openRoomPicker } from './room-picker.js';
 import { getPrefs } from '../../core/prefs.js';
 import { loadSettings, DEFAULTS, shPattern } from '../../core/settings.js';
@@ -59,8 +59,16 @@ export default async function mount(ctx) {
         showCheckin();
     }
 
+    // UMS changed this slip's dates but a room would have been over capacity: the import held the change (core/ums.js guardRooms)
+    function showHeld() {
+        const rec = CURRENT_ID != null ? DB_CACHE.find(r => r.id === CURRENT_ID) : null, h = rec?.ums?.held;
+        $('umsHeld').hidden = !h;
+        if (h) $('umsHeld').textContent = `UMS wants ${wantedText(rec, h)}, but that would overfill a room: ${heldText(h)}. The dates were not changed. Move a group to another room (Pick rooms) — the next UMS import applies the new dates by itself.`;
+    }
+
     // Check-in flag of the loaded (saved) slip: a signal to the other desks (core/checkin.js), nothing else uses it
     function showCheckin() {
+        showHeld();
         const rec = CURRENT_ID != null ? DB_CACHE.find(r => r.id === CURRENT_ID) : null;
         const on = isCheckedIn(rec);
         $('ciChip').hidden = !on;
