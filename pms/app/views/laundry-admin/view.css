@@ -178,3 +178,10 @@ textarea#nText { width: 100%; padding: 8px 10px; border: 1px solid var(--edge); 
 @media (max-width: 600px) {
     .la-dlg .la-actions { position: sticky; bottom: 0; background: var(--panel); padding: 10px 16px; margin: 0 !important; box-shadow: 0 -6px 14px rgba(40, 26, 6, .1); display: flex; gap: 8px; justify-content: flex-end; }
 }
+/* phone: the dialog and everything in its form are sized from the screen, never from a field's own width
+   (a date field or a fieldset would otherwise stretch the form past the right edge) */
+@media (max-width: 700px) {
+    dialog.la-dlg, dialog.la-dlg.wide { width: calc(100% - 16px); max-width: calc(100% - 16px); box-sizing: border-box; }
+    .la-form, .la-form > *, .la-form label, .la-form fieldset, .la-grid2, .la-picedit, .la-picedit > div { min-width: 0; max-width: 100%; box-sizing: border-box; }
+    .la-form input:not([type=checkbox]):not([type=radio]):not([type=file]), .la-form select, .la-form textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+}
