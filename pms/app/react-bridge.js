@@ -13,7 +13,7 @@ import { REACT_PAGES, VIEWS } from './config.js';
 import { getPrefs } from './core/prefs.js';
 
 export function reactPageOn(viewId) {
-    try { if (new URLSearchParams(location.search).get('legacy') === '1') return false; } catch { }
+    try { if (new URLSearchParams(location.search).get('legacy') === '1' || new URLSearchParams(location.hash.split('?')[1] || '').get('legacy') === '1') return false; } catch { }   // ?legacy=1 before or after the #
     if ((REACT_PAGES || []).includes(viewId)) return true;
     if ((getPrefs().reactPages || []).includes(viewId)) return true;
     try { if ((localStorage.getItem('pms_react_pages') || '').split(',').map(s => s.trim()).includes(viewId)) return true; } catch { }

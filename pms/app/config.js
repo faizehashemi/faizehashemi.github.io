@@ -24,9 +24,10 @@ export const SITES = {
 
 export const DEFAULT_SITE = 'makkah';
 
-// Pages that run as React (react/ → pms/react/) for every login. Empty until a page has been approved on staging; one login can be
-// given a page early with prefs.reactPages (canary), this browser with localStorage pms_react_pages (see react-bridge.js).
-export const REACT_PAGES = [];
+// Pages that run as React (react/ → pms/react/) for every login, approved 2026-10-27. Not in the list: 'laundry' (the touch-screen POS — its printing, touch and offline queue
+// are only testable on the real kiosk). Back to the standard page: add ?legacy=1 to the address (e.g. …/#/makkah/slip?legacy=1), set localStorage pms_react_off=1 in one browser, or remove the page here.
+// One login can be given a page early with prefs.reactPages (canary), this browser with localStorage pms_react_pages (see react-bridge.js).
+export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','movement','kg','mawaid','timeline','grid','checkins','transport','transport-print','transport-import','laundry-admin','signage-builder','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
