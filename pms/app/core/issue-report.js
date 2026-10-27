@@ -35,16 +35,22 @@ async function capture() {
     await loadScript(HTML2CANVAS);
     const w = innerWidth, h = innerHeight;
     const t0 = performance.now();
+    const h2c = window.html2canvasPro || window.html2canvas;
+    const bg = getComputedStyle(document.body).backgroundColor;
     let scale = Math.min(window.devicePixelRatio || 1, w < 700 ? 2 : 1.25);
+    // The browser's own engine (foreignObjectRendering) draws the page as it really looks — colours, fonts, spacing. The library's own canvas drawing is the fallback: it
+    // washes colours out and spaces letters oddly, which once made a desk's labels look pale in a report when they were not.
+    const draw = (foreign) => Promise.race([
+        h2c(document.documentElement, { x: scrollX, y: scrollY, width: w, height: h, windowWidth: document.documentElement.clientWidth, windowHeight: h, scale, logging: false, useCORS: true,
+            foreignObjectRendering: foreign, backgroundColor: !bg || /rgba\(.*,\s*0\)$/.test(bg) || bg === 'transparent' ? '#f7efe1' : bg, ignoreElements: (el) => el.classList?.contains('pms-ir') }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('capture timed out')), 9000)),
+    ]);
     for (let attempt = 0; attempt < 3; attempt++) {
-        const canvas = await Promise.race([
-            (window.html2canvasPro || window.html2canvas)(document.documentElement, { x: scrollX, y: scrollY, width: w, height: h, windowWidth: document.documentElement.clientWidth, windowHeight: h, scale, logging: false, useCORS: true,
-                backgroundColor: getComputedStyle(document.body).backgroundColor || '#ffffff', ignoreElements: (el) => el.classList?.contains('pms-ir') }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('capture timed out')), 9000)),
-        ]);
+        let canvas, foreign = true;
+        try { canvas = await draw(true); } catch { foreign = false; canvas = await draw(false); }
         for (const q of [0.62, 0.45, 0.3]) {
             const url = canvas.toDataURL('image/jpeg', q);
-            if (url.length <= MAX_SHOT) return { url, ms: Math.round(performance.now() - t0), scale };
+            if (url.length <= MAX_SHOT) return { url, ms: Math.round(performance.now() - t0), scale, foreign };
         }
         scale = Math.max(0.5, scale * 0.65);
     }
@@ -124,7 +130,7 @@ async function openReport() {
     let shot = null, shotErr = '';
     try { shot = await capture(); } catch (e) { shotErr = e?.message || 'could not capture'; }
     const diag = diagnostics(page, site);
-    if (shot) diag.shot = { ms: shot.ms, scale: Math.round(shot.scale * 100) / 100 }; else diag.shot_error = shotErr || 'too large';
+    if (shot) diag.shot = { ms: shot.ms, scale: Math.round(shot.scale * 100) / 100, engine: shot.foreign ? 'browser' : 'canvas' }; else diag.shot_error = shotErr || 'too large';
     button.hidden = false;
 
     const dlg = document.createElement('dialog');

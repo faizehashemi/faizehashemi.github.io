@@ -10,7 +10,7 @@
     --radius: 0.75rem;
     --background: #fbeecb;          /* panel: golden cream */
     --foreground: #2b1e15;          /* ink */
-    --card: #fbeecb;
+    --card: rgb(251 238 203 / 0.86);   /* golden cream, see-through so the gold pattern shows faintly */
     --card-foreground: #2b1e15;
     --popover: #fff6dc;
     --popover-foreground: #2b1e15;

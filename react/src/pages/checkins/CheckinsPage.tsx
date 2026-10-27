@@ -19,7 +19,7 @@ import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, luggageAt
 // other desks, nothing else depends on it). The window is today 03:00 → tomorrow 03:00 by default. The live flight status panel stays switched off.
 
 const COLS: { id: string; label: string; right?: boolean }[] = [
-    { id: 'sh', label: 'SH No' }, { id: 'lug', label: 'Luggage at' }, { id: 'group', label: 'Group' }, { id: 'leader', label: 'Group Leader' }, { id: 'building', label: 'Building' }, { id: 'rooms', label: 'Rooms' },
+    { id: 'sh', label: 'SH No' }, { id: 'lug', label: 'First accommodation' }, { id: 'group', label: 'Group' }, { id: 'leader', label: 'Group Leader' }, { id: 'building', label: 'Building' }, { id: 'rooms', label: 'Rooms' },
     { id: 'as', label: 'As.', right: true }, { id: 't', label: 'T', right: true }, { id: 'g', label: 'G', right: true }, { id: 'l', label: 'L', right: true }, { id: 'c', label: 'C', right: true }, { id: 'i', label: 'I', right: true },
 ];
 const dayShift = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
@@ -42,6 +42,7 @@ export default function CheckinsPage() {
     const [mode, setMode] = useState('both');
     const [bldFilter, setBldFilter] = useState('all'), [sortBy, setSortBy] = useState('time');   // Building: only that building's groups; Sort: by time (default) or by building
     const [split, setSplit] = useState(!!prefs.checkinsSplit);
+    const [showLug, setShowLug] = useState(() => { try { return localStorage.getItem('pms_checkins_lug_col') === '1'; } catch { return false; } });   // hidden unless ticked: only one desk looks at it, once a day
     const [showFl, setShowFl] = useState(() => { try { return localStorage.getItem('pms_checkins_flight_col') === '1'; } catch { return false; } });
     const [range, setRange] = useState({ df, dt, tf, tt });
     const [other, setOther] = useState<any[]>([]);
@@ -70,7 +71,7 @@ export default function CheckinsPage() {
     }, [win, bldFilter, sortBy]);
     const leg = (r: Row) => legOf(r, siteId, other, ums.baseSh);
     const KNOWN: string[] = libs ? libs.colsMod.CHECKINS_COLS.map((c: any) => c[0]) : [];
-    const hiddenCols = (kind: 'in' | 'out') => ((prefs[kind === 'in' ? 'checkinsHideIn' : 'checkinsHideOut'] || []) as string[]).filter(id => KNOWN.includes(id));
+    const hiddenCols = (kind: 'in' | 'out') => [...((prefs[kind === 'in' ? 'checkinsHideIn' : 'checkinsHideOut'] || []) as string[]).filter(id => KNOWN.includes(id)), ...(showLug ? [] : ['lug'])];
     const flightOf = (r: Row, key: 'checkin' | 'checkout'): any => {
         if (!libs) return { kind: 'none' };
         if (leg(r)[key === 'checkin' ? 'from' : 'to'] !== 'airport') return { kind: 'city' };
@@ -97,7 +98,7 @@ export default function CheckinsPage() {
     const rowsOf = (kind: 'in' | 'out') => (kind === 'in' ? shown.ins : shown.outs);
 
     function csv(kind: 'in' | 'out') {
-        const text = toCSV(kind, parts(rowsOf(kind), kind === 'in' ? 'checkin' : 'checkout'), { flights: showFl, hidden: hiddenCols(kind), flightText: r => flightText(r, kind === 'in' ? 'checkin' : 'checkout'), luggage: lug });
+        const text = toCSV(kind, parts(rowsOf(kind), kind === 'in' ? 'checkin' : 'checkout'), { flights: showFl, hidden: hiddenCols(kind), flightText: r => flightText(r, kind === 'in' ? 'checkin' : 'checkout'), luggage: showLug ? lug : () => '' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
         a.download = `${kind === 'in' ? 'checkins' : 'checkouts'}_${range.df}_${range.dt}${split ? '_split' : ''}.csv`;
         document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
@@ -107,7 +108,7 @@ export default function CheckinsPage() {
         if (!rows.length) { alert('No rows to print in this table.'); return; }
         const w = window.open('', '_blank');
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print table again.'); return; }
-        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel, lug)); w.document.close();
+        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel, showLug ? lug : () => '')); w.document.close();
     }
 
     const checkLink = (code: string, o: any) => {
@@ -219,7 +220,8 @@ export default function CheckinsPage() {
                         <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger id="sortby" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="time">Time</SelectItem><SelectItem value="building">Building, then time</SelectItem></SelectContent></Select></div>
                     <div className="grid gap-1.5 text-sm"><Label>View</Label>
                         <label className="flex items-center gap-2" title="Check-ins: from the airport / from the other city · Check-outs: to the airport / to the other city"><Checkbox checked={split} onCheckedChange={v => setSplit(v === true)} />Split by from / to</label>
-                        <label className="flex items-center gap-2" title="Check 1 (Trip.com) and Check 2 (FlightAware) links for each group's flight"><Checkbox checked={showFl} onCheckedChange={v => { setShowFl(v === true); try { localStorage.setItem('pms_checkins_flight_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />Flight status</label></div>
+                        <label className="flex items-center gap-2" title="Check 1 (Trip.com) and Check 2 (FlightAware) links for each group's flight"><Checkbox checked={showFl} onCheckedChange={v => { setShowFl(v === true); try { localStorage.setItem('pms_checkins_flight_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />Flight status</label>
+                        <label className="flex items-center gap-2" title="Show where each S-prefixed group's first stay (and its luggage) was"><Checkbox checked={showLug} onCheckedChange={v => { setShowLug(v === true); try { localStorage.setItem('pms_checkins_lug_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />First accommodation</label></div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     {presets.map(([l, f]) => <Button key={l} variant="outline" size="sm" onClick={f}>{l}</Button>)}

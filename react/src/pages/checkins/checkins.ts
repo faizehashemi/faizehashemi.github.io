@@ -97,7 +97,7 @@ export const countsOf = (list: Row[]) => ({
 });
 export const partSum = (list: Row[]) => `${list.length} slip${list.length === 1 ? '' : 's'} · ${list.reduce((s, r) => s + guests(r), 0)} guests`;
 
-/* ===== Luggage at ===== */
+/* ===== First accommodation (where the luggage is) ===== */
 // A group's second stay here has the SH with prefix S (S44030); its luggage stays in the building of its first stay (44030) — the earliest stay of that SH
 // without the S that has a building. (Moved from the Movement page, which was folded into this one.)
 const LUGGAGE_PREFIX = 'S';
@@ -123,8 +123,8 @@ export function luggageAt(idx: Map<string, Slip[]>, sh: unknown) {
 export const COL_IDS = ['time', 'fl', 'sh', 'lug', 'group', 'leader', 'building', 'rooms', 'as', 't', 'g', 'l', 'c', 'i', 'other'] as const;
 export function toCSV(kind: 'in' | 'out', parts: [string | null, Row[]][], opts: { flights: boolean; hidden: string[]; flightText: (r: Row) => string; luggage: (r: Row) => string }) {
     const head = kind === 'in'
-        ? ['Check-in', ...(opts.flights ? ['Flight'] : []), 'SH No', 'Luggage at', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
-        : ['Check-out', ...(opts.flights ? ['Flight'] : []), 'SH No', 'Luggage at', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
+        ? ['Check-in', ...(opts.flights ? ['Flight'] : []), 'SH No', 'First accommodation', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
+        : ['Check-out', ...(opts.flights ? ['Flight'] : []), 'SH No', 'First accommodation', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     // the same columns as the table on screen (Settings → Check-ins page)
     const ids = ['time', ...(opts.flights ? ['fl'] : []), 'sh', 'lug', 'group', 'leader', 'building', 'rooms', 'as', 't', 'g', 'l', 'c', 'i', 'other'];
@@ -149,7 +149,7 @@ export function toCSV(kind: 'in' | 'out', parts: [string | null, Row[]][], opts:
 /* ===== Print table: A4 landscape, 1 cm margins, in a tab of its own ===== */
 const escH = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]!));
 export function printTableHtml(kind: 'in' | 'out', rows: Row[], parts: [string | null, Row[]][], siteLabel: string, rangeLabel: string, luggage: (r: Row) => string = () => '') {
-    const lug = rows.some(r => luggage(r));   // the Luggage at column only when a group in the table has luggage elsewhere
+    const lug = rows.some(r => luggage(r));   // the First accommodation column only when a group in the table has luggage elsewhere
     const n = lug ? 8 : 7;
     const title = `${kind === 'in' ? 'Check-ins' : 'Check-outs'} · ${siteLabel}`;
     const total = rows.reduce((s, r) => s + guests(r), 0);
@@ -157,7 +157,7 @@ export function printTableHtml(kind: 'in' | 'out', rows: Row[], parts: [string |
         const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
         return `<tr><td>${escH(r.sh_no ?? '')}</td>${lug ? `<td>${escH(luggage(r) || '-')}</td>` : ''}<td><b>${escH(r.tour_name || '-')}</b><br><span class="gl">${escH(String(r.group_leader ?? '').trim() || '-')}</span></td><td>${escH((r.building || '').trim() || '-')}</td><td class="rooms">${escH(roomsFromSlip(r).join(', ') || '-')}</td><td><b>${guests(r)}</b></td><td>${escH(fmtDT(ci))}</td><td>${escH(fmtDT(co))}</td></tr>`;
     };
-    const thead = `<thead><tr><th>SH No</th>${lug ? '<th>Luggage at</th>' : ''}<th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th><th>Check-in</th><th>Check-out</th></tr></thead>`;
+    const thead = `<thead><tr><th>SH No</th>${lug ? '<th>First accommodation</th>' : ''}<th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th><th>Check-in</th><th>Check-out</th></tr></thead>`;
     const colgroup = lug ? '<colgroup><col style="width:8%"><col style="width:10%"><col style="width:22%"><col style="width:10%"><col style="width:20%"><col style="width:8%"><col style="width:11%"><col style="width:11%"></colgroup>' : '<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>';
     const tables = parts.map(([t, list]) => (t ? `<h2>${escH(t)} <small>${escH(partSum(list))}</small></h2>` : '') + `<table>${colgroup}${thead}<tbody>${list.length ? list.map(rowHtml).join('') : '<tr><td colspan="${n}">None in this range.</td></tr>'}</tbody></table>`).join('');
     return `<!DOCTYPE html>

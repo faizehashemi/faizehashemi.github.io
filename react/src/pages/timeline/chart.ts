@@ -10,7 +10,7 @@ export class TimelineChart {
     private ctx: CanvasRenderingContext2D;
     private pxPerHr = 80;
     viewStart: Date | null = null; viewEnd: Date | null = null;
-    private events: Ev[] = []; private shs: string[] = []; private hit: { x: number; y: number; w: number; h: number; data: Ev }[] = [];
+    private all: Ev[] = []; private events: Ev[] = []; private shs: string[] = []; private hit: { x: number; y: number; w: number; h: number; data: Ev }[] = [];
     private gran = 1; private quant = 3600000;
     private ready = false;
     onInfo: (zoom: string, range: string) => void = () => { };
@@ -37,12 +37,18 @@ export class TimelineChart {
     /** the first draw of a query: window, events, fit to the stage */
     show(events: Ev[], start: Date, end: Date) {
         this.viewStart = this.qFloor(start); this.viewEnd = this.qCeil(end);
-        this.events = events.filter(ev => +ev.end > +this.viewStart! && +ev.start < +this.viewEnd!).sort((a, b) => +a.start - +b.start);
-        this.shs = Array.from(new Set(this.events.map(e => String(e.sh_no)))).sort();
+        this.all = [...events].sort((a, b) => +a.start - +b.start);   // every stay of the room: panning and zooming show whatever falls in the window then
+        this.select();
         this.prepare();
         const spanH = (+this.viewEnd - +this.viewStart) / 36e5;
         this.pxPerHr = Math.min(MAX_PX_HR, Math.max(MIN_PX_HR, (this.stage.clientWidth - GUTTER) / Math.max(1e-6, spanH)));
         this.draw();
+    }
+    /** the stays (and so the SH rows) that fall in the window being shown — recomputed at every draw, so sliding to another period never leaves an empty chart */
+    private select() {
+        const vs = +this.viewStart!, ve = +this.viewEnd!;
+        this.events = this.all.filter(ev => +ev.end > vs && +ev.start < ve);
+        this.shs = Array.from(new Set(this.events.map(e => String(e.sh_no)))).sort();
     }
     get rows() { return this.shs.length; }
 
@@ -93,6 +99,7 @@ export class TimelineChart {
         if (!this.viewStart || !this.viewEnd) return;
         const ctx = this.ctx, w = this.stage.clientWidth, h = this.stage.clientHeight;
         if (w <= 0 || h <= 0) return;
+        this.select();
         const viewStart = this.viewStart, viewEnd = this.viewEnd;
         this.hit = []; ctx.clearRect(0, 0, w, h);
         ctx.fillStyle = C.card; ctx.fillRect(0, 0, w, h);
