@@ -26,7 +26,7 @@ export const DEFAULT_SITE = 'makkah';
 
 // Pages that run as React (react/ → pms/react/) for every login, approved 2026-10-27 (the laundry POS too, 2026-10-27). Back to the standard page: add ?legacy=1 to the address (e.g. …/#/makkah/slip?legacy=1), set localStorage pms_react_off=1 in one browser, or remove the page here.
 // One login can be given a page early with prefs.reactPages (canary), this browser with localStorage pms_react_pages (see react-bridge.js).
-export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','movement','kg','mawaid','timeline','grid','checkins','transport','transport-print','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
+export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
@@ -46,7 +46,6 @@ export const VIEWS = [
     { id: 'mawaid',       label: 'Mawaid',             title: 'Mawaid Stats',          key: '0', hint: 'Meal counts and thals per building' },
     { id: 'tosha',        label: 'Tosha summary',      title: 'Tosha Summary',         hint: 'Travel refreshments for tomorrow’s and today’s buses' },
     { id: 'menu-card',    label: 'Menu Card',          title: 'Menu Card',             hint: 'Lunch & dinner menu image to download or copy' },
-    { id: 'movement',     label: 'Movement',           title: 'Check-ins & Check-outs — Mobile', hint: 'Phone-friendly arrivals and departures' },
     { id: 'group-export', label: 'Group export',       title: 'Groups Export',         hint: 'Group signs as PDF or Word' },
     { id: 'housekeeping', label: 'Room cleaning',      title: 'Room Cleaning',         hint: 'Which rooms housekeeping does first today, from check-ins and check-outs' },
     { id: 'key-cards',    label: 'Room Key Cards',     title: 'Room Key Cards',        hint: 'Key cards given to the rooms of each group and how many came back' },
@@ -72,7 +71,7 @@ export const VIEWS = [
 
 // Menu categories (top bar on laptops, drawer sections on phones)
 export const NAV = [
-    { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'movement', 'print'] },
+    { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'print'] },
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'key-cards', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'signage-builder'] },
@@ -100,7 +99,7 @@ export const LEGACY_PAGES = {
     'slip_admin.html': 'admin',
     'mawaid.html': 'mawaid',
     'pms_instructions.html': 'home', // the Help page was removed
-    'movement.html': 'movement',
+    'movement.html': 'checkins',   // the Movement page was folded into Check-ins
     'only-pdf.html': 'group-export',
     'only-docx.html': 'group-export',
 };

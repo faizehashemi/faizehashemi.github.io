@@ -54,7 +54,8 @@ for (const target of [window, document]) {
 function parseHash() {
     const raw = location.hash.replace(/^#\/?/, '');
     const [path, query = ''] = raw.split('?');
-    const [siteId, viewId] = path.split('/');
+    const [siteId, rawView] = path.split('/');
+    const viewId = VIEW_ALIAS[rawView] || rawView;   // pages that were removed open the page that took over their job
     return { siteId, viewId, params: new URLSearchParams(query) };
 }
 
@@ -64,6 +65,9 @@ function lastSite() {
     try { const s = localStorage.getItem(LAST_SITE_KEY); return SITES[s] ? s : DEFAULT_SITE; }
     catch { return DEFAULT_SITE; }
 }
+
+// the Movement page was folded into Check-ins (2026-10-27): old links and bookmarks land there
+const VIEW_ALIAS = { movement: 'checkins' };
 
 export function href(siteId, viewId, params) {
     const q = params ? new URLSearchParams(params).toString() : '';

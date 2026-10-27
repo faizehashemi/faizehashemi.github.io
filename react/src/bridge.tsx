@@ -25,7 +25,6 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
     tosha: () => import('@/pages/tosha/ToshaPage'),
     grouping: () => import('@/pages/grouping/GroupingPage'),
     'group-export': () => import('@/pages/group-export/GroupExportPage'),
-    movement: () => import('@/pages/movement/MovementPage'),
     kg: () => import('@/pages/kg/KgPage'),
     mawaid: () => import('@/pages/mawaid/MawaidPage'),
     timeline: () => import('@/pages/timeline/TimelinePage'),

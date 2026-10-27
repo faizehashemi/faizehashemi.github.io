@@ -12,14 +12,14 @@ import { cn } from '@/lib/utils';
 import { useSlips } from '@/hooks/useSlips';
 import { usePrefs } from '@/hooks/usePrefs';
 import { useCore, useDb, useLoadCore, useNav, useSite } from '@/pms/PmsContext';
-import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, num, parseDT, partSum, partsOf, plusOneDay, printTableHtml, roomsFromSlip, toCSV, ymd, type Row } from './checkins';
+import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, luggageAt, luggageIndex, num, parseDT, partSum, partsOf, plusOneDay, printTableHtml, roomsFromSlip, toCSV, ymd, type Row } from './checkins';
 
 // Check-ins & Check-outs (Front desk): filter by one day or a date/time range; the results are read-only and come from the shared PMS data. Each table has a
 // totals row, optional columns (Settings → Check-ins page), CSV, Print table, Print slips and GL copy; Check-ins also carry the Check in flag (a signal for the
 // other desks, nothing else depends on it). The window is today 03:00 → tomorrow 03:00 by default. The live flight status panel stays switched off.
 
 const COLS: { id: string; label: string; right?: boolean }[] = [
-    { id: 'sh', label: 'SH No' }, { id: 'group', label: 'Group' }, { id: 'leader', label: 'Group Leader' }, { id: 'building', label: 'Building' }, { id: 'rooms', label: 'Rooms' },
+    { id: 'sh', label: 'SH No' }, { id: 'lug', label: 'Luggage at' }, { id: 'group', label: 'Group' }, { id: 'leader', label: 'Group Leader' }, { id: 'building', label: 'Building' }, { id: 'rooms', label: 'Rooms' },
     { id: 'as', label: 'As.', right: true }, { id: 't', label: 'T', right: true }, { id: 'g', label: 'G', right: true }, { id: 'l', label: 'L', right: true }, { id: 'c', label: 'C', right: true }, { id: 'i', label: 'I', right: true },
 ];
 const dayShift = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
@@ -40,6 +40,7 @@ export default function CheckinsPage() {
     const [df, setDf] = useState(today), [dt, setDt] = useState(plusOneDay(today)), [tf, setTf] = useState('03:00'), [tt, setTt] = useState('03:00');
     const [dtEdited, setDtEdited] = useState(false);
     const [mode, setMode] = useState('both');
+    const [bldFilter, setBldFilter] = useState('all'), [sortBy, setSortBy] = useState('time');   // Building: only that building's groups; Sort: by time (default) or by building
     const [split, setSplit] = useState(!!prefs.checkinsSplit);
     const [showFl, setShowFl] = useState(() => { try { return localStorage.getItem('pms_checkins_flight_col') === '1'; } catch { return false; } });
     const [range, setRange] = useState({ df, dt, tf, tt });
@@ -57,6 +58,16 @@ export default function CheckinsPage() {
         if (!(end > start)) end = new Date(start.getTime() + 864e5);
         return { start, end, ...computeWindow(all, start, end, stay) };
     }, [all, range, stay]);
+    const lugIdx = useMemo(() => luggageIndex(all), [all]);
+    const lug = (r: Row) => luggageAt(lugIdx, r.sh_no);
+    const bldNames = useMemo(() => [...new Set([...win.ins, ...win.outs].map(r => String(r.building || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), [win]);
+    const shown = useMemo(() => {
+        const pick = (rows: Row[], timeOf: (r: Row) => string) => {
+            const f = bldFilter === 'all' ? rows : rows.filter(r => String(r.building || '').trim() === bldFilter);
+            return sortBy === 'building' ? [...f].sort((a, b) => String(a.building || '').trim().localeCompare(String(b.building || '').trim(), undefined, { numeric: true }) || timeOf(a).localeCompare(timeOf(b))) : f;
+        };
+        return { ins: pick(win.ins, r => `${r.checkin_date}${r.checkin_time}`), outs: pick(win.outs, r => `${r.checkout_date}${r.checkout_time}`) };
+    }, [win, bldFilter, sortBy]);
     const leg = (r: Row) => legOf(r, siteId, other, ums.baseSh);
     const KNOWN: string[] = libs ? libs.colsMod.CHECKINS_COLS.map((c: any) => c[0]) : [];
     const hiddenCols = (kind: 'in' | 'out') => ((prefs[kind === 'in' ? 'checkinsHideIn' : 'checkinsHideOut'] || []) as string[]).filter(id => KNOWN.includes(id));
@@ -83,10 +94,10 @@ export default function CheckinsPage() {
         setBusy(String(slip.id));
         try { await checkin.setCheckedIn(db, slip, on); await slips.refetch(); } catch (e: any) { alert(e?.message || 'Could not save the check-in.'); } finally { setBusy(''); }
     }
-    const rowsOf = (kind: 'in' | 'out') => (kind === 'in' ? win.ins : win.outs);
+    const rowsOf = (kind: 'in' | 'out') => (kind === 'in' ? shown.ins : shown.outs);
 
     function csv(kind: 'in' | 'out') {
-        const text = toCSV(kind, parts(rowsOf(kind), kind === 'in' ? 'checkin' : 'checkout'), { flights: showFl, hidden: hiddenCols(kind), flightText: r => flightText(r, kind === 'in' ? 'checkin' : 'checkout') });
+        const text = toCSV(kind, parts(rowsOf(kind), kind === 'in' ? 'checkin' : 'checkout'), { flights: showFl, hidden: hiddenCols(kind), flightText: r => flightText(r, kind === 'in' ? 'checkin' : 'checkout'), luggage: lug });
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
         a.download = `${kind === 'in' ? 'checkins' : 'checkouts'}_${range.df}_${range.dt}${split ? '_split' : ''}.csv`;
         document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
@@ -96,7 +107,7 @@ export default function CheckinsPage() {
         if (!rows.length) { alert('No rows to print in this table.'); return; }
         const w = window.open('', '_blank');
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print table again.'); return; }
-        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel)); w.document.close();
+        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel, lug)); w.document.close();
     }
 
     const checkLink = (code: string, o: any) => {
@@ -116,6 +127,7 @@ export default function CheckinsPage() {
     const val = (r: Row, id: string): React.ReactNode => {
         switch (id) {
             case 'sh': return r.sh_no || '';
+            case 'lug': return lug(r);
             case 'group': return <>{r.tour_name || ''}{isDelayed(r) && <Badge variant="outline" className="ml-1.5 text-warn" title={r.delayed.note || ''}>Delayed · {r._dep ? r._dep.status : (r.delayed.status || '')}{r._dep && !r._dep.last ? ' · part' : ''}</Badge>}</>;
             case 'leader': return String(r.group_leader ?? '').trim() || '-';
             case 'building': return (r.building || '').trim(); case 'rooms': return roomsFromSlip(r).join(', ');
@@ -194,13 +206,17 @@ export default function CheckinsPage() {
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="grid gap-3 print:hidden">
                 <div><h1 className="text-2xl font-bold text-primary">Check-ins &amp; Check-outs</h1><p className="text-sm text-muted-foreground">Filter by single day or a date/time range. Results are read-only and come from the shared PMS data.</p></div>
-                <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
                     <div className="grid gap-1"><Label htmlFor="dateFrom">Date from</Label><Input id="dateFrom" type="date" value={df} onChange={e => { setDf(e.target.value); if (e.target.value && !dtEdited) setDt(plusOneDay(e.target.value)); }} /></div>
                     <div className="grid gap-1"><Label htmlFor="dateTo">Date to</Label><Input id="dateTo" type="date" value={dt} onChange={e => { setDt(e.target.value); setDtEdited(true); }} /></div>
                     <div className="grid gap-1"><Label htmlFor="timeFrom">Time from</Label><Input id="timeFrom" type="time" step={60} value={tf} onChange={e => setTf(e.target.value)} /></div>
                     <div className="grid gap-1"><Label htmlFor="timeTo">Time to</Label><Input id="timeTo" type="time" step={60} value={tt} onChange={e => setTt(e.target.value)} /></div>
                     <div className="grid gap-1"><Label htmlFor="mode">Mode</Label>
                         <Select value={mode} onValueChange={setMode}><SelectTrigger id="mode" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="both">Both</SelectItem><SelectItem value="in">Check-ins</SelectItem><SelectItem value="out">Check-outs</SelectItem></SelectContent></Select></div>
+                    <div className="grid gap-1"><Label htmlFor="bld">Building</Label>
+                        <Select value={bldFilter} onValueChange={setBldFilter}><SelectTrigger id="bld" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All buildings</SelectItem>{bldNames.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="grid gap-1"><Label htmlFor="sortby">Sort by</Label>
+                        <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger id="sortby" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="time">Time</SelectItem><SelectItem value="building">Building, then time</SelectItem></SelectContent></Select></div>
                     <div className="grid gap-1.5 text-sm"><Label>View</Label>
                         <label className="flex items-center gap-2" title="Check-ins: from the airport / from the other city · Check-outs: to the airport / to the other city"><Checkbox checked={split} onCheckedChange={v => setSplit(v === true)} />Split by from / to</label>
                         <label className="flex items-center gap-2" title="Check 1 (Trip.com) and Check 2 (FlightAware) links for each group's flight"><Checkbox checked={showFl} onCheckedChange={v => { setShowFl(v === true); try { localStorage.setItem('pms_checkins_flight_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />Flight status</label></div>
