@@ -289,7 +289,7 @@ export default function LaundryPage() {
                 {msg && <div className="ld-warn" role="alert" onClick={() => setMsg('')}>{msg}</div>}
 
                 <section className="ld-pane" hidden={!billish}>
-                    <div className="ld-who" hidden={tab !== 'bill'}>
+                    <div className="ld-who" id="ldCustomer" hidden={tab !== 'bill'}>
                         <div className="ld-wheels">
                             <div className="ld-wcol"><small>🏨 Building</small><Wheel make={wheelFn} onReady={w2 => { wheels.current.b = w2; }} onPick={v => pickBuilding(v)} label="Building" id="ldWBuilding" /></div>
                             <div className="ld-wcol narrow rm"><small>⬆️ Floor</small><Wheel make={wheelFn} onReady={w2 => { wheels.current.f = w2; }} onPick={v => pickFloor(v)} label="Floor" id="ldWFloor" /></div>

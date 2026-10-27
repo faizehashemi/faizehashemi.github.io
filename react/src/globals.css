@@ -19,12 +19,13 @@
     --secondary: #f4ead0;
     --secondary-foreground: #5a4410;
     --muted: #f6efde;
-    --muted-foreground: #6b5e4a;
+    --muted-foreground: #4b4031;
     --accent: #fff1c9;
     --accent-foreground: #5a4410;
     --destructive: #a12a2a;
-    --border: #e3d2b1;              /* edge */
-    --input: #d9cbb0;
+    --border: #d2bf96;              /* edge */
+    --input: #c4b189;
+    --grid: #c9b48a;                /* table gridlines (rows and columns) */
     --ring: #d4af37;                /* gold */
     --gold: #d4af37;
     --ok: #1f6f43;
@@ -76,3 +77,9 @@
     .pms-react table { border-collapse: collapse; }
     .pms-react [hidden] { display: none !important; }
 }
+
+/* plain tables without a class (pages that draw their own th / td) get the same gridlines as the shadcn tables */
+.pms-react table:not([class]) { border-collapse: collapse; border: 1px solid var(--grid); }
+.pms-react table:not([class]) th, .pms-react table:not([class]) td { border: 1px solid var(--grid); padding: 4px 6px; }
+.pms-react table:not([class]) th { background: color-mix(in srgb, var(--accent) 70%, transparent); font-weight: 700; }
+@media print { .pms-react table:not([class]), .pms-react table:not([class]) th, .pms-react table:not([class]) td { border-color: #000; } }

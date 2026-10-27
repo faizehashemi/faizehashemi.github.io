@@ -87,6 +87,7 @@ const CSS = `
 .pms-ir-btn { position: fixed; right: 12px; bottom: 12px; z-index: 45; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid #e6c766;
   background: #fffaf0; color: #6b4e0e; font: 700 13px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; box-shadow: 0 6px 18px rgba(154, 116, 20, .22); cursor: pointer; opacity: .92; }
 .pms-ir-btn:hover { opacity: 1; background: #fff3d6; }
+body:has(.ld-bar) .pms-ir-btn { bottom: 88px; }   /* above the laundry screen's SAVE bar */
 @media (max-width: 700px) { .pms-ir-btn { right: 8px; bottom: 8px; padding: 9px 11px; } .pms-ir-btn span { display: none; } }
 @media print { .pms-ir, .pms-ir-btn { display: none !important; } }
 dialog.pms-ir { width: min(560px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow: auto; padding: 0; border: 1.5px solid #e6c766; border-radius: 16px; background: #fffdf8; color: #2b1e15;
