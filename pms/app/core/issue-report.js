@@ -46,8 +46,16 @@ async function capture() {
             foreignObjectRendering: foreign, backgroundColor: bgColor, ignoreElements: (el) => el.classList?.contains('pms-ir') }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('capture timed out')), 9000)),
     ]);
+    // a picture that is empty or all dark means the drawing missed the visible part (seen when the page was scrolled down), so the other drawing method is tried
+    const blank = (c) => {
+        const t = document.createElement('canvas'); t.width = t.height = 24;
+        const g = t.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0, 24, 24);
+        const d = g.getImageData(0, 0, 24, 24).data; let lit = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 20 && d[i] + d[i + 1] + d[i + 2] > 60) lit++;
+        return lit < 6;
+    };
     let canvas, foreign = true;
-    try { canvas = await draw(true); } catch { foreign = false; canvas = await draw(false); }
+    try { canvas = await draw(true); if (blank(canvas)) throw new Error('blank'); } catch { foreign = false; canvas = await draw(false); }
     let cur = canvas;
     for (let attempt = 0; attempt < 4; attempt++) {
         for (const q of [0.62, 0.45, 0.3]) {
