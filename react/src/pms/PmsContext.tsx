@@ -13,6 +13,8 @@ function usePms(): PmsCtx {
     return c;
 }
 
+/** The whole page context (for the framework-free modules of the old pages that expect it). */
+export const usePmsCtx = usePms;
 export const useSite = () => { const c = usePms(); return { site: c.site, siteId: c.siteId }; };
 export const useDb = () => usePms().db;
 export const useGuard = () => usePms().guard;

@@ -32,6 +32,8 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
     grid: () => import('@/pages/grid/GridPage'),
     checkins: () => import('@/pages/checkins/CheckinsPage'),
     transport: () => import('@/pages/transport/TransportPage'),
+    forecast: () => import('@/pages/forecast/ForecastPage'),
+    home: () => import('@/pages/home/HomePage'),
     setup: () => import('@/pages/setup/SetupPage'),
     builder: () => import('@/pages/builder/BuilderPage'),
     settings: () => import('@/pages/settings/SettingsPage'),
