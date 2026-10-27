@@ -10,7 +10,15 @@ import './globals.css';
 
 // one lazy chunk per page; a page appears here when it has been ported
 const PAGES: Record<string, () => Promise<PageModule>> = {
+    blank: () => import('@/pages/blank/BlankPage'),
     paxchart: () => import('@/pages/paxchart/PaxChartPage'),
+    'slip-search': () => import('@/pages/slip-search/SlipSearchPage'),
+    backups: () => import('@/pages/backups/BackupsPage'),
+    changelog: () => import('@/pages/changelog/ChangelogPage'),
+    'key-cards': () => import('@/pages/key-cards/KeyCardsPage'),
+    'pending-checkouts': () => import('@/pages/pending-checkouts/PendingCheckoutsPage'),
+    'menu-card': () => import('@/pages/menu-card/MenuCardPage'),
+    performance: () => import('@/pages/performance/PerformancePage'),
 };
 
 export const reactPages = () => Object.keys(PAGES);

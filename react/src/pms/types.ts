@@ -23,6 +23,9 @@ export interface PmsCtx {
     navigate: (view: string, params?: Record<string, string>) => void;
     href: (view: string, params?: Record<string, string>) => string;
     core: CoreModules;
+    views: { id: string; label: string; title: string }[];     // config.js VIEWS
+    loadApp: (path: string) => Promise<any>;                 // any file of pms/app, imported at run time (not bundled)
+    loadCore: (name: string) => Promise<any>;                // any other core module, shared with the legacy pages
 }
 
 export type PageModule = { default: React.ComponentType };

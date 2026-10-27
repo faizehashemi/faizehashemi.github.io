@@ -19,3 +19,6 @@ export const useGuard = () => usePms().guard;
 export const useParams = () => usePms().params;
 export const useNav = () => { const c = usePms(); return { navigate: c.navigate, href: c.href }; };
 export const useCore = () => usePms().core;
+export const useViews = () => usePms().views;
+export const useLoadCore = () => usePms().loadCore;
+export const useLoadApp = () => usePms().loadApp;

@@ -9,7 +9,7 @@
 // The core modules are imported here once and handed to the page in ctx.core, so React pages and legacy pages share the same
 // instances (login session, IndexedDB mirror, sync, prefs).
 
-import { REACT_PAGES } from './config.js';
+import { REACT_PAGES, VIEWS } from './config.js';
 import { getPrefs } from './core/prefs.js';
 
 export function reactPageOn(viewId) {
@@ -38,5 +38,8 @@ export async function mountReact(viewId, ctx) {
         import('./core/cloud.js'), import('./core/stay.js'), import('./core/rooms.js'), import('./core/prefs.js'),
         import('./core/settings.js'), import('./core/ums.js'), import('./core/transport.js'), import('./core/checkin.js'), import('./core/timefmt.js'),
     ]);
-    return bridge.mountPage(viewId, { ...ctx, core: { cloud, stay, rooms, prefs, settings, ums, transport, checkin, timefmt } });
+    // loadCore('hijri') → any other core module a page needs, imported lazily and shared with the legacy pages
+    const loadCore = (name) => import(`./core/${name}.js`);
+    const loadApp = (path) => import(`./${path}`);        // any file of pms/app (e.g. views/changelog/data.js, regenerated at every deploy)
+    return bridge.mountPage(viewId, { ...ctx, views: VIEWS, loadCore, loadApp, core: { cloud, stay, rooms, prefs, settings, ums, transport, checkin, timefmt } });
 }
