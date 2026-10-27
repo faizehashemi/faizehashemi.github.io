@@ -12,7 +12,7 @@ import { currentBuild } from './update.js';
 const KEY = 'pms_telemetry_queue';
 const MAX_QUEUE = 300;
 const FLUSH_MS = 3 * 60 * 1000;
-const SELF = /\/api\/(telemetry|feedback|slip-denials)\b/;
+const SELF = /\/api\/(telemetry|feedback|slip-denials|issues)\b/;
 
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 const write = (q) => { try { localStorage.setItem(KEY, JSON.stringify(q.slice(-MAX_QUEUE))); } catch { } };

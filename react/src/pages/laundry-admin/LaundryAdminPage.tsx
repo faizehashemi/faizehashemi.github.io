@@ -65,7 +65,7 @@ export default function LaundryAdminPage() {
                 <header className="flex flex-wrap items-baseline gap-3"><h1 className="text-2xl font-bold text-primary">🧺 Laundry admin</h1>
                     <span className="text-sm text-muted-foreground">{site.label} · {isAdmin ? 'admin' : canPay ? 'desk · can mark cash paid' : 'view only'}</span></header>
                 <Tabs value={tab} onValueChange={setTab}>
-                    <TabsList className="h-auto w-full flex-wrap justify-start">{TABS.map(([k, l]) => <TabsTrigger key={k} value={k}>{l}</TabsTrigger>)}</TabsList>
+                    <TabsList className="h-auto w-full justify-start">{TABS.map(([k, l]) => <TabsTrigger key={k} value={k}>{l}</TabsTrigger>)}</TabsList>
                     <TabsContent key={`bills-${epoch}`} value="bills"><BillsTab /></TabsContent>
                     <TabsContent key={`payments-${epoch}`} value="payments"><PaymentsTab /></TabsContent>
                     <TabsContent key={`reports-${epoch}`} value="reports"><ReportsTab /></TabsContent>

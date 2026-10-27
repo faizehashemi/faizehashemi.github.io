@@ -4,6 +4,7 @@
 import { request, currentDesk, UserError } from '../../core/cloud.js';
 import { VIEWS } from '../../config.js';
 import { denialsSection } from './denials.js';
+import { issuesSection } from './issues.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sec = (ms) => ms == null ? '—' : ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`;
@@ -22,6 +23,7 @@ export default async function mount(ctx) {
     }
     let FB = [];
     const showDenials = denialsSection(ctx.root);
+    const showIssues = issuesSection(ctx.root);
 
     const group = (rows, label = 'Group') => rows.length
         ? `<thead><tr><th>${label}</th><th class="n">Opened</th><th class="n">Typical</th><th class="n">Slow (95%)</th><th class="n">Server</th></tr></thead><tbody>${rows.map(g => `<tr>
@@ -32,11 +34,13 @@ export default async function mount(ctx) {
         $('pfMsg').textContent = 'Loading…';
         const days = $('pfDays').value, site = $('pfSite').value;
         try {
-            const [s, f, dn] = await ctx.guard(Promise.all([
+            const [s, f, dn, is] = await ctx.guard(Promise.all([
                 request('GET', `/api/perf/summary?days=${days}${site ? `&site=${site}` : ''}`),
                 request('GET', `/api/feedback?days=${Math.max(30, Number(days))}`),
                 request('GET', `/api/slip-denials?days=${days}${site ? `&site=${site}` : ''}`),
+                request('GET', `/api/issues?days=${Math.max(30, Number(days))}`).catch(() => ({ issues: [] })),   // an older Worker has no issue reports yet
             ]));
+            showIssues(is.issues.filter(x => !site || x.site === site));
             showDenials(dn.denials);
             s.totals.denials = dn.denials.length;
             FB = f.feedback.filter(x => !site || x.site === site);

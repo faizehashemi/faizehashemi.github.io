@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { useCore, useGuard, useViews } from '@/pms/PmsContext';
 import { DenialsSection, type Denial } from './Denials';
+import { IssuesSection, type IssueRow } from './Issues';
 
 // Performance & feedback (Data, admins): page timings from every desk's browser (core/telemetry.js → perf_events) and the in-page feedback
 // (core/feedback.js → feedback). Server: GET /api/perf/summary, GET /api/feedback, PATCH /api/feedback/:id, GET /api/slip-denials.
@@ -72,12 +73,13 @@ export default function PerformancePage() {
     const data = useQuery({
         queryKey: ['perf', days, site], enabled: isAdmin,
         queryFn: async () => {
-            const [s, f, dn] = await guard(Promise.all([
+            const [s, f, dn, is] = await guard(Promise.all([
                 cloud.request('GET', `/api/perf/summary?days=${days}${site !== 'all' ? `&site=${site}` : ''}`),
                 cloud.request('GET', `/api/feedback?days=${Math.max(30, Number(days))}`),
                 cloud.request('GET', `/api/slip-denials?days=${days}${site !== 'all' ? `&site=${site}` : ''}`),
-            ])) as [Summary, { feedback: Feedback[] }, { denials: Denial[] }];
-            return { s, fb: f.feedback.filter(x => site === 'all' || x.site === site), denials: dn.denials };
+                cloud.request('GET', `/api/issues?days=${Math.max(30, Number(days))}`).catch(() => ({ issues: [] })),   // an older Worker has no issue reports yet
+            ])) as [Summary, { feedback: Feedback[] }, { denials: Denial[] }, { issues: IssueRow[] }];
+            return { s, fb: f.feedback.filter(x => site === 'all' || x.site === site), denials: dn.denials, issues: is.issues.filter(x => site === 'all' || x.site === site) };
         },
     });
     const setStatus = useMutation({
@@ -138,6 +140,8 @@ export default function PerformancePage() {
                         </Table>
                     ) : none}
                 </Block>
+
+                <Card><CardContent><IssuesSection list={data.data?.issues ?? []} onStatus={(id, status) => qc.setQueryData(['perf', days, site], (old: any) => old && ({ ...old, issues: old.issues.map((x: IssueRow) => x.id === id ? { ...x, status } : x) }))} /></CardContent></Card>
 
                 <Card><CardContent><DenialsSection list={den} /></CardContent></Card>
 

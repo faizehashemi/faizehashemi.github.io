@@ -17,10 +17,10 @@ import { loadBuildings } from './core/rooms.js';
 import { applyPrefs, getPrefs, loadServerPrefs } from './core/prefs.js';
 import { watchForUpdates } from './core/update.js';
 import { startTelemetry } from './core/telemetry.js';
-import { startFeedback } from './core/feedback.js';
+import { startIssueReports } from './core/issue-report.js';
 import { reactPageOn, mountReact } from './react-bridge.js';
 startTelemetry(); // page timings → Performance page
-startFeedback();  // the in-page "How is your experience?" card
+startIssueReports();  // the "Facing an issue?" button (a report with a picture of the screen goes to the Performance page)
 
 applyPrefs(); // this browser's Settings, before anything is drawn
 watchForUpdates(); // new website build → reload; Android app too old → "Update required" (core/update.js)

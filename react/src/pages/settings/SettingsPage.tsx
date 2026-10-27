@@ -22,10 +22,10 @@ const NOT_IN_MENU = new Set(['home', 'login', 'blank']);
 const sel = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 function Opt({ title, hint, children }: { title: ReactNode; hint?: ReactNode; children?: ReactNode }) {
-    return <div className="flex flex-wrap items-center justify-between gap-3 border-b py-2.5 last:border-0"><div className="grid max-w-xl gap-0.5"><b className="text-sm">{title}</b>{hint && <span className="text-xs text-muted-foreground">{hint}</span>}</div>{children && <div className="flex items-center gap-2">{children}</div>}</div>;
+    return <div className="flex flex-wrap items-center justify-between gap-3 border-b py-2.5 last:border-0"><div className="grid max-w-xl gap-0.5"><b className="text-sm">{title}</b>{hint && <span className="text-xs text-muted-foreground">{hint}</span>}</div>{children && <div className="flex max-w-full flex-wrap items-center gap-2">{children}</div>}</div>;
 }
 function Seg({ value, list, onChange }: { value: string; list: [string, string][]; onChange: (v: string) => void }) {
-    return <div className="inline-flex overflow-hidden rounded-md border">{list.map(([v, l]) => <button key={v} type="button" aria-pressed={value === v} className={cn('px-3 py-1.5 text-sm', value === v ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-accent')} onClick={() => onChange(v)}>{l}</button>)}</div>;
+    return <div className="inline-flex max-w-full flex-wrap overflow-hidden rounded-md border">{list.map(([v, l]) => <button key={v} type="button" aria-pressed={value === v} className={cn('px-3 py-1.5 text-sm', value === v ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-accent')} onClick={() => onChange(v)}>{l}</button>)}</div>;
 }
 
 export default function SettingsPage() {

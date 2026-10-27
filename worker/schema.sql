@@ -444,3 +444,12 @@ CREATE TABLE IF NOT EXISTS key_cards (
     PRIMARY KEY (slip_id, room_no, day)
 );
 CREATE INDEX IF NOT EXISTS key_cards_site_day ON key_cards(site, day);
+
+-- "Facing an issue?" reports (pms/app/core/issue-report.js → POST /api/issues): the desk's words, a JPEG of the screen and a diagnostics record (JSON);
+-- read on the Performance page. The Worker also creates this table on first use. Kept 180 days.
+CREATE TABLE IF NOT EXISTS issue_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, desk_id INTEGER, desk TEXT, site TEXT, role TEXT, page TEXT, url TEXT, text TEXT,
+    viewport TEXT, device TEXT, browser TEXT, build TEXT, shot TEXT, diag TEXT, colo TEXT, country TEXT,
+    status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'seen', 'handled'))
+);
+CREATE INDEX IF NOT EXISTS issue_reports_at ON issue_reports(at);

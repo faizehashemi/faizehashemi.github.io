@@ -247,6 +247,12 @@ async function route(req, env) {
     if (p === '/api/feedback' && m === 'GET') { requireAdmin(me); return listFeedback(url, env); }
     mm = p.match(/^\/api\/feedback\/(\d+)$/);
     if (mm && m === 'PATCH') { requireAdmin(me); return patchFeedback(req, env, Number(mm[1])); }
+    // "Facing an issue?" reports (pms/app/core/issue-report.js): a screenshot of the desk's screen and what the browser knew, for the Performance page
+    if (p === '/api/issues' && m === 'POST') return postIssue(req, env, me);
+    if (p === '/api/issues' && m === 'GET') { requireAdmin(me); return listIssues(url, env); }
+    mm = p.match(/^\/api\/issues\/(\d+)$/);
+    if (mm && m === 'GET') { requireAdmin(me); return getIssue(env, Number(mm[1])); }
+    if (mm && m === 'PATCH') { requireAdmin(me); return patchIssue(req, env, Number(mm[1])); }
     // Slip saves the PMS refused (rooms over their beds, no bed count, dates …) with every condition checked — for debugging
     if (p === '/api/slip-denials' && m === 'POST') return postSlipDenials(req, env, me);
     if (p === '/api/slip-denials' && m === 'GET') { requireAdmin(me); return listSlipDenials(url, env); }
@@ -2977,5 +2983,63 @@ async function patchFeedback(req, env, id) {
     const { status } = await body(req);
     if (!['new', 'seen', 'handled'].includes(status)) throw new HttpError(400, 'status: new, seen or handled.');
     await env.DB.prepare('UPDATE feedback SET status = ? WHERE id = ?').bind(status, id).run();
+    return json({ ok: true });
+}
+
+/* ------------------------------ issue reports ------------------------------ */
+// A desk presses "Facing an issue?" and the browser sends: what they typed, a JPEG of what they were looking at (optional, ≤ 900 kB), and a diagnostics record
+// (window size, device, recent errors and failed calls, the page's visible text …) as JSON. The table is created on first use. Kept 180 days.
+let issuesReady = false;
+async function ensureIssues(env) {
+    if (issuesReady) return;
+    await env.DB.batch([
+        env.DB.prepare(`CREATE TABLE IF NOT EXISTS issue_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, desk_id INTEGER, desk TEXT, site TEXT, role TEXT, page TEXT, url TEXT, text TEXT,
+            viewport TEXT, device TEXT, browser TEXT, build TEXT, shot TEXT, diag TEXT, colo TEXT, country TEXT,
+            status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'seen', 'handled')))`),
+        env.DB.prepare('CREATE INDEX IF NOT EXISTS issue_reports_at ON issue_reports(at)'),
+    ]);
+    issuesReady = true;
+}
+
+async function postIssue(req, env, me) {
+    const f = await body(req);
+    const text = tStr(f.text, 2000) || '';
+    if (text.trim().length < 3) throw new HttpError(400, 'Write a few words about what went wrong.');
+    let shot = typeof f.shot === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.shot) ? f.shot : '';
+    if (shot.length > 900000) shot = '';
+    let diag = JSON.stringify(f.diag && typeof f.diag === 'object' ? f.diag : {});
+    if (diag.length > 60000) { const d = { ...f.diag, dom: String(f.diag.dom || '').slice(0, 4000) }; diag = JSON.stringify(d).slice(0, 60000); }
+    const v = f.diag?.viewport || {}, cf = req.cf || {}, c = f.diag?.ctx || {};
+    await ensureIssues(env);
+    const r = await env.DB.prepare(`INSERT INTO issue_reports (at, desk_id, desk, site, role, page, url, text, viewport, device, browser, build, shot, diag, colo, country)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(now(), me.id, me.name, tStr(f.site || me.site, 10), me.role, tStr(f.page, 40), tStr(f.url, 300), text,
+        tStr(`${tInt(v.w, 20000) ?? '?'}×${tInt(v.h, 20000) ?? '?'}@${tNum(v.dpr, 10) ?? 1}`, 24), tStr(c.device, 10), tStr(`${c.browser || ''} ${c.browser_ver || ''}`.trim(), 40), tStr(c.build, 20),
+        shot, diag.replace(/[<>]/g, ''), tStr(cf.colo, 8), tStr(cf.country, 4)).run();
+    return json({ ok: true, id: r.meta?.last_row_id ?? null });
+}
+
+async function listIssues(url, env) {
+    await ensureIssues(env);
+    const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
+    await env.DB.prepare('DELETE FROM issue_reports WHERE at < ?').bind(new Date(Date.now() - 180 * 864e5).toISOString()).run();
+    const { results } = await env.DB.prepare(`SELECT id, at, desk, site, role, page, url, text, viewport, device, browser, build, colo, country, status, length(shot) > 0 AS has_shot
+        FROM issue_reports WHERE at >= ? ORDER BY id DESC LIMIT 500`).bind(new Date(Date.now() - days * 864e5).toISOString()).all();
+    return json({ issues: results });
+}
+
+async function getIssue(env, id) {
+    await ensureIssues(env);
+    const row = await env.DB.prepare('SELECT * FROM issue_reports WHERE id = ?').bind(id).first();
+    if (!row) throw new HttpError(404, 'No such report.');
+    let diag = {}; try { diag = JSON.parse(row.diag || '{}'); } catch { /* keep empty */ }
+    return json({ issue: { ...row, diag } });
+}
+
+async function patchIssue(req, env, id) {
+    const { status } = await body(req);
+    if (!['new', 'seen', 'handled'].includes(status)) throw new HttpError(400, 'status: new, seen or handled.');
+    await ensureIssues(env);
+    await env.DB.prepare('UPDATE issue_reports SET status = ? WHERE id = ?').bind(status, id).run();
     return json({ ok: true });
 }
