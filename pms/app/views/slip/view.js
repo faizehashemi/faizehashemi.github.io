@@ -560,7 +560,7 @@ export default async function mount(ctx) {
             }
         }
 
-        // Capacity from the current row first, then Rooms & Buildings, then last-known from history
+        // Capacity from Rooms & Buildings first, then the current row, then last-known from history
         // (capSource keeps which one was used and what the others said — a row capacity that disagrees with
         // Rooms & Buildings is a common reason for a surprise "over its beds")
         const capSource = new Map();
@@ -570,8 +570,8 @@ export default async function mount(ctx) {
             const fromBuilder = builderCapacity(BUILDINGS, building, room);
             const src = { row: local || null, builder: fromBuilder ?? null, used: null };
             capSource.set(key, src);
+            if (fromBuilder > 0) { src.used = 'builder'; return fromBuilder; }   // Rooms & Buildings first: the slip's own capacity box is only a reference (often stale)
             if (local > 0) { src.used = 'row'; return local; }
-            if (fromBuilder > 0) { src.used = 'builder'; return fromBuilder; }
             for (let i = DB_CACHE.length - 1; i >= 0; i--) {
                 const rec = DB_CACHE[i];
                 const arr = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])].filter(z => normB(z.building || rec.building) === normB(building));

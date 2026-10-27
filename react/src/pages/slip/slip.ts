@@ -138,7 +138,7 @@ export function checkAvailability(f: Form, gents: RoomRow[], ladies: RoomRow[], 
         }
     }
 
-    // Capacity from the current row first, then Rooms & Buildings, then last-known from history (capSource keeps which one was used and what the others said — a row
+    // Capacity from Rooms & Buildings first, then the current row, then last-known from history (capSource keeps which one was used and what the others said — a row
     // capacity that disagrees with Rooms & Buildings is a common reason for a surprise "over its beds")
     const capSource = new Map<string, Slip>();
     function resolveCapacity(building: string, room: string): number {
@@ -147,8 +147,10 @@ export function checkAvailability(f: Form, gents: RoomRow[], ladies: RoomRow[], 
         const fromBuilder = R.builderCapacity(B, building, room);
         const src: Slip = { row: local || null, builder: fromBuilder ?? null, used: null };
         capSource.set(key, src);
-        if (local > 0) { src.used = 'row'; return local; }
+        // Rooms & Buildings is the source of truth for a room's beds (an admin set them there); a slip's own capacity box is only a reference — often stale or
+        // wrong (a UMS import leaves 1) — and must not shrink the room. (Was: the row first, which blocked edits of any slip whose row said fewer beds.)
         if (fromBuilder > 0) { src.used = 'builder'; return fromBuilder; }
+        if (local > 0) { src.used = 'row'; return local; }
         for (let i = DB.length - 1; i >= 0; i--) {
             const rec = DB[i];
             const arr = [...(rec.rooms?.gents || []), ...(rec.rooms?.ladies || [])].filter((z: Slip) => normB(z.building || rec.building) === normB(building));
