@@ -1,7 +1,7 @@
 // Forced updates.
 //   Website: version.json (written by web/deploy.sh at every publish) carries a build id. Every open page —
 //   browser or Android app — checks it every 5 minutes and when it comes back to the screen; a new build
-//   reloads the page after a 10-second notice (offline laundry bills are safe: they live in localStorage).
+//   shows a one-line banner at the top and reloads the page after a 30-second countdown (offline laundry bills are safe: they live in localStorage).
 //   Android app: it opens the site as /?app=android&appv=<n>. When version.json says android_min > n, the
 //   app is blocked by an "Update required" screen whose only action is downloading the new APK.
 
@@ -44,12 +44,20 @@ function blockOldApp(info, have) {
         <p style="margin:12px 0 0;font-size:12px;color:#6b5e4a">After installing, open the app again. Your login and data are kept.</p>`);
 }
 
+// A new build: one line at the top of the page (the page stays usable) with an Update now button; it reloads by itself after the countdown.
 function reloadSoon() {
-    let n = 10;
+    let n = 30;
+    let bar = document.getElementById('pms-update-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'pms-update-bar';
+        bar.dataset.shell = '';
+        bar.setAttribute('role', 'status');
+        bar.style.cssText = 'position:sticky;top:0;z-index:2147483000;display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;gap:10px;padding:5px 12px;background:#d4af37;color:#22170d;font:600 13px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.2);white-space:nowrap;overflow:hidden';
+        document.body.insertBefore(bar, document.body.firstChild);
+    }
     const tick = () => {
-        overlay(`<div style="font-size:44px">✨</div><h2 style="margin:6px 0 8px;font-size:20px">A new version of the PMS is out</h2>
-            <p style="margin:0 0 14px">Updating in <b>${n}</b> second${n === 1 ? '' : 's'}…</p>
-            <button type="button" id="pmsUpdNow" style="padding:12px 18px;border:0;border-radius:12px;background:#d4af37;color:#fff;font:inherit;font-weight:800;cursor:pointer">Update now</button>`);
+        bar.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis">✨ A new version of the PMS is out — updating in <b>${n}</b> s</span><button type="button" id="pmsUpdNow" style="flex:none;padding:3px 12px;border:0;border-radius:999px;background:#22170d;color:#fff;font:inherit;font-weight:800;cursor:pointer">Update now</button>`;
         document.getElementById('pmsUpdNow').onclick = () => location.reload();
         if (n-- <= 0) location.reload(); else setTimeout(tick, 1000);
     };
