@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#fff9ec" />
+    <!-- the PMS has its own light look and its own Night mode (Settings): browsers' automatic dark mode must not recolour it (it turned buttons white and text pale) -->
+    <meta name="color-scheme" content="only light" />
     <title>PMS</title>
     <script>
         // The PMS lives at pms.raajsoftware.com. The old GitHub address forwards there, keeping the page
@@ -29,6 +31,7 @@
         /* the footer starts below the screen and stays there while a page fills in (no jump) */
         #view { min-height: calc(100vh - 120px); min-height: calc(100svh - 120px); }
         /* the gold pattern of the Home page, behind every page (a page's own stylesheet may set the same) */
+        html { color-scheme: only light; }
         body { background: #f7efe1 url("assets/pattern_gold_2x.png") repeat; background-size: 150px auto; }
     </style>
     <!-- after each page's own stylesheet (the router inserts those before this one) -->

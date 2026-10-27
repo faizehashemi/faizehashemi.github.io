@@ -83,3 +83,11 @@
 .pms-react table:not([class]) th, .pms-react table:not([class]) td { border: 1px solid var(--grid); padding: 4px 6px; }
 .pms-react table:not([class]) th { background: color-mix(in srgb, var(--accent) 70%, transparent); font-weight: 700; }
 @media print { .pms-react table:not([class]), .pms-react table:not([class]) th, .pms-react table:not([class]) td { border-color: #000; } }
+
+/* Primary buttons and chips with literal colours (not through the cascade layers / variables): a report showed them white with white text on some desks' browsers.
+   These rules are outside every @layer, so they win over the utilities. */
+.pms-react [data-variant="default"], .pms-react .bg-primary { background-color: #9a7414; color: #ffffff; }
+.pms-react [data-variant="default"]:hover:not(:disabled) { background-color: #7f600f; }
+.pms-react [data-variant="default"]:disabled { opacity: .5; }
+.pms-react [data-variant="secondary"] { background-color: #f4ead0; color: #5a4410; }
+.pms-react [data-variant="outline"] { color: #2b1e15; }
