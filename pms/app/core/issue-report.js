@@ -37,22 +37,27 @@ async function capture() {
     const t0 = performance.now();
     const h2c = window.html2canvasPro || window.html2canvas;
     const bg = getComputedStyle(document.body).backgroundColor;
-    let scale = Math.min(window.devicePixelRatio || 1, w < 700 ? 2 : 1.25);
-    // The browser's own engine (foreignObjectRendering) draws the page as it really looks — colours, fonts, spacing. The library's own canvas drawing is the fallback: it
-    // washes colours out and spaces letters oddly, which once made a desk's labels look pale in a report when they were not.
+    // The browser-engine drawing mis-sizes the picture when the scale is below 1 (the page came out small in a corner with black around it on desks whose browser zoom
+    // is under 100%), so it always draws at 1× or more and a picture that is too large is shrunk afterwards on a second canvas.
+    const scale = Math.max(1, Math.min(window.devicePixelRatio || 1, w < 700 ? 2 : 1.25));
+    const bgColor = !bg || /rgba\(.*,\s*0\)$/.test(bg) || bg === 'transparent' ? '#f7efe1' : bg;
     const draw = (foreign) => Promise.race([
         h2c(document.documentElement, { x: scrollX, y: scrollY, width: w, height: h, windowWidth: document.documentElement.clientWidth, windowHeight: h, scale, logging: false, useCORS: true,
-            foreignObjectRendering: foreign, backgroundColor: !bg || /rgba\(.*,\s*0\)$/.test(bg) || bg === 'transparent' ? '#f7efe1' : bg, ignoreElements: (el) => el.classList?.contains('pms-ir') }),
+            foreignObjectRendering: foreign, backgroundColor: bgColor, ignoreElements: (el) => el.classList?.contains('pms-ir') }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('capture timed out')), 9000)),
     ]);
-    for (let attempt = 0; attempt < 3; attempt++) {
-        let canvas, foreign = true;
-        try { canvas = await draw(true); } catch { foreign = false; canvas = await draw(false); }
+    let canvas, foreign = true;
+    try { canvas = await draw(true); } catch { foreign = false; canvas = await draw(false); }
+    let cur = canvas;
+    for (let attempt = 0; attempt < 4; attempt++) {
         for (const q of [0.62, 0.45, 0.3]) {
-            const url = canvas.toDataURL('image/jpeg', q);
-            if (url.length <= MAX_SHOT) return { url, ms: Math.round(performance.now() - t0), scale, foreign };
+            const url = cur.toDataURL('image/jpeg', q);
+            if (url.length <= MAX_SHOT) return { url, ms: Math.round(performance.now() - t0), scale: cur.width / w, foreign };
         }
-        scale = Math.max(0.5, scale * 0.65);
+        const small = document.createElement('canvas');
+        small.width = Math.round(cur.width * 0.7); small.height = Math.round(cur.height * 0.7);
+        const g = small.getContext('2d'); g.fillStyle = bgColor; g.fillRect(0, 0, small.width, small.height); g.drawImage(cur, 0, 0, small.width, small.height);
+        cur = small;
     }
     return null;
 }
