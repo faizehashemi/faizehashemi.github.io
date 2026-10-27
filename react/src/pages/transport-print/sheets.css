@@ -1,0 +1,93 @@
+/* ---------- the sheet (as the printed bus signs: Arial Black headings, bold serif names) ---------- */
+.tq-sheets { display: grid; gap: 18px; justify-items: center; padding: 0 12px 30px; }
+.sheet { width: 277mm; height: 190mm; background: #fff; padding: 6mm; box-shadow: var(--shade); display: flex; flex-direction: column; color: #000; overflow: hidden; }
+.sheet table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.sheet td { border: 2px solid #000; text-align: center; vertical-align: middle; padding: 2mm 3mm; }
+.sheet .h { font-family: "Arial Black", "Archivo Black", Arial, sans-serif; font-weight: 900; }
+.sheet .date, .sheet .time { font-size: 30pt; text-decoration: underline; text-underline-offset: 4px; }
+.sheet .bus { border-top: 0; border-bottom: 0; line-height: .95; }
+.sheet .bus .w { display: block; font-size: 64pt; }
+.sheet .bus.long .w { font-size: 30pt; line-height: 1.1; }   /* a custom name: "SELF- BUS" */
+.sheet .bus .n { display: block; font-size: 110pt; }
+.sheet .dest { background: #bfbfbf; font-size: 30pt; text-decoration: underline; text-underline-offset: 4px; }
+.sheet .dest.long { font-size: 22pt; }
+.sheet .col { font-size: 20pt; color: #262626; }
+.sheet .row td { font-family: "Times New Roman", Times, Georgia, serif; font-weight: 700; font-size: 22pt; text-transform: uppercase; height: 30mm; }
+.sheet.many .row td { font-size: 16pt; height: auto; padding: 1.5mm 3mm; }
+.sheet .foot { display: flex; justify-content: space-between; align-items: baseline; margin-top: 2mm; font: 700 11pt Arial, sans-serif; color: #333; }
+.sheet .foot .from small { font-size: 13pt; }
+.sheet .foot .from { display: block; font: 900 20pt "Arial Black", Arial, sans-serif; color: #000; margin-bottom: 1mm; }
+.sheet .foot .total { font-size: 16pt; color: #000; border: 2px solid #000; padding: 0 5mm; }
+.sheet .foot { flex: none; }
+/* many groups: smaller steps until the sheet fits its page (view.js fitSheets) */
+.sheet.fit1 .row td { font-size: 14pt; height: auto; padding: 1.2mm 3mm; }
+.sheet.fit1 .bus .n { font-size: 90pt; } .sheet.fit1 .bus .w { font-size: 52pt; }
+.sheet.fit2 .row td { font-size: 12pt; height: auto; padding: 1mm 2.5mm; }
+.sheet.fit2 .bus .n { font-size: 72pt; } .sheet.fit2 .bus .w { font-size: 42pt; }
+.sheet.fit2 .date, .sheet.fit2 .time, .sheet.fit2 .dest { font-size: 22pt; } .sheet.fit2 .col { font-size: 15pt; }
+.sheet.fit3 .row td { font-size: 10.5pt; height: auto; padding: .7mm 2mm; }
+.sheet.fit3 .bus .n { font-size: 56pt; } .sheet.fit3 .bus .w { font-size: 34pt; }
+.sheet.fit3 .date, .sheet.fit3 .time, .sheet.fit3 .dest { font-size: 18pt; } .sheet.fit3 .col { font-size: 12pt; }
+.sheet.fit3 .foot .from { font-size: 15pt; }
+.sheet.fit4 .row td { font-size: 9pt; height: auto; padding: .4mm 1.5mm; }
+.sheet.fit4 .bus .n { font-size: 44pt; } .sheet.fit4 .bus .w { font-size: 26pt; }
+.sheet.fit4 .date, .sheet.fit4 .time, .sheet.fit4 .dest { font-size: 15pt; } .sheet.fit4 .col { font-size: 10pt; }
+.sheet.fit4 .foot .from { font-size: 13pt; } .sheet.fit4 .foot .total { font-size: 13pt; }
+.tq-none { padding: 30px; color: var(--muted); text-align: center; }
+
+/* ---------- Print summary (only while printing it) ---------- */
+.tq-summary { display: none; }
+.sum { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 8mm; color: #000; break-inside: auto; }
+.sum th, .sum td { border: 1.5px solid #000; padding: 1.6mm 2mm; text-align: center; vertical-align: middle; }
+.sum thead { display: table-header-group; }
+.sum .band th { background: #f1c232; color: #000; font: 900 20pt "Arial Black", Arial, sans-serif; text-decoration: underline; text-underline-offset: 3px; } /* destination and date: bold, black */
+.sum .band .d { font-size: 15pt; }
+.sum .cols th { background: #ffd966; font: 900 10.5pt "Arial Black", Arial, sans-serif; text-decoration: underline; }
+.sum tbody td { background: #fff2cc; font: 700 11pt "Times New Roman", Georgia, serif; text-transform: uppercase; color: #3d3100; }
+.sum tbody tr { break-inside: avoid; page-break-inside: avoid; }
+.sum tbody tr.rider td { background: #fffaf0; }
+.sum tbody .n { font-family: Georgia, serif; white-space: nowrap; }
+.sum tfoot td { font: 700 11pt Arial, sans-serif; background: #fff; text-align: left; }
+.sum tfoot td.n { text-align: center; }
+html.tq-print-summary .tq-sheets { display: none !important; }
+html.tq-print-summary .tq-summary { display: block; }
+
+@media print {
+    @page { size: A4 landscape; margin: 8mm; }
+    body { background: #fff !important; }
+    .tq-tools { display: none !important; }
+    .tq-sheets { display: block; padding: 0; }
+    .sheet { box-shadow: none; padding: 0; width: 100%; height: 190mm; break-after: page; page-break-after: always; }
+    .sheet:last-child { break-after: auto; page-break-after: auto; }
+}
+/* Medina Ziyarat sheets (gents / ladies), as the desks' own */
+.sum.zy th, .sum.zy td { background: #fff; color: #000; font: 700 11pt Calibri, Arial, sans-serif; text-transform: uppercase; border: 1.5px solid #000; }
+.sum.zy .zy-title th { font: 900 17pt Calibri, Arial, sans-serif; background: #fff; color: #000; text-decoration: none; }
+.sum.zy .zy-cols th { font: 900 10.5pt Calibri, Arial, sans-serif; background: #fff; color: #000; text-decoration: none; }
+.sum.zy .zy-red { color: #e00000; }
+.sum.zy td.zy-name { text-align: left; font-size: 10pt; }
+.sum.zy td.zy-tp { color: #e00000; font-weight: 900; }
+.sum.zy .zy-note td { text-align: center; font-size: 11pt; }
+.sum.zy .zy-total td { font: 900 12pt Calibri, Arial, sans-serif; }
+
+/* ---------- Luggage sheet (A4 portrait, one page per bus; only while printing it) ---------- */
+.tq-lug-routes { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0; }
+.tq-lug-routes label { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
+.tq-lug-routes input { width: 18px; height: 18px; accent-color: var(--gold-deep); }
+.tq-lug-act { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tq-lugsheets { display: none; }
+html.tq-print-lug .tq-sheets, html.tq-print-lug .tq-summary { display: none !important; }
+html.tq-print-lug .tq-lugsheets { display: block; }
+.lug { page: luggage; display: flex; flex-direction: column; align-items: stretch; height: 194mm; color: #000; background: #fff; break-after: page; page-break-after: always; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
+.lug:last-child { break-after: auto; page-break-after: auto; }
+.lug-no { font: 700 16pt Arial, sans-serif; text-transform: uppercase; margin: 0 0 3mm; }
+.lug-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; flex: none; }
+.lug-tbl th, .lug-tbl td { border: 2.5px solid #000; padding: 2.5mm; text-align: center; vertical-align: middle; color: #000; font-weight: 900; text-transform: uppercase; word-break: break-word; }
+.lug-tbl th { font-size: 12pt; background: #fff; }
+.lug-tbl th:nth-child(1) { width: 36%; } .lug-tbl th:nth-child(2) { width: 34%; } .lug-tbl th:nth-child(3) { width: 16%; } .lug-tbl th:nth-child(4) { width: 14%; }
+.lug.l1 .lug-tbl td { font-size: 28pt; } .lug.l2 .lug-tbl td { font-size: 20pt; padding: 1.8mm; } .lug.l3 .lug-tbl td { font-size: 14pt; padding: 1.2mm; } .lug.l4 .lug-tbl td { font-size: 11pt; padding: .8mm; }
+.lug-tbl tfoot td { font-size: 18pt; }
+.lug-arrow { flex: 1 1 0; min-height: 18mm; width: 100%; margin-top: 4mm; }
+@page luggage { size: A4 landscape; margin: 8mm; }
+@media print {
+    html.tq-print-lug .tq-tools { display: none !important; }

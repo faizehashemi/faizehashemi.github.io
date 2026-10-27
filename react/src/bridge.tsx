@@ -31,6 +31,9 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
     timeline: () => import('@/pages/timeline/TimelinePage'),
     grid: () => import('@/pages/grid/GridPage'),
     checkins: () => import('@/pages/checkins/CheckinsPage'),
+    transport: () => import('@/pages/transport/TransportPage'),
+    'transport-import': () => import('@/pages/transport-import/TransportImportPage'),
+    'transport-print': () => import('@/pages/transport-print/TransportPrintPage'),
 };
 
 export const reactPages = () => Object.keys(PAGES);
