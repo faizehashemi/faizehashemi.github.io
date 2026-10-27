@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Printer } from 'lucide-react';
+import { ImageDown, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,7 +40,7 @@ export default function TransportPrintPage() {
     const [only, setOnly] = useState('');
     const [doc, setDoc] = useState<{ rows: Row[] }>({ rows: [] });
     const [days, setDays] = useState<{ day: string; n: number }[]>([]);
-    const [msg, setMsg] = useState('');
+    const [msg, setMsg] = useState(''), [note, setNote] = useState('');
     const [lugOpen, setLugOpen] = useState(false);
     const [lugOff, setLugOff] = useState<string[]>([]);
     const [xl, setXl] = useState('');
@@ -95,6 +95,22 @@ export default function TransportPrintPage() {
         lugRef.current.innerHTML = groups.filter(g => !lugOff.includes(g.dest.id)).flatMap(g => g.buses.map((b: Row) => luggageSheet(T, b))).join('');
         rootEl.classList.add('tq-print-lug'); window.print(); setTimeout(() => endMode('tq-print-lug', lugRef.current), 500);
     };
+    // the summary as one picture on the clipboard: drawn off-screen (so it has its styles), each destination's table stacked
+    async function copySummaryImage() {
+        if (!L) return;
+        setMsg(''); setNote('');
+        const host = document.createElement('div');
+        host.className = 'tq-summary';
+        host.style.cssText = 'display:block;position:fixed;left:-10000px;top:0;width:1000px;background:#fff';
+        host.innerHTML = summary(L, day, chosen());
+        document.body.appendChild(host);
+        try {
+            const lib = await loadCore('table-image');
+            const how = await lib.copyTablesImage([...host.querySelectorAll('table')], `bus-summary-${day}.png`);
+            setNote(how === 'copied' ? 'Summary copied as a picture — paste it into the chat.' : 'This browser cannot copy pictures — the image was downloaded instead.');
+        } catch (e: any) { setMsg('Could not make the image: ' + (e?.message || e)); }
+        finally { host.remove(); }
+    }
     async function toExcel(what: 'sheets' | 'summary') {
         setXl(what); setMsg('');
         try { await (what === 'sheets' ? libs.ex.exportSheets : libs.ex.exportSummary)(day, chosen(), site.label); }
@@ -114,6 +130,7 @@ export default function TransportPrintPage() {
                         <Button disabled={none} onClick={() => window.print()}><Printer className="size-4" />Print</Button>
                         <Button variant="outline" title="One A4 landscape page per bus: the groups on it" onClick={() => setLugOpen(o => !o)}>🧳 Luggage sheet</Button>
                         <Button variant="outline" disabled={none || !L} title="One list of all the chosen trips of the day" onClick={printSummary}>📋 Print summary</Button>
+                        <Button variant="outline" disabled={none || !L} title="The summary tables as one picture on the clipboard, to paste into a chat" onClick={() => void copySummaryImage()}><ImageDown className="size-4" />Copy summary image</Button>
                         <Button variant="outline" disabled={none || !libs || !!xl} title="The chosen bus sheets as an Excel file (one block per bus, a page break after each)" onClick={() => void toExcel('sheets')}>{xl === 'sheets' ? '⏳ Building…' : '📊 Excel: sheets'}</Button>
                         <Button variant="outline" disabled={none || !libs || !!xl} title="The print summary as an Excel file" onClick={() => void toExcel('summary')}>{xl === 'summary' ? '⏳ Building…' : '📊 Excel: summary'}</Button>
                         {cloud.canOpen('tosha') && <Button asChild variant="outline"><a href={href('tosha')} title="Travel refreshments for tomorrow's and today's buses">🥪 Tosha summary</a></Button>}
@@ -131,6 +148,7 @@ export default function TransportPrintPage() {
                     <div className="flex flex-wrap gap-x-4 gap-y-2">{lugGroups.length ? lugGroups.map(g => <label key={g.dest.id} className="inline-flex items-center gap-1.5 text-sm font-semibold"><Checkbox checked={!lugOff.includes(g.dest.id)} onCheckedChange={v => setLugOff(o => (v === true ? o.filter(x => x !== g.dest.id) : [...o, g.dest.id]))} />{g.dest.title} <span className="font-normal text-muted-foreground">({g.buses.length})</span></label>) : <span className="text-sm text-muted-foreground">No buses on this day.</span>}</div>
                     <div className="flex flex-wrap items-center gap-2"><Button disabled={!lugCount} onClick={printLug}>🖨️ Print luggage sheets</Button><span className="text-sm text-muted-foreground">{lugCount} page{lugCount === 1 ? '' : 's'}</span></div>
                 </Card>}
+                {note && <div className="rounded-md border border-ok/40 bg-ok-soft px-3 py-2 text-sm text-ok">{note}</div>}
                 {msg && <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">{msg}</div>}
             </div>
             <div ref={sheetsRef} className="tq-sheets" dangerouslySetInnerHTML={{ __html: sheetsHtml }} />

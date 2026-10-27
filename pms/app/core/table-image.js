@@ -69,3 +69,25 @@ export async function copyTableImage(table, title, name = 'table.png') {
         return 'downloaded';
     }
 }
+
+/** Several tables as ONE picture, stacked (a destination per table); copied like copyTableImage, or downloaded where the browser cannot copy pictures. */
+export async function copyTablesImage(tables, name = 'tables.png') {
+    const cvs = tables.map(t => tableToCanvas(t, ''));
+    if (!cvs.length) throw new Error('nothing to copy');
+    const gap = 24, W = Math.max(...cvs.map(c => c.width)), H = cvs.reduce((s, c) => s + c.height, 0) + gap * (cvs.length - 1);
+    const out = document.createElement('canvas');
+    out.width = W; out.height = H;
+    const g = out.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+    let y = 0;
+    for (const c of cvs) { g.drawImage(c, 0, y); y += c.height + gap; }
+    try {
+        if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('no picture clipboard');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Promise(res => out.toBlob(res, 'image/png')) })]);
+        return 'copied';
+    } catch {
+        const a = document.createElement('a');
+        a.href = out.toDataURL('image/png'); a.download = name; a.click();
+        return 'downloaded';
+    }
+}
