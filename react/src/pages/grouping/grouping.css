@@ -1,0 +1,16 @@
+/* Groups (stickers): print on A4 landscape (a named page), each sticker on its own page; only the stickers print */
+@page stickers { size: A4 landscape; margin: 8mm; }
+.gp-sticker { width: 100%; height: 185mm; display: flex; align-items: center; justify-content: center; text-align: center; border: 1px dashed var(--border); border-radius: 12px; margin: 0 auto 8mm; background: #fffdf7; color: var(--foreground); }
+.gp-sticker .tour { font-size: 100px; font-weight: 800; line-height: 1.15; }
+.gp-sticker .leader { font-size: 50px; margin-top: 10px; }
+.gp-sticker .pax { font-size: 25px; margin-top: 6px; letter-spacing: .5px; }
+@media (max-width: 700px) {
+    .gp-sticker { height: auto; min-height: 56vw; padding: 14px; }
+    .gp-sticker .tour { font-size: 34px; } .gp-sticker .leader { font-size: 20px; } .gp-sticker .pax { font-size: 15px; }
+}
+@media print {
+    .gp-print { page: stickers; }
+    .gp-sticker { page-break-after: always; break-after: page; height: 185mm; min-height: 0; padding: 0; border-color: transparent; }
+    .gp-sticker:last-child { page-break-after: auto; break-after: auto; }
+    .gp-sticker .tour { font-size: 100px; } .gp-sticker .leader { font-size: 50px; } .gp-sticker .pax { font-size: 25px; }
+}

@@ -19,6 +19,18 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
     'pending-checkouts': () => import('@/pages/pending-checkouts/PendingCheckoutsPage'),
     'menu-card': () => import('@/pages/menu-card/MenuCardPage'),
     performance: () => import('@/pages/performance/PerformancePage'),
+    occupancy: () => import('@/pages/occupancy/OccupancyPage'),
+    housekeeping: () => import('@/pages/housekeeping/HousekeepingPage'),
+    departures: () => import('@/pages/departures/DeparturesPage'),
+    tosha: () => import('@/pages/tosha/ToshaPage'),
+    grouping: () => import('@/pages/grouping/GroupingPage'),
+    'group-export': () => import('@/pages/group-export/GroupExportPage'),
+    movement: () => import('@/pages/movement/MovementPage'),
+    kg: () => import('@/pages/kg/KgPage'),
+    mawaid: () => import('@/pages/mawaid/MawaidPage'),
+    timeline: () => import('@/pages/timeline/TimelinePage'),
+    grid: () => import('@/pages/grid/GridPage'),
+    checkins: () => import('@/pages/checkins/CheckinsPage'),
 };
 
 export const reactPages = () => Object.keys(PAGES);

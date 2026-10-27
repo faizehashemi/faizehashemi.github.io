@@ -1,0 +1,18 @@
+/* Grid: the matrix. The class names (.matrix .hcell .rcell .cell .cap .meta .occ .under .off-list) are the ones the Print / Excel export reads (views/grid/export.js). */
+.gridp .matrix { display: grid; border-top: 1px solid var(--border); border-left: 1px solid var(--border); background: #fff; font-size: var(--fs); }
+.gridp .hcell, .gridp .rcell, .gridp .cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.gridp .hcell { position: sticky; top: 0; z-index: 2; background: #f3e6ca; text-align: center; font-weight: 800; padding: 6px; font-size: calc(var(--fs) + 1px); color: #2b1e15; width: var(--cellW); height: 44px; }
+.gridp .rcell { position: sticky; left: 0; z-index: 1; background: #f3e6ca; font-weight: 800; padding: 6px; text-align: center; font-size: calc(var(--fs) + 1px); color: #2b1e15; width: 84px; height: var(--cellH); }
+.gridp .corner { position: sticky; top: 0; left: 0; z-index: 3; background: #f3e6ca; width: 84px; height: 44px; font-weight: 800; padding: 6px; text-align: center; }
+.gridp .cell { width: var(--cellW); height: var(--cellH); display: grid; grid-template-rows: auto auto 1fr; align-items: center; justify-items: center; padding: 6px; background: #fffdf5; color: #2b1e15; }
+.gridp .cell .cap { font-weight: 700; }
+.gridp .cell .meta { font-size: calc(var(--fs) - 1px); text-align: center; line-height: 1.1; color: #6b5e4a; }
+.gridp .cell.occ { background: #e8c765; }
+.gridp .cell.under { background: #F7C131 !important; color: #663300 !important; }
+.gridp .cell.under .cap { color: #663300 !important; }
+.gridp .cell.off-list { outline: 2px dashed #c0392b; outline-offset: -3px; }
+@media print {
+    .gridp.print-scope, .gridp.print-scope * { visibility: visible !important; }
+    .gridp .hcell, .gridp .rcell, .gridp .corner { position: static !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}
