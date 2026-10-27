@@ -8,17 +8,17 @@
 
 .pms-react {
     --radius: 0.75rem;
-    --background: #fffaf1;          /* panel */
+    --background: #fbeecb;          /* panel: golden cream */
     --foreground: #2b1e15;          /* ink */
-    --card: #fffaf1;
+    --card: #fbeecb;
     --card-foreground: #2b1e15;
-    --popover: #fffdf7;
+    --popover: #fff6dc;
     --popover-foreground: #2b1e15;
     --primary: #9a7414;             /* gold-deep: buttons, links */
     --primary-foreground: #ffffff;
     --secondary: #f4ead0;
     --secondary-foreground: #5a4410;
-    --muted: #f6efde;
+    --muted: #f4e3b8;
     --muted-foreground: #4b4031;
     --accent: #fff1c9;
     --accent-foreground: #5a4410;

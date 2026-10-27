@@ -66,7 +66,7 @@ button.hm-stat:focus-visible, a.hm-stat:focus-visible { outline: 3px solid var(-
 .hm-stat .hm-ico { position: absolute; right: 12px; top: 10px; font-size: 26px; opacity: .85; }
 .hm-stat b { font-size: 32px; line-height: 1.1; font-weight: 800; color: var(--accent-ink, var(--ink)); font-variant-numeric: tabular-nums; }
 .hm-lbl { font-weight: 650; font-size: 13px; }
-.hm-stat small { color: var(--muted); font-size: 12px; }
+.hm-stat small { color: #33291d; font-size: 13px; font-weight: 600; line-height: 1.35; }   /* the details line under each count: dark enough to read on every card colour */
 .hm-stat.in { --accent: #2f9e44; --accent-ink: #1f6f33; }
 .hm-stat.out { --accent: #d9480f; --accent-ink: #a8380b; }
 .hm-stat.mk { --accent: #3b3b3b; }
