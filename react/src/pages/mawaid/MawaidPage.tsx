@@ -88,7 +88,7 @@ export default function MawaidPage() {
     const time = (k: keyof typeof t, label: string) => <div className="grid gap-1"><Label htmlFor={`t-${k}`}>{label}</Label><Input id={`t-${k}`} type="time" value={t[k]} onChange={e => setT(s => ({ ...s, [k]: e.target.value }))} /></div>;
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1300px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header><h1 className="text-2xl font-bold text-primary">Mawaid Counts</h1><p className="text-sm text-muted-foreground">{site.label} · a guest counts for a meal when their stay overlaps the meal time. Thals = pax ÷ thal size, rounded up.</p></header>
 
             <Card className="print:hidden"><CardContent className="grid gap-4">

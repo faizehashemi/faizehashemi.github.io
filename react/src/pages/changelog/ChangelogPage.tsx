@@ -80,7 +80,7 @@ export default function ChangelogPage() {
     }
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1100px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="flex flex-wrap items-end justify-between gap-3">
                 <div className="min-w-0 flex-1"><h1 className="text-2xl font-bold text-primary">Change log</h1><p className="text-sm text-muted-foreground">Every change deployed to the PMS since the first page, by feature or day by day.</p></div>
                 <div className="flex flex-wrap items-end gap-3">

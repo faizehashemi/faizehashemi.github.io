@@ -32,6 +32,9 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
     grid: () => import('@/pages/grid/GridPage'),
     checkins: () => import('@/pages/checkins/CheckinsPage'),
     transport: () => import('@/pages/transport/TransportPage'),
+    laundry: () => import('@/pages/laundry/LaundryPage'),
+    'signage-builder': () => import('@/pages/signage-builder/SignageBuilderPage'),
+    'laundry-admin': () => import('@/pages/laundry-admin/LaundryAdminPage'),
     'transport-import': () => import('@/pages/transport-import/TransportImportPage'),
     'transport-print': () => import('@/pages/transport-print/TransportPrintPage'),
 };

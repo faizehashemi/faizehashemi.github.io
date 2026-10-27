@@ -85,7 +85,7 @@ export default function PendingCheckoutsPage() {
     }, [data, tab, q]);
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1200px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="print:hidden">
                 <h1 className="text-2xl font-bold text-primary">Pending Checkouts — {site.label}</h1>
                 <p className="text-sm text-muted-foreground">Load the UMS checkout list (Excel or PDF). Each group is found in the PMS by its SH (the list's Booking Ref) to show its building and rooms.</p>

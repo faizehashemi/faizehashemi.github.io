@@ -80,7 +80,7 @@ export default function GroupingPage() {
     const toggle = <T,>(set: Set<T>, k: T, on: boolean) => { const n = new Set(set); if (on) n.add(k); else n.delete(k); return n; };
 
     return (
-        <div className="gp-print mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="gp-print mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <Card className="print:hidden"><CardContent className="grid gap-3">
                 <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
                     <div className="grid gap-1"><Label htmlFor="dateFrom">Arrivals from (date)</Label><Input id="dateFrom" type="date" value={df} onChange={e => setDf(e.target.value)} /></div>

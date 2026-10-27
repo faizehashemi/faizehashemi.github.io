@@ -107,7 +107,7 @@ export default function MovementPage() {
     const stamp = today.replace(/-/g, '');
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="flex flex-wrap items-center gap-3 print:hidden"><h1 className="text-2xl font-bold text-primary">Check‑ins &amp; Check‑outs</h1>
                 <Badge variant="secondary">{slips.isLoading ? 'Loading…' : res ? `${all.length} slip(s) loaded • range ${fmt(res.start)} → ${fmt(res.end)}` : `${all.length} slip(s) loaded`}</Badge></header>
 

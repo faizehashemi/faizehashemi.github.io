@@ -136,7 +136,7 @@ export default function TransportImportPage() {
     }
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1200px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div><h1 className="text-2xl font-bold text-primary">Transport import</h1>
                     <p className="text-sm text-muted-foreground">Paste the transport list (with or without its heading row). Days that are already saved are compared first — you choose which changes to apply.{' '}

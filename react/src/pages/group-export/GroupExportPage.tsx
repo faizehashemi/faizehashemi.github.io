@@ -76,7 +76,7 @@ export default function GroupExportPage() {
     }
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1200px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <h1 className="text-2xl font-bold text-primary">Fakkul Ehraam Groups — PDF / DOCX</h1>
             <Card><CardContent className="grid gap-3">
                 <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">

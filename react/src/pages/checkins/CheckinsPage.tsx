@@ -131,7 +131,7 @@ export default function CheckinsPage() {
         const showOther = !hidden.includes('other'), showSlip = !hidden.includes('slip') && may.slip;
         const n = 1 + (showFl ? 1 : 0) + cols.length + (showOther ? 1 : 0) + (showSlip ? 1 : 0) + (kind === 'in' ? 1 : 0);
         const head = (
-            <TableRow><TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}</TableRow>
+            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}</TableRow>
         );
         const tot = (list: Row[], label: string, cls: string) => {
             const k = countsOf(list), v: Record<string, number> = { as: k.as, t: k.t, g: k.g, l: k.l, c: k.c, i: k.i };
@@ -191,7 +191,7 @@ export default function CheckinsPage() {
         ['Last 7 days', () => preset(dayShift(-6), plusOneDay(ymd(new Date())))], ['Last 30 days', () => preset(dayShift(-29), plusOneDay(ymd(new Date())))],
     ];
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1500px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="grid gap-3 print:hidden">
                 <div><h1 className="text-2xl font-bold text-primary">Check-ins &amp; Check-outs</h1><p className="text-sm text-muted-foreground">Filter by single day or a date/time range. Results are read-only and come from the shared PMS data.</p></div>
                 <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">

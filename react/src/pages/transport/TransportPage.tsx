@@ -437,7 +437,7 @@ export default function TransportPage() {
     const canImport = cloud.canOpen('transport-import', desk) && writable;
     const dests = (T.destsFor(siteId) as Row[]).map(d => d.title).join(', ').replace(/, ([^,]*)$/, ' and $1');
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1500px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div><h1 className="text-2xl font-bold text-primary">Transport</h1><p className="text-sm text-muted-foreground">Trips of the day from the transport list. {dests} trips get a vehicle number, signage and a bus sheet.</p></div>
                 <div className="flex flex-wrap gap-2">

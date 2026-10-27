@@ -100,7 +100,7 @@ export default function SlipSearchPage() {
     const current = all.find(s => s.id === currentId) ?? null;
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1300px] min-w-0 gap-3 px-3 pb-8 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-8 pt-4 sm:px-4">
             <header className="grid gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-primary">Search slips</h1>

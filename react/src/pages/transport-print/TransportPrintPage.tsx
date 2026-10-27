@@ -106,7 +106,7 @@ export default function TransportPrintPage() {
     return (
         <>
             <style>{css}</style>
-            <div className="tq-tools mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1500px] min-w-0 gap-3 px-3 pt-4 sm:px-4">
+            <div className="tq-tools mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pt-4 sm:px-4">
                 <header className="flex flex-wrap items-start justify-between gap-3">
                     <div><h1 className="text-2xl font-bold text-primary">Bus sheets</h1><p className="text-sm text-muted-foreground">One page per bus, to stick on the bus. Printed A4 landscape — choose “Landscape” if the printer asks.</p></div>
                     <div className="flex flex-wrap gap-2">

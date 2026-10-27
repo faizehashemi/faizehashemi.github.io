@@ -53,7 +53,7 @@ export default function OccupancyPage() {
     }
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="grid gap-3 print:hidden">
                 <div>
                     <h1 className="text-2xl font-bold text-primary">Occupancy details</h1>

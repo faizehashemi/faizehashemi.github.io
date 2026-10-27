@@ -59,7 +59,7 @@ export default function GridPage() {
     }
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1800px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <div className="flex flex-wrap items-end gap-3">
                 <div className="grid gap-1"><Label htmlFor="asof_date">Date</Label><Input id="asof_date" type="date" value={date} onChange={e => { setDate(e.target.value); if (e.target.value && time) setApplied({ date: e.target.value, time }); }} /></div>
                 <div className="grid gap-1"><Label htmlFor="asof_time">Time</Label><Input id="asof_time" type="time" step={60} value={time} onChange={e => { setTime(e.target.value); if (date && e.target.value) setApplied({ date, time: e.target.value }); }} /></div>

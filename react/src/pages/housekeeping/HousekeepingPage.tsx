@@ -99,7 +99,7 @@ export default function HousekeepingPage() {
     const selBlds = buildings.filter(b => bld === '*' || b.name === bld);
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1300px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="grid gap-3">
                 <h1 className="text-2xl font-bold text-primary">Room cleaning</h1>
                 <div className="flex flex-wrap items-end gap-3">

@@ -196,7 +196,7 @@ export default function KgPage() {
 
     const qq = find.trim().toLowerCase();
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             {oldList && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gold bg-accent p-3 text-sm"><span className="min-w-0 flex-1">This browser still has its own KG list from before ({oldList.people.length} name{oldList.people.length === 1 ? '' : 's'}, {oldList.log.length} saved assignment{oldList.log.length === 1 ? '' : 's'}). Move it to the {site.label} cloud list so every desk sees it?</span><Button size="sm" onClick={() => void moveOld()}>Move to cloud</Button><Button size="sm" variant="outline" onClick={() => setOldList(null)}>Not now</Button></div>}
             <header className="flex flex-wrap items-end justify-between gap-3">
                 <div><h1 className="text-2xl font-bold text-primary">Fakkul Ehraam &amp; Atraaf</h1><p className="text-sm text-muted-foreground">Tick who goes, pick a floor, copy the message. Saving logs it for the counts.</p></div>

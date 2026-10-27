@@ -67,7 +67,7 @@ export default function PaxChartPage() {
 
     const y = Number(applied.year);
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1240px] min-w-0 gap-3.5 px-4 pb-7 pt-4 text-[13px]">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3.5 px-4 pb-7 pt-4 text-[13px]">
             <Card className="mx-auto w-full max-w-[980px] gap-2 py-3.5">
                 <CardContent className="grid gap-2 px-3.5">
                     <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-4">

@@ -91,7 +91,7 @@ export default function TimelinePage() {
     useEffect(() => { if (!auto.current && slips.data && builders.data && params.get('building') && params.get('room')) { auto.current = true; void enter(); } }, [slips.data, builders.data]);   // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1500px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <div className="flex flex-wrap items-end gap-3">
                 <div className="grid gap-1"><Label htmlFor="building">Building</Label>
                     <Select value={building} onValueChange={v => { setBuilding(v); setRoom(''); }}><SelectTrigger id="building" className="min-w-48"><SelectValue placeholder="Select building…" /></SelectTrigger>

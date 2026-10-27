@@ -109,7 +109,7 @@ export default function MenuCardPage() {
     const resetLines = useMemo(() => () => { const a = autoLines(date); setGreg(a.greg); setHij(a.hijri); }, [date, hijri]);   // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[1300px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                     <h1 className="text-2xl font-bold text-primary">Menu Card</h1>
