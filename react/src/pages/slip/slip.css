@@ -21,7 +21,7 @@
 
         body {
             font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-            background: var(--bg) url("../../../assets/pattern_gold_2x.png") repeat;
+            background: var(--bg) url("assets/pattern_gold_2x.png") repeat;
             background-size: 150px auto;
             margin: 15px;
             color: var(--text);

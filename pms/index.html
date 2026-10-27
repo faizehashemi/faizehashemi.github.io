@@ -28,6 +28,8 @@
         #view[aria-busy="true"] { min-height: 60vh; }
         /* the footer starts below the screen and stays there while a page fills in (no jump) */
         #view { min-height: calc(100vh - 120px); min-height: calc(100svh - 120px); }
+        /* the gold pattern of the Home page, behind every page (a page's own stylesheet may set the same) */
+        body { background: #f7efe1 url("assets/pattern_gold_2x.png") repeat; background-size: 150px auto; }
     </style>
     <!-- after each page's own stylesheet (the router inserts those before this one) -->
     <link rel="stylesheet" href="app/core/responsive.css" id="responsive-css" data-shell>
