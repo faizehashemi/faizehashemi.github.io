@@ -22,7 +22,7 @@ if [ "$1" = "staging" ]; then
     const fs=require('fs'), d='.staging-build/';
     let c=fs.readFileSync(d+'app/config.js','utf8');
     c=c.replace(/export const API_URL = '[^']*';/, \"export const API_URL = '$API_STAGING';\");
-    c=c.replace(/export const REACT_PAGES = \[[^\]]*\];/, \"export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','movement','kg','mawaid','timeline','grid','checkins','transport','transport-print','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast']);\");
+    c=c.replace(/export const REACT_PAGES = \[[^\]]*\];/, \"export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','movement','kg','mawaid','timeline','grid','checkins','transport','transport-print','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);\");
     fs.writeFileSync(d+'app/config.js', c);
     let h=fs.readFileSync(d+'index.html','utf8');
     h=h.replace('<body>', '<body><div style=\"position:fixed;z-index:2147483000;left:0;right:0;bottom:0;background:#c0392b;color:#fff;text-align:center;font:700 12px system-ui;padding:3px\">STAGING — test data, nothing here is real</div>');
