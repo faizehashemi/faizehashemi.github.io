@@ -1,0 +1,26 @@
+# STAGING copy of the API (https://pms-api-staging.<subdomain>.workers.dev) — for testing before anything reaches production.
+# Deploy:  npx wrangler deploy -c wrangler.staging.toml     (from this folder)
+# Own database (pms-staging, seeded from a production export — see web/deploy.sh staging), own KV, NO cron, NO secrets:
+# it never messages anybody, never imports from UMS, never calls the flight APIs.
+name = "pms-api-staging"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+keep_vars = true
+workers_dev = true
+preview_urls = false
+
+[vars]
+ALLOWED_ORIGINS = "https://pms-web-staging.tkamlapur.workers.dev"
+FR24_MONTHLY_CREDITS = "0"
+FR24_RESERVE = "1"
+VF_MONTHLY_CREDITS = "0"
+VF_RESERVE = "1"
+
+[[kv_namespaces]]
+binding = "BACKUPS"
+id = "28174fd771b248f8b4419d666bff0688"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pms-staging"
+database_id = "14dfd233-517a-4e6c-8175-2c817ffbe269"

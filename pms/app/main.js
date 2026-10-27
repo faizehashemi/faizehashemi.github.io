@@ -18,6 +18,7 @@ import { applyPrefs, getPrefs, loadServerPrefs } from './core/prefs.js';
 import { watchForUpdates } from './core/update.js';
 import { startTelemetry } from './core/telemetry.js';
 import { startFeedback } from './core/feedback.js';
+import { reactPageOn, mountReact } from './react-bridge.js';
 startTelemetry(); // page timings → Performance page
 startFeedback();  // the in-page "How is your experience?" card
 
@@ -186,11 +187,13 @@ async function route() {
     outlet.setAttribute('aria-busy', 'true');
     const stopLoader = showLoader({ text: `Opening ${view.title}` }); // only shows if the page takes a moment
     try {
-        if (!htmlCache.has(view.id)) {
+        // a page switched to React (react-bridge.js) has no legacy html / js / css to load
+        const useReact = reactPageOn(view.id);
+        if (!useReact && !htmlCache.has(view.id)) {
             const resp = await fetch(`app/views/${view.id}/view.html`);
             htmlCache.set(view.id, await resp.text());
         }
-        const [{ default: mount }] = await Promise.all([
+        const [{ default: mount }] = useReact ? [{ default: (c) => mountReact(view.id, c) }] : await Promise.all([
             import(`./views/${view.id}/view.js`),
             loadCss(view.id, seq),
         ]);
@@ -207,10 +210,10 @@ async function route() {
             bodyStyle: document.body.getAttribute('style'),
             bodyClass: document.body.getAttribute('class'),
         };
-        outlet.innerHTML = htmlCache.get(view.id);
+        outlet.innerHTML = useReact ? '' : htmlCache.get(view.id);
         outlet.dataset.view = view.id;
         rewriteLegacyLinks(outlet, siteId);
-        current.stopTables = watchTables(outlet); // data tables become cards on phones
+        current.stopTables = useReact ? () => { } : watchTables(outlet); // data tables become cards on phones (React pages lay out their own)
         window.scrollTo(0, 0);
 
         const ctx = {

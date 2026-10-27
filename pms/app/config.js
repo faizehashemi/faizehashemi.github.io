@@ -24,6 +24,10 @@ export const SITES = {
 
 export const DEFAULT_SITE = 'makkah';
 
+// Pages that run as React (react/ → pms/react/) for every login. Empty until a page has been approved on staging; one login can be
+// given a page early with prefs.reactPages (canary), this browser with localStorage pms_react_pages (see react-bridge.js).
+export const REACT_PAGES = [];
+
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
 export const VIEWS = [

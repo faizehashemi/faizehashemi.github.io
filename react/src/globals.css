@@ -1,0 +1,78 @@
+/* PMS theme for shadcn/ui: the PMS palette (gold, ink, panel, edge …) mapped onto shadcn's variables.
+   The page background (gold pattern) belongs to the legacy shell (body in pms/index.html) and is kept as it is.
+   Tailwind's preflight is NOT imported: the legacy pages share this document, so the base reset is scoped to .pms-react. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "tw-animate-css";
+
+.pms-react {
+    --radius: 0.75rem;
+    --background: #fffaf1;          /* panel */
+    --foreground: #2b1e15;          /* ink */
+    --card: #fffaf1;
+    --card-foreground: #2b1e15;
+    --popover: #fffdf7;
+    --popover-foreground: #2b1e15;
+    --primary: #9a7414;             /* gold-deep: buttons, links */
+    --primary-foreground: #ffffff;
+    --secondary: #f4ead0;
+    --secondary-foreground: #5a4410;
+    --muted: #f6efde;
+    --muted-foreground: #6b5e4a;
+    --accent: #fff1c9;
+    --accent-foreground: #5a4410;
+    --destructive: #a12a2a;
+    --border: #e3d2b1;              /* edge */
+    --input: #d9cbb0;
+    --ring: #d4af37;                /* gold */
+    --gold: #d4af37;
+    --ok: #1f6f43;
+    --ok-soft: #e3f4ea;
+    --warn: #9a5b00;
+    --warn-soft: #fff1d6;
+    --bad-soft: #fde8e8;
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-gold: var(--gold);
+    --color-ok: var(--ok);
+    --color-ok-soft: var(--ok-soft);
+    --color-warn: var(--warn);
+    --color-warn-soft: var(--warn-soft);
+    --color-bad-soft: var(--bad-soft);
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* scoped base (what preflight would do, for React content only) */
+@layer base {
+    .pms-react, .pms-react *, .pms-react *::before, .pms-react *::after { box-sizing: border-box; border-color: var(--border); }
+    .pms-react { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--foreground); line-height: 1.5; -webkit-text-size-adjust: 100%; }
+    .pms-react button, .pms-react input, .pms-react select, .pms-react textarea { font: inherit; color: inherit; }
+    .pms-react button { cursor: pointer; background: transparent; border: 0; }
+    .pms-react :where(h1, h2, h3, p, ul, ol, figure) { margin: 0; }
+    .pms-react :where(ul, ol) { padding: 0; list-style: none; }
+    .pms-react table { border-collapse: collapse; }
+    .pms-react [hidden] { display: none !important; }
+}

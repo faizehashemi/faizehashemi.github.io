@@ -1,0 +1,9 @@
+# STAGING website (https://pms-web-staging.<subdomain>.workers.dev): the same files as production plus the React pages switched on,
+# talking to the staging API only. Built into ./.staging-build by `sh deploy.sh staging`.
+name = "pms-web-staging"
+compatibility_date = "2026-09-01"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "./.staging-build"
