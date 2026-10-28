@@ -10,6 +10,7 @@ import { baseSh } from '../../core/ums.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
 const n0 = (v) => Math.max(0, parseInt(v, 10) || 0);
+const MD_MAKKAH_TIME = '08:00';   // Madina → Makkah buses leave at 8 am unless the desk changes it
 
 // slip To → destination id, per site
 const TO_DEST = {
@@ -61,6 +62,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
         dlg.className = 'tp-plan';
         const opts = (sel) => `<option value="">No vehicle needed</option>` + dests.map(d => `<option value="${d.id}"${d.id === sel ? ' selected' : ''}>${d.icon} ${esc(d.title)}</option>`).join('');
         dlg.innerHTML = `
+          <style>.tp-plan-tbl tr.listed td { background: #e3e0da; color: #6b5e4a; } .tp-plan-tbl tr.picked td { background: #d9f0d0; }</style>
           <h2>Plan from check-outs <span class="tp-muted">— ${esc(day)}</span></h2>
           <p class="tp-muted">${lines.length ? `${lines.length} check-out${lines.length === 1 ? '' : 's'} on this day. The destination is taken from each slip's <b>To</b> (or the UMS departure airport); change it, or pick “No vehicle needed” for groups who arrange their own way. Time is the check-out time — change it if the vehicle leaves earlier.` : 'No group checks out on this day.'}</p>
           ${lines.length ? `<div class="tp-plan-scroll"><table class="tp-plan-tbl"><thead><tr><th></th><th>SH</th><th>Group</th><th>Pax</th><th>Check-out</th><th>Goes to</th></tr></thead><tbody>
@@ -69,7 +71,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
               <td><b>${esc(l.sh)}</b>${l.partial ? '<small>partial</small>' : ''}</td>
               <td>${esc(l.name)}<small>${esc(l.leader)}${l.building ? ` · ${esc(l.building)}` : ''}</small></td>
               <td class="n">${l.pax}</td>
-              <td><input type="time" class="pl-time" value="${l.at.slice(11)}" aria-label="Departure time"></td>
+              <td><input type="time" class="pl-time" value="${l.dest === 'mdmakkah' ? MD_MAKKAH_TIME : l.at.slice(11)}" data-orig="${l.at.slice(11)}" aria-label="Departure time"></td>
               <td><select class="pl-dest" aria-label="Destination">${opts(l.dest)}</select>${l.listed ? '<small>already on this day’s list</small>' : l.to && !l.dest ? `<small>slip says To: ${esc(l.to)}</small>` : ''}</td>
             </tr>`).join('')}</tbody></table></div>
             <label class="tp-plan-share"><input type="checkbox" id="plShare"> Put groups going to the same place into one vehicle (at most ${BUS_LIMIT} pax) when they leave within <input type="number" id="plMin" min="5" max="240" value="30"> minutes of the first</label>` : ''}
@@ -80,13 +82,20 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
             line: lines[Number(tr.dataset.i)], on: tr.querySelector('.pl-on').checked,
             dest: tr.querySelector('.pl-dest').value, time: tr.querySelector('.pl-time').value,
         })).filter(p => p.on && p.dest && /^\d{2}:\d{2}$/.test(p.time));
+        const mark = () => dlg.querySelectorAll('tr[data-i]').forEach(tr => tr.classList.toggle('picked', tr.querySelector('.pl-on').checked));   // freshly ticked rows get their own colour
         const sum = () => {
+            mark();
             const p = picked();
             dlg.querySelector('#plSum').textContent = p.length ? `${p.length} group${p.length === 1 ? '' : 's'} · ${p.reduce((n, x) => n + x.line.pax, 0)} pax` : 'Nothing ticked';
         };
         dlg.addEventListener('input', sum); dlg.addEventListener('change', (e) => {
             const tr = e.target.closest('tr[data-i]');
-            if (tr && e.target.matches('.pl-dest')) tr.querySelector('.pl-on').checked = !!e.target.value;
+            if (tr && e.target.matches('.pl-time')) e.target.dataset.touched = '1';
+            if (tr && e.target.matches('.pl-dest')) {
+                tr.querySelector('.pl-on').checked = !!e.target.value;
+                const t = tr.querySelector('.pl-time');
+                if (!t.dataset.touched) t.value = e.target.value === 'mdmakkah' ? MD_MAKKAH_TIME : t.dataset.orig;   // 8 am to Makkah until the desk types a time
+            }
             sum();
         });
         sum();
@@ -105,7 +114,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
             p.sort((a, b) => a.time.localeCompare(b.time)).forEach((x, i) => {
                 const l = x.line, dest = dests.find(d => d.id === x.dest);
                 const base = { key: `P${stamp}${i}`, ref: l.sh, operator: l.name, leader: l.leader, m: l.m, f: l.f, c: l.c, pax: l.pax, rooms: l.rooms,
-                    dora: '', vch: '', transporter: '', adj: '', loc: '', at: `${day}T${x.time}`, manual: true };
+                    dora: '', vch: '', transporter: '', adj: '', loc: '', at: `${day}T${x.time}`, manual: true, ...(l.building ? { building: l.building } : {}) };
                 const mins = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
                 const host = share && (mainOf.get(dest.id) || []).find(h => mins(x.time) - mins(h.time) <= gap && h.pax + l.pax <= BUS_LIMIT);
                 if (host) host.pax += l.pax;

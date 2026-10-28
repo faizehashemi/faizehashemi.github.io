@@ -49,7 +49,7 @@ export function luggageSheet(T: T, b: Row) {
       <table class="lug-tbl">
         <thead><tr><th>GROUP NAME</th><th>GROUP LEADER</th><th>SH NO.</th><th>PAX</th></tr></thead>
         <tbody>${b.rows.map((r: Row) => `<tr><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td></tr>`).join('')}</tbody>
-        ${n > 1 ? `<tfoot><tr><td colspan="3">TOTAL</td><td class="n">${esc(b.pax)}</td></tr></tfoot>` : ''}
+        ${n > 1 ? `<tfoot><tr><td colspan="4">TOTAL</td><td class="n">${esc(b.pax)}</td></tr></tfoot>` : ''}
       </table>
     </section>`;
 }
@@ -59,15 +59,15 @@ export type Libs = T & { tripRows: (buses: Row[]) => { r: Row; b: Row; rider: bo
 function table(L: Libs, day: string, { dest, buses }: { dest: Row; buses: Row[] }) {
     const pax = buses.reduce((s, b) => s + b.pax, 0);
     return `<table class="sum">
-      <colgroup><col style="width:19%"><col style="width:28%"><col style="width:10%"><col style="width:7%"><col style="width:10%"><col style="width:12%"><col style="width:8%"><col style="width:6%"></colgroup>
+      <colgroup><col style="width:7%"><col style="width:19%"><col style="width:27%"><col style="width:10%"><col style="width:7%"><col style="width:10%"><col style="width:12%"><col style="width:8%"></colgroup>
       <thead>
-        <tr class="band"><th class="d">${esc(L.sheetDate(day))}</th><th class="t" colspan="7">${esc(dest.label)}</th></tr>
-        <tr class="cols"><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>BUILDING</th><th>VEHICLE</th><th>NO</th></tr>
+        <tr class="band"><th class="d" colspan="2">${esc(L.sheetDate(day))}</th><th class="t" colspan="6">${esc(dest.label)}</th></tr>
+        <tr class="cols"><th>BUS NO</th><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>BUILDING</th><th>VEHICLE</th></tr>
       </thead>
       <tbody>${L.tripRows(buses).map(({ r, b, rider }) => `<tr${rider ? ' class="rider"' : ''}>
-        <td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td>
-        <td class="n">${esc(L.time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(L.vehicleWord(b.vehicle, b.vlabel))}</td><td class="n">${esc(b.bus ?? '')}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="4"></td></tr></tfoot>
+        <td class="n">${esc(b.bus ?? '')}</td><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td>
+        <td class="n">${esc(L.time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(L.vehicleWord(b.vehicle, b.vlabel))}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="4">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="3"></td></tr></tfoot>
     </table>`;
 }
 

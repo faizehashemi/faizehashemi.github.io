@@ -254,20 +254,24 @@ export const CHANGES = [
     {"d":"2026-10-28","h":"","f":"nav","m":"Grid beams: 1.5x as many, and they start only after the page has finished loading and the table has stopped changing size"},
     {"d":"2026-10-28","h":"","f":"nav","m":"Menu clicks: the old page is sucked up into the clicked item and the new page pours out of it (genie effect; off for reduced motion, the laundry kiosk and very heavy pages)"},
     {"d":"2026-10-28","h":"","f":"nav","m":"Genie page change taken out again (kept aside, not in use): the loader blurred it and the background pattern vanished"},
-    {"d":"2026-10-28","h":"","f":"nav","m":"No more loading screen: once the first page shows, every other page is downloaded quietly in the background; a menu click now wraps the old page up like a genie (curved, quick start and soft landing) and the new page unfolds out of the clicked item, its data still loading inside"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Footer removed from every page (less page jump)"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Genie: the old page now wraps up even when it is full of data (it was skipped as too heavy); 1 s up + 1 s down"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Genie: only what is in the window is wrapped up / unfolded (the rest of a long page is left out of the picture), so it is lighter and smoother"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Menu clicks: the page no longer changes at the click — the old (still live) page wraps up first, then the address changes and the new page unfolds"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Genie: the new page waits until it has finished drawing and starts 1.15 s after the click (just after the old page wrapped up), so it is no longer a picture of an empty page"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Menu bar no longer shifts between pages: every page now has the same frame (body margin 0, page padding moved into the page area, scrollbar space always kept)"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Scrollbars hidden sitewide (pages still scroll with wheel, touch, keys and drag)"}
-    {"d":"2026-10-28","h":"","f":"nav","m":"Genie page change removed; pages open as fast as possible (all pages are still pre-downloaded in the background)"}
+    {"d":"2026-10-28","h":"","f":"nav","m":"No more loading screen: once the first page shows, every other page is downloaded quietly in the background; a menu click now wraps the old page up like a genie (curved, quick start and soft landing) and the new page unfolds out of the clicked item, its data still loading inside"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Footer removed from every page (less page jump)"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Genie: the old page now wraps up even when it is full of data (it was skipped as too heavy); 1 s up + 1 s down"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Genie: only what is in the window is wrapped up / unfolded (the rest of a long page is left out of the picture), so it is lighter and smoother"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Menu clicks: the page no longer changes at the click — the old (still live) page wraps up first, then the address changes and the new page unfolds"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Genie: the new page waits until it has finished drawing and starts 1.15 s after the click (just after the old page wrapped up), so it is no longer a picture of an empty page"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Menu bar no longer shifts between pages: every page now has the same frame (body margin 0, page padding moved into the page area, scrollbar space always kept)"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Scrollbars hidden sitewide (pages still scroll with wheel, touch, keys and drag)"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Genie page change removed; pages open as fast as possible (all pages are still pre-downloaded in the background)"},
     {"d":"2026-10-28","h":"","f":"nav","m":"Grid beams switched off sitewide; links no longer browser blue (they take the text colour, plain links the PMS deep gold)"},
     {"d":"2026-10-28","h":"","f":"home","m":"Home: full width, greeting removed, tall cards side by side (Today at a glance, Fakkul Ehraam, Delayed departures, Transport, Thaals); the details line under each count is gone; phones keep the stacked rows"},
     {"d":"2026-10-28","h":"","f":"occupancy","m":"Pax counts: step-by-step (where, year, what to count, which chart) with the current week always shown beside it, emojis and shaded tables"},
-    {"d":"2026-10-28","h":"","f":"occupancy","m":"Occupancy details: loads the totals first; the room-by-room tables of a building are worked out and drawn only when it is opened (the page no longer freezes)"}
+    {"d":"2026-10-28","h":"","f":"occupancy","m":"Occupancy details: loads the totals first; the room-by-room tables of a building are worked out and drawn only when it is opened (the page no longer freezes)"},
     {"d":"2026-10-28","h":"","f":"nav","m":"Grid page: the horizontal scrollbar is shown again so the wide matrix can be dragged sideways (scrollbars stay hidden elsewhere)"},
+    {"d":"2026-10-28","h":"","f":"transport","m":"Transport: the building a bus departs from is filled in from the group's slip (a building picked by hand is kept); Makkah buses to the airports are numbered from 11; Madina → Makkah buses default to 8:00 (editable)"},
+    {"d":"2026-10-28","h":"","f":"transport","m":"Transport: in Plan from check-outs, rows already on the list are grey and freshly ticked rows are green; the print summary starts with the bus number"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Tabs (Laundry admin and elsewhere): clearer text on the tab bar, the open tab in solid gold with white text"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"Room key cards: Print opens a page of its own with a fixed grid of compact cards (choose 4, 6, 9, 12, 16 or 20 per page), text wrapped to fit, margins 8 mm, no blank last page"}
 ];
 // the latest Cloudflare deploys (site = pms-web, api = pms-api); Cloudflare keeps only the last few
 export const DEPLOYS = [{"w":"site","at":"2026-10-25T18:15:45Z"},{"w":"api","at":"2026-10-25T18:15:21Z"},{"w":"site","at":"2026-10-25T17:37:52Z"},{"w":"site","at":"2026-10-25T17:36:55Z"},{"w":"api","at":"2026-10-25T17:36:32Z"},{"w":"site","at":"2026-10-24T17:21:24Z"},{"w":"site","at":"2026-10-24T17:05:15Z"},{"w":"site","at":"2026-10-24T17:03:04Z"},{"w":"site","at":"2026-10-24T16:56:42Z"},{"w":"site","at":"2026-10-24T16:51:01Z"},{"w":"site","at":"2026-10-24T16:49:53Z"},{"w":"site","at":"2026-10-24T11:48:33Z"},{"w":"api","at":"2026-10-24T06:36:31Z"},{"w":"api","at":"2026-10-23T18:12:12Z"},{"w":"api","at":"2026-10-23T17:45:29Z"},{"w":"api","at":"2026-10-23T17:24:14Z"},{"w":"api","at":"2026-10-22T15:34:33Z"},{"w":"api","at":"2026-10-22T05:26:36Z"},{"w":"api","at":"2026-10-21T01:48:08Z"},{"w":"api","at":"2026-10-21T01:26:36Z"}];

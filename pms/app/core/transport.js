@@ -187,6 +187,9 @@ export function resolve(rows) {
  * each on their own. With `prev` (the saved day): trips already there keep their number (stickers may be on the
  * buses) as long as the vehicle type is the same; new trips get the next free numbers after the highest in use.
  */
+/** Makkah's buses to the airports are numbered from 11 (cars, trains and every other destination count from 1). Destination ids are Makkah's own. */
+export const firstNo = (destId, kind = 'bus') => (kind === 'bus' && (destId === 'airport' || destId === 'madair') ? 11 : 1);
+
 export function assignBuses(rows, prev = []) {
     const before = new Map(prev.map(r => [r.key, r]));
     const prevInfo = resolve(prev);
@@ -204,7 +207,7 @@ export function assignBuses(rows, prev = []) {
             if (Number.isInteger(n) && n > 0 && !used.has(n)) { r.bus = n; r.bus_manual = !!old.bus_manual; used.add(n); }
             else fresh.push(r);
         }
-        let next = used.size ? Math.max(...used) + 1 : 1;
+        let next = used.size ? Math.max(...used) + 1 : firstNo(d.id, v);
         for (const r of fresh) { r.bus = next++; r.bus_manual = false; }
     }
     return rows;

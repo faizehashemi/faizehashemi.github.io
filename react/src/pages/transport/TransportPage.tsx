@@ -108,6 +108,32 @@ export default function TransportPage() {
         finally { savingRef.current = false; setSaving(false); }
     }
 
+    // the building a bus departs from comes from the group's slip; only a building the desk picked (or cleared) by hand is left alone
+    const filled = useRef('');
+    useEffect(() => {
+        if (!loaded || !writable || saving || !rows.length) return;
+        const sig = `${day}:${doc.version}`;
+        if (filled.current === sig) return;
+        filled.current = sig;
+        void (async () => {
+            let all: Row[];
+            try { all = await guard(db.all()); } catch { return; }
+            const live = all.filter(s => !s.deleted && s.building);
+            const slipOf = (ref: string) => {
+                const same = live.filter(s => String(s.sh_no).toUpperCase() === ref || ums.baseSh(s.sh_no) === ums.baseSh(ref));
+                return same.find(s => s.checkout_date === day || s.checkin_date === day) || same.sort((x, y) => String(y.checkin_date).localeCompare(String(x.checkin_date)))[0];
+            };
+            let n = 0;
+            const next = docRef.current.rows.map(r => {
+                if (r.building || r.building_set || info.get(r.key)?.parent || !r.ref) return r;
+                const s = slipOf(String(r.ref).toUpperCase());
+                if (!s) return r;
+                n++; return { ...r, building: String(s.building).trim() };
+            });
+            if (n) await save(next, `buildings filled from the slips (${n})`);
+        })();
+    }, [loaded, writable, saving, day, doc.version]);   // eslint-disable-line react-hooks/exhaustive-deps
+
     // ---- the day's check: an SH listed more than once ----
     const dupes = useMemo(() => {
         const by = new Map<string, Row[]>();
@@ -128,7 +154,7 @@ export default function TransportPage() {
         void save(rows.map(r => (r.key === key ? { ...r, bus: n, bus_manual: true } : r)), `bus ${n} for SH ${key}`);
     }
     function setFrom(key: string, building: string) {
-        void save(rows.map(r => (r.key === key ? (building ? { ...r, building } : (({ building: _b, ...x }) => x)(r)) : r)), `SH ${key} departs from ${building || '(none)'}`);
+        void save(rows.map(r => (r.key === key ? (building ? { ...r, building, building_set: true } : { ...(({ building: _b, ...x }) => x)(r), building_set: true }) : r)), `SH ${key} departs from ${building || '(none)'}`);
     }
     async function setVehicle(row: Row, value: string) {
         let to = value, label = '';
@@ -228,7 +254,7 @@ export default function TransportPage() {
         const n = (v: any) => Math.max(0, parseInt(v, 10) || 0);
         const m = n(slip.gents), f = n(slip.ladies), c = n(slip.children ?? slip.child) + n(slip.infants ?? slip.infant);
         const rms = ['gents', 'ladies'].flatMap(k => (slip.rooms?.[k] || []).map((x: Row) => String(x.room_no || '').trim()).filter(Boolean));
-        return { slip, add: { ref: String(slip.sh_no), operator: slip.tour_name || '', leader: String(slip.group_leader || '').trim(), m, f, c, pax: n(slip.total) || m + f + c, rooms: rms } };
+        return { slip, add: { ref: String(slip.sh_no), operator: slip.tour_name || '', leader: String(slip.group_leader || '').trim(), m, f, c, pax: n(slip.total) || m + f + c, rooms: rms, ...(slip.building ? { building: String(slip.building).trim() } : {}) } };
     }
     async function addSh(parent: Row) {
         const typed = String((await promptAsk({ title: `SH to add to the ${T.vehicleOf(parent)} of ${parent.ref ? `SH ${parent.ref}` : 'this vehicle'} (${T.time12(parent.at)})`, body: 'Several at once: separate them with a comma or a space.' })) || '');
@@ -292,12 +318,12 @@ export default function TransportPage() {
         const mains = rows.filter(r => info.get(r.key)?.dest === destId && !info.get(r.key)!.parent);
         const next = new Map<string, number>(), groups = new Map<string, Row[]>();
         for (const r of mains) (groups.get(kind(r)) ?? groups.set(kind(r), []).get(kind(r))!).push(r);
-        for (const list of groups.values()) list.sort((x, y) => x.at.localeCompare(y.at) || (x.bus ?? 1e9) - (y.bus ?? 1e9)).forEach((r, i) => next.set(r.key, i + 1));
+        for (const [k, list] of groups) list.sort((x, y) => x.at.localeCompare(y.at) || (x.bus ?? 1e9) - (y.bus ?? 1e9)).forEach((r, i) => next.set(r.key, T.firstNo(destId, k) + i));
         const moved = mains.filter(r => Number(r.bus) !== next.get(r.key));
         if (!moved.length) { setMsg('Already numbered by departure time.'); return; }
         const title = T.destsFor(siteId).find((d: Row) => d.id === destId)?.title || destId;
         if (!(await confirmAsk({
-            title: `Number the ${title} vehicles 1, 2, 3… by departure time?`, confirmLabel: 'Number them',
+            title: `Number the ${title} vehicles ${T.firstNo(destId)}, ${T.firstNo(destId) + 1}, ${T.firstNo(destId) + 2}… by departure time?`, confirmLabel: 'Number them',
             body: [...moved.slice(0, 12).map(r => `SH ${r.ref} · ${T.time12(r.at)}: ${r.bus ?? '—'} → ${next.get(r.key)}`), ...(moved.length > 12 ? [`… and ${moved.length - 12} more`] : []), '', 'Bus sheets already stuck on vehicles may no longer match. You can still type a number in afterwards.'].join('\n'),
         }))) return;
         await save(rows.map(r => (next.has(r.key) && Number(r.bus) !== next.get(r.key) ? { ...r, bus: next.get(r.key), bus_manual: false } : r)), `${title}: numbered by departure time (${moved.length} changed)`);
@@ -513,7 +539,7 @@ export default function TransportPage() {
 
 // + Bus under each destination: a vehicle made by hand (optionally with a first group by its SH)
 function AddBusForm({ dest, open, onOpen, onSubmit, busy }: { dest: Row; open: boolean; onOpen: (o: boolean) => void; onSubmit: (f: { time: string; veh: string; transporter: string; vch: string; sh: string }) => Promise<boolean>; busy: boolean }) {
-    const blank = { time: '', veh: 'bus', transporter: '', vch: '', sh: '' };
+    const blank = { time: dest.id === 'mdmakkah' ? '08:00' : '', veh: 'bus', transporter: '', vch: '', sh: '' };   // Madina → Makkah leaves at 8 am unless changed
     const [f, setF] = useState(blank);
     if (!open) return <div><Button size="sm" variant="outline" onClick={() => onOpen(true)}><Plus className="size-3.5" />Bus</Button></div>;
     const set = (k: keyof typeof blank) => (e: React.ChangeEvent<HTMLInputElement>) => setF(p => ({ ...p, [k]: e.target.value }));

@@ -11,6 +11,7 @@ import { dmy, natural } from '@/lib/format';
 import { useSlips } from '@/hooks/useSlips';
 import { useCore, useGuard, useSite } from '@/pms/PmsContext';
 import './key-cards.css';
+import { cardsSheet, LAYOUTS } from './sheet';
 
 // Room Key Cards (Rooms): the key cards given to the rooms of every group leaving on a day (one card per assigned bed) and how many came back.
 // Groups and rooms come from the slips (core/stay.js departuresOf — a delayed group leaves room by room, so only the rooms leaving that day
@@ -37,6 +38,8 @@ export default function KeyCardsPage() {
 
     const [day, setDay] = useState(ymd(new Date()));
     const [bld, setBld] = useState('all'), [find, setFind] = useState(''), [onlyOut, setOnlyOut] = useState(false);
+    const [layout, setLayout] = useState(() => { try { const v = localStorage.getItem('pms_kc_layout'); return LAYOUTS.some(l => l.id === v) ? v! : '3x3'; } catch { return '3x3'; } });
+    const pickLayout = (v: string) => { setLayout(v); try { localStorage.setItem('pms_kc_layout', v); } catch { /* not saved */ } };
     const [ret, setRet] = useState<Map<string, number>>(new Map());
     const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
     const pending = useRef(new Map<string, { slip_id: number; room_no: string; returned: number }>());
@@ -142,7 +145,14 @@ export default function KeyCardsPage() {
                             <SelectContent><SelectItem value="all">All buildings</SelectItem>{buildings.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
                     <div className="grid gap-1"><Label htmlFor="kcFind">Find</Label><Input id="kcFind" type="search" placeholder="Group, leader, SH, room" autoComplete="off" value={find} onChange={e => setFind(e.target.value)} /></div>
                     <div className="flex items-center gap-2 pb-2"><Checkbox id="kcOut" checked={onlyOut} onCheckedChange={v => setOnlyOut(v === true)} /><Label htmlFor="kcOut">Only cards still out</Label></div>
-                    <Button onClick={() => window.print()}><Printer className="size-4" />Print</Button>
+                    <div className="grid gap-1"><Label htmlFor="kcPer">Cards per page</Label>
+                        <Select value={layout} onValueChange={pickLayout}><SelectTrigger id="kcPer" className="min-w-44"><SelectValue /></SelectTrigger>
+                            <SelectContent>{LAYOUTS.map(l => <SelectItem key={l.id} value={l.id}>{l.label}</SelectItem>)}</SelectContent></Select></div>
+                    <Button disabled={!list.length} onClick={() => {
+                        const w = window.open('', '_blank');
+                        if (!w) { say('The browser blocked the print page — allow pop-ups for this site and try again.', true); return; }
+                        w.document.open(); w.document.write(cardsSheet({ day: dmy(day), layout, site: site.label, cards: list.map(g => ({ name: `${g.slip.tour_name || '—'}${g.slip.group_leader ? ` (${g.slip.group_leader})` : ''}`, pax: g.pax, sh: String(g.slip.sh_no || '—'), building: g.slip.building || '', at: hm(g.at), part: g.part, rooms: g.rooms })) })); w.document.close();
+                    }}><Printer className="size-4" />Print</Button>
                 </div>
             </header>
             {!writable && <p className="text-sm font-semibold text-muted-foreground print:hidden">View only — this login cannot record cards for {site.label}.</p>}
