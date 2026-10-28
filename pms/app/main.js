@@ -250,7 +250,7 @@ async function route() {
         if (seq === routeSeq) window.dispatchEvent(new CustomEvent('pms:route-done', { detail: { view: view.id, site: siteId, ok: opened } }));
     }
     if (unfold && opened && seq === routeSeq) {
-        try { await genie.play(outlet, go, 1); } catch { genie.reset(); }
+        try { await genie.ready(outlet, go); if (seq === routeSeq) await genie.play(outlet, go, 1); } catch { genie.reset(); }
         if (seq === routeSeq) outlet.style.visibility = '';
     }
     if (seq === routeSeq && desk) refreshBadge();

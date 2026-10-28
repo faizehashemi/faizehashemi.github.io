@@ -24,7 +24,7 @@ export function watchMenuClicks(outlet) {
         const a = path.find(n => n.tagName === 'A');
         if (!a) return;
         const r = a.getBoundingClientRect();
-        if (r.width) origin = { x: r.left + r.width / 2, y: r.bottom, at: performance.now() };
+        if (r.width) { const t = performance.now(); origin = { x: r.left + r.width / 2, y: r.bottom, at: t, t0: t }; }   // t0: when the menu was clicked
         const href = a.getAttribute('href') || '';
         if (!href.startsWith('#/') || href === location.hash || e.defaultPrevented || e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
         if (busy) { reset(outlet); busy = false; return; }                  // a second click while one runs: go there at once
@@ -42,6 +42,19 @@ export function watchMenuClicks(outlet) {
             setTimeout(() => { if (!overlays.size && !busy && outlet.style.visibility === 'hidden') outlet.style.visibility = ''; }, 6000);   // the router did not swap the page after all
         });
     }, true);
+}
+
+/**
+ * Before the new page unfolds: let it finish drawing (a page that has only just been handed to React is still empty, and a picture of an empty page
+ * is what made the new page seem to not show up), and never start sooner than 1.15 s after the click, i.e. just after the old page has wrapped up.
+ */
+export async function ready(el, o) {
+    const frame = () => new Promise(r => { requestAnimationFrame(() => r()); setTimeout(r, 120); });
+    const t = performance.now();
+    await frame(); await frame();
+    while (performance.now() - t < 1200 && (el.offsetHeight < 120 || !el.innerText.trim())) await new Promise(r => setTimeout(r, 50));
+    const wait = (o && o.t0 ? o.t0 + 1150 : 0) - performance.now();
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
 }
 
 /** The menu click that caused this page change (once), if it was just now. */
