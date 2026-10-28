@@ -19,9 +19,7 @@ import { watchForUpdates } from './core/update.js';
 import { startTelemetry } from './core/telemetry.js';
 import { startIssueReports } from './core/issue-report.js';
 import { reactPageOn, mountReact } from './react-bridge.js';
-import * as genie from './core/genie.js';
 startTelemetry(); // page timings → Performance page
-genie.watchMenuClicks();
 startIssueReports();  // the "Facing an issue?" button (a report with a picture of the screen goes to the Performance page)
 
 applyPrefs(); // this browser's Settings, before anything is drawn
@@ -179,10 +177,6 @@ async function route() {
     if (current?.key === key) return;
 
     const seq = ++routeSeq;
-    // a menu click: the old page goes up into the clicked item now, the new one pours out of it once it is ready (core/genie.js)
-    genie.reset(outlet);
-    const hadPage = !!(current && outlet.firstElementChild), go = genie.takeOrigin();
-    const suck = hadPage && go ? genie.play(outlet, go, -1) : null;
     const db = createDb(siteId);
     nav.hidden = !desk;
     if (desk) nav.setRoute(siteId, view.id, desk);
@@ -241,7 +235,6 @@ async function route() {
         if (typeof cleanup === 'function') {
             if (current === mine) mine.cleanup = cleanup; else cleanup();
         }
-        if (suck && seq === routeSeq) outlet.style.visibility = 'hidden';   // the picture plays instead (below, after the page counts as opened)
         opened = true;
     } catch (err) {
         console.error(err);
@@ -249,13 +242,8 @@ async function route() {
             <b>Could not open “${view.title}”.</b><br>${String(err && err.message || err)}</div>`;
     } finally {
         stopLoader();
-        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; if (!(opened && suck)) outlet.style.visibility = ''; }
+        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; }
         if (seq === routeSeq) window.dispatchEvent(new CustomEvent('pms:route-done', { detail: { view: view.id, site: siteId, ok: opened } }));
-    }
-    if (suck && opened && seq === routeSeq) {
-        await suck;
-        if (seq === routeSeq) await genie.play(outlet, go, 1);
-        if (seq === routeSeq) outlet.style.visibility = '';
     }
     if (seq === routeSeq && desk) refreshBadge();
 }
