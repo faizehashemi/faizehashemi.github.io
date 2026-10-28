@@ -2904,7 +2904,7 @@ function perfGroups(rows, keyOf) {
     for (const r of rows) { const k = keyOf(r) || '—'; if (!by.has(k)) by.set(k, []); by.get(k).push(r); }
     return [...by].map(([key, list]) => {
         const ms = list.map(r => r.ms_total).filter(x => x != null), srv = list.map(r => r.ms_server).filter(x => x != null);
-        return { key, n: list.length, p50: pct(ms, .5), p95: pct(ms, .95), server_p50: pct(srv, .5), calls: Math.round(list.reduce((s, r) => s + (r.server_calls || 0), 0) / list.length * 10) / 10 };
+        return { key, n: list.length, min: ms.length ? Math.min(...ms) : null, p10: pct(ms, .1), p25: pct(ms, .25), p50: pct(ms, .5), p75: pct(ms, .75), p95: pct(ms, .95), max: ms.length ? Math.max(...ms) : null, server_p50: pct(srv, .5), calls: Math.round(list.reduce((s, r) => s + (r.server_calls || 0), 0) / list.length * 10) / 10 };
     }).sort((a, b) => b.n - a.n);
 }
 

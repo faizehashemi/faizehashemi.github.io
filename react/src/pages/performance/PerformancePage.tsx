@@ -15,7 +15,7 @@ import { IssuesSection, type IssueRow } from './Issues';
 // Performance & feedback (Data, admins): page timings from every desk's browser (core/telemetry.js → perf_events) and the in-page feedback
 // (core/feedback.js → feedback). Server: GET /api/perf/summary, GET /api/feedback, PATCH /api/feedback/:id, GET /api/slip-denials.
 
-type Group = { key: string; n: number; p50?: number | null; p95?: number | null; server_p50?: number | null; calls?: number; errors?: number; stars?: number | null; ratings?: number };
+type Group = { key: string; n: number; min?: number | null; p10?: number | null; p25?: number | null; p75?: number | null; max?: number | null; p50?: number | null; p95?: number | null; server_p50?: number | null; calls?: number; errors?: number; stars?: number | null; ratings?: number };
 type Summary = {
     totals: { routes: number; desks: number; loads: number; p50?: number | null; p95?: number | null; errors: number; feedback: number; stars?: number | null };
     pages: Group[]; device: Group[]; browser: Group[]; net: Group[]; os: Group[]; app: Group[]; site_groups: Group[]; colo: Group[]; build: Group[]; day: Group[];
@@ -56,6 +56,56 @@ function GroupTable({ rows, label }: { rows: Group[]; label: string }) {
             <TableBody>{rows.map(g => (
                 <TableRow key={g.key}><TableCell>{g.key}</TableCell><TableCell className="text-right">{g.n}</TableCell>
                     <TableCell className={cn('text-right', toneClass(toneOf(g.p50)))}>{sec(g.p50)}</TableCell><TableCell className={cn('text-right', toneClass(toneOf(g.p95)))}>{sec(g.p95)}</TableCell><TableCell className="text-right">{sec(g.server_p50)}</TableCell></TableRow>
+            ))}</TableBody>
+        </Table>
+    );
+}
+
+// The Pages table: every column sorts, highest to lowest and back (click the heading again). Times in seconds.
+type PageCol = { id: string; label: string; get: (g: Group & { name: string }) => number | string | null | undefined; time?: boolean };
+const PAGE_COLS: PageCol[] = [
+    { id: 'name', label: 'Page', get: g => g.name },
+    { id: 'n', label: 'Opened', get: g => g.n },
+    { id: 'min', label: 'Fastest', get: g => g.min, time: true },
+    { id: 'p10', label: 'P10', get: g => g.p10, time: true },
+    { id: 'p25', label: 'P25', get: g => g.p25, time: true },
+    { id: 'p50', label: 'P50 (typical)', get: g => g.p50, time: true },
+    { id: 'p75', label: 'P75', get: g => g.p75, time: true },
+    { id: 'p95', label: 'P95 (slow)', get: g => g.p95, time: true },
+    { id: 'max', label: 'Worst', get: g => g.max, time: true },
+    { id: 'server', label: 'Server', get: g => g.server_p50, time: true },
+    { id: 'calls', label: 'Calls', get: g => g.calls },
+    { id: 'errors', label: 'Errors', get: g => g.errors ?? 0 },
+];
+function PagesTable({ rows, pageName }: { rows: Group[]; pageName: (id?: string) => string }) {
+    const [sort, setSort] = useState<{ id: string; dir: 1 | -1 }>({ id: 'n', dir: -1 });
+    const list = useMemo(() => {
+        const col = PAGE_COLS.find(c => c.id === sort.id)!;
+        return rows.map(g => ({ ...g, name: pageName(g.key) })).sort((x, y) => {
+            const a = col.get(x), b = col.get(y);
+            if (a == null && b == null) return 0;
+            if (a == null) return 1;          // empty cells always last
+            if (b == null) return -1;
+            return (typeof a === 'string' ? a.localeCompare(String(b)) : Number(a) - Number(b)) * sort.dir;
+        });
+    }, [rows, sort, pageName]);
+    if (!rows.length) return none;
+    return (
+        <Table>
+            <TableHeader><TableRow>{PAGE_COLS.map(c => (
+                <TableHead key={c.id} className={c.id === 'name' ? '' : 'text-right'} aria-sort={sort.id === c.id ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" className="inline-flex items-center gap-1 whitespace-nowrap font-semibold hover:text-primary" title="Sort highest to lowest, click again for lowest to highest"
+                        onClick={() => setSort(s => (s.id === c.id ? { id: c.id, dir: (-s.dir) as 1 | -1 } : { id: c.id, dir: c.id === 'name' ? 1 : -1 }))}>
+                        {c.label}<span className={cn('text-[10px]', sort.id === c.id ? 'text-primary' : 'text-muted-foreground/60')}>{sort.id === c.id ? (sort.dir === 1 ? '▲' : '▼') : '⇅'}</span>
+                    </button>
+                </TableHead>))}</TableRow></TableHeader>
+            <TableBody>{list.map(g => (
+                <TableRow key={g.key}>{PAGE_COLS.map(c => {
+                    const v = c.get(g);
+                    if (c.id === 'name') return <TableCell key={c.id}><b>{g.name}</b></TableCell>;
+                    if (c.time) return <TableCell key={c.id} className={cn('text-right', c.id !== 'server' && toneClass(toneOf(v as number | null)))}>{sec(v as number | null)}</TableCell>;
+                    return <TableCell key={c.id} className={cn('text-right', c.id === 'errors' && v ? 'text-destructive' : '')}>{v || (c.id === 'errors' ? '' : v)}</TableCell>;
+                })}</TableRow>
             ))}</TableBody>
         </Table>
     );
@@ -142,18 +192,7 @@ export default function PerformancePage() {
                 </section>
 
                 <Block title="Pages" note="time from the menu click until the page is drawn · typical (median) and slow (95th percentile) · server = time waiting for the server">
-                    {s.pages.length ? (
-                        <Table>
-                            <TableHeader><TableRow><TableHead>Page</TableHead><TableHead className="text-right">Opened</TableHead><TableHead className="text-right">Typical</TableHead><TableHead className="text-right">Slow (95%)</TableHead><TableHead className="text-right">Server</TableHead><TableHead className="text-right">Calls</TableHead><TableHead className="text-right">Errors</TableHead><TableHead className="text-right">Feedback</TableHead></TableRow></TableHeader>
-                            <TableBody>{s.pages.map(g => (
-                                <TableRow key={g.key}><TableCell><b>{pageName(g.key)}</b></TableCell><TableCell className="text-right">{g.n}</TableCell>
-                                    <TableCell className={cn('text-right', toneClass(toneOf(g.p50)))}>{sec(g.p50)}</TableCell><TableCell className={cn('text-right', toneClass(toneOf(g.p95)))}>{sec(g.p95)}</TableCell>
-                                    <TableCell className="text-right">{sec(g.server_p50)}</TableCell><TableCell className="text-right">{g.calls}</TableCell>
-                                    <TableCell className={cn('text-right', g.errors && 'text-destructive')}>{g.errors || ''}</TableCell>
-                                    <TableCell className="text-right">{g.stars != null ? <>{g.stars} ★ <small className="text-muted-foreground">({g.ratings})</small></> : ''}</TableCell></TableRow>
-                            ))}</TableBody>
-                        </Table>
-                    ) : none}
+                    <PagesTable rows={s.pages} pageName={pageName} />
                 </Block>
 
                 <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
