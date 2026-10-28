@@ -7,6 +7,9 @@ import { Toaster } from '@/components/ui/sonner';
 import { PmsProvider } from '@/pms/PmsContext';
 import type { PmsCtx, PageModule } from '@/pms/types';
 import './globals.css';
+import { startGridBeam } from '@/lib/gridBeam';
+
+startGridBeam();
 
 // one lazy chunk per page; a page appears here when it has been ported
 const PAGES: Record<string, () => Promise<PageModule>> = {

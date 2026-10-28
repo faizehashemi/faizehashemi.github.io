@@ -93,3 +93,7 @@
 .pms-react [data-variant="default"]:disabled { opacity: .5; }
 .pms-react [data-variant="secondary"] { background-color: #f4ead0; color: #5a4410; }
 .pms-react [data-variant="outline"] { color: #2b1e15; }
+
+/* grid beam canvas over a table (lib/gridBeam.ts) */
+.pms-beam { position: absolute; pointer-events: none; z-index: 1; }
+@media print { .pms-beam { display: none !important; } }
