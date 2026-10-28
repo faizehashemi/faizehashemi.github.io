@@ -85,14 +85,16 @@ function Chips({ title, pairs }: { title: string; pairs: [string, number][] }) {
 }
 
 export function DenialsSection({ list }: { list: Denial[] }) {
-    const [kind, setKind] = useState('all'), [desk, setDesk] = useState('all'), [find, setFind] = useState('');
+    const [kind, setKind] = useState('all'), [desk, setDesk] = useState('all'), [find, setFind] = useState(''), [earlier, setEarlier] = useState(false), [openId, setOpenId] = useState<number | null>(null);
+    const today = new Date().toDateString();
+    const isToday = (d: Denial) => new Date(d.at).toDateString() === today;
     const kinds = Object.keys(REASON).filter(k => list.some(d => kindsOf(d).includes(k)));
     const desks = [...new Set(list.map(d => d.desk))].sort();
     const shown = useMemo(() => {
         const f = find.trim().toUpperCase();
-        return list.filter(d => (kind === 'all' || kindsOf(d).includes(kind)) && (desk === 'all' || d.desk === desk)
+        return list.filter(d => (earlier || isToday(d)) && (kind === 'all' || kindsOf(d).includes(kind)) && (desk === 'all' || d.desk === desk)
             && (!f || String(d.sh_no || '').toUpperCase().includes(f) || `,${d.rooms || ''},`.toUpperCase().includes(`,${f},`)));
-    }, [list, kind, desk, find]);
+    }, [list, kind, desk, find, earlier]);   // eslint-disable-line react-hooks/exhaustive-deps
     const stale = list.filter(d => parse(d).copy?.synced === false).length;
     const capClash = list.filter(d => (parse(d).issues || []).some((x: any) => x.cap_source?.row && x.cap_source?.builder && x.cap_source.row !== x.cap_source.builder)).length;
 
@@ -106,6 +108,7 @@ export function DenialsSection({ list }: { list: Denial[] }) {
                 <Select value={desk} onValueChange={setDesk}><SelectTrigger className="w-36" aria-label="Login"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All logins</SelectItem>{desks.map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select>
                 <Input className="w-40" type="search" placeholder="SH or room" aria-label="Find SH or room" value={find} onChange={e => setFind(e.target.value)} />
+                <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={earlier} onChange={e => setEarlier(e.target.checked)} />Show earlier days{list.some(x => !isToday(x)) ? ` (${list.filter(x => !isToday(x)).length})` : ''}</label>
             </div>
             {list.length > 0 && (
                 <div className="grid gap-2 rounded-lg bg-muted p-3">
@@ -117,20 +120,21 @@ export function DenialsSection({ list }: { list: Denial[] }) {
                 </div>
             )}
             {shown.length ? (
-                <div className="grid gap-1.5">
-                    {shown.map(d => (
-                        <details key={d.id} className="rounded-lg border bg-card" onToggle={undefined}>
-                            <summary className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 p-2.5 text-sm">
-                                <span className="text-muted-foreground">{when(d.at)}</span> <b>{d.desk}</b> <small className="text-muted-foreground">{SITE[d.site || ''] || d.site || ''}</small>
-                                · {ACTION[d.action] || d.action} · SH <b>{d.sh_no || '—'}</b>{d.slip_id && <small className="text-muted-foreground">#{d.slip_id}</small>} · {d.building || '—'}
-                                {kindsOf(d).map(k => <Badge key={k} variant="destructive">{REASON[k] || k}</Badge>)}
-                                {d.rooms && <small className="text-muted-foreground">rooms {d.rooms.split(',').join(', ')}</small>}
-                            </summary>
-                            <DetailLazy row={d} />
-                        </details>
-                    ))}
+                <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                        <TableHeader><TableRow><TableHead>When</TableHead><TableHead>Login</TableHead><TableHead>Site</TableHead><TableHead>Action</TableHead><TableHead>SH</TableHead><TableHead>Building</TableHead><TableHead>Rooms</TableHead><TableHead>Why</TableHead></TableRow></TableHeader>
+                        <TableBody>{shown.map(x => [
+                            <TableRow key={x.id} className="cursor-pointer" onClick={() => setOpenId(openId === x.id ? null : x.id)}>
+                                <TableCell className="whitespace-nowrap">{when(x.at)}</TableCell><TableCell><b>{x.desk}</b></TableCell><TableCell>{SITE[x.site || ''] || x.site || ''}</TableCell><TableCell>{ACTION[x.action] || x.action}</TableCell>
+                                <TableCell><b>{x.sh_no || '—'}</b>{x.slip_id && <small className="ml-1 text-muted-foreground">#{x.slip_id}</small>}</TableCell><TableCell>{x.building || '—'}</TableCell>
+                                <TableCell className="whitespace-normal">{(x.rooms || '').split(',').filter(Boolean).join(', ')}</TableCell>
+                                <TableCell className="whitespace-normal"><span className="flex flex-wrap gap-1">{kindsOf(x).map(k => <Badge key={k} variant="destructive">{REASON[k] || k}</Badge>)}</span></TableCell>
+                            </TableRow>,
+                            openId === x.id && <TableRow key={`${x.id}-d`}><TableCell colSpan={8} className="whitespace-normal p-0"><Detail row={x} /></TableCell></TableRow>,
+                        ])}</TableBody>
+                    </Table>
                 </div>
-            ) : <p className="text-sm text-muted-foreground">{list.length ? 'None match.' : 'No refused slip saves in this period.'}</p>}
+            ) : <p className="text-sm text-muted-foreground">{list.length ? (earlier ? 'None match.' : 'No refused saves today — tick “Show earlier days” to see the rest.') : 'No refused slip saves in this period.'}</p>}
         </section>
     );
 }

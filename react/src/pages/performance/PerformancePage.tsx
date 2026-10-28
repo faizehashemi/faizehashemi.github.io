@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -96,6 +97,11 @@ export default function PerformancePage() {
     const t = s?.totals;
     const den = data.data?.denials ?? [];
     const dayMax = Math.max(1, ...(s?.day ?? []).map(d => d.p50 || 0));
+    // add-ons of another site (Cloudflare's visitor counter, stopped by ad blockers) are not PMS errors
+    const errs = (s?.errors ?? []).filter(e => !/cloudflareinsights/i.test(e.err || ''));
+    const newIssues = (data.data?.issues ?? []).filter(i => i.status === 'new').length;
+    const newFb = fb.filter(f => f.status === 'new').length;
+    const denToday = den.filter(d => new Date(d.at).toDateString() === new Date().toDateString()).length;
 
     return (
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
@@ -117,6 +123,15 @@ export default function PerformancePage() {
             {s && !s.totals.routes && <p className="text-sm text-muted-foreground">No page timings yet — they arrive as desks use the PMS (sent every few minutes).</p>}
 
             {s && t && <>
+                <Tabs defaultValue="overview" className="gap-3">
+                    <TabsList className="h-auto w-full justify-start">
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="issues">Issues{newIssues ? ` (${newIssues} new)` : ''}</TabsTrigger>
+                        <TabsTrigger value="refused">Refused saves{denToday ? ` (${denToday} today)` : ''}</TabsTrigger>
+                        <TabsTrigger value="feedback">Feedback{newFb ? ` (${newFb} new)` : ''}</TabsTrigger>
+                        <TabsTrigger value="errors">Errors{errs.length ? ` (${errs.length})` : ''}</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="overview" className="grid gap-3">
                 <section className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
                     <Kpi label="Pages opened" value={t.routes} sub={`${t.desks} login${t.desks === 1 ? '' : 's'} · ${t.loads} full loads`} />
                     <Kpi label="Typical page" value={sec(t.p50)} sub="median, menu click → page drawn" tone={toneOf(t.p50)} />
@@ -140,10 +155,6 @@ export default function PerformancePage() {
                         </Table>
                     ) : none}
                 </Block>
-
-                <Card><CardContent><IssuesSection list={data.data?.issues ?? []} onStatus={(id, status) => qc.setQueryData(['perf', days, site], (old: any) => old && ({ ...old, issues: old.issues.map((x: IssueRow) => x.id === id ? { ...x, status } : x) }))} /></CardContent></Card>
-
-                <Card><CardContent><DenialsSection list={den} /></CardContent></Card>
 
                 <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <Block title="By device"><GroupTable rows={s.device} label="Device" /></Block>
@@ -178,6 +189,16 @@ export default function PerformancePage() {
                     </div>
                 </Block>
 
+                    </TabsContent>
+                    <TabsContent value="issues">
+                <Card><CardContent><IssuesSection list={data.data?.issues ?? []} onStatus={(id, status) => qc.setQueryData(['perf', days, site], (old: any) => old && ({ ...old, issues: old.issues.map((x: IssueRow) => x.id === id ? { ...x, status } : x) }))} /></CardContent></Card>
+
+                    </TabsContent>
+                    <TabsContent value="refused">
+                <Card><CardContent><DenialsSection list={den} /></CardContent></Card>
+
+                    </TabsContent>
+                    <TabsContent value="feedback">
                 <Card>
                     <CardHeader><CardTitle className="flex flex-wrap items-center gap-2 text-base">Feedback
                         <span className="ml-auto flex flex-wrap gap-2">
@@ -185,32 +206,39 @@ export default function PerformancePage() {
                             <Select value={fbStatus} onValueChange={setFbStatus}><SelectTrigger className="w-32" aria-label="Status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Any status</SelectItem><SelectItem value="new">New</SelectItem><SelectItem value="seen">Seen</SelectItem><SelectItem value="handled">Handled</SelectItem></SelectContent></Select>
                             <Select value={fbPage} onValueChange={setFbPage}><SelectTrigger className="w-40" aria-label="Page"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All pages</SelectItem>{fbPages.map(p => <SelectItem key={p} value={p}>{pageName(p)}</SelectItem>)}</SelectContent></Select>
                         </span></CardTitle></CardHeader>
-                    <CardContent className="grid gap-2">
-                        {fbList.length ? fbList.map(f => (
-                            <article key={f.id} className={cn('grid gap-1.5 rounded-lg border bg-white p-3', f.rating <= 2 && 'border-destructive/40', f.rating >= 4 && 'border-ok/40', f.status === 'handled' && 'opacity-70')}>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                    <span className="text-gold">{stars(f.rating)}</span><b>{pageName(f.page)}</b>
-                                    <small className="text-muted-foreground">{when(f.at)} · {f.desk || ''}{f.site ? ` · ${f.site === 'medina' ? 'Medina' : 'Makkah'}` : ''} · {f.trigger === 'after-save' ? 'after a save' : 'while on the page'}</small>
-                                    <Select value={f.status} onValueChange={status => setStatus.mutate({ id: f.id, status })}><SelectTrigger className="ml-auto h-8 w-28" aria-label="Status"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{['new', 'seen', 'handled'].map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select>
-                                </div>
-                                {f.tags && <div className="flex flex-wrap gap-1">{f.tags.split(', ').map(x => <Badge key={x} variant="secondary">{x}</Badge>)}</div>}
-                                {f.text && <p className="whitespace-pre-wrap text-sm">{f.text}</p>}
-                                <small className="text-muted-foreground">{[f.page_ms != null ? `page took ${sec(f.page_ms)}` : '', f.device, f.browser, f.net_type, f.colo && `${f.colo} (${f.country || '?'})`, f.build && `build ${f.build}`].filter(Boolean).join(' · ')}</small>
-                            </article>
-                        )) : <p className="text-sm text-muted-foreground">No feedback matches.</p>}
-                        {setStatus.isError && <p className="text-sm text-destructive">Could not save.</p>}
+                    <CardContent className="overflow-x-auto p-0">
+                        {fbList.length ? (
+                            <Table>
+                                <TableHeader><TableRow><TableHead>When</TableHead><TableHead>Stars</TableHead><TableHead>Page</TableHead><TableHead>Login</TableHead><TableHead>Status</TableHead><TableHead>Tags</TableHead><TableHead>Comment</TableHead><TableHead>Details</TableHead></TableRow></TableHeader>
+                                <TableBody>{fbList.map(f => (
+                                    <TableRow key={f.id} className={cn(f.status === 'handled' && 'opacity-70')}>
+                                        <TableCell className="whitespace-nowrap">{when(f.at)}</TableCell><TableCell className="whitespace-nowrap text-gold">{stars(f.rating)}</TableCell><TableCell><b>{pageName(f.page)}</b></TableCell>
+                                        <TableCell className="whitespace-nowrap">{f.desk || ''}{f.site ? <small className="ml-1 text-muted-foreground">{f.site === 'medina' ? 'Medina' : 'Makkah'}</small> : ''}<small className="block text-muted-foreground">{f.trigger === 'after-save' ? 'after a save' : 'on the page'}</small></TableCell>
+                                        <TableCell><Select value={f.status} onValueChange={status => setStatus.mutate({ id: f.id, status })}><SelectTrigger className="h-8 w-28" aria-label="Status"><SelectValue /></SelectTrigger>
+                                            <SelectContent>{['new', 'seen', 'handled'].map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></TableCell>
+                                        <TableCell className="whitespace-normal">{f.tags ? <span className="flex flex-wrap gap-1">{f.tags.split(', ').map(x => <Badge key={x} variant="secondary">{x}</Badge>)}</span> : ''}</TableCell>
+                                        <TableCell className="max-w-[28rem] whitespace-pre-wrap">{f.text || ''}</TableCell>
+                                        <TableCell className="whitespace-normal text-xs text-muted-foreground">{[f.page_ms != null ? `took ${sec(f.page_ms)}` : '', f.device, f.browser, f.net_type, f.colo && `${f.colo} (${f.country || '?'})`, f.build && `build ${f.build}`].filter(Boolean).join(' · ')}</TableCell>
+                                    </TableRow>
+                                ))}</TableBody>
+                            </Table>
+                        ) : <p className="p-3 text-sm text-muted-foreground">No feedback matches.</p>}
+                        {setStatus.isError && <p className="p-3 text-sm text-destructive">Could not save.</p>}
                     </CardContent>
                 </Card>
 
+                    </TabsContent>
+                    <TabsContent value="errors">
                 <Block title="Recent errors" note="pages that could not open and script errors, newest first">
-                    {s.errors.length ? (
+                    {errs.length ? (
                         <Table>
                             <TableHeader><TableRow><TableHead>When</TableHead><TableHead>Page</TableHead><TableHead>Error</TableHead><TableHead>Login</TableHead><TableHead>Device</TableHead></TableRow></TableHeader>
-                            <TableBody>{s.errors.map((e, i) => <TableRow key={i}><TableCell className="whitespace-nowrap">{when(e.at)}</TableCell><TableCell>{pageName(e.page)}</TableCell><TableCell className="break-all font-mono text-xs text-destructive">{e.err}</TableCell><TableCell>{e.desk}</TableCell><TableCell>{[e.device, e.browser].filter(Boolean).join(' · ')}</TableCell></TableRow>)}</TableBody>
+                            <TableBody>{errs.map((e, i) => <TableRow key={i}><TableCell className="whitespace-nowrap">{when(e.at)}</TableCell><TableCell>{pageName(e.page)}</TableCell><TableCell className="break-all font-mono text-xs text-destructive">{e.err}</TableCell><TableCell>{e.desk}</TableCell><TableCell>{[e.device, e.browser].filter(Boolean).join(' · ')}</TableCell></TableRow>)}</TableBody>
                         </Table>
                     ) : <p className="p-3 text-sm text-muted-foreground">No errors in this period. 🎉</p>}
                 </Block>
+                    </TabsContent>
+                </Tabs>
             </>}
         </div>
     );

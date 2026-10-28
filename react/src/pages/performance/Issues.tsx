@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCore, useGuard } from '@/pms/PmsContext';
 
 // Performance → "Issue reports": what the desks sent with "Facing an issue?" (core/issue-report.js → POST /api/issues) — their words, a picture of their screen
@@ -46,21 +47,34 @@ function Detail({ row, onStatus }: { row: IssueRow; onStatus: (s: string) => voi
 }
 
 export function IssuesSection({ list, onStatus }: { list: IssueRow[]; onStatus: (id: number, status: string) => void }) {
-    const [status, setStatus] = useState('all'), [page, setPage] = useState('all');
+    const [status, setStatus] = useState('open'), [page, setPage] = useState('all'), [showHandled, setShowHandled] = useState(false), [openId, setOpenId] = useState<number | null>(null);
     const pages = useMemo(() => [...new Set(list.map(i => i.page).filter(Boolean))].sort() as string[], [list]);
-    const rows = list.filter(i => (status === 'all' || i.status === status) && (page === 'all' || i.page === page));
+    // new and seen only, unless "Show handled" is ticked
+    const rows = list.filter(i => (showHandled || i.status !== 'handled') && (status === 'open' || i.status === status) && (page === 'all' || i.page === page));
+    const hidden = list.length - list.filter(i => i.status !== 'handled').length;
     return (
         <div className="grid gap-2">
-            <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">Issue reports</h2><span className="text-xs text-muted-foreground">sent from the “Facing an issue?” button — with a picture of the desk's screen and the details needed to debug it</span>
-                <span className="ml-auto flex gap-2">
-                    <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Any status</SelectItem><SelectItem value="new">New</SelectItem><SelectItem value="seen">Seen</SelectItem><SelectItem value="handled">Handled</SelectItem></SelectContent></Select>
+            <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">Issue reports</h2><span className="text-xs text-muted-foreground">from the “Facing an issue?” button — click a row for the picture and the details</span>
+                <span className="ml-auto flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={showHandled} onChange={e => setShowHandled(e.target.checked)} />Show handled{hidden ? ` (${hidden})` : ''}</label>
+                    <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="open">New + seen</SelectItem><SelectItem value="new">New</SelectItem><SelectItem value="seen">Seen</SelectItem><SelectItem value="handled">Handled</SelectItem></SelectContent></Select>
                     <Select value={page} onValueChange={setPage}><SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All pages</SelectItem>{pages.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select></span></div>
-            {rows.length ? rows.map(i => (
-                <details key={i.id} className="rounded-lg border bg-card p-2">
-                    <summary className="cursor-pointer text-sm"><span className="text-muted-foreground">{when(i.at)}</span> <b>{i.desk}</b> <small>{SITE[i.site || ''] || i.site || ''}</small> · {i.page || '—'} · <small>{i.device} {i.viewport}</small> {i.has_shot ? '📷 ' : ''}
-                        <Badge variant={i.status === 'new' ? 'destructive' : 'outline'}>{i.status}</Badge> — {i.text.slice(0, 110)}{i.text.length > 110 ? '…' : ''}</summary>
-                    <div className="mt-2"><Detail row={i} onStatus={s => onStatus(i.id, s)} /></div></details>))
-                : <p className="text-sm text-muted-foreground">{list.length ? 'None match.' : 'No issue reports in this period.'}</p>}
+            {rows.length ? (
+                <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                        <TableHeader><TableRow><TableHead>#</TableHead><TableHead>When</TableHead><TableHead>Login</TableHead><TableHead>Site</TableHead><TableHead>Page</TableHead><TableHead>Device</TableHead><TableHead>Status</TableHead><TableHead>Report</TableHead></TableRow></TableHeader>
+                        <TableBody>{rows.map(i => [
+                            <TableRow key={i.id} className="cursor-pointer" onClick={() => setOpenId(openId === i.id ? null : i.id)}>
+                                <TableCell>{i.id}</TableCell><TableCell className="whitespace-nowrap">{when(i.at)}</TableCell><TableCell><b>{i.desk}</b></TableCell><TableCell>{SITE[i.site || ''] || i.site || ''}</TableCell><TableCell>{i.page || '—'}</TableCell>
+                                <TableCell className="whitespace-nowrap">{i.device} <small className="text-muted-foreground">{i.viewport}</small> {i.has_shot ? '📷' : ''}</TableCell>
+                                <TableCell><Badge variant={i.status === 'new' ? 'destructive' : 'outline'}>{i.status}</Badge></TableCell>
+                                <TableCell className="max-w-[34rem] whitespace-normal">{i.text.slice(0, 140)}{i.text.length > 140 ? '…' : ''}</TableCell>
+                            </TableRow>,
+                            openId === i.id && <TableRow key={`${i.id}-d`}><TableCell colSpan={8} className="whitespace-normal bg-muted/30"><Detail row={i} onStatus={s => onStatus(i.id, s)} /></TableCell></TableRow>,
+                        ])}</TableBody>
+                    </Table>
+                </div>
+            ) : <p className="text-sm text-muted-foreground">{list.length ? 'Nothing new or seen — tick “Show handled” to see the rest.' : 'No issue reports in this period.'}</p>}
         </div>
     );
 }
