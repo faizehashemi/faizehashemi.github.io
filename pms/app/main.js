@@ -20,7 +20,7 @@ import { startIssueReports } from './core/issue-report.js';
 import { reactPageOn, mountReact, preloadReact } from './react-bridge.js';
 import * as genie from './core/genie.js';
 startTelemetry(); // page timings → Performance page
-genie.watchMenuClicks();
+genie.watchMenuClicks(document.getElementById('view'));
 startIssueReports();  // the "Facing an issue?" button (a report with a picture of the screen goes to the Performance page)
 
 applyPrefs(); // this browser's Settings, before anything is drawn
@@ -181,7 +181,7 @@ async function route() {
     // a menu click: the old page is wrapped up into the clicked item now, the new one is genied out of it once it is ready (core/genie.js)
     genie.reset(outlet);
     const hadPage = !!(current && outlet.firstElementChild), go = genie.takeOrigin();
-    const suck = hadPage && go ? genie.play(outlet, go, -1).catch(() => { }) : null;
+    const unfold = hadPage && go;   // the old page was already wrapped up before the address changed (genie.watchMenuClicks)
     const db = createDb(siteId);
     nav.hidden = !desk;
     if (desk) nav.setRoute(siteId, view.id, desk);
@@ -239,18 +239,18 @@ async function route() {
         if (typeof cleanup === 'function') {
             if (current === mine) mine.cleanup = cleanup; else cleanup();
         }
-        if (suck && seq === routeSeq) outlet.style.visibility = 'hidden';   // the picture plays instead (below, after the page counts as opened)
+        if (unfold && seq === routeSeq) outlet.style.visibility = 'hidden';   // the picture plays instead (below, after the page counts as opened)
         opened = true;
     } catch (err) {
         console.error(err);
         outlet.innerHTML = `<div style="max-width:720px;margin:40px auto;padding:16px;border:1px solid #e6bcbc;background:#fff1f1;border-radius:12px;font:14px system-ui">
             <b>Could not open “${view.title}”.</b><br>${String(err && err.message || err)}</div>`;
     } finally {
-        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; if (!(opened && suck)) outlet.style.visibility = ''; }
+        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; if (!(opened && unfold)) outlet.style.visibility = ''; }
         if (seq === routeSeq) window.dispatchEvent(new CustomEvent('pms:route-done', { detail: { view: view.id, site: siteId, ok: opened } }));
     }
-    if (suck && opened && seq === routeSeq) {
-        try { await suck; if (seq === routeSeq) await genie.play(outlet, go, 1); } catch { genie.reset(); }
+    if (unfold && opened && seq === routeSeq) {
+        try { await genie.play(outlet, go, 1); } catch { genie.reset(); }
         if (seq === routeSeq) outlet.style.visibility = '';
     }
     if (seq === routeSeq && desk) refreshBadge();

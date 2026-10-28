@@ -10,16 +10,37 @@ const ease = (t) => t * t * (3 - 2 * t);
 
 let origin = null, overlays = new Set();
 
-/** Remember which menu item was clicked (viewport coordinates of its bottom centre). */
-export function watchMenuClicks() {
+let busy = false;
+
+/**
+ * Menu clicks: the page does NOT change at the click. The old page (still the live one) is wrapped up into the clicked item first; only when that has
+ * finished does the address change, the router swap the page, and the new page unfold out of the same item. Back / forward, reload, modified clicks
+ * (new tab), the laundry kiosk, reduced motion and a click while one is already running change page at once, as before.
+ */
+export function watchMenuClicks(outlet) {
     document.addEventListener('click', (e) => {
         const path = e.composedPath ? e.composedPath() : [];
         if (!path.some(n => n.tagName === 'SITE-NAV')) { origin = null; return; }
         const a = path.find(n => n.tagName === 'A');
-        if (!a || (!a.dataset.view && !a.classList.contains('brand') && !a.dataset.cat)) return;
+        if (!a) return;
         const r = a.getBoundingClientRect();
-        if (!r.width) return;
-        origin = { x: r.left + r.width / 2, y: r.bottom, at: performance.now() };
+        if (r.width) origin = { x: r.left + r.width / 2, y: r.bottom, at: performance.now() };
+        const href = a.getAttribute('href') || '';
+        if (!href.startsWith('#/') || href === location.hash || e.defaultPrevented || e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        if (busy) { reset(outlet); busy = false; return; }                  // a second click while one runs: go there at once
+        if (!allowed() || !outlet.firstElementChild) return;
+        const o = origin;
+        const wrap = play(outlet, o, -1, true);
+        if (!wrap) return;                                                   // nothing to play (too heavy …): the normal change of page
+        e.preventDefault();
+        busy = true;
+        wrap.catch(() => { }).then(() => {
+            if (!busy) return;                                               // reset by a newer click
+            busy = false;
+            origin = { ...o, at: performance.now() };                         // the router reads it for the unfolding
+            location.hash = href;
+            setTimeout(() => { if (!overlays.size && !busy && outlet.style.visibility === 'hidden') outlet.style.visibility = ''; }, 6000);   // the router did not swap the page after all
+        });
     }, true);
 }
 
@@ -64,35 +85,37 @@ function snapshot(el) {
 }
 
 /**
- * dir = -1: the page goes up into (ox, oy); dir = 1: it comes out of it. Resolves when it has settled (or at once when it cannot play).
- * `el` stays where it is; the caller hides it (visibility) while a picture of it plays.
+ * dir = -1: the page goes up into (ox, oy); dir = 1: it comes out of it. Returns a promise that resolves when it has settled (at once when it cannot
+ * play). With `live`, the live page is hidden while its picture plays and the result is null when there is nothing to play.
  */
-export function play(el, o, dir) {
+export function play(el, o, dir, live = false) {
+    const none = () => (live ? null : Promise.resolve());
+    if (!o || !allowed() || !el.offsetHeight) return none();
+    const rect = el.getBoundingClientRect();
+    const startY = dir < 0 ? Math.max(0, -rect.top) : 0;                    // the old page is shown from where it was scrolled to
+    const H = Math.min(el.offsetHeight - startY, innerHeight * 1.1);
+    if (H < 60) return none();
+    const snap = snapshot(el);
+    if (!snap) return none();
+    const tpl = snap.el;
+    // a page full of data is copied once per slice, so it gets fewer slices than a light one
+    const n = clamp(Math.floor(NODE_BUDGET / Math.max(1, snap.nodes)), 10, innerWidth < 700 ? 14 : 22), hs = H / n, W = el.offsetWidth;
+    const box = document.createElement('div');
+    box.setAttribute('aria-hidden', 'true');
+    box.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top + startY}px;width:${W}px;height:${H}px;z-index:50;pointer-events:none;`;
+    const ox = o.x - rect.left, oy = o.y - (rect.top + startY);
+    const slices = [];
+    for (let i = 0; i < n; i++) {
+        const s = document.createElement('div');
+        s.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${hs + 0.5}px;overflow:hidden;transform-origin:0 0;will-change:transform;`;
+        const inner = document.createElement('div');
+        inner.style.cssText = `position:absolute;left:0;top:${-(startY + i * hs)}px;width:${W}px;`;
+        inner.appendChild(i ? tpl.cloneNode(true) : tpl);
+        s.appendChild(inner); box.appendChild(s); slices.push(s);
+    }
+    document.body.appendChild(box); overlays.add(box);
+    if (live) el.style.visibility = 'hidden';                               // the picture stands in for the live page while it plays
     return new Promise((done) => {
-        if (!o || !allowed() || !el.offsetHeight) return done();
-        const rect = el.getBoundingClientRect();
-        const startY = dir < 0 ? Math.max(0, -rect.top) : 0;                  // the old page is shown from where it was scrolled to
-        const H = Math.min(el.offsetHeight - startY, innerHeight * 1.1);
-        if (H < 60) return done();
-        const snap = snapshot(el);
-        if (!snap) return done();
-        const tpl = snap.el;
-        // a page full of data is copied once per slice, so it gets fewer slices than a light one
-        const n = clamp(Math.floor(NODE_BUDGET / Math.max(1, snap.nodes)), 10, innerWidth < 700 ? 14 : 22), hs = H / n, W = el.offsetWidth;
-        const box = document.createElement('div');
-        box.setAttribute('aria-hidden', 'true');
-        box.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top + startY}px;width:${W}px;height:${H}px;z-index:50;pointer-events:none;`;
-        const ox = o.x - rect.left, oy = o.y - (rect.top + startY);
-        const slices = [];
-        for (let i = 0; i < n; i++) {
-            const s = document.createElement('div');
-            s.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${hs + 0.5}px;overflow:hidden;transform-origin:0 0;will-change:transform;`;
-            const inner = document.createElement('div');
-            inner.style.cssText = `position:absolute;left:0;top:${-(startY + i * hs)}px;width:${W}px;`;
-            inner.appendChild(i ? tpl.cloneNode(true) : tpl);
-            s.appendChild(inner); box.appendChild(s); slices.push(s);
-        }
-        document.body.appendChild(box); overlays.add(box);
         const secs = dir < 0 ? DUR_OUT : DUR_IN, t0 = performance.now();
         const finish = () => { box.remove(); overlays.delete(box); done(); };
         setTimeout(() => { if (overlays.has(box)) finish(); }, (secs + 1.5) * 1000);   // never leave a picture behind (a tab that stopped drawing)
