@@ -31,7 +31,9 @@ export default function SlipPage() {
     const prefs = prefsLib.getPrefs() as Row;
     const use24 = (timefmt as any).use24() as boolean;
 
-    const [mods, setMods] = useState<{ picker: any; modal: any; hist: any; tele: any } | null>(null);
+    const [mods, setMods] = useState<{ picker: any; modal: any; hist: any; tele: any; itin: any } | null>(null);
+    const [extras, setExtras] = useState<Row[]>([]);   // the stops a desk added to the trip (slip.trip_extra), saved with Edit / Save
+    const [stopDraft, setStopDraft] = useState({ after: '-1', place: '', in_date: '', in_time: '', out_date: '', out_time: '', note: '' });
     const [form, setForm] = useState<Form>(emptyForm());
     const [gents, setGents] = useState<RoomRow[]>([newRow()]), [ladies, setLadies] = useState<RoomRow[]>([newRow()]);
     const [delay, setDelay] = useState<Delay>(emptyDelay());
@@ -54,14 +56,14 @@ export default function SlipPage() {
     // ---- boot ----
     useEffect(() => {
         void (async () => {
-            const [picker, modal, hist, tele] = await Promise.all([loadApp('views/slip/room-picker.js'), loadApp('views/slip/checkmodal.js'), loadApp('views/slip/history.js'), loadCore('telemetry')]);
+            const [picker, modal, hist, tele, itin] = await Promise.all([loadApp('views/slip/room-picker.js'), loadApp('views/slip/checkmodal.js'), loadApp('views/slip/history.js'), loadCore('telemetry'), loadCore('itinerary')]);
             try { const s = (await guard<any>(st.loadSettings())).settings; const pf = s.sh_prefixes || st.DEFAULTS.sh_prefixes; setShCfg({ prefixes: pf, re: st.shPattern(pf), hold: Number(s.delay_hold_days) || st.DEFAULTS.delay_hold_days }); } catch { /* defaults */ }
             const b = await guard<Row[]>(R.loadBuildings()); setBuildings(b); bldRef.current = b;
             // this browser's defaults for a new slip (Settings → Slip page)
             setForm(f => ({ ...f, building: prefs.slipDefaultBuilding || '', checkin_time: prefs.slipCheckinTime || '', checkout_time: prefs.slipCheckoutTime || '' }));
             if (db.readonly) setStatus(db.readonlyReason);
             await refreshCache();
-            setMods({ picker, modal, hist, tele });
+            setMods({ picker, modal, hist, tele, itin });
         })();
     }, []);   // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
@@ -98,14 +100,15 @@ export default function SlipPage() {
     function load(data: Row) {
         loadedRooms.current = new Set(['gents', 'ladies'].flatMap(side => (data.rooms?.[side] || []).map((x: Row) => roomKey(side, x.room_no, x.building || data.building))));
         const f = formFrom(data);
+        setExtras(Array.isArray(data.trip_extra) ? data.trip_extra : []);
         setForm(f.form); setDelay(f.delay); setGents(f.gents.length ? f.gents : [newRow()]); setLadies(f.ladies.length ? f.ladies : [newRow()]); setConflicts(new Set()); setOkFill(new Set());
     }
     function clearForm() {
         setCurrentId(null); setUnlocked(false); loadedRooms.current = new Set();
         setForm({ ...emptyForm(), building: prefs.slipDefaultBuilding || '', checkin_time: prefs.slipCheckinTime || '', checkout_time: prefs.slipCheckoutTime || '' });
-        setDelay(emptyDelay()); setGents([newRow()]); setLadies([newRow()]); setConflicts(new Set()); setOkFill(new Set()); setStays([]);
+        setDelay(emptyDelay()); setGents([newRow()]); setLadies([newRow()]); setConflicts(new Set()); setOkFill(new Set()); setStays([]); setExtras([]);
     }
-    const data = () => formData(form, gents, ladies, delay);
+    const data = () => ({ ...formData(form, gents, ladies, delay), ...(extras.length || rec?.trip_extra?.length ? { trip_extra: extras } : {}) });
 
     // ---- delayed departure ----
     const fillOuts = (date: string, time: string, status: string, onlyBlank: boolean) => {
@@ -399,6 +402,50 @@ export default function SlipPage() {
                 <div className="help no-print">Use <b>Fetch capacity data</b> after you enter room numbers. Unknown rooms show capacity placeholder <b>“unassigned.”</b><br />Use <b>Check room availability</b> to catch conflicts before saving.</div>
 
                 {held && <div id="umsHeld" className="ums-held no-print" role="alert">UMS wants {ums.wantedText(rec, held)}, but that would overfill a room: {ums.heldText(held)}. The dates were not changed. Move a group to another room (Pick rooms) — the next UMS import applies the new dates by itself.</div>}
+                {mods && (() => {
+                    const trip = mods.itin.tripOf({ ...(rec || { ...data(), site: siteId }), trip_extra: extras }, dbCache);
+                    if (trip.legs.length < 2 && !extras.length && !loaded) return null;
+                    const fmtW = (x: Row | null) => (x ? mods.itin.when(x) : '');
+                    const own = (l: Row) => (l.own && !l.here ? l.own : null);
+                    const addStop = () => {
+                        const d = stopDraft;
+                        if (!d.place.trim()) return;
+                        setExtras(x => [...x, { after: Number(d.after), place: d.place.trim(), in_date: d.in_date, in_time: d.in_time, out_date: d.out_date, out_time: d.out_time, note: d.note.trim() }]);
+                        setStopDraft(v => ({ ...v, place: '', in_date: '', in_time: '', out_date: '', out_time: '', note: '' }));
+                    };
+                    return (
+                        <section id="tripBox" className="trip no-print">
+                            <h3>Trip — {trip.route} <small>{trip.cities}</small></h3>
+                            <ol className="trip-list">
+                                {trip.stops.map((s: Row, i: number) => (
+                                    <li key={i} className={s.here ? 'here' : ''}>
+                                        <b>{s.label}</b> {s.extra && <em>added stop</em>}
+                                        <span>{fmtW(s.in) || '—'} → {fmtW(s.out) || '—'}</span>
+                                        {s.building && <span>{s.building}</span>}
+                                        {s.here && <em>this slip</em>}
+                                        {own(s) && <button type="button" className="linkish" onClick={() => { setCurrentId(own(s).id); setUnlocked(false); load(own(s)); setStatus(`Loaded SH ${own(s).sh_no} (#${own(s).id})`); }}>open this stay</button>}
+                                        {!s.extra && !s.own && <em>the other site&apos;s slip</em>}
+                                    </li>
+                                ))}
+                            </ol>
+                            {extras.length > 0 && <div className="trip-extra">{extras.map((x, i) => (
+                                <span key={i} className="chip">{x.place}{x.in_date ? ` · ${x.in_date}` : ''} <button type="button" aria-label={`Remove stop ${x.place}`} onClick={() => setExtras(v => v.filter((_, k) => k !== i))}>✕</button></span>
+                            ))}</div>}
+                            {!db.readonly && <div className="trip-add">
+                                <select aria-label="Where the stop goes" value={stopDraft.after} onChange={e => setStopDraft(v => ({ ...v, after: e.target.value }))}>
+                                    <option value="-1">above {trip.legs[0]?.label}</option>
+                                    {trip.legs.map((l: Row, i: number) => <option key={i} value={i}>{i === trip.legs.length - 1 ? `below ${l.label}` : `between ${l.label} and ${trip.legs[i + 1].label}`}</option>)}
+                                </select>
+                                <input placeholder="Stop (place)" value={stopDraft.place} onChange={e => setStopDraft(v => ({ ...v, place: e.target.value }))} />
+                                <input type="date" aria-label="In date" value={stopDraft.in_date} onChange={e => setStopDraft(v => ({ ...v, in_date: e.target.value }))} /><input type="time" aria-label="In time" value={stopDraft.in_time} onChange={e => setStopDraft(v => ({ ...v, in_time: e.target.value }))} />
+                                <input type="date" aria-label="Out date" value={stopDraft.out_date} onChange={e => setStopDraft(v => ({ ...v, out_date: e.target.value }))} /><input type="time" aria-label="Out time" value={stopDraft.out_time} onChange={e => setStopDraft(v => ({ ...v, out_time: e.target.value }))} />
+                                <input placeholder="Note (optional)" value={stopDraft.note} onChange={e => setStopDraft(v => ({ ...v, note: e.target.value }))} />
+                                <button type="button" onClick={addStop}>Add stop</button>
+                            </div>}
+                            <p className="muted">Stays at this site come from its slips; a stay at the other site shows only its dates. Added stops are saved with Edit and appear on the itinerary letter.</p>
+                        </section>
+                    );
+                })()}
                 <div className="controls no-print">
                     <button id="btnNew" onClick={() => { clearForm(); setStatus('New blank slip'); }}>New Slip</button>
                     <button id="btnSave" title={loaded && !unlocked ? 'This slip is already saved — use Edit to change it (New Slip to start another)' : 'Save as a new slip'} className={unlocked ? 'btn-warn' : ''} disabled={(loaded && !unlocked) || !!db.readonly || busy} onClick={() => void save()}>Save</button>

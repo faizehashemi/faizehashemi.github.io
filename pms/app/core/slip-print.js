@@ -5,6 +5,7 @@
 //                             or copy as an image for the group leader
 // The Print page keeps its own stylesheet; other pages get SLIP_CSS (scoped to .pms-slips).
 
+import { tripOf, itineraryHTML, ITINERARY_CSS } from './itinerary.js';
 import { loadScript } from './lib.js';
 import { loadSettings, DEFAULTS } from './settings.js';
 import { getPrefs } from './prefs.js';
@@ -143,13 +144,24 @@ export function printSlips(recs, opts = {}) {
     const w = window.open('', '_blank');
     if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print slips again.'); return; }
     const title = `Slips${opts.title ? ' — ' + opts.title : ''}`;
-    const sheets = recs.map(rec => { const rows = rowsFor(rec); return `<div class="sheet">${slipHTML(rec, rows)}${slipHTML(rec, rows)}</div>`; }).join('');
+    // opts.itinerary = this site's slips: every slip is followed by its itinerary letter. Every page is A4 (the slip's A5 sits at the top of a dummy A4 page,
+    // the letter fills one), so slips on A5 paper and letters on A4 paper can be loaded in the tray one after the other.
+    const withIt = Array.isArray(opts.itinerary);
+    const sheets = recs.map(rec => {
+        const rows = rowsFor(rec);
+        const pair = `<div class="sheet">${slipHTML(rec, rows)}${slipHTML(rec, rows)}</div>`;
+        return withIt ? `<div class="pg slip-pg">${pair}</div><div class="pg">${itineraryHTML(tripOf(rec, opts.itinerary))}</div>` : pair;
+    }).join('');
     w.document.open();
     w.document.write(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
 ${SLIP_CSS}
-@page { size: A5 landscape; margin: 6mm; }
+${withIt ? ITINERARY_CSS : ''}
+@page { size: ${withIt ? 'A4 portrait; margin: 0' : 'A5 landscape; margin: 6mm'}; }
+.pg { width: 210mm; height: 297mm; overflow: hidden; break-after: page; page-break-after: always; }
+.pg:last-child { break-after: auto; page-break-after: auto; }
+.slip-pg .sheet { padding: 6mm; height: 148mm; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: #fff; }
 body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -163,12 +175,14 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #e9e6df; }
   /* each page as it will print: A5 landscape */
   .sheet { width: 210mm; min-height: 148mm; padding: 6mm; margin: 10mm auto; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+  .pg { margin: 10mm auto; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+  .pg .sheet { margin: 0; box-shadow: none; }
 }
 @media print { .bar { display: none; } }
 </style></head>
 <body class="pms-slips">
 <div class="bar"><button type="button" onclick="window.print()">Print</button>
-<span>${recs.length} slip${recs.length === 1 ? '' : 's'} · A5 landscape, two copies per page · choose paper size A5 and orientation Landscape if the printer asks</span></div>
+<span>${recs.length} slip${recs.length === 1 ? '' : 's'} · ${withIt ? 'each slip (A5, two copies, at the top of an A4 page) is followed by its A4 itinerary' : 'A5 landscape, two copies per page · choose paper size A5 and orientation Landscape if the printer asks'}</span></div>
 ${sheets}
 <script>
 window.addEventListener('load', function () {

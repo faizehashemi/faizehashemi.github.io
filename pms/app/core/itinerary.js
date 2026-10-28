@@ -1,0 +1,153 @@
+// The group's itinerary: the stays of one UMS trip in order (Makkah → Medina → Makkah …), worked out from the slips of this site and what the import
+// stored on them (ums.itinerary, arrival, departure), plus the stops a desk added by hand (slip.trip_extra). Each site keeps its own slips, so a stay at the
+// other site is known only by its dates, taken from the neighbouring stays; the stays of this site always come from the slips themselves (the PMS wins).
+// itineraryHTML() draws the A4 letter.
+
+import { SITES, UMS } from '../config.js';
+import { shiftTime } from './settings.js';
+import { byRoad, baseSh } from './ums.js';
+
+const CITY_LABEL = { MAKKAH: 'Makkah', MADINA: 'Medina' };
+const SITE_CITY = (site) => SITES[site]?.umsCity || String(site || '').toUpperCase();
+const norm = (s) => String(s ?? '').trim();
+
+/** "2 Umra", "1 Umra 1 Medina", "1 Medina 1 Umra", "Makkah only", "Medina only"; any other order is the plain city order. */
+export function routeName(cities) {
+    const k = cities.join('>');
+    if (k === 'MAKKAH>MADINA>MAKKAH') return '2 Umra';
+    if (k === 'MAKKAH>MADINA') return '1 Umra 1 Medina';
+    if (k === 'MADINA>MAKKAH') return '1 Medina 1 Umra';
+    if (k === 'MAKKAH') return 'Makkah only';
+    if (k === 'MADINA') return 'Medina only';
+    return cities.map(c => CITY_LABEL[c] || c).join(' → ');
+}
+export const routeCities = (cities) => cities.map(c => CITY_LABEL[c] || c).join(' → ');
+
+const slipSite = (s) => s.site || String(s.ums?.key || '').split('|')[1] || '';
+
+/**
+ * @param slip  the slip the letter is for
+ * @param all   every slip of this site (db.all())
+ * @returns the trip: route, group, pax, arrival / departure, `stops` (own stays and added stops in order) and `legs` (the UMS stays only)
+ */
+export function tripOf(slip, all = [], cfg = UMS) {
+    const u = slip.ums || null;
+    const site = slipSite(slip);
+    const myCity = SITE_CITY(site);
+    const cities = u?.itinerary ? String(u.itinerary).split('→').map(c => c.trim()).filter(Boolean) : [myCity];
+    const mine = u?.ref ? all.filter(s => !s.deleted && s.ums?.ref === u.ref && slipSite(s) === site).sort((a, b) => (a.ums.seg || 1) - (b.ums.seg || 1)) : [slip];
+    if (!mine.some(s => s.id === slip.id)) mine.push(slip);
+
+    const seen = {};
+    const legs = cities.map(city => {
+        seen[city] = (seen[city] || 0) + 1;
+        const own = city === myCity ? (u ? mine.find(s => (s.ums?.seg || 1) === seen[city]) : slip) : null;
+        return { city, label: CITY_LABEL[city] || city, own: own || null, here: !!own && own.id === slip.id };
+    });
+    const A = u?.arrival && (byRoad(u.arrival) ? { date: u.arrival.date, time: u.arrival.time } : shiftTime(u.arrival.date, u.arrival.time, +cfg.arrivalCommuteHours));
+    const D = u?.departure && (byRoad(u.departure) ? { date: u.departure.date, time: u.departure.time } : shiftTime(u.departure.date, u.departure.time, -cfg.departureLeadHours));
+    const at = (date, time) => (date ? { date, time: time || '' } : null);
+    legs.forEach((l, i) => {
+        const prev = legs[i - 1], next = legs[i + 1];
+        l.in = l.own ? at(l.own.checkin_date, l.own.checkin_time) : i === 0 ? A || null : prev?.own ? at(prev.own.checkout_date, cfg.transferCheckinTime) : null;
+        l.out = l.own ? at(l.own.checkout_date, l.own.checkout_time) : i === legs.length - 1 ? D || null : next?.own ? at(next.own.checkin_date, cfg.transferCheckoutTime) : null;
+        l.building = l.own ? norm(l.own.building) : '';
+    });
+
+    // the desk's own stops: after = -1 puts one above the first stay, after = i below stay i
+    const extras = (Array.isArray(slip.trip_extra) ? slip.trip_extra : []).filter(x => norm(x.place));
+    const stops = [];
+    const addExtras = (after) => extras.filter(x => (Number.isInteger(x.after) ? x.after : legs.length - 1) === after)
+        .forEach(x => stops.push({ extra: true, label: norm(x.place), in: at(x.in_date, x.in_time), out: at(x.out_date, x.out_time), note: norm(x.note), building: '' }));
+    addExtras(-1);
+    legs.forEach((l, i) => { stops.push(l); addExtras(i); });
+
+    const n = (v) => Math.max(0, parseInt(v, 10) || 0);
+    const pax = { gents: n(slip.gents), ladies: n(slip.ladies), children: n(slip.children), infants: n(slip.infants), total: n(slip.total) };
+    if (!pax.total) pax.total = pax.gents + pax.ladies + pax.children + pax.infants;
+    return {
+        route: routeName(cities), cities: routeCities(cities), legs, stops, pax,
+        name: norm(slip.tour_name), leader: norm(slip.group_leader), sh: norm(baseSh(slip.sh_no) || slip.sh_no),
+        arrival: u?.arrival || null, departure: u?.departure || null, depFrom: legs.at(-1)?.label || '',
+        hasMakkah: cities.includes('MAKKAH'),
+    };
+}
+
+/* --------------------------------- the letter --------------------------------- */
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "Tue, 27 Oct 2026 · 4:45 PM" — the date and the time as one value */
+export function when(x) {
+    if (!x?.date) return '';
+    const [y, m, d] = x.date.split('-').map(Number);
+    const day = `${DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}, ${d} ${MONTHS[m - 1]} ${y}`;
+    const t = String(x.time || '').match(/^(\d{1,2}):(\d{2})/);
+    if (!t) return day;
+    const h = Number(t[1]);
+    return `${day} · ${h % 12 || 12}:${t[2]} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+export const ITINERARY_CSS = `
+.itin { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #2b2217; width: 210mm; height: 297mm; padding: 16mm 17mm 12mm; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+.itin * { box-sizing: border-box; }
+.itin .brand { text-align: center; padding-bottom: 5mm; border-bottom: 2px solid #d4af37; }
+.itin .brand b { display: block; font-size: 22pt; letter-spacing: .14em; color: #7a5a10; font-weight: 800; }
+.itin .brand span { font-size: 10pt; letter-spacing: .2em; text-transform: uppercase; color: #8a7a5c; }
+.itin .route { margin: 6mm 0 4mm; display: flex; align-items: baseline; justify-content: space-between; gap: 6mm; flex-wrap: wrap; }
+.itin .route h1 { margin: 0; font-size: 21pt; color: #2b2217; }
+.itin .route p { margin: 0; font-size: 12pt; color: #7a5a10; font-weight: 700; }
+.itin .who { background: #fbf4e0; border-radius: 3mm; padding: 4mm 5mm; display: grid; grid-template-columns: 1fr auto; gap: 1mm 6mm; }
+.itin .who .name { font-size: 15pt; font-weight: 800; }
+.itin .who .sub { font-size: 10.5pt; color: #6b5e4a; }
+.itin .who .sub b { color: #2b2217; font-size: 11.5pt; }
+.itin .who .sh { text-align: right; font-size: 10pt; color: #6b5e4a; }
+.itin .who .sh b { display: block; font-size: 18pt; color: #7a5a10; }
+.itin h2 { font-size: 9.5pt; letter-spacing: .16em; text-transform: uppercase; color: #8a7a5c; margin: 6mm 0 2.5mm; font-weight: 700; }
+.itin .tl { position: relative; margin-left: 3mm; padding-left: 8mm; border-left: 2px solid #e6d6a8; display: grid; gap: 4mm; }
+.itin .st { position: relative; }
+.itin .st::before { content: ""; position: absolute; left: -10.1mm; top: 1.4mm; width: 4mm; height: 4mm; border-radius: 50%; background: #d4af37; border: 1.2mm solid #fff; box-shadow: 0 0 0 1px #d4af37; }
+.itin .st.fly::before { background: #fff; }
+.itin .st.add::before { background: #fff; box-shadow: 0 0 0 1px #b9a77a; }
+.itin .st .k { font-size: 9.5pt; color: #8a7a5c; letter-spacing: .04em; }
+.itin .st .t { font-size: 14pt; font-weight: 800; color: #2b2217; }
+.itin .st .t small { font-size: 10pt; font-weight: 600; color: #7a5a10; margin-left: 2mm; }
+.itin .row { display: flex; gap: 7mm; flex-wrap: wrap; margin-top: 1mm; }
+.itin .row div { min-width: 0; }
+.itin .row span { display: block; font-size: 8.5pt; color: #8a7a5c; text-transform: uppercase; letter-spacing: .08em; }
+.itin .row b { font-size: 12.5pt; font-weight: 800; color: #1f1a12; }
+.itin .note { font-size: 10pt; color: #6b5e4a; margin-top: 1mm; }
+.itin .pax { display: grid; grid-template-columns: repeat(5, 1fr); background: #fbf4e0; border-radius: 3mm; overflow: hidden; }
+.itin .pax div { padding: 3.5mm 2mm; text-align: center; }
+.itin .pax div + div { border-left: 1px solid #f0e2b6; }
+.itin .pax span { display: block; font-size: 8.5pt; color: #8a7a5c; text-transform: uppercase; letter-spacing: .08em; }
+.itin .pax b { font-size: 17pt; color: #2b2217; }
+.itin .pax div.tot b { color: #7a5a10; }
+.itin .foot { margin-top: auto; padding-top: 5mm; border-top: 1px solid #ecdfb8; font-size: 10pt; color: #5c503a; line-height: 1.5; text-align: center; }
+.itin .foot b { color: #2b2217; }
+`;
+
+/** One A4 letter (a `.itin` block; put ITINERARY_CSS on the page). */
+export function itineraryHTML(trip) {
+    const p = trip.pax;
+    const fly = (title, leg, label, extra = '') => leg ? `<div class="st fly"><div class="k">${esc(title)}</div>
+        <div class="row">${leg.flight ? `<div><span>${esc(label)}</span><b>${esc(leg.flight.replace(/\s*-\s*$/, ''))}</b></div>` : ''}<div><span>Date &amp; time</span><b>${esc(when(leg))}</b></div>${extra}</div></div>` : '';
+    const stop = (s) => `<div class="st${s.extra ? ' add' : ''}"><div class="t">${esc(s.label)}${s.extra ? '' : '<small>stay</small>'}</div>
+        <div class="row">${s.in ? `<div><span>Check-in</span><b>${esc(when(s.in))}</b></div>` : ''}${s.out ? `<div><span>Check-out</span><b>${esc(when(s.out))}</b></div>` : ''}${s.building ? `<div><span>Building</span><b>${esc(s.building)}</b></div>` : ''}</div>
+        ${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}</div>`;
+    return `<section class="itin">
+  <div class="brand"><b>FAIZ E HASHEMI</b><span>Check-in letter &amp; schedule</span></div>
+  <div class="route"><h1>${esc(trip.route)}</h1><p>${esc(trip.cities)}</p></div>
+  <div class="who"><div class="name">${esc(trip.name || '—')}</div><div class="sh">SH Ref<b>${esc(trip.sh || '—')}</b></div>
+    <div class="sub">${trip.leader ? `Group leader <b>${esc(trip.leader)}</b>` : ''}</div></div>
+  <h2>Schedule</h2>
+  <div class="tl">
+    ${fly('Arrival', trip.arrival, 'Flight')}
+    ${trip.stops.map(stop).join('')}
+    ${fly('Departure', trip.departure, 'Flight', `${trip.depFrom ? `<div><span>Leaving</span><b>${esc(trip.depFrom)}</b></div>` : ''}${trip.departure?.port ? `<div><span>Airport</span><b>${esc(trip.departure.port)}</b></div>` : ''}`)}
+  </div>
+  <h2>Pax</h2>
+  <div class="pax"><div><span>Gents</span><b>${p.gents}</b></div><div><span>Ladies</span><b>${p.ladies}</b></div><div><span>Children</span><b>${p.children}</b></div><div><span>Infants</span><b>${p.infants}</b></div><div class="tot"><span>Total</span><b>${p.total}</b></div></div>
+  <div class="foot">${trip.hasMakkah ? 'Makkah Atraaf Ziyarat and Sabaq time will be informed later.<br>' : ''}<b>Please complete your checkout / Lawazim formalities at least 24 hours before your checkout date &amp; time.</b><br>Lawazim to be paid in Saudi Arabian Riyals only (cash or credit card).</div>
+</section>`;
+}

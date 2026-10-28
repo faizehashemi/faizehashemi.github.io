@@ -1,5 +1,5 @@
 // Ported from pms/print_slip_a5.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
-import { slipHTML, glColors, glColor } from '../../core/slip-print.js';
+import { slipHTML, glColors, glColor, printSlips } from '../../core/slip-print.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -101,7 +101,14 @@ const { db } = ctx;
         $('rows').addEventListener('change', renderSlips);
 
         // Plain Print: ensure no GL theming bleeds into it
-        $('btnPrint').addEventListener('click', () => { clearThemes(); GL_MODE_ACTIVE = false; window.print(); });
+        // "with itinerary": the slips and their A4 letters alternate, printed from a page of their own
+        const itinBox = $('withItin');
+        try { itinBox.checked = localStorage.getItem('pms_print_itin') === '1'; } catch { /* default off */ }
+        itinBox.addEventListener('change', () => { try { localStorage.setItem('pms_print_itin', itinBox.checked ? '1' : '0'); } catch { /* not saved */ } });
+        $('btnPrint').addEventListener('click', () => {
+            if (itinBox.checked) { printSlips(CURRENT, { itinerary: CACHE }); return; }
+            clearThemes(); GL_MODE_ACTIVE = false; window.print();
+        });
 
         // GL Copy: apply building-based colors just for this print, then restore
         $('btnGLCopy').addEventListener('click', async () => {

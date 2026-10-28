@@ -33,6 +33,8 @@ export default function CheckinsPage() {
     const { href } = useNav();
     const { prefs } = usePrefs();
     const slips = useSlips(120_000);
+    const [withIt, setWithIt] = useState(() => { try { return localStorage.getItem('pms_print_itin') === '1'; } catch { return false; } });
+    const pickIt = (v: boolean) => { setWithIt(v); try { localStorage.setItem('pms_print_itin', v ? '1' : '0'); } catch { /* not saved */ } };
     const [libs, setLibs] = useState<{ flights: any; slipPrint: any; colsMod: any } | null>(null);
     useEffect(() => { void Promise.all([loadCore('flights'), loadCore('slip-print'), loadCore('checkins-cols')]).then(([flights, slipPrint, colsMod]) => setLibs({ flights, slipPrint, colsMod })); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -191,7 +193,8 @@ export default function CheckinsPage() {
                         <Button size="sm" variant="outline" onClick={() => csv(kind)}><Download className="size-3.5" />Export CSV</Button>
                         <Button size="sm" variant="outline" onClick={() => printTable(kind)}><Printer className="size-3.5" />Print table</Button>
                         {may.print && libs && <>
-                            <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(rows, { title: `check-${kind}s ${rangeLabel}` })}>Print slips</Button>
+                            <label className="flex items-center gap-1.5 text-sm" title="Follow every slip with its A4 itinerary letter (slip on an A4 page, then the letter)"><input type="checkbox" checked={withIt} onChange={e => pickIt(e.target.checked)} />with itinerary</label>
+                            <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(rows, { title: `check-${kind}s ${rangeLabel}`, ...(withIt ? { itinerary: slips.data ?? [] } : {}) })}>Print slips</Button>
                             <Button size="sm" title="Each slip as an A5 picture to send to its group leader" onClick={() => libs.slipPrint.openGlCopies(rows, { title: `check-${kind}s ${rangeLabel}` })}>GL copy</Button></>}
                     </div></CardHeader>
                 <CardContent className="overflow-x-auto p-0">{renderTable(kind)}</CardContent>

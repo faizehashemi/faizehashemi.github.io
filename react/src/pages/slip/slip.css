@@ -399,3 +399,13 @@ tr.excl .excl-on { color: #5b2a8f; }
 /* Notes row: the text box takes the rest of the row (phone layout is a 4-column grid) */
 td:has(> #notes) { grid-column: 2 / -1; min-width: 0; }
 .ums-held { margin: 8px 0; padding: 10px 14px; border: 2px solid #c0392b; border-radius: 12px; background: #fde8e8; color: #7a1a12; font-weight: 700; }
+
+.trip { margin-top: 14px; padding: 10px 12px; border: 1px solid #e3d2b1; border-radius: 10px; background: #fffaf1; }
+.trip h3 { margin: 0 0 6px; font-size: 15px; } .trip h3 small { font-weight: 500; color: #6b5e4a; margin-left: 8px; }
+.trip-list { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.trip-list li span { margin-left: 10px; color: #4b4031; } .trip-list li em { margin-left: 8px; font-size: 11px; color: #7a5a10; font-style: normal; background: #f4e3b8; padding: 1px 7px; border-radius: 999px; }
+.trip-list li.here { font-weight: 700; }
+.trip-extra { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; } .trip-extra .chip { background: #f4e3b8; border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+.trip-extra .chip button { border: 0; background: none; cursor: pointer; }
+.trip-add { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.trip-add input, .trip-add select { padding: 4px 6px; }
