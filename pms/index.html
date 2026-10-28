@@ -34,6 +34,13 @@
         @media print { #view { min-height: 0 !important; } html, body { height: auto !important; } }
         /* the gold pattern of the Home page, behind every page (a page's own stylesheet may set the same) */
         html { color-scheme: only light; }
+        /* One fixed frame for the menu bar on every page: pages used to set their own body margin (Home 0, most 8px, Forecast / Slip 15px) and the bar moved
+           with it, and a page too short for a scrollbar made it widen. The margin is now the page area's padding, the scrollbar space is always kept. */
+        html { scrollbar-gutter: stable; }
+        body { margin: 0 !important; }
+        #view { padding: 8px; box-sizing: border-box; }
+        #view[data-view="home"], #view[data-view="laundry"], #view[data-view="login"] { padding: 0; }
+        #view[data-view="forecast"], #view[data-view="slip"] { padding: 15px; }
         body { background: #f7efe1 url("assets/pattern_gold_2x.png") repeat; background-size: 150px auto; }
     </style>
     <!-- after each page's own stylesheet (the router inserts those before this one) -->
