@@ -21,29 +21,44 @@ export function runForecast(o: { when: Date; building: string; mode: string; man
     const { when, building, mode, manualText, slips: DB, buildings: B, siteId } = o;
     const stay = o.stay as any, R = o.rooms as any;
 
+    // Two lookup tables, each built by ONE pass over the slips the first time it is needed (the page used to scan every slip again for every room):
+    // the capacities the slips quote for a room, and the beds each room keeps at this instant.
+    let capIndex: Map<string, Map<number, number>> | null = null;
+    const capFreq = (bld: string, room: string) => {
+        if (!capIndex) {
+            capIndex = new Map();
+            for (const rec of DB) {
+                const b = clean(rec.building);
+                const take = (x: Slip) => { const raw = clean(x.room_no); if (!raw) return; const c = toInt(x.capacity); if (c <= 0) return; const k = `${b}|${normRoom(raw)}`; const f = capIndex!.get(k) ?? capIndex!.set(k, new Map()).get(k)!; f.set(c, (f.get(c) || 0) + 1); };
+                (rec.rooms?.gents || []).forEach(take); (rec.rooms?.ladies || []).forEach(take);
+            }
+        }
+        return capIndex.get(`${bld}|${normRoom(room)}`);
+    };
+    let bedsIndex: Map<string, number> | null = null;
+    const bedsKey = (bld: string, room: string) => `${stay.normB(bld)}|${normRoom(room)}`;
+
     /* Integer capacity for a room, by majority vote across entries (no decimals) */
     const capacityFor = (bld: string, room: string) => {
         const fromBuilder = R.builderCapacity(B, bld, room);
         if (fromBuilder != null) return fromBuilder as number;
-        const target = normRoom(room), freq = new Map<number, number>();
-        for (const rec of DB) {
-            if (clean(rec.building) !== bld) continue;
-            const take = (x: Slip) => { const raw = clean(x.room_no); if (!raw || normRoom(raw) !== target) return; const c = toInt(x.capacity); if (c > 0) freq.set(c, (freq.get(c) || 0) + 1); };
-            (rec.rooms?.gents || []).forEach(take); (rec.rooms?.ladies || []).forEach(take);
-        }
-        if (!freq.size) return null;
+        const freq = capFreq(bld, room);
+        if (!freq || !freq.size) return null;
         let best: number | null = null, bn = -1;
         for (const [cap, cnt] of freq) if (cnt > bn || (cnt === bn && cap > (best ?? 0))) { best = cap; bn = cnt; }
         return best;
     };
     /* Beds a room keeps at this exact instant (snapshot): guests' beds, the whole room for an Exclusive row */
     const assignedNow = (bld: string, room: string) => {
-        const target = normRoom(room); let sum = 0;
-        for (const rec of DB) {
-            if (!stay.slipTouches(rec, bld)) continue;
-            for (const w of stay.rowsOf(rec) as Slip[]) if (stay.normB(w.building) === stay.normB(bld) && normRoom(w.room_no) === target && w.start <= +when && +when < w.end) sum += w.exclusive ? w.block : toInt(w.row.assigned);
+        if (!bedsIndex) {
+            bedsIndex = new Map();
+            for (const rec of DB) for (const w of stay.rowsOf(rec) as Slip[]) {
+                if (!(w.start <= +when && +when < w.end)) continue;
+                const k = bedsKey(w.building, w.room_no);
+                bedsIndex.set(k, (bedsIndex.get(k) || 0) + (w.exclusive ? w.block : toInt(w.row.assigned)));
+            }
         }
-        return sum;
+        return bedsIndex.get(bedsKey(bld, room)) || 0;
     };
     const inventoryRooms = (): string[] => {
         if (mode === 'manual') return unique(manualText.split(/[\n,]+/).map(s => clean(s)).filter(Boolean)).sort(byNum);
