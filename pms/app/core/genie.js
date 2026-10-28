@@ -2,7 +2,7 @@
 // It moves a picture of the page (the page cut into horizontal slices, each on its own delayed clock, which makes the narrow neck),
 // never the live page, so nothing on the page is touched. Only menu clicks start it; reload, back / forward, login, the laundry kiosk,
 // reduced-motion settings and very heavy pages (a clone with too many elements) simply change page as before.
-const DUR_OUT = 1, DUR_IN = 1, DELAY = 0.55, MAX_NODES = 6000, NODE_BUDGET = 40000, KEEP_ROWS = 14;
+const DUR_OUT = 1, DUR_IN = 1, DELAY = 0.55, MAX_NODES = 6000, NODE_BUDGET = 40000;
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 // the speed is logarithmic (a quick start, a long soft landing) and every slice follows an S-curve, so the fold is a curve, not a straight line
 const logEase = (t) => Math.log1p(12 * t) / Math.log1p(12);
@@ -39,12 +39,25 @@ export function reset(el) {
     if (el) el.style.visibility = '';
 }
 
-// a copy of the page with long tables cut short (only the top of the page is ever shown), or null when it is still too heavy
+// Only what is in the window is copied: whatever lies below the screen is left out, and whatever is above it is kept as an empty box of the same height
+// (so the visible part stays exactly where it is). Walks the live page and its copy side by side.
+function prune(orig, clone, vh) {
+    const oc = orig.children, cc = clone.children;
+    for (let i = Math.min(oc.length, cc.length) - 1; i >= 0; i--) {
+        const o = oc[i], c = cc[i], r = o.getBoundingClientRect();
+        if (!r.width && !r.height) continue;
+        if (r.top > vh + 40) c.remove();
+        else if (r.bottom < -40) { c.replaceChildren(); c.style.height = `${r.height}px`; c.style.overflow = 'hidden'; }
+        else if (o.children.length) prune(o, c, vh);
+    }
+}
+
+// a picture-ready copy of the page (only the part in the window), or null when it is still too heavy
 function snapshot(el) {
     const c = el.cloneNode(true);
     c.style.cssText = `position:absolute;left:0;top:0;width:${el.offsetWidth}px;margin:0;min-height:0;visibility:visible;`;
     c.querySelectorAll('canvas.pms-beam').forEach(n => n.remove());
-    c.querySelectorAll('tbody').forEach(tb => { while (tb.rows.length > KEEP_ROWS) tb.deleteRow(tb.rows.length - 1); });
+    prune(el, c, innerHeight);
     c.setAttribute('aria-hidden', 'true');
     const nodes = c.querySelectorAll('*').length;
     return nodes > MAX_NODES ? null : { el: c, nodes };
