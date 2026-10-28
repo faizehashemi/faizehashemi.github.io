@@ -3,10 +3,12 @@
 // stands still for people who asked the system for reduced motion, and is not printed. A very tall table gets the canvas only around the part in view.
 const SELECTOR = '.pms-react table[data-slot="table"], .pms-react table:not([class])';
 const MAX_H = 1800, FPS = 30;
+const SETTLE = 700;   // ms a table must keep its size before beams start
+let loaded = document.readyState === 'complete';
 const COLOR = '212, 175, 55';   // the PMS gold
 
 type Beam = { vertical: boolean; line: number; pos: number; speed: number; len: number };
-type Inst = { table: HTMLTableElement; canvas: HTMLCanvasElement; host: HTMLElement; vis: boolean; xs: number[]; ys: number[]; w: number; h: number; beams: Beam[]; last: number; dirty: boolean };
+type Inst = { table: HTMLTableElement; canvas: HTMLCanvasElement; host: HTMLElement; vis: boolean; xs: number[]; ys: number[]; w: number; h: number; beams: Beam[]; last: number; dirty: boolean; quiet: number; armed: boolean };
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const insts = new Map<HTMLTableElement, Inst>();
@@ -34,7 +36,7 @@ function measure(it: Inst) {
     }
     if (widest) for (const c of Array.from(widest.cells)) { const x = c.getBoundingClientRect().right - tr.left; if (x > 4 && x < w - 1) xs.push(x); }
     it.xs = xs; it.ys = ys;
-    const want = Math.max(2, Math.min(7, Math.round((w * h) / 90000)));
+    const want = Math.max(3, Math.min(10, Math.round((w * h) / 60000)));
     while (it.beams.length < want) it.beams.push(spawn(it, true));
     it.beams.length = want;
     it.dirty = false;
@@ -56,6 +58,9 @@ function frame(now: number) {
         if (now - it.last < 1000 / FPS) continue;
         const dt = Math.min(0.1, (now - (it.last || now)) / 1000);
         it.last = now;
+        // wait for the whole page and for the table to stop changing size (data arriving, fonts, the page jumping) before the first beam starts
+        if (!loaded || now < it.quiet) { if (it.armed) { it.armed = false; it.canvas.getContext('2d')?.clearRect(0, 0, it.canvas.width, it.canvas.height); } continue; }
+        if (!it.armed) { it.armed = true; it.beams = []; it.dirty = true; }
         if (it.dirty) measure(it);
         draw(it, dt);
     }
@@ -89,7 +94,7 @@ const io = new IntersectionObserver(entries => {
     for (const e of entries) { const it = insts.get(e.target as HTMLTableElement); if (it) { it.vis = e.isIntersecting; if (it.vis) it.dirty = true; } }
     kick();
 }, { rootMargin: '100px' });
-const ro = new ResizeObserver(entries => { for (const e of entries) { const it = insts.get(e.target as HTMLTableElement); if (it) it.dirty = true; } kick(); });
+const ro = new ResizeObserver(entries => { for (const e of entries) { const it = insts.get(e.target as HTMLTableElement); if (it) { it.dirty = true; it.quiet = performance.now() + SETTLE; } } kick(); });
 
 function attach(table: HTMLTableElement) {
     if (insts.has(table) || table.closest('.no-beam')) return;
@@ -100,7 +105,7 @@ function attach(table: HTMLTableElement) {
     canvas.className = 'pms-beam';
     canvas.setAttribute('aria-hidden', 'true');
     host.appendChild(canvas);
-    insts.set(table, { table, canvas, host, vis: false, xs: [], ys: [], w: 0, h: 0, beams: [], last: 0, dirty: true });
+    insts.set(table, { table, canvas, host, vis: false, xs: [], ys: [], w: 0, h: 0, beams: [], last: 0, dirty: true, quiet: performance.now() + SETTLE, armed: false });
     io.observe(table); ro.observe(table);
 }
 
@@ -127,5 +132,6 @@ export function startGridBeam() {
     window.addEventListener('scroll', () => { for (const it of insts.values()) if (it.vis) it.dirty = true; kick(); }, { passive: true });
     window.addEventListener('resize', () => { for (const it of insts.values()) it.dirty = true; kick(); });
     document.addEventListener('visibilitychange', kick);
+    if (!loaded) window.addEventListener('load', () => { loaded = true; for (const it of insts.values()) it.quiet = performance.now() + SETTLE; kick(); });
     reduce.addEventListener?.('change', () => { if (reduce.matches) for (const it of insts.values()) it.canvas.getContext('2d')?.clearRect(0, 0, it.canvas.width, it.canvas.height); else kick(); });
 }
