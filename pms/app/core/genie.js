@@ -2,7 +2,7 @@
 // It moves a picture of the page (the page cut into horizontal slices, each on its own delayed clock, which makes the narrow neck),
 // never the live page, so nothing on the page is touched. Only menu clicks start it; reload, back / forward, login, the laundry kiosk,
 // reduced-motion settings and very heavy pages (a clone with too many elements) simply change page as before.
-const DUR_OUT = 0.45, DUR_IN = 0.8, DELAY = 0.55, MAX_NODES = 1500, KEEP_ROWS = 40;
+const DUR_OUT = 1, DUR_IN = 1, DELAY = 0.55, MAX_NODES = 6000, NODE_BUDGET = 40000, KEEP_ROWS = 14;
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 // the speed is logarithmic (a quick start, a long soft landing) and every slice follows an S-curve, so the fold is a curve, not a straight line
 const logEase = (t) => Math.log1p(12 * t) / Math.log1p(12);
@@ -46,7 +46,8 @@ function snapshot(el) {
     c.querySelectorAll('canvas.pms-beam').forEach(n => n.remove());
     c.querySelectorAll('tbody').forEach(tb => { while (tb.rows.length > KEEP_ROWS) tb.deleteRow(tb.rows.length - 1); });
     c.setAttribute('aria-hidden', 'true');
-    return c.querySelectorAll('*').length > MAX_NODES ? null : c;
+    const nodes = c.querySelectorAll('*').length;
+    return nodes > MAX_NODES ? null : { el: c, nodes };
 }
 
 /**
@@ -60,9 +61,11 @@ export function play(el, o, dir) {
         const startY = dir < 0 ? Math.max(0, -rect.top) : 0;                  // the old page is shown from where it was scrolled to
         const H = Math.min(el.offsetHeight - startY, innerHeight * 1.1);
         if (H < 60) return done();
-        const tpl = snapshot(el);
-        if (!tpl) return done();
-        const n = innerWidth < 700 ? 14 : 22, hs = H / n, W = el.offsetWidth;
+        const snap = snapshot(el);
+        if (!snap) return done();
+        const tpl = snap.el;
+        // a page full of data is copied once per slice, so it gets fewer slices than a light one
+        const n = clamp(Math.floor(NODE_BUDGET / Math.max(1, snap.nodes)), 10, innerWidth < 700 ? 14 : 22), hs = H / n, W = el.offsetWidth;
         const box = document.createElement('div');
         box.setAttribute('aria-hidden', 'true');
         box.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top + startY}px;width:${W}px;height:${H}px;z-index:50;pointer-events:none;`;
