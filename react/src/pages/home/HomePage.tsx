@@ -153,20 +153,10 @@ export default function HomePage() {
             <style>{css}</style>
             <div ref={rootRef} className={`hm${N.isToday ? '' : ' travel'}`}>
                 <header className="hm-hero">
-                    <div className="hm-hello"><p className="hm-greet">Assalaamo Alaikum</p><h1>{part}, {desk?.name || 'friend'}</h1><p className="hm-praise">{dayPick(PRAISE, desk?.name || '')}</p></div>
+                    <div className="hm-hello"><h1>{part}, {desk?.name || 'friend'}</h1><p className="hm-praise">{dayPick(PRAISE, desk?.name || '')}</p></div>
                     <div className="hm-dates"><button type="button" className="hm-hijri" title="Open the calendar" onClick={() => void mods.cal.openCalendar({ host: rootRef.current, date: new Date() })}>{formatHijri(toHijri(now))}</button>
                         <div className="hm-greg">{now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div></div>
                 </header>
-
-                <section className="hm-section" aria-labelledby="hmTodayTitle">
-                    <div className="hm-head"><h2 id="hmTodayTitle">{N.isToday ? 'Today at a glance' : `${label} at a glance`}</h2><span className="hm-sub">Check-ins and check-outs from 03:00 {N.isToday ? 'today' : label} to 03:00 the next day · {site.label}</span></div>
-                    <div className="hm-stats">
-                        <a className="hm-stat in" id="stIn" href={cloud.canOpen('checkins', desk) ? href('checkins') : undefined}><span className="hm-ico" aria-hidden="true">🛬</span><b>{N.inPax}</b><span className="hm-lbl">Check-ins {label}</span><small>{groupsText(N.ins.length)} · {site.label}</small></a>
-                        <a className="hm-stat out" id="stOut" href={cloud.canOpen('checkins', desk) ? href('checkins') : undefined}><span className="hm-ico" aria-hidden="true">🧳</span><b>{N.outPax}</b><span className="hm-lbl">Check-outs {label}</span><small>{groupsText(N.outs.length)} · {site.label}</small></a>
-                        <button type="button" className="hm-stat mk" id="stMakkah" title={`See every group staying in ${CITY} now`} onClick={() => void openInHouse()}><span className="hm-ico" aria-hidden="true">{siteId === 'medina' ? '🕌' : '🕋'}</span><b>{N.mkPax}</b>
-                            <span className="hm-lbl">{N.isToday ? `Currently in ${CITY}` : `In ${CITY} ${label}`}</span><small>{N.isToday ? 'guests right now' : 'guests at 12:00'} · {groupsText(N.mk.length)}</small></button>
-                    </div>
-                </section>
 
                 <section className="hm-tt" id="hmTt" aria-label="Look at another day">
                     <div className="hm-tt-row">
@@ -183,11 +173,22 @@ export default function HomePage() {
                     {!N.isToday && <p className="hm-tt-note">Showing {new Date(`${viewDay}T12:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} — from the slips as they are now. Transport stays on today.</p>}
                 </section>
 
+                <div className="hm-board">
+                <section className="hm-mega glance" aria-labelledby="hmTodayTitle">
+                    <div className="hm-head"><h2 id="hmTodayTitle">{N.isToday ? 'Today at a glance' : `${label} at a glance`}</h2><span className="hm-sub">Check-ins and check-outs from 03:00 {N.isToday ? 'today' : label} to 03:00 the next day · {site.label}</span></div>
+                    <div className="hm-stats">
+                        <a className="hm-stat in" id="stIn" href={cloud.canOpen('checkins', desk) ? href('checkins') : undefined}><span className="hm-ico" aria-hidden="true">🛬</span><b>{N.inPax}</b><span className="hm-lbl">Check-ins {label}</span></a>
+                        <a className="hm-stat out" id="stOut" href={cloud.canOpen('checkins', desk) ? href('checkins') : undefined}><span className="hm-ico" aria-hidden="true">🧳</span><b>{N.outPax}</b><span className="hm-lbl">Check-outs {label}</span></a>
+                        <button type="button" className="hm-stat mk" id="stMakkah" title={`See every group staying in ${CITY} now`} onClick={() => void openInHouse()}><span className="hm-ico" aria-hidden="true">{siteId === 'medina' ? '🕌' : '🕋'}</span><b>{N.mkPax}</b>
+                            <span className="hm-lbl">{N.isToday ? `Currently in ${CITY}` : `In ${CITY} ${label}`}</span></button>
+                    </div>
+                </section>
+
                 <section className="hm-mega fe" aria-labelledby="hmFeTitle">
                     <div className="hm-head"><h2 id="hmFeTitle">🕋 Fakkul Ehraam counts{N.isToday ? '' : ` · ${label}`}</h2><span className="hm-sub">Arrivals in Makkah · tap a card for the groups</span></div>
                     <div className="hm-stats">{feTiles.map(([cls, key, ico, lbl, when, title]) => (
                         <button key={key} type="button" className={`hm-stat ${cls}`} onClick={() => { const w = N.fe[key]; list('makkah', title, `arrivals ${hm(w.from)} → ${hm(w.to)}`, w.items); }}>
-                            <span className="hm-ico" aria-hidden="true">{ico}</span><b>{N.fePax[key]}</b><span className="hm-lbl">{lbl}</span><small>{groupsText(N.fe[key].items.length)} · {when}</small></button>))}</div>
+                            <span className="hm-ico" aria-hidden="true">{ico}</span><b>{N.fePax[key]}</b><span className="hm-lbl">{lbl}</span></button>))}</div>
                 </section>
 
                 <section className="hm-mega dl" aria-labelledby="hmDlTitle" hidden={!dl && !dlWas ? true : !dl}>
@@ -199,7 +200,7 @@ export default function HomePage() {
                         ['dlc', 'clash', '⚠️', 'Rooms clashing', 'Delayed — rooms clashing with the next group', 'rooms', (a: any[]) => (a.length ? `rooms · ${groupsText(a.length)} — open the page` : 'none')],
                     ] as const).map(([cls, key, ico, lbl, title, pl, fmt]) => (
                         <button key={key} type="button" className={`hm-stat ${cls}`} onClick={() => { if (dl?.[key]?.length) list(siteId, title, site.label, dl[key], pl); }}>
-                            <span className="hm-ico" aria-hidden="true">{ico}</span><b>{dlSum(key)}</b><span className="hm-lbl">{lbl}</span><small>{dlSmall(key, fmt)}</small></button>))}</div>
+                            <span className="hm-ico" aria-hidden="true">{ico}</span><b>{dlSum(key)}</b><span className="hm-lbl">{lbl}</span></button>))}</div>
                 </section>
 
                 <section className="hm-mega tr" aria-labelledby="hmTrTitle">
@@ -208,8 +209,7 @@ export default function HomePage() {
                         const g = trGroups?.find(x => x.dest.id === d.id);
                         const first = g?.buses.length ? g.buses.reduce((a: Row, b: Row) => (a.at < b.at ? a : b)).at : null;
                         return <button key={d.id} type="button" className={`hm-stat ${TILE_CLS[d.tosha] || 'tj'}`} onClick={() => g && mods.tr.openTransportList({ title: `Transport today · ${g.dest.title}`, sub: site.label, group: g, host: rootRef.current, dayHref: cloud.canOpen('transport', desk) ? href('transport') : '' })}>
-                            <span className="hm-ico" aria-hidden="true">{d.icon}</span><b>{g ? g.pax : '—'}</b><span className="hm-lbl">{d.title}</span>
-                            <small>{g ? (g.buses.length ? `${T.fleetText(g.buses)} · ${groupsText(g.groups)} · from ${T.time12(first)}` : (trHasList ? 'no buses today' : 'no transport list for today')) : ''}</small></button>;
+                            <span className="hm-ico" aria-hidden="true">{d.icon}</span><b>{g ? g.pax : '—'}</b><span className="hm-lbl">{d.title}</span></button>;
                     })}</div>
                 </section>
 
@@ -217,8 +217,10 @@ export default function HomePage() {
                     <div className="hm-head"><h2 id="hmMealsTitle">Thaals {label} · {site.label}</h2>{cloud.canOpen('mawaid', desk) && <a className="hm-more" href={href('mawaid')}>Open Mawaid →</a>}</div>
                     <div className="hm-stats meals">{([['b', 'B', '🌅', 'Breakfast', 'breakfast'], ['l', 'L', '☀️', 'Lunch', 'lunch'], ['d', 'D', '🌙', 'Dinner', 'dinner']] as const).map(([cls, k, ico, lbl, key]) => (
                         <button key={k} type="button" className={`hm-stat ${cls}`} onClick={() => list(siteId, `${lbl} thaals · ${site.label}`, 'adults counted, as on the Mawaid page', N.mealsWho[k], 'guests')}>
-                            <span className="hm-ico" aria-hidden="true">{ico}</span><b>{N.meals ? N.meals[key] : '—'}</b><span className="hm-lbl">{lbl} thaals</span><small>{N.meals ? `${N.meals.pax[key]} guests` : ''}</small></button>))}</div>
+                            <span className="hm-ico" aria-hidden="true">{ico}</span><b>{N.meals ? N.meals[key] : '—'}</b><span className="hm-lbl">{lbl} thaals</span></button>))}</div>
                 </section>
+
+                </div>
 
                 <section ref={occRef} className="hm-section hm-occ" id="hmOcc" aria-labelledby="hmOccTitle" dangerouslySetInnerHTML={{ __html: OCC_HTML }} />
                 <section ref={dcRef} className="hm-section hm-dc" id="hmDayCount" aria-labelledby="hmDcTitle" dangerouslySetInnerHTML={{ __html: DC_HTML }} />

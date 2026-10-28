@@ -72,6 +72,10 @@
     .pms-react { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--foreground); line-height: 1.5; -webkit-text-size-adjust: 100%; }
     .pms-react button, .pms-react input, .pms-react select, .pms-react textarea { font: inherit; color: inherit; }
     .pms-react button { cursor: pointer; background: transparent; border: 0; }
+    /* links take the colour of the text around them (no browser blue / purple); a plain link is the PMS deep gold with a soft gold underline */
+    .pms-react a { color: inherit; }
+    .pms-react a:not([class]) { color: #7a5a10; text-decoration: underline; text-decoration-color: rgb(212 175 55 / 0.7); text-underline-offset: 2px; }
+    .pms-react a:not([class]):hover { text-decoration-color: currentColor; }
     .pms-react :where(h1, h2, h3, p, ul, ol, figure) { margin: 0; }
     .pms-react :where(ul, ol) { padding: 0; list-style: none; }
     .pms-react table { border-collapse: collapse; }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { useSlips } from '@/hooks/useSlips';
 import { useCore, useGuard, useLoadApp, useSite } from '@/pms/PmsContext';
-import { MAX_DAYS, computeOccupancy, num, pct, shift, sum, ymd, type BuildingIn } from './occupancy';
+import { MAX_DAYS, computeOccupancy, num, pct, shift, sum, ymd, type BuildingIn, type BuildingOut } from './occupancy';
 
 // Occupancy details (Rooms): beds in use each night of a period — the whole site first (totals and averages), then each building (period averages,
 // night by night), then every room bed by bed. A night is counted at 22:00. From the rooms assigned on the slips; beds come from Rooms & Buildings.
@@ -28,6 +28,37 @@ function Dots({ used, cap }: { used: number; cap: number }) {
         <i key={k} className={cn('size-2 rounded-full border', k >= cap ? 'border-destructive bg-destructive' : k < used ? 'border-ok bg-ok' : 'border-[#c9b48e] bg-white')} />)}</span>;
 }
 
+// one building's rooms, bed by bed: only mounted while its list is open; the numbers are worked out just after the first paint
+function RoomsPanel({ name, days, load }: { name: string; days: string[]; load: (name: string) => BuildingOut }) {
+    const [b, setB] = useState<BuildingOut | null>(null);
+    const D = days.length;
+    useEffect(() => { setB(null); const t = setTimeout(() => setB(load(name)), 30); return () => clearTimeout(t); }, [name, load]);
+    if (!b) return <p className="p-3 text-sm text-muted-foreground">Loading rooms…</p>;
+    const floors = [...new Set(b.rooms.map(r => r.floor))];
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-max min-w-full text-xs">
+                <thead><tr><th className="sticky left-0 z-10 bg-card p-1.5 text-left">Room</th><th className="p-1.5">Beds</th>{days.map(d => <th key={d} className="bg-secondary p-1.5 leading-tight"><span className="block text-[10px] font-medium text-muted-foreground">{wkLbl(d)}</span>{dayLbl(d)}</th>)}<th className="border-l-2 border-gold bg-secondary p-1.5">Avg</th></tr></thead>
+                <tbody>{floors.map(f => [
+                    <tr key={`f-${f}`}><td colSpan={D + 3} className="bg-muted p-1.5 text-left font-bold">Floor {f}</td></tr>,
+                    ...b.rooms.filter(r => r.floor === f).map(r => {
+                        const avg = r.cap ? pct(sum(r.used), r.cap * D) : 0;
+                        return (
+                            <tr key={r.key} className={cn(r.off && 'opacity-70')}>
+                                <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{r.no}{r.off && <small className="block text-[10px] font-medium text-muted-foreground">not in Rooms &amp; Buildings</small>}</th>
+                                <td className="border p-1.5 text-center">{r.cap || '—'}</td>
+                                {r.used.map((u, i) => <td key={i} className={cn('border p-1.5 text-center', u > r.cap && 'bg-bad-soft')} title={`Room ${r.no} ${dayLbl(days[i])}: ${u} of ${r.cap} beds`}><Dots used={u} cap={r.cap} /></td>)}
+                                <td style={r.cap ? heat(avg) : undefined} className="border border-l-2 border-gold p-1.5 text-center">{r.cap ? `${avg}%` : '—'}</td>
+                            </tr>
+                        );
+                    }),
+                ])}</tbody>
+                <tfoot><tr><th className="sticky left-0 z-10 bg-card p-1.5 text-left">Total</th><td className="p-1.5 text-center">{b.cap}</td>{b.used.map((u, i) => <td key={i} className="border p-1.5 text-center">{u}<small className="block text-[10px] text-muted-foreground">{pct(u, b.cap)}%</small></td>)}<td className="border border-l-2 border-gold p-1.5 text-center font-bold">{pct(sum(b.used), b.cap * D)}%</td></tr></tfoot>
+            </table>
+        </div>
+    );
+}
+
 export default function OccupancyPage() {
     const { rooms: roomsLib, stay } = useCore();
     const guard = useGuard();
@@ -36,12 +67,21 @@ export default function OccupancyPage() {
     const today = ymd(new Date());
     const [from, setFrom] = useState(today), [to, setTo] = useState(shift(today, 13)), [bld, setBld] = useState('all');
     const [printOpen, setPrintOpen] = useState(false), [printBld, setPrintBld] = useState('');
+    const [opened, setOpened] = useState<Set<string>>(new Set());
 
     const slips = useSlips();
     const builders = useQuery({ queryKey: ['buildings-force', siteId], queryFn: async () => roomsLib.buildingsOfSite(await guard(roomsLib.loadBuildings({ force: true })), siteId) });
     const buildings = useMemo<BuildingIn[]>(() => (builders.data ?? []).map((b: any) => ({ name: b.name, rooms: b.rooms.filter((r: any) => r.active !== false && num(r.capacity) > 0) })).filter((b: BuildingIn) => b.rooms.length), [builders.data]);
 
-    const M = useMemo(() => slips.data && builders.data ? computeOccupancy(slips.data, buildings, { from: from || today, to: to || from || today, only: bld === 'all' ? undefined : bld }, stay, roomsLib) : null, [slips.data, buildings, from, to, bld, stay, roomsLib, builders.data]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const M = useMemo(() => slips.data && builders.data ? computeOccupancy(slips.data, buildings, { from: from || today, to: to || from || today, only: bld === 'all' ? undefined : bld, perRoom: false }, stay, roomsLib) : null, [slips.data, buildings, from, to, bld, stay, roomsLib, builders.data]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+    // the bed-by-bed numbers of one building, worked out only when its list is opened (a whole site at once made the page freeze)
+    const roomCache = useMemo(() => new Map<string, BuildingOut>(), [slips.data, buildings, from, to]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const loadRooms = useMemo(() => (name: string) => {
+        let b = roomCache.get(name);
+        if (!b) { b = computeOccupancy(slips.data ?? [], buildings, { from: from || today, to: to || from || today, only: name }, stay, roomsLib).blds[0]; roomCache.set(name, b); }
+        return b;
+    }, [roomCache]);   // eslint-disable-line react-hooks/exhaustive-deps
 
     async function doPrint() {
         if (!printBld) return;
@@ -79,7 +119,7 @@ export default function OccupancyPage() {
                 const emptyAvg = Math.round((capN - usedN) / D);
                 const unroomedAvg = Math.round(sum(total.unroomed) / D);
                 const roomsAll = blds.flatMap(b => b.rooms.filter(r => !r.off));
-                const emptyRoomsAvg = Math.round(sum(days.map((_, i) => roomsAll.filter(r => r.used[i] === 0).length)) / D);
+                const emptyRoomsAvg = Math.round(sum(days.map((_, i) => roomsAll.length - total.roomsUsed[i])) / D);
                 const kpis: [string, React.ReactNode, string, string?][] = [
                     ['Average occupancy', `${pct(usedN, capN)}%`, `${dayLbl(days[0])} → ${dayLbl(days[D - 1])} · ${D} night${D === 1 ? '' : 's'}`, 'big'],
                     ['Beds', total.cap, `${roomsAll.length} rooms · ${blds.length} building${blds.length === 1 ? '' : 's'}`],
@@ -138,36 +178,14 @@ export default function OccupancyPage() {
                             {sum(total.unroomed) > 0 && <p className="p-3 text-xs text-muted-foreground"><sup>+</sup> some guests that night have a building but no rooms yet (hover for how many) — they are not in the %.</p>}
                         </CardContent></Card>
 
-                    <Card><CardHeader><CardTitle className="text-base">Rooms and beds <span className="ml-1 text-xs font-normal text-muted-foreground">each dot is a bed: filled = in use that night · red = more guests than beds · avg = share of the room's bed-nights used</span></CardTitle></CardHeader>
+                    <Card><CardHeader><CardTitle className="text-base">Rooms and beds <span className="ml-1 text-xs font-normal text-muted-foreground">open a building to load its rooms · each dot is a bed: filled = in use that night · red = more guests than beds · avg = share of the room's bed-nights used</span></CardTitle></CardHeader>
                         <CardContent className="grid gap-2">
-                            {blds.map((b, bi) => {
-                                const floors = [...new Set(b.rooms.map(r => r.floor))];
-                                return (
-                                    <details key={b.name} open={bi === 0 || blds.length === 1} className="rounded-lg border">
-                                        <summary className="cursor-pointer p-2.5 text-sm"><b>{b.name}</b> · {b.rooms.filter(r => !r.off).length} rooms · {b.cap} beds · <b>{pct(sum(b.used), b.cap * D)}%</b> average</summary>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-max min-w-full text-xs">
-                                                <thead><tr><th className="sticky left-0 z-10 bg-card p-1.5 text-left">Room</th><th className="p-1.5">Beds</th>{days.map(d => <th key={d} className="bg-secondary p-1.5 leading-tight"><span className="block text-[10px] font-medium text-muted-foreground">{wkLbl(d)}</span>{dayLbl(d)}</th>)}<th className="border-l-2 border-gold bg-secondary p-1.5">Avg</th></tr></thead>
-                                                <tbody>{floors.map(f => [
-                                                    <tr key={`f-${f}`}><td colSpan={D + 3} className="bg-muted p-1.5 text-left font-bold">Floor {f}</td></tr>,
-                                                    ...b.rooms.filter(r => r.floor === f).map(r => {
-                                                        const avg = r.cap ? pct(sum(r.used), r.cap * D) : 0;
-                                                        return (
-                                                            <tr key={r.key} className={cn(r.off && 'opacity-70')}>
-                                                                <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{r.no}{r.off && <small className="block text-[10px] font-medium text-muted-foreground">not in Rooms &amp; Buildings</small>}</th>
-                                                                <td className="border p-1.5 text-center">{r.cap || '—'}</td>
-                                                                {r.used.map((u, i) => <td key={i} className={cn('border p-1.5 text-center', u > r.cap && 'bg-bad-soft')} title={`Room ${r.no} ${dayLbl(days[i])}: ${u} of ${r.cap} beds`}><Dots used={u} cap={r.cap} /></td>)}
-                                                                <td style={r.cap ? heat(avg) : undefined} className="border border-l-2 border-gold p-1.5 text-center">{r.cap ? `${avg}%` : '—'}</td>
-                                                            </tr>
-                                                        );
-                                                    }),
-                                                ])}</tbody>
-                                                <tfoot><tr><th className="sticky left-0 z-10 bg-card p-1.5 text-left">Total</th><td className="p-1.5 text-center">{b.cap}</td>{b.used.map((u, i) => <td key={i} className="border p-1.5 text-center">{u}<small className="block text-[10px] text-muted-foreground">{pct(u, b.cap)}%</small></td>)}<td className="border border-l-2 border-gold p-1.5 text-center font-bold">{pct(sum(b.used), b.cap * D)}%</td></tr></tfoot>
-                                            </table>
-                                        </div>
-                                    </details>
-                                );
-                            })}
+                            {blds.map(b => (
+                                <details key={b.name} className="rounded-lg border" onToggle={e => { const o = (e.currentTarget as HTMLDetailsElement).open; setOpened(s => { const n = new Set(s); if (o) n.add(b.name); else n.delete(b.name); return n; }); }}>
+                                    <summary className="cursor-pointer p-2.5 text-sm"><b>{b.name}</b> · {b.rooms.length} rooms · {b.cap} beds · <b>{pct(sum(b.used), b.cap * D)}%</b> average</summary>
+                                    {opened.has(b.name) && <RoomsPanel name={b.name} days={days} load={loadRooms} />}
+                                </details>
+                            ))}
                         </CardContent></Card>
 
                     <p className="text-xs text-muted-foreground">{D} night{D === 1 ? '' : 's'} · counted at 22:00{M.cut ? ` · only the first ${MAX_DAYS} nights are shown` : ''}</p>

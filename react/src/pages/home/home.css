@@ -20,7 +20,7 @@ body {
     color: var(--ink);
 }
 
-.hm { max-width: 1180px; margin: 0 auto; padding: 18px 18px 30px; display: grid; gap: 18px; }
+.hm { max-width: none; margin: 0; padding: 18px 18px 30px; display: grid; gap: 18px; }
 
 /* ---------- hero ---------- */
 .hm-hero {
@@ -289,3 +289,15 @@ dialog.ih::backdrop { background: rgba(30, 20, 5, .5); }
 .hm-stat.dlt { --accent: #2a9fd6; }
 .hm-stat.dlc { --accent: #c0392b; --accent-ink: #c0392b; }
 @media (max-width: 640px) { .hm-stats.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+
+/* ---------- board: tall mega cards side by side (wide screens); on a phone the cards keep the stacked rows above ---------- */
+.hm-board { display: grid; gap: 18px; align-items: stretch; }
+.hm-board [hidden] { display: none !important; }
+.hm-mega.glance { background: linear-gradient(180deg, #fff6e2, #fbefd6); }
+@media (min-width: 900px) {
+    .hm-board { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+    .hm-board .hm-mega { align-content: start; }
+    .hm-board .hm-stats, .hm-board .hm-stats.four, .hm-board .hm-stats.meals { grid-template-columns: minmax(0, 1fr); }
+    .hm-board .hm-head { display: grid; gap: 2px; }
+}
