@@ -128,7 +128,8 @@ class SiteNav extends HTMLElement {
           font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--ink);
         }
         :host([hidden]){ display:none }
-        *{ box-sizing:border-box }
+        *{ box-sizing:border-box; scrollbar-width:none }
+        *::-webkit-scrollbar{ display:none }
         a{ color:inherit; text-decoration:none }
         button{ font:inherit; color:inherit; cursor:pointer }
         kbd{ font:10px/1 ui-monospace,Consolas,monospace; color:var(--muted); border:1px solid var(--edge); border-radius:4px; padding:2px 4px; margin-left:8px; background:#fff }
