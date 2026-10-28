@@ -1,4 +1,4 @@
-// "Grid beam" on every table: a few soft gold beams travel along the table's own gridlines (rows and columns), with a glow where they cross.
+// "Grid beam" on every table: a few soft gold beams travel along the table's own gridlines (rows and columns), at a steady pace (no flare where they cross).
 // Drawn on one transparent canvas laid over the table (clicks pass through); it only runs while the table is on screen and the tab is visible,
 // stands still for people who asked the system for reduced motion, and is not printed. A very tall table gets the canvas only around the part in view.
 const SELECTOR = '.pms-react table[data-slot="table"], .pms-react table:not([class])';
@@ -44,7 +44,7 @@ function spawn(it: Inst, scatter = false): Beam {
     const vertical = it.xs.length > 0 && (it.ys.length === 0 || Math.random() < 0.5);
     const lines = vertical ? it.xs : it.ys, span = vertical ? it.h : it.w;
     const len = 70 + Math.random() * 90;
-    return { vertical, line: lines.length ? lines[Math.floor(Math.random() * lines.length)] : -1, pos: scatter ? Math.random() * span : -len, speed: 140 + Math.random() * 160, len };
+    return { vertical, line: lines.length ? lines[Math.floor(Math.random() * lines.length)] : -1, pos: scatter ? Math.random() * span : -len, speed: 70 + Math.random() * 80, len };
 }
 
 function frame(now: number) {
@@ -69,7 +69,6 @@ function draw(it: Inst, dt: number) {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, it.w, it.h);
     g.lineCap = 'round';
-    const heads: { x: number; y: number }[] = [];
     for (const b of it.beams) {
         const span = b.vertical ? it.h : it.w;
         b.pos += b.speed * dt;
@@ -81,16 +80,6 @@ function draw(it: Inst, dt: number) {
         g.beginPath();
         if (b.vertical) { g.moveTo(b.line, a); g.lineTo(b.line, z); } else { g.moveTo(a, b.line); g.lineTo(z, b.line); }
         g.stroke();
-        heads.push(b.vertical ? { x: b.line, y: z } : { x: z, y: b.line });
-    }
-    // a glow where a beam's head passes a crossing of the grid
-    g.shadowBlur = 0;
-    for (const h of heads) for (const x of it.xs) for (const y of it.ys) {
-        if (Math.abs(h.x - x) < 12 && Math.abs(h.y - y) < 12) {
-            const r = g.createRadialGradient(x, y, 0, x, y, 14);
-            r.addColorStop(0, `rgba(${COLOR}, 0.55)`); r.addColorStop(1, `rgba(${COLOR}, 0)`);
-            g.fillStyle = r; g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill();
-        }
     }
 }
 
