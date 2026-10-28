@@ -163,6 +163,9 @@ async function route(req, env) {
     // the reads every open page makes all the time: login check + data in ONE database trip (D1 batch)
     if (m === 'GET' && p === '/api/sync') return syncHeartbeat(req, url, env);
     if (m === 'GET' && p === '/api/slips') return (await authedBatch(req, env, [pullStmt(url, env)])).reply(([r]) => pullReply(url, r));
+    // the watchdog's fingerprint of the live slips (how many, their versions added up, the newest change): a browser whose mirror differs repairs itself
+    if (m === 'GET' && p === '/api/slips/digest') return (await authedBatch(req, env, [env.DB.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(version), 0) AS v, COALESCE(MAX(seq), 0) AS s FROM slips WHERE deleted = 0')]))
+        .reply(([r]) => ({ n: r.results[0].n, v: r.results[0].v, s: r.results[0].s }));
     if (m === 'GET' && p === '/api/me') return (await authedBatch(req, env, [])).reply((_, me) => ({ desk: publicDesk(me) }));
     if (m === 'GET' && p === '/api/me/prefs') return (await authedBatch(req, env, [prefsStmt(req, env)]))
         .reply(([r]) => { const row = r.results[0]; return { prefs: row ? JSON.parse(row.prefs) : null, updated_at: row ? row.updated_at : null }; });

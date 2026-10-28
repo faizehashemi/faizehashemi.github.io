@@ -7,7 +7,7 @@
 
 import { SITES, VIEWS, NAV, DEFAULT_SITE, LEGACY_PAGES } from './config.js';
 import { createDb } from './core/db.js';
-import { currentDesk, logout, sync, state, mirrorAll, canOpen, siteFor, refreshDesk, firstPage } from './core/cloud.js';
+import { currentDesk, logout, sync, state, mirrorAll, canOpen, siteFor, refreshDesk, firstPage, verifyMirror } from './core/cloud.js';
 import './core/nav.js';
 import './core/ums-auto.js'; // listens for the UMS extension from page load, on every view
 import { watchTables } from './core/cards.js';
@@ -341,6 +341,21 @@ if (currentDesk()) { sync().catch(() => { }); loadBuildings().catch(() => { }); 
 // Once the first page is showing, every other page the desk may open is downloaded quietly, one at a time, so a menu click never waits for code
 // (a menu click then has nothing left to download). Skipped on data-saver connections and the laundry kiosk.
 let warmed = false;
+// What this desk opens, and what it opens after what, is remembered in this browser: the pages it is most likely to open next are downloaded first.
+const NAV_KEY = 'pms_nav_stats';
+const navStats = () => { try { return JSON.parse(localStorage.getItem(NAV_KEY)) || { n: {}, next: {} }; } catch { return { n: {}, next: {} }; } };
+let lastView = null;
+window.addEventListener('pms:route-done', (e) => {
+    const v = e.detail && e.detail.ok !== false ? e.detail.view : null;
+    if (!v) return;
+    try {
+        const st = navStats();
+        st.n[v] = (st.n[v] || 0) + 1;
+        if (lastView && lastView !== v) { st.next[lastView] = st.next[lastView] || {}; st.next[lastView][v] = (st.next[lastView][v] || 0) + 1; }
+        localStorage.setItem(NAV_KEY, JSON.stringify(st));
+    } catch { }
+    lastView = v;
+});
 window.addEventListener('pms:route-done', function warm() {
     if (warmed || !currentDesk()) return;
     warmed = true;
@@ -349,8 +364,10 @@ window.addEventListener('pms:route-done', function warm() {
         try {
             if (navigator.connection?.saveData || document.querySelector('.ld-bar')) return;
             const desk = currentDesk();
-            for (const v of VIEWS) {
-                if (v.id === 'laundry' || (desk && !canOpen(v.id, desk))) continue;
+            const st = navStats();
+            const score = (id) => (st.n[id] || 0) + 3 * ((st.next[lastView] || {})[id] || 0);
+            const order = VIEWS.filter(v => v.id !== 'laundry' && !(desk && !canOpen(v.id, desk))).sort((a, b) => score(b.id) - score(a.id));
+            const load = async (v) => {
                 try {
                     if (reactPageOn(v.id)) await preloadReact(v.id);
                     else {
@@ -358,8 +375,24 @@ window.addEventListener('pms:route-done', function warm() {
                         await Promise.all([import(`./views/${v.id}/view.js`), fetch(`app/views/${v.id}/view.css`)]);
                     }
                 } catch { }
-                await new Promise(r => setTimeout(r, 120));   // gentle: one page at a time
+            };
+            // two pages at a time, the likeliest first, with a pause between pairs so the page in use is never starved
+            for (let i = 0; i < order.length; i += 2) {
+                await Promise.all(order.slice(i, i + 2).map(load));
+                await new Promise(r => setTimeout(r, 150));
             }
         } catch { }
     });
 });
+
+// The watchdog: the slips are kept in this browser and brought up to date every 30 s; every 20 minutes (and when the tab returns after a long time away)
+// a fingerprint of the local copy is compared with the server's. A difference means a missed change: the copy is downloaded again.
+let lastVerify = Date.now();
+const watchdog = async () => {
+    if (!currentDesk() || document.visibilityState !== 'visible' || document.querySelector('.ld-bar')) return;
+    lastVerify = Date.now();
+    const r = await verifyMirror();
+    if (r === 'repaired') nav.setBadge('Your copy of the slips was out of date and has been refreshed.');
+};
+setInterval(() => { if (Date.now() - lastVerify > 20 * 60e3) watchdog(); }, 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - lastVerify > 10 * 60e3) setTimeout(watchdog, 3000); });

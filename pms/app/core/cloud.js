@@ -222,3 +222,22 @@ export function sync({ force = false } = {}) {
     })().finally(() => { inflight = null; });
     return inflight;
 }
+
+/**
+ * The watchdog: compare a fingerprint of this browser's copy of the slips with the server's (one tiny request). Equal: nothing to do. Different (a missed
+ * change, a slip another desk deleted, a half-finished sync): the copy is emptied and downloaded again. Never throws; returns what it did.
+ */
+export async function verifyMirror() {
+    if (!getSession() || inflight || !state.online) return 'skipped';
+    try {
+        await sync({ force: true });   // anything that changed in the last seconds is pulled first, so only a real difference is left
+        const server = await request('GET', '/api/slips/digest');
+        const mine = await mirrorAll();
+        const here = { n: mine.length, v: mine.reduce((t, x) => t + (Number(x._v) || 0), 0) };
+        if (here.n === server.n && here.v === server.v) return 'same';
+        await tx(['slips', 'meta'], 'readwrite', t => { t.objectStore('slips').clear(); t.objectStore('meta').delete('cursor'); });
+        await sync({ force: true });
+        emit('pms:sync', { ...state, repaired: true });
+        return 'repaired';
+    } catch { return 'failed'; }
+}
