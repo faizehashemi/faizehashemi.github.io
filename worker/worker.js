@@ -164,7 +164,8 @@ async function route(req, env) {
     if (m === 'GET' && p === '/api/sync') return syncHeartbeat(req, url, env);
     if (m === 'GET' && p === '/api/slips') return (await authedBatch(req, env, [pullStmt(url, env)])).reply(([r]) => pullReply(url, r));
     // the watchdog's fingerprint of the live slips (how many, their versions added up, the newest change): a browser whose mirror differs repairs itself
-    if (m === 'GET' && p === '/api/slips/digest') return (await authedBatch(req, env, [env.DB.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(version), 0) AS v, COALESCE(MAX(seq), 0) AS s FROM slips WHERE deleted = 0')]))
+    if (m === 'GET' && p === '/api/slips/digest') return (await authedBatch(req, env, [(tokenHash) => env.DB.prepare(
+        `SELECT COUNT(*) AS n, COALESCE(SUM(version), 0) AS v, COALESCE(MAX(seq), 0) AS s FROM slips WHERE deleted = 0 AND ${OWN_SITE}`).bind(tokenHash)]))
         .reply(([r]) => ({ n: r.results[0].n, v: r.results[0].v, s: r.results[0].s }));
     if (m === 'GET' && p === '/api/me') return (await authedBatch(req, env, [])).reply((_, me) => ({ desk: publicDesk(me) }));
     if (m === 'GET' && p === '/api/me/prefs') return (await authedBatch(req, env, [prefsStmt(req, env)]))
@@ -180,7 +181,6 @@ async function route(req, env) {
     if (p === '/api/me/prefs' && m === 'GET') return getPrefs(env, me);
     if (p === '/api/me/prefs' && m === 'PUT') return putPrefs(req, env, me);
 
-    if (p === '/api/slips' && m === 'GET') return pull(url, env);
     if (p === '/api/slips' && m === 'POST') return createSlip(req, env, me);
     if (p === '/api/slips/bulk' && m === 'POST') return bulk(req, env, me);
     if (p === '/api/slips/migrate' && m === 'POST') return migrate(req, env, me);
@@ -433,7 +433,10 @@ const pullArgs = (url) => ({
     id: Number(url.searchParams.get('id')) || 0,
     limit: Math.min(PULL_LIMIT, Number(url.searchParams.get('limit')) || PULL_LIMIT),
 });
-function pullStmt(url, env) {
+// a desk or viewer login is sent only the slips of its own site (an admin gets both): less to download, keep in memory and compare
+const OWN_SITE = "(SELECT d.role = 'admin' OR d.site = slips.site FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?)";
+const pullStmt = (url, env) => (tokenHash) => pullStmtFor(url, env, tokenHash);
+function pullStmtFor(url, env, tokenHash) {
     const { seq, id, limit } = pullArgs(url);
     // first download: skip deleted slips, the browser has nothing to remove yet
     const onlyLive = seq === 0 && id === 0 ? 'AND deleted = 0' : '';
@@ -441,9 +444,9 @@ function pullStmt(url, env) {
     // (seq > ? OR (seq = ? AND id > ?)) it scanned the whole table on every check.
     return env.DB.prepare(
         `SELECT id, site, data, version, seq, deleted FROM slips
-         WHERE seq >= ? AND (seq > ? OR id > ?) ${onlyLive}
+         WHERE seq >= ? AND (seq > ? OR id > ?) AND ${OWN_SITE} ${onlyLive}
          ORDER BY seq, id LIMIT ?`
-    ).bind(seq, seq, id, limit);
+    ).bind(seq, seq, id, tokenHash, limit);
 }
 function pullReply(url, r) {
     const { seq, id, limit } = pullArgs(url);
@@ -455,9 +458,7 @@ function pullReply(url, r) {
         more: results.length === limit,
     };
 }
-async function pull(url, env) {
-    return json(pullReply(url, await pullStmt(url, env).all()));
-}
+
 // this login's settings row, found through its session (so it can share the login check's trip)
 const prefsStmt = (req, env) => (tokenHash) => env.DB.prepare(
     'SELECT prefs, updated_at FROM desk_prefs WHERE desk_id = (SELECT desk_id FROM sessions WHERE token_hash = ?)').bind(tokenHash);

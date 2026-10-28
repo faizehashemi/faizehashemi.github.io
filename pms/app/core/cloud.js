@@ -186,6 +186,9 @@ export const mirrorDelete = (id) => tx(['slips'], 'readwrite', t => { t.objectSt
 
 let inflight = null;
 
+/** Has this browser already downloaded the slips once? Then pages can be drawn from the copy at once while a sync runs in the background. */
+export const mirrorReady = () => tx(['meta'], 'readonly', t => req2p(t.objectStore('meta').get('cursor'))).then(c => !!c, () => false);
+
 // Remember when this copy was last synced, so an offline start can say how old the data is
 if (getSession()) {
     tx(['meta'], 'readonly', t => req2p(t.objectStore('meta').get('lastSync')))
@@ -202,6 +205,7 @@ export function sync({ force = false } = {}) {
     inflight = (async () => {
         let cursor = (await tx(['meta'], 'readonly', t => req2p(t.objectStore('meta').get('cursor')))) || { seq: 0, id: 0 };
         const token = getSession()?.token;
+        let pulled = 0;
         for (let page = 0; page < 100; page++) {
             // the heartbeat: new slips + this login + when its settings last changed, one call (an older server: slips only)
             let r;
@@ -209,6 +213,7 @@ export function sync({ force = false } = {}) {
             catch (e) { if (e.status !== 404) throw e; r = await request('GET', `/api/slips?seq=${cursor.seq}&id=${cursor.id}`); }
             if (page === 0 && r.desk) { applyDesk(r.desk, token); emit('pms:prefs-stamp', { at: r.prefs_at ?? null }); }
             cursor = r.cursor;
+            pulled += r.slips.length;
             await tx(['slips', 'meta'], 'readwrite', t => {
                 const st = t.objectStore('slips');
                 for (const s of r.slips) s.deleted ? st.delete(s.id) : st.put(s);
@@ -218,7 +223,7 @@ export function sync({ force = false } = {}) {
         }
         state.lastSync = Date.now();
         tx(['meta'], 'readwrite', t => { t.objectStore('meta').put(state.lastSync, 'lastSync'); }).catch(() => { });
-        emit('pms:sync', { ...state });
+        emit('pms:sync', { ...state, changed: pulled });   // changed: how many slips arrived (pages redraw from the copy when it is more than 0)
     })().finally(() => { inflight = null; });
     return inflight;
 }

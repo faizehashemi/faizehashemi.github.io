@@ -296,9 +296,9 @@ export default function TransportPage() {
                 add = { ...add, ref: sh, pax: Math.max(0, parseInt(p, 10) || 0) };
             }
         }
-        if (f.veh !== 'car' && Number(add.pax) > T.BUS_LIMIT) { setMsg(`SH ${add.ref} has ${add.pax} pax — a bus carries at most ${T.BUS_LIMIT}. Add it as two buses (type the pax of each part), or use a car.`, 'bad'); return false; }
+        if (f.veh === 'bus' && Number(add.pax) > T.BUS_LIMIT) { setMsg(`SH ${add.ref} has ${add.pax} pax — a bus carries at most ${T.BUS_LIMIT}. Add it as two buses (type the pax of each part), or use a car.`, 'bad'); return false; }
         const Tr = cleanText(f.transporter).slice(0, 60), V = cleanText(f.vch).slice(0, 20);
-        const trip: Row = { key: `M${Date.now().toString(36).toUpperCase()}`, dora: '', vch: V, transporter: Tr, at: `${day}T${f.time}`, route: dest.route, remarks: 'vehicle added by hand', adj: '', loc: '', ...add, manual: true, ...(Tr || V ? { transporter_manual: true } : {}), ...(f.veh === 'car' ? { vehicle: 'car' } : {}) };
+        const trip: Row = { key: `M${Date.now().toString(36).toUpperCase()}`, dora: '', vch: V, transporter: Tr, at: `${day}T${f.time}`, route: dest.route, remarks: 'vehicle added by hand', adj: '', loc: '', ...add, manual: true, ...(Tr || V ? { transporter_manual: true } : {}), ...(f.veh === 'car' ? { vehicle: 'car' } : f.veh === 'train' ? { vehicle: 'other', vehicle_label: 'Train' } : {}) };
         // existing numbers stay; the new vehicle takes the next number of its destination
         const next: Row[] = T.assignBuses([...rows.map(r => ({ ...r })), trip].sort((a, b) => a.at.localeCompare(b.at)), rows);
         await save(next, `${dest.title}: ${f.veh} ${next.find(r => r.key === trip.key)?.bus ?? ''} added by hand at ${f.time}${add.ref ? ` with SH ${add.ref}` : ''}`);
@@ -548,7 +548,7 @@ function AddBusForm({ dest, open, onOpen, onSubmit, busy }: { dest: Row; open: b
             <b className="col-span-full">New {dest.title} vehicle</b>
             <div className="grid gap-1"><Label>Time</Label><Input type="time" required value={f.time} onChange={set('time')} /></div>
             <div className="grid gap-1"><Label>Vehicle</Label>
-                <Select value={f.veh} onValueChange={v => setF(p => ({ ...p, veh: v }))}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="bus">🚌 Bus</SelectItem><SelectItem value="car">🚗 Car</SelectItem></SelectContent></Select></div>
+                <Select value={f.veh} onValueChange={v => setF(p => ({ ...p, veh: v }))}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="bus">🚌 Bus</SelectItem><SelectItem value="car">🚗 Car</SelectItem><SelectItem value="train">🚆 Train</SelectItem></SelectContent></Select></div>
             <div className="grid gap-1"><Label>Transporter</Label><Input maxLength={60} value={f.transporter} onChange={set('transporter')} /></div>
             <div className="grid gap-1"><Label>Vch No</Label><Input maxLength={20} value={f.vch} onChange={set('vch')} /></div>
             <div className="grid gap-1"><Label>SH (optional)</Label><Input maxLength={20} placeholder="first group" value={f.sh} onChange={set('sh')} /></div>

@@ -9,7 +9,7 @@
 // desk saved in between, the server refuses and the page shows a "reload and try again" message.
 
 import { SITES, siteOfBuilding } from '../config.js';
-import { request, sync, mirrorAll, mirrorGet, mirrorPut, mirrorDelete, canWrite, currentDesk, state, UserError, ApiError } from './cloud.js';
+import { request, sync, mirrorReady, mirrorAll, mirrorGet, mirrorPut, mirrorDelete, canWrite, currentDesk, state, UserError, ApiError } from './cloud.js';
 import { track } from './analytics.js';
 
 export class ReadOnlyError extends UserError { }
@@ -59,13 +59,16 @@ export function createDb(siteId) {
         readonly: !writable,
         readonlyReason: writable ? '' : readOnlyReason(siteId),
 
-        async all() {
+        // From this browser's copy at once; the sync that brings other desks' changes runs behind it, and the pages redraw when it finds any
+        // ('pms:sync' with changed > 0). The very first time (nothing downloaded yet) it waits for the download. { fresh: true } always waits for a sync.
+        async all({ fresh: wait = false } = {}) {
+            if (!wait && await mirrorReady()) { fresh().catch(() => { }); return mirrorAll(siteId); }
             await fresh();
             return mirrorAll(siteId);
         },
 
         async get(id) {
-            await fresh();
+            if (await mirrorReady()) fresh().catch(() => { }); else await fresh();
             const r = await mirrorGet(id);
             return r && r.site === siteId ? r : null;
         },
