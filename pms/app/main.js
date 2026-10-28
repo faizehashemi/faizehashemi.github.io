@@ -5,7 +5,6 @@
 // Only one view is mounted at a time, so each view keeps its original page-level CSS untouched.
 // Anything a view attaches to window/document/body/head is tracked and undone on navigation.
 
-import { showLoader } from './core/loader.js';
 import { SITES, VIEWS, NAV, DEFAULT_SITE, LEGACY_PAGES } from './config.js';
 import { createDb } from './core/db.js';
 import { currentDesk, logout, sync, state, mirrorAll, canOpen, siteFor, refreshDesk, firstPage } from './core/cloud.js';
@@ -18,8 +17,10 @@ import { applyPrefs, getPrefs, loadServerPrefs } from './core/prefs.js';
 import { watchForUpdates } from './core/update.js';
 import { startTelemetry } from './core/telemetry.js';
 import { startIssueReports } from './core/issue-report.js';
-import { reactPageOn, mountReact } from './react-bridge.js';
+import { reactPageOn, mountReact, preloadReact } from './react-bridge.js';
+import * as genie from './core/genie.js';
 startTelemetry(); // page timings → Performance page
+genie.watchMenuClicks();
 startIssueReports();  // the "Facing an issue?" button (a report with a picture of the screen goes to the Performance page)
 
 applyPrefs(); // this browser's Settings, before anything is drawn
@@ -177,6 +178,10 @@ async function route() {
     if (current?.key === key) return;
 
     const seq = ++routeSeq;
+    // a menu click: the old page is wrapped up into the clicked item now, the new one is genied out of it once it is ready (core/genie.js)
+    genie.reset(outlet);
+    const hadPage = !!(current && outlet.firstElementChild), go = genie.takeOrigin();
+    const suck = hadPage && go ? genie.play(outlet, go, -1).catch(() => { }) : null;
     const db = createDb(siteId);
     nav.hidden = !desk;
     if (desk) nav.setRoute(siteId, view.id, desk);
@@ -189,7 +194,6 @@ async function route() {
     window.dispatchEvent(new CustomEvent('pms:route-start', { detail: { view: view.id, site: siteId } }));
     let opened = false;
     outlet.setAttribute('aria-busy', 'true');
-    const stopLoader = showLoader({ text: `Opening ${view.title}` }); // only shows if the page takes a moment
     try {
         // a page switched to React (react-bridge.js) has no legacy html / js / css to load
         const useReact = reactPageOn(view.id);
@@ -235,15 +239,19 @@ async function route() {
         if (typeof cleanup === 'function') {
             if (current === mine) mine.cleanup = cleanup; else cleanup();
         }
+        if (suck && seq === routeSeq) outlet.style.visibility = 'hidden';   // the picture plays instead (below, after the page counts as opened)
         opened = true;
     } catch (err) {
         console.error(err);
         outlet.innerHTML = `<div style="max-width:720px;margin:40px auto;padding:16px;border:1px solid #e6bcbc;background:#fff1f1;border-radius:12px;font:14px system-ui">
             <b>Could not open “${view.title}”.</b><br>${String(err && err.message || err)}</div>`;
     } finally {
-        stopLoader();
-        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; }
+        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; if (!(opened && suck)) outlet.style.visibility = ''; }
         if (seq === routeSeq) window.dispatchEvent(new CustomEvent('pms:route-done', { detail: { view: view.id, site: siteId, ok: opened } }));
+    }
+    if (suck && opened && seq === routeSeq) {
+        try { await suck; if (seq === routeSeq) await genie.play(outlet, go, 1); } catch { genie.reset(); }
+        if (seq === routeSeq) outlet.style.visibility = '';
     }
     if (seq === routeSeq && desk) refreshBadge();
 }
@@ -340,3 +348,29 @@ initAnalytics();
 if (currentDesk()) identify(currentDesk());
 route();
 if (currentDesk()) { sync().catch(() => { }); loadBuildings().catch(() => { }); checkDesk(); }
+
+// Once the first page is showing, every other page the desk may open is downloaded quietly, one at a time, so a menu click never waits for code
+// (the genie change of page needs the new page ready the moment the old one is wrapped up). Skipped on data-saver connections and the laundry kiosk.
+let warmed = false;
+window.addEventListener('pms:route-done', function warm() {
+    if (warmed || !currentDesk()) return;
+    warmed = true;
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
+    idle(async () => {
+        try {
+            if (navigator.connection?.saveData || document.querySelector('.ld-bar')) return;
+            const desk = currentDesk();
+            for (const v of VIEWS) {
+                if (v.id === 'laundry' || (desk && !canOpen(v.id, desk))) continue;
+                try {
+                    if (reactPageOn(v.id)) await preloadReact(v.id);
+                    else {
+                        if (!htmlCache.has(v.id)) htmlCache.set(v.id, await (await fetch(`app/views/${v.id}/view.html`)).text());
+                        await Promise.all([import(`./views/${v.id}/view.js`), fetch(`app/views/${v.id}/view.css`)]);
+                    }
+                } catch { }
+                await new Promise(r => setTimeout(r, 120));   // gentle: one page at a time
+            }
+        } catch { }
+    });
+});

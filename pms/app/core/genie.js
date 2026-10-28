@@ -2,9 +2,11 @@
 // It moves a picture of the page (the page cut into horizontal slices, each on its own delayed clock, which makes the narrow neck),
 // never the live page, so nothing on the page is touched. Only menu clicks start it; reload, back / forward, login, the laundry kiosk,
 // reduced-motion settings and very heavy pages (a clone with too many elements) simply change page as before.
-const DUR_OUT = 0.4, DUR_IN = 0.7, DELAY = 0.55, MAX_NODES = 1500, KEEP_ROWS = 40;
+const DUR_OUT = 0.45, DUR_IN = 0.8, DELAY = 0.55, MAX_NODES = 1500, KEEP_ROWS = 40;
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-const ease = (t) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+// the speed is logarithmic (a quick start, a long soft landing) and every slice follows an S-curve, so the fold is a curve, not a straight line
+const logEase = (t) => Math.log1p(12 * t) / Math.log1p(12);
+const ease = (t) => t * t * (3 - 2 * t);
 
 let origin = null, overlays = new Set();
 
@@ -80,14 +82,14 @@ export function play(el, o, dir) {
         setTimeout(() => { if (overlays.has(box)) finish(); }, (secs + 1.5) * 1000);   // never leave a picture behind (a tab that stopped drawing)
         (function tick(now) {
             if (!overlays.has(box)) return done();                              // reset() took it away
-            const p = clamp((now - t0) / (secs * 1000)), q = dir > 0 ? p : 1 - p;
+            const p = clamp((now - t0) / (secs * 1000)), q = dir > 0 ? logEase(p) : 1 - logEase(p);
             const tt = (i) => clamp(q * (1 + DELAY) - DELAY * (i / n));          // the top leads, the bottom follows
             const yb = [], sx = [], cx = [];
             for (let i = 0; i <= n; i++) {
                 const e = ease(tt(Math.min(i, n - 1)));
                 yb[i] = Math.max(i ? yb[i - 1] : 0, oy + (i * hs - oy) * e);
                 sx[i] = clamp(0.06 + 0.94 * Math.pow(e, 1.6), 0.06, 1);
-                cx[i] = ox + (W / 2 - ox) * e;
+                cx[i] = ox + (W / 2 - ox) * e + Math.sin(Math.PI * e) * W * 0.06 * (ox < W / 2 ? -1 : 1);   // the neck bows out a little, then straightens
             }
             slices.forEach((s, i) => {
                 s.style.opacity = clamp(tt(i) * 4);

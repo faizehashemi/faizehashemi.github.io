@@ -51,6 +51,8 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
 };
 
 export const reactPages = () => Object.keys(PAGES);
+/** Fetch a page's code ahead of time (the router does this for every page once the first one is showing), so a menu click has nothing left to download. */
+export const preloadPage = (pageId: string) => PAGES[pageId]?.().then(() => undefined, () => undefined);
 
 export async function mountPage(pageId: string, ctx: PmsCtx): Promise<() => void> {
     const load = PAGES[pageId];

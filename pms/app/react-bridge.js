@@ -43,3 +43,11 @@ export async function mountReact(viewId, ctx) {
     const loadApp = (path) => import(`./${path}`);        // any file of pms/app (e.g. views/changelog/data.js, regenerated at every deploy)
     return bridge.mountPage(viewId, { ...ctx, views: VIEWS, loadCore, loadApp, core: { cloud, stay, rooms, prefs, settings, ums, transport, checkin, timefmt } });
 }
+
+/** Download a React page's code (and the shared modules) without showing it — see warmAllPages in main.js. */
+export async function preloadReact(viewId) {
+    loadReactCss();
+    const bridge = await import('../react/bridge.js');
+    await Promise.all(['cloud', 'stay', 'rooms', 'prefs', 'settings', 'ums', 'transport', 'checkin', 'timefmt'].map(n => import(`./core/${n}.js`)));
+    await bridge.preloadPage(viewId);
+}
