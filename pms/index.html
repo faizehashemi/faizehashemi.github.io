@@ -29,7 +29,7 @@
         /* Shell only. Every view brings its own stylesheet (app/views/<id>/view.css). */
         #view[aria-busy="true"] { min-height: 60vh; }
         /* the footer starts below the screen and stays there while a page fills in (no jump) */
-        #view { min-height: calc(100vh - 120px); min-height: calc(100svh - 120px); }
+        #view { min-height: calc(100vh - 60px); min-height: calc(100svh - 60px); }
         /* the page-high minimum made every print end with one empty sheet */
         @media print { #view { min-height: 0 !important; } html, body { height: auto !important; } }
         /* the gold pattern of the Home page, behind every page (a page's own stylesheet may set the same) */
@@ -44,10 +44,6 @@
 <body>
     <site-nav data-shell></site-nav>
     <div id="view" data-shell></div>
-    <footer class="app-footer" data-shell>
-        Queries and bugs: <a href="mailto:taha@raajsoftware.com">taha@raajsoftware.com</a>
-        · Made by <a href="https://raajsoftware.com" target="_blank" rel="noopener">Raaj Software</a>
-    </footer>
     <script type="module" src="app/main.js"></script>
 </body>
 </html>
