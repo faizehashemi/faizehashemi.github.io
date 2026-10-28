@@ -82,6 +82,8 @@
 .pms-react table:not([class]) { border-collapse: collapse; border: 1px solid var(--grid); }
 .pms-react table:not([class]) th, .pms-react table:not([class]) td { border: 1px solid var(--grid); padding: 4px 6px; }
 .pms-react table:not([class]) th { background: color-mix(in srgb, var(--accent) 70%, transparent); font-weight: 700; }
+/* every table: text centred in both directions (asked for on the Check-ins page, then everywhere) — print sheets keep their own classes and are not touched */
+.pms-react table[data-slot="table"] th, .pms-react table[data-slot="table"] td, .pms-react table:not([class]) th, .pms-react table:not([class]) td { text-align: center !important; vertical-align: middle !important; }
 @media print { .pms-react table:not([class]), .pms-react table:not([class]) th, .pms-react table:not([class]) td { border-color: #000; } }
 
 /* Primary buttons and chips with literal colours (not through the cascade layers / variables): a report showed them white with white text on some desks' browsers.

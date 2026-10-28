@@ -49,7 +49,7 @@ export function BillsTab() {
     const { api, canPay, libs, fmtDay, indexBills, billIndex, site, confirm, openBill } = useLa();
     const { sar, jeddahDay, jeddahTime, jeddahDate } = libs;
     const [from, setFrom] = useState<string | null>(null), [to, setTo] = useState(jeddahDay());
-    const [sel, setSel] = useState<Set<number>>(new Set()), [collect, setCollect] = useState(''), [note, setNote] = useState('');
+    const [sel, setSel] = useState<Set<number>>(new Set()), [collect, setCollect] = useState(''), [note, setNote] = useState(''), [unpaidFirst, setUnpaidFirst] = useState(true);
     const { data: bills, err, reload, set } = useLoad<Row[]>(async () => {
         let f = from;
         if (f === null) { try { const d = (await api('GET', `/api/laundry/oldest-unpaid?site=${site}`)).day; f = d || libs.addDays(jeddahDay(), -6); } catch { f = libs.addDays(jeddahDay(), -6); } setFrom(f); }
@@ -63,6 +63,7 @@ export function BillsTab() {
     const unpaid = bills.filter(b => !b.settled_at), paid = bills.filter(b => b.settled_at);
     const sum = (a: Row[]) => a.reduce((n, b) => n + b.paid, 0);
     const picked = unpaid.filter(b => sel.has(b.id));
+    const shown = unpaidFirst ? [...unpaid, ...paid] : bills;   // unpaid bills on top (each group stays oldest first)
 
     async function settle(ids: number[], paidFlag = true) {
         const list = bills!.filter(b => ids.includes(b.id));
@@ -90,6 +91,7 @@ export function BillsTab() {
                 <div className="grid gap-1"><Label>From</Label><Input type="date" value={from ?? ''} onChange={e => { const f = e.target.value || jeddahDay(); setFrom(f); if (to < f) setTo(f); }} /></div>
                 <div className="grid gap-1"><Label>To</Label><Input type="date" value={to} onChange={e => { const t = e.target.value || from || jeddahDay(); setTo(t); if (from && t < from) setFrom(t); }} /></div>
                 <Button variant="outline" onClick={reload}>Refresh</Button>
+                <Label className="gap-2"><Checkbox checked={unpaidFirst} onCheckedChange={v => setUnpaidFirst(v === true)} />Unpaid first</Label>
             </div>
             <div className="flex flex-wrap gap-2"><Kpi icon="⏳" value={sar(sum(unpaid))} label={`unpaid SAR · ${nBills(unpaid.length)}`} tone="bigneg" /><Kpi icon="✅" value={sar(sum(paid))} label={`paid SAR · ${nBills(paid.length)}`} tone="big" /><Kpi icon="🧾" value={sar(sum(bills))} label={`cash SAR · ${nBills(bills.length)}`} /></div>
             {canPay && <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2">
@@ -101,7 +103,7 @@ export function BillsTab() {
             {note && <p className="text-sm text-muted-foreground">{note}</p>}
             {bills.length ? <Table>
                 <TableHeader><TableRow>{canPay && <TableHead />}<TableHead>Date</TableHead><TableHead>Time</TableHead><TableHead>Receipt</TableHead><TableHead>Building · room</TableHead><TableHead className="text-right">Items</TableHead><TableHead className="text-right">Amount SAR</TableHead><TableHead>Worker</TableHead><TableHead>Status</TableHead>{canPay && <TableHead />}</TableRow></TableHeader>
-                <TableBody>{bills.map(b => (
+                <TableBody>{shown.map(b => (
                     <TableRow key={b.id} className={cn(clickRow, b.settled_at ? '' : 'bg-warn-soft/30', sel.has(b.id) && 'bg-accent')} onClick={() => openBill(b)}>
                         {canPay && <TableCell onClick={e => e.stopPropagation()}>{!b.settled_at && <Checkbox aria-label={`Select ${b.receipt_no}`} checked={sel.has(b.id)} onCheckedChange={v => setSel(s => { const n = new Set(s); if (v === true) n.add(b.id); else n.delete(b.id); return n; })} />}</TableCell>}
                         <TableCell>{fmtDay(b.day)}</TableCell><TableCell>{jeddahTime(b.given_at)}</TableCell><TableCell><Mono>{b.receipt_no}</Mono></TableCell><TableCell>{whoOf(b)}</TableCell>

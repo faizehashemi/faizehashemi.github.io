@@ -96,3 +96,54 @@ export function printHtml(rows: HkRow[], opts: { urgentOnly: boolean; all: boole
         <p class="bld">${all ? 'All buildings' : esc(opts.buildingName)}</p>
         <p class="day">${esc(new Date(`${opts.day}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>${body}<script>window.addEventListener('load', function () { setTimeout(function () { window.focus(); window.print(); }, 200); });<\/script></body></html>`;
 }
+
+/** The same report as printHtml, drawn on a canvas (to paste as a picture): floors in order, a line per cleaning category with the rooms as boxes that wrap. */
+export function reportCanvas(rows: HkRow[], opts: { urgentOnly: boolean; all: boolean; buildingName: string; day: string; staffOn: (bld: string, floor: string) => string[] }) {
+    const { urgentOnly, all } = opts;
+    const S = 2, W = 900, M = 20, LAB = 250, CHIP_W = 62, CHIP_H = 28, GAP = 6, PADY = 8;
+    const font = (w: number, px: number) => `${w} ${px}px Arial, Helvetica, sans-serif`;
+    const floors = [...new Set(rows.map(r => `${r.bld}|${r.floor}`))].sort((x, y) => natural(x.split('|')[0], y.split('|')[0]) || natural(x.split('|')[1], y.split('|')[1]));
+    const perLine = Math.max(1, Math.floor((W - 2 * M - LAB - 2 * PADY + GAP) / (CHIP_W + GAP)));
+    type Sec = { head: string; lines: { label: string; n: number; rooms: string[] }[] };
+    const secs: Sec[] = floors.map(f => {
+        const [bld, floor] = f.split('|');
+        const here = rows.filter(r => r.bld === bld && r.floor === floor);
+        const staff = opts.staffOn(bld, floor);
+        const lines = (urgentOnly ? [1] : [1, 2, 3, 4]).map(p => { const rs = here.filter(r => r.p === p).map(r => r.room).sort(natural); return { label: PRIO[p], n: rs.length, rooms: rs }; }).filter(l => l.n);
+        return { head: `${all ? `${bld} · ` : ''}Floor ${floor}${staff.length ? ` — ${staff.join(', ')}` : ''}`, lines };
+    });
+    const lineH = (n: number) => Math.max(1, Math.ceil(n / perLine)) * (CHIP_H + GAP) - GAP + 2 * PADY;
+    const HEAD = 150, SECH = 34;
+    const H = HEAD + secs.reduce((h, s) => h + SECH + s.lines.reduce((a, l) => a + lineH(l.n), 0) + 14, 0) + M;
+    const cv = document.createElement('canvas');
+    cv.width = W * S; cv.height = Math.max(H, HEAD + 60) * S;
+    const g = cv.getContext('2d')!;
+    g.scale(S, S);
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, cv.height / S);
+    g.fillStyle = '#000'; g.textBaseline = 'middle'; g.textAlign = 'center';
+    g.font = font(800, 26); g.fillText(urgentOnly ? 'Urgent Room Cleaning Assignment Report' : 'Room Cleaning Assignment Report', W / 2, 36);
+    g.font = font(700, 20); g.fillText(all ? 'All buildings' : opts.buildingName, W / 2, 70);
+    g.textAlign = 'left'; g.font = font(700, 20);
+    g.fillText(new Date(`${opts.day}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), M, 108);
+    g.fillRect(M, 126, W - 2 * M, 2);
+    let y = HEAD - 6;
+    if (!secs.length) { g.font = font(500, 18); g.fillText('—', M, y + 20); }
+    for (const s of secs) {
+        g.fillStyle = '#000'; g.font = font(800, 19); g.textAlign = 'left'; g.fillText(s.head, M, y + SECH / 2); y += SECH;
+        for (const l of s.lines) {
+            const h = lineH(l.n);
+            g.strokeStyle = '#000'; g.lineWidth = 1; g.strokeRect(M + .5, y + .5, W - 2 * M - 1, h - 1);
+            g.beginPath(); g.moveTo(M + LAB + .5, y); g.lineTo(M + LAB + .5, y + h); g.stroke();
+            g.fillStyle = '#000'; g.font = font(700, 16); g.textAlign = 'left'; g.fillText(l.label, M + 8, y + h / 2);
+            g.textAlign = 'right'; g.font = font(500, 14); g.fillText(String(l.n), M + LAB - 8, y + h / 2);
+            l.rooms.forEach((room, i) => {
+                const cx = M + LAB + PADY + (i % perLine) * (CHIP_W + GAP), cy = y + PADY + Math.floor(i / perLine) * (CHIP_H + GAP);
+                g.strokeStyle = '#555'; g.strokeRect(cx + .5, cy + .5, CHIP_W - 1, CHIP_H - 1);
+                g.fillStyle = '#000'; g.textAlign = 'center'; g.font = font(700, 16); g.fillText(room, cx + CHIP_W / 2, cy + CHIP_H / 2);
+            });
+            y += h;
+        }
+        y += 14;
+    }
+    return cv;
+}

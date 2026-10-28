@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Printer, X } from 'lucide-react';
+import { Copy, Printer, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { usePrefs } from '@/hooks/usePrefs';
 import { useSlips } from '@/hooks/useSlips';
 import { useCore, useGuard, useSite } from '@/pms/PmsContext';
-import { PRIO, computeHousekeeping, dayTime, hm, natural, printHtml, shift, ymd, type BuildingIn, type Win } from './housekeeping';
+import { PRIO, computeHousekeeping, dayTime, hm, natural, printHtml, reportCanvas, shift, ymd, type BuildingIn, type Win } from './housekeeping';
 
 // Room cleaning (Rooms): which rooms housekeeping should do first on a day, building by building. "Done" ticks stay on this device, per day and room.
 // Staff on floors are kept with the login (server-side prefs): a floor can have several staff, a staff several floors.
@@ -93,6 +93,22 @@ export default function HousekeepingPage() {
         w.document.close();
     }
 
+    // the same report as Print (and the same Urgent-only tick), as a picture on the clipboard — saved as a file where the browser cannot copy pictures
+    async function copyImage() {
+        if (!bld) { alert('Choose a building first.'); return; }
+        const list = rows.filter(r => !urgentOnly || r.p === 1);
+        if (urgentOnly && !list.length) { alert('No Urgent rooms on this day.'); return; }
+        const cv = reportCanvas(list, { urgentOnly, all: bld === '*', buildingName: bld, day, staffOn });
+        try {
+            if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('no picture clipboard');
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Promise<Blob>((res, rej) => cv.toBlob(b => (b ? res(b) : rej(new Error('empty'))), 'image/png')) })]);
+            alert('Copied — paste it into WhatsApp.');
+        } catch {
+            const a = document.createElement('a');
+            a.href = cv.toDataURL('image/png'); a.download = `housekeeping-${day}${urgentOnly ? '-urgent' : ''}.png`; a.click();
+        }
+    }
+
     const count = (p: number) => rows.filter(r => r.p === p);
     const left = (p: number) => count(p).filter(r => !done.has(`${r.bld}|${r.room}`)).length;
     const shown = rows.filter(r => !hideDone || !done.has(`${r.bld}|${r.room}`));
@@ -108,8 +124,9 @@ export default function HousekeepingPage() {
                         <Select value={bld} onValueChange={setBld}><SelectTrigger id="hkBld" className="min-w-52"><SelectValue placeholder="Choose a building…" /></SelectTrigger>
                             <SelectContent>{buildings.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}<SelectItem value="*">All buildings</SelectItem></SelectContent></Select></div>
                     <div className="flex gap-1.5">{[['Yesterday', -1], ['Today', 0], ['Tomorrow', 1]].map(([l, n]) => <Button key={l} variant="outline" onClick={() => setDay(shift(ymd(new Date()), n as number))}>{l}</Button>)}</div>
-                    <div className="flex items-center gap-2 pb-2"><Checkbox id="hkUrgent" checked={urgentOnly} onCheckedChange={v => setUrgentOnly(v === true)} /><Label htmlFor="hkUrgent">Print Urgent only</Label></div>
+                    <div className="flex items-center gap-2 pb-2"><Checkbox id="hkUrgent" checked={urgentOnly} onCheckedChange={v => setUrgentOnly(v === true)} /><Label htmlFor="hkUrgent">Urgent only (Print and Copy image)</Label></div>
                     <Button onClick={print}><Printer className="size-4" />Print</Button>
+                    <Button variant="outline" onClick={() => void copyImage()}><Copy className="size-4" />Copy image</Button>
                 </div>
             </header>
 

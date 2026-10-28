@@ -239,7 +239,9 @@ export function vehiclePax(rows, mainKey) {
     return rows.filter(r => r.key === mainKey || info.get(r.key)?.parent?.key === mainKey).reduce((s, r) => s + (Number(r.pax) || 0), 0);
 }
 /** Does the vehicle limit apply to this trip's vehicle? (buses and custom vehicles, not cars) */
-export const limited = (r) => vehicleOf(r) !== 'car';
+export const limited = (r) => vehicleOf(r) !== 'car' && !isTrain(r.vehicle, r.vehicle_label ?? r.vlabel);
+/** A train is a custom vehicle named "Train" — its number is the train number, no pax limit, no driver/helper extra */
+export const isTrain = (vehicle, label) => vehicle === 'other' && /^\s*train\s*$/i.test(String(label || ''));
 
 /* ---------------------------------- display ---------------------------------- */
 

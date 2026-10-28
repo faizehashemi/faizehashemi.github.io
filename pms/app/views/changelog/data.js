@@ -243,6 +243,12 @@ export const CHANGES = [
     {"d":"2026-10-27","h":"","f":"slip","m":"Slip availability check: a room's beds come from Rooms & Buildings first (a slip's own capacity box is only a reference), so a slip with a stale capacity can be edited again"},
     {"d":"2026-10-27","h":"","f":"nav","m":"Facing an issue? screenshot no longer comes out shrunken with black sides when the browser zoom is under 100%"},
     {"d":"2026-10-27","h":"","f":"nav","m":"Facing an issue? screenshot taken after scrolling down no longer comes out all black (blank picture is detected and redrawn another way)"},
+    {"d":"2026-10-28","h":"","f":"transport","m":"Transport: \"Train\" in the vehicle list of every route — the number is the train number, no 49-pax limit"},
+    {"d":"2026-10-28","h":"","f":"mawaid","m":"Tosha summary: buses +2, trains no extra, cars get a tick box for +1 (driver only)"},
+    {"d":"2026-10-28","h":"","f":"laundry","m":"Laundry admin cash bills: \"Unpaid first\" (on by default) puts unpaid bills on top"},
+    {"d":"2026-10-28","h":"","f":"nav","m":"All tables: text centred both ways"},
+    {"d":"2026-10-28","h":"","f":"slip","m":"Room Key Cards print: 20 mm margin on all sides and no blank last page (all printed pages lose the empty sheet at the end)"},
+    {"d":"2026-10-28","h":"","f":"housekeeping","m":"Room Cleaning: Copy image next to Print (follows the Urgent only tick)"},
 ];
 // the latest Cloudflare deploys (site = pms-web, api = pms-api); Cloudflare keeps only the last few
 export const DEPLOYS = [{"w":"site","at":"2026-10-25T18:15:45Z"},{"w":"api","at":"2026-10-25T18:15:21Z"},{"w":"site","at":"2026-10-25T17:37:52Z"},{"w":"site","at":"2026-10-25T17:36:55Z"},{"w":"api","at":"2026-10-25T17:36:32Z"},{"w":"site","at":"2026-10-24T17:21:24Z"},{"w":"site","at":"2026-10-24T17:05:15Z"},{"w":"site","at":"2026-10-24T17:03:04Z"},{"w":"site","at":"2026-10-24T16:56:42Z"},{"w":"site","at":"2026-10-24T16:51:01Z"},{"w":"site","at":"2026-10-24T16:49:53Z"},{"w":"site","at":"2026-10-24T11:48:33Z"},{"w":"api","at":"2026-10-24T06:36:31Z"},{"w":"api","at":"2026-10-23T18:12:12Z"},{"w":"api","at":"2026-10-23T17:45:29Z"},{"w":"api","at":"2026-10-23T17:24:14Z"},{"w":"api","at":"2026-10-22T15:34:33Z"},{"w":"api","at":"2026-10-22T05:26:36Z"},{"w":"api","at":"2026-10-21T01:48:08Z"},{"w":"api","at":"2026-10-21T01:26:36Z"}];

@@ -7,10 +7,12 @@ import type { CoreModules } from '@/pms/types';
 
 type T = CoreModules['transport'];
 export const EXTRA = 2;  // + per bus (driver and helper)
-export const extraOf = (b: any) => b.vehicle === 'car' ? 0 : EXTRA;
+// a bus carries a driver and a helper (+2), a train none, a car only a driver when ticked (+1)
+export const isTrain = (b: any) => b.vehicle === 'other' && /^\s*train\s*$/i.test(String(b.vlabel || ''));
+export const extraOf = (b: any, ch?: Choice) => b.vehicle === 'car' ? (ch?.buses[busKey(b)]?.driver ? 1 : 0) : isTrain(b) ? 0 : EXTRA;
 export const DEF_MADINA = { time: '06:30', biryani: false, burger: false, packet: true };
-export const DEF_BUS = { packet: true, burger: false };
-export type Choice = { madina: typeof DEF_MADINA; buses: Record<string, { packet?: boolean; burger?: boolean }> };
+export const DEF_BUS = { packet: true, burger: false, driver: false };
+export type Choice = { madina: typeof DEF_MADINA; buses: Record<string, { packet?: boolean; burger?: boolean; driver?: boolean }> };
 export const choiceOf = (raw: any): Choice => ({ madina: { ...DEF_MADINA, ...(raw?.madina || {}) }, buses: raw?.buses || {} });
 export const busKey = (b: any) => b.rows[0].key as string;
 export const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
@@ -32,13 +34,13 @@ export function madinaModel(t: T, day: string, g: any, ch: Choice, LONG: any) {
     const { fleet, vno } = toolkit(t);
     const buses = [...g.buses].sort((a: any, b: any) => a.at.localeCompare(b.at));
     const c = ch.madina;
-    const pax = buses.reduce((s: number, b: any) => s + b.pax, 0), extra = buses.reduce((s: number, b: any) => s + extraOf(b), 0), total = pax + extra;
+    const pax = buses.reduce((s: number, b: any) => s + b.pax, 0), extra = buses.reduce((s: number, b: any) => s + extraOf(b, ch), 0), total = pax + extra;
     const meal = c.biryani ? 'Biryani' : c.burger ? 'Burger' : '';
     const model: Model = {
         title: `${LONG.label} · TOSHA`, sub: `${t.sheetDate(day)} · ${fleet(buses)}`,
         notes: [`Preparation time: ${t.time12(`2000-01-01T${c.time || '06:30'}`)}`, `Prepare: ${[c.packet && 'Tosha packet', meal].filter(Boolean).join(' + ') || '—'}`],
         head: ['Bus', 'Time', 'From', 'Groups', 'Pax', '+', 'Total'], widths: [12, 12, 15, 33, 9, 7, 12], align: [undefined, undefined, undefined, undefined, 'right', 'right', 'right'],
-        rows: buses.map((b: any) => ({ cells: [vno(b) || '—', t.time12(b.at), b.building || '', leaders(b).join(', '), b.pax, extraOf(b) ? `+${extraOf(b)}` : '', b.pax + extraOf(b)] })),
+        rows: buses.map((b: any) => ({ cells: [vno(b) || '—', t.time12(b.at), b.building || '', leaders(b).join(', '), b.pax, extraOf(b, ch) ? `+${extraOf(b, ch)}` : '', b.pax + extraOf(b, ch)] })),
         foot: ['Total', '', '', plural(g.groups, 'group'), pax, extra ? `+${extra}` : '', total],
         chips: [c.packet && `Tosha packets: ${total}`, meal && `${meal}: ${total}`].filter(Boolean) as string[],
     };
@@ -50,16 +52,16 @@ export function airportModel(t: T, day: string, g: any, D: any, ch: Choice) {
     const buses = [...g.buses].sort((a: any, b: any) => a.at.localeCompare(b.at) || (a.bus ?? 0) - (b.bus ?? 0));
     const slots = new Map<string, any[]>();
     for (const b of buses) { const k = b.at.slice(11, 16); if (!slots.has(k)) slots.set(k, []); slots.get(k)!.push(b); }
-    const pax = buses.reduce((s: number, b: any) => s + b.pax, 0), extra = buses.reduce((s: number, b: any) => s + extraOf(b), 0), total = pax + extra;
-    const packets = buses.reduce((s: number, b: any) => s + (busChoice(ch, b).packet ? b.pax + extraOf(b) : 0), 0);
-    const burgers = buses.reduce((s: number, b: any) => s + (busChoice(ch, b).burger ? b.pax + extraOf(b) : 0), 0);
+    const pax = buses.reduce((s: number, b: any) => s + b.pax, 0), extra = buses.reduce((s: number, b: any) => s + extraOf(b, ch), 0), total = pax + extra;
+    const packets = buses.reduce((s: number, b: any) => s + (busChoice(ch, b).packet ? b.pax + extraOf(b, ch) : 0), 0);
+    const burgers = buses.reduce((s: number, b: any) => s + (busChoice(ch, b).burger ? b.pax + extraOf(b, ch) : 0), 0);
     const rows: Model['rows'] = [];
     for (const [hm, list] of slots) {
-        const sp = list.reduce((s, b) => s + b.pax, 0), se = list.reduce((s, b) => s + extraOf(b), 0);
+        const sp = list.reduce((s, b) => s + b.pax, 0), se = list.reduce((s, b) => s + extraOf(b, ch), 0);
         rows.push({ slot: true, cells: [t.time12(`2000-01-01T${hm}`), fleet(list), '', sp, se ? `+${se}` : '', sp + se, '', ''] });
         for (const b of list) {
             const c = busChoice(ch, b);
-            rows.push({ cells: [`   ${vno(b) || '—'}`, b.building || '', leaders(b).join(', '), b.pax, extraOf(b) ? `+${extraOf(b)}` : '', b.pax + extraOf(b), c.packet ? '✓' : '', c.burger ? '✓' : ''] });
+            rows.push({ cells: [`   ${vno(b) || '—'}`, b.building || '', leaders(b).join(', '), b.pax, extraOf(b, ch) ? `+${extraOf(b, ch)}` : '', b.pax + extraOf(b, ch), c.packet ? '✓' : '', c.burger ? '✓' : ''] });
         }
     }
     const model: Model = {

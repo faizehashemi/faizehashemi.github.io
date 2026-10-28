@@ -30,6 +30,8 @@
         #view[aria-busy="true"] { min-height: 60vh; }
         /* the footer starts below the screen and stays there while a page fills in (no jump) */
         #view { min-height: calc(100vh - 120px); min-height: calc(100svh - 120px); }
+        /* the page-high minimum made every print end with one empty sheet */
+        @media print { #view { min-height: 0 !important; } html, body { height: auto !important; } }
         /* the gold pattern of the Home page, behind every page (a page's own stylesheet may set the same) */
         html { color-scheme: only light; }
         body { background: #f7efe1 url("assets/pattern_gold_2x.png") repeat; background-size: 150px auto; }

@@ -65,7 +65,11 @@ function DayBlock({ label, day, writable }: { label: string; day: string; writab
         if (v === true && k === 'burger') m.biryani = false;
         persist({ ...state, choice: { ...state.choice, madina: m } });
     };
-    const setBus = (key: string, k: 'packet' | 'burger', v: boolean) => state && persist({ ...state, choice: { ...state.choice, buses: { ...state.choice.buses, [key]: { packet: true, burger: false, ...(state.choice.buses[key] || {}), [k]: v } } } });
+    // the + cell: buses +2, trains nothing, cars a tick box for their driver (+1)
+    const plus = (b: any) => b.vehicle === 'car'
+        ? <Label className="inline-flex items-center gap-1 text-xs font-bold"><Checkbox disabled={ro} checked={!!busChoice(state!.choice, b).driver} onCheckedChange={v => setBus(busKey(b), 'driver', v === true)} aria-label={`Driver of ${vno(b)}`} />+1</Label>
+        : extraOf(b, state!.choice) ? `+${extraOf(b, state!.choice)}` : '';
+    const setBus = (key: string, k: 'packet' | 'burger' | 'driver', v: boolean) => state && persist({ ...state, choice: { ...state.choice, buses: { ...state.choice.buses, [key]: { packet: true, burger: false, ...(state.choice.buses[key] || {}), [k]: v } } } });
 
     // the cards, in the site's order: the long trip first, then airports, then the rest (Makkah's Madina Airport and Taif only on days that have trips there)
     const cards = useMemo<CardItem[]>(() => {
@@ -123,14 +127,14 @@ function DayBlock({ label, day, writable }: { label: string; day: string; writab
                                     {c.kind === 'long' && (() => {
                                         const r = c.r as ReturnType<typeof madinaModel>, mc = state.choice.madina;
                                         return <>
-                                            <Big n={r.total} text={`${r.pax} pax + ${r.extra} for ${plural(r.buses.filter((b: any) => b.vehicle !== 'car').length, 'bus', 'buses')}`} />
+                                            <Big n={r.total} text={`${r.pax} pax + ${r.extra} for drivers and helpers`} />
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <Label className="gap-2">Preparation <Input type="time" className="w-28" disabled={ro} value={mc.time || DEF_MADINA.time} onChange={e => setMadina('time', e.target.value || '06:30')} /></Label>
                                                 {(['biryani', 'burger', 'packet'] as const).map(k => <Label key={k} className="gap-2"><Checkbox disabled={ro} checked={!!mc[k]} onCheckedChange={v => setMadina(k, v === true)} />{k === 'packet' ? 'Tosha packet' : k === 'biryani' ? 'Biryani' : 'Burger'}</Label>)}
                                             </div>
                                             {r.buses.length ? <div className="overflow-x-auto"><Table>
                                                 <TableHeader><TableRow><TableHead>Bus</TableHead><TableHead>Time</TableHead><TableHead>From</TableHead><TableHead>Groups</TableHead><TableHead className="text-right">Pax</TableHead><TableHead className="text-right">+</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-                                                <TableBody>{r.buses.map((b: any) => <TableRow key={busKey(b)}><TableCell>{vlabel(b)}</TableCell><TableCell>{t.time12(b.at)}</TableCell><TableCell>{b.building || '—'}</TableCell><TableCell><GroupsCell b={b} /></TableCell><TableCell className="text-right">{b.pax}</TableCell><TableCell className="text-right">{extraOf(b) ? `+${extraOf(b)}` : ''}</TableCell><TableCell className="text-right font-bold">{b.pax + extraOf(b)}</TableCell></TableRow>)}</TableBody>
+                                                <TableBody>{r.buses.map((b: any) => <TableRow key={busKey(b)}><TableCell>{vlabel(b)}</TableCell><TableCell>{t.time12(b.at)}</TableCell><TableCell>{b.building || '—'}</TableCell><TableCell><GroupsCell b={b} /></TableCell><TableCell className="text-right">{b.pax}</TableCell><TableCell className="text-right">{plus(b)}</TableCell><TableCell className="text-right font-bold">{b.pax + extraOf(b, state.choice)}</TableCell></TableRow>)}</TableBody>
                                                 <TableFooter><TableRow><TableCell colSpan={4}>{plural(c.g.groups, 'group')}</TableCell><TableCell className="text-right">{r.pax}</TableCell><TableCell className="text-right">+{r.extra}</TableCell><TableCell className="text-right">{r.total}</TableCell></TableRow></TableFooter></Table></div>
                                                 : <p className="text-muted-foreground">No {c.D.title} buses.</p>}
                                         </>;
@@ -142,11 +146,11 @@ function DayBlock({ label, day, writable }: { label: string; day: string; writab
                                             {r.buses.length ? <div className="overflow-x-auto"><Table>
                                                 <TableHeader><TableRow><TableHead>Bus</TableHead><TableHead>From</TableHead><TableHead>Groups</TableHead><TableHead className="text-right">Pax</TableHead><TableHead className="text-right">+</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-center">Tosha packet</TableHead><TableHead className="text-center">Burger</TableHead></TableRow></TableHeader>
                                                 <TableBody>{[...r.slots].flatMap(([hm, list]) => {
-                                                    const sp = list.reduce((s, b) => s + b.pax, 0), se = list.reduce((s, b) => s + extraOf(b), 0);
+                                                    const sp = list.reduce((s, b) => s + b.pax, 0), se = list.reduce((s, b) => s + extraOf(b, state.choice), 0);
                                                     return [
                                                         <TableRow key={`s-${hm}`} className="bg-accent font-bold"><TableCell colSpan={3}>{t.time12(`2000-01-01T${hm}`)} · {fleet(list)}</TableCell><TableCell className="text-right">{sp}</TableCell><TableCell className="text-right">{se ? `+${se}` : ''}</TableCell><TableCell className="text-right">{sp + se}</TableCell><TableCell /><TableCell /></TableRow>,
                                                         ...list.map(b => { const ch = busChoice(state.choice, b), k = busKey(b); return (
-                                                            <TableRow key={k}><TableCell>{vlabel(b)}</TableCell><TableCell>{b.building || '—'}</TableCell><TableCell><GroupsCell b={b} /></TableCell><TableCell className="text-right">{b.pax}</TableCell><TableCell className="text-right">{extraOf(b) ? `+${extraOf(b)}` : ''}</TableCell><TableCell className="text-right font-bold">{b.pax + extraOf(b)}</TableCell>
+                                                            <TableRow key={k}><TableCell>{vlabel(b)}</TableCell><TableCell>{b.building || '—'}</TableCell><TableCell><GroupsCell b={b} /></TableCell><TableCell className="text-right">{b.pax}</TableCell><TableCell className="text-right">{plus(b)}</TableCell><TableCell className="text-right font-bold">{b.pax + extraOf(b, state.choice)}</TableCell>
                                                                 <TableCell className="text-center"><Checkbox disabled={ro} checked={!!ch.packet} onCheckedChange={v => setBus(k, 'packet', v === true)} aria-label={`Tosha packet for ${vno(b)}`} /></TableCell>
                                                                 <TableCell className="text-center"><Checkbox disabled={ro} checked={!!ch.burger} onCheckedChange={v => setBus(k, 'burger', v === true)} aria-label={`Burger for ${vno(b)}`} /></TableCell></TableRow>); }),
                                                     ];
@@ -192,7 +196,7 @@ export default function ToshaPage() {
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                     <h1 className="text-2xl font-bold text-primary">Tosha summary</h1>
-                    <p className="text-sm text-muted-foreground">Travel refreshments for the buses from the Transport day lists — tomorrow on top, today below. Madina and Jeddah Airport count each bus's pax + 2. “Copy image” puts the card on the clipboard to paste in the Mawaid WhatsApp group.</p>
+                    <p className="text-sm text-muted-foreground">Travel refreshments for the buses from the Transport day lists — tomorrow on top, today below. Madina and Jeddah Airport count each bus's pax + 2 (driver and helper); a car adds +1 when its driver box is ticked; a train adds nothing. “Copy image” puts the card on the clipboard to paste in the Mawaid WhatsApp group.</p>
                 </div>
                 <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><a href={href('transport-print')}>🖨️ Bus sheets</a></Button><Button variant="outline" asChild><a href={href('transport')}>🚌 Transport day</a></Button></div>
             </header>

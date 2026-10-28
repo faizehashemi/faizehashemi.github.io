@@ -142,7 +142,7 @@ export default function TransportPage() {
         const next: Row[] = T.assignBuses(rows.map(r => (r.key === row.key ? patch(r) : { ...r })), rows);
         // the cars (or this custom name) of this destination always run 1, 2, 3… in time order
         const inf = T.resolve(next) as Map<string, Row>, dest = inf.get(row.key)?.dest;
-        if (to !== 'bus') next.filter(r => T.vehicleOf(r) === to && (to !== 'other' || String(r.vehicle_label).toUpperCase() === label.toUpperCase()) && !inf.get(r.key)!.parent && inf.get(r.key)!.dest === dest)
+        if (to !== 'bus' && !T.isTrain(to, label)) next.filter(r => T.vehicleOf(r) === to && (to !== 'other' || String(r.vehicle_label).toUpperCase() === label.toUpperCase()) && !inf.get(r.key)!.parent && inf.get(r.key)!.dest === dest)
             .sort((a, b) => a.at.localeCompare(b.at)).forEach((r, i) => { r.bus = i + 1; r.bus_manual = false; });
         await save(next, `SH ${row.key} → ${to === 'other' ? label : to} ${next.find(r => r.key === row.key)?.bus ?? ''}`);
     }
@@ -333,7 +333,7 @@ export default function TransportPage() {
     }
 
     // ---- cells ----
-    const vehNames = [...new Set(rows.map(x => x.vehicle === 'other' && x.vehicle_label).filter(Boolean))] as string[];
+    const vehNames = [...new Set(['Train', ...rows.map(x => x.vehicle === 'other' && x.vehicle_label)].filter(Boolean))] as string[];
     const veh = T.VEHICLES as Record<string, { icon: string; title: string }>;
     const fromOptions = (own: string) => (own && !buildings.includes(own) ? [...buildings, own] : buildings);
     const ghost = 'inline-flex max-w-full items-center gap-1 rounded border border-transparent px-1.5 py-0.5 text-left hover:border-border hover:bg-accent';
@@ -398,9 +398,9 @@ export default function TransportPage() {
                                             <option value="bus">{veh.bus.icon} Bus</option><option value="car">{veh.car.icon} Car</option>
                                             {(b.vehicle === 'other' && !vehNames.includes(b.vlabel) ? [...vehNames, b.vlabel] : vehNames).map(n => <option key={n} value={`other:${n}`}>{veh.other.icon} {n}</option>)}
                                             <option value="custom">✎ Custom…</option></select>
-                                        <input key={`${r.key}-${b.bus}`} data-key={r.key} type="number" min={1} max={999} inputMode="numeric" defaultValue={b.bus ?? ''} aria-label={`${b.vlabel || veh[b.vehicle].title} number`}
+                                        <input key={`${r.key}-${b.bus}`} data-key={r.key} type="number" min={1} max={99999} inputMode="numeric" defaultValue={b.bus ?? ''} aria-label={`${T.isTrain(b.vehicle, b.vlabel) ? 'Train' : b.vlabel || veh[b.vehicle].title} number`}
                                             title={`${r.bus_manual ? 'Typed in by hand' : 'Given by the import'}${count.get(vk(b))! > 1 ? ' · used twice' : ''}`}
-                                            className={cn('h-8 w-16 rounded-md border bg-background px-2 text-sm', r.bus_manual && manualCls, count.get(vk(b))! > 1 && 'border-destructive bg-destructive/10')}
+                                            className={cn('h-8 rounded-md border bg-background px-2 text-sm', T.isTrain(b.vehicle, b.vlabel) ? 'w-24' : 'w-16', r.bus_manual && manualCls, count.get(vk(b))! > 1 && 'border-destructive bg-destructive/10')}
                                             onBlur={e => setBus(r.key, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
                                     </span>
                                     : `${veh[b.vehicle].icon} ${T.vehicleNo(b.bus, b.vehicle, b.vlabel) || b.bus || '—'}`}

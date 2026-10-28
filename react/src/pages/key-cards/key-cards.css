@@ -1,6 +1,8 @@
 /* Room Key Cards: print on A4 landscape (a named page, so other React pages print as they did) with a box to write the returned count in */
-@page keycards { size: A4 landscape; margin: 8mm; }
+@page keycards { size: A4 landscape; margin: 20mm; }
 @media print {
+    .kc-print { padding: 0 !important; margin: 0 !important; min-height: 0 !important; }
+    .kc-print > :last-child { margin-bottom: 0 !important; }
     .kc-print { page: keycards; }
     .kc-print .kc-ret-box { display: inline-block !important; width: 26px; height: 18px; border: 1px solid #000; margin-left: 4px; }
     .kc-print .kc-ret-num { display: none !important; }
