@@ -53,13 +53,13 @@ export default function SetupPage() {
     const reload = async () => setSet(await guard<any>(st.loadSettings()));
     if (!cfg || !set || !me) return <div className="mx-auto max-w-[2400px] p-4 text-sm text-muted-foreground">Loading…</div>;
     const { SITES } = cfg;
-    const rights = me.role === 'admin' ? 'change both sites, manage desks' : me.role === 'desk' ? `change ${label(me.site)} slips, view ${Object.keys(SITES).filter(s => s !== me.site).map(label).join(', ')}` : 'view only';
+    const rights = me.role === 'admin' ? 'change both sites, manage desks' : me.role === 'siteadmin' ? `change ${label(me.site)} slips, manage ${label(me.site)} logins` : me.role === 'desk' ? `change ${label(me.site)} slips, view ${Object.keys(SITES).filter(s => s !== me.site).map(label).join(', ')}` : 'view only';
 
     return (
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <PageHeader view="setup" title="Setup" current={SETUP_TABS.find(t => t[0] === tab)?.[1]} />
             <Tabs value={tab} onValueChange={t => { setTab(t); window.scrollTo(0, 0); }} className="gap-3">
-                <TabsList variant="underline">{SETUP_TABS.filter(([id]) => id !== 'desks' || isAdmin).map(([id, l]) => <TabsTrigger key={id} value={id}>{l}</TabsTrigger>)}</TabsList>
+                <TabsList variant="underline">{SETUP_TABS.filter(([id]) => id !== 'desks' || isAdmin || me.role === 'siteadmin').map(([id, l]) => <TabsTrigger key={id} value={id}>{l}</TabsTrigger>)}</TabsList>
                 <TabsContent value="desk" className="grid gap-3"><ThisDesk me={me} rights={rights} label={label} /></TabsContent>
                 <TabsContent value="stays" className="grid gap-3">
                     <Travel set={set} isAdmin={isAdmin} reload={reload} />
@@ -72,7 +72,7 @@ export default function SetupPage() {
                     <GlColors set={set} isAdmin={isAdmin} reload={reload} label={label} />
                 </TabsContent>
                 <TabsContent value="data" className="grid gap-3"><Legacy me={me} isAdmin={isAdmin} dbm={dbm} label={label} confirm={confirm} /></TabsContent>
-                {isAdmin && <TabsContent value="desks" className="grid gap-3"><Desks cfg={cfg} me={me} label={label} confirm={confirm} prompt={prompt} /></TabsContent>}
+                {(isAdmin || me.role === 'siteadmin') && <TabsContent value="desks" className="grid gap-3"><Desks cfg={cfg} me={me} label={label} confirm={confirm} prompt={prompt} /></TabsContent>}
             </Tabs>
             {confirmDialog}{promptDialog}
         </div>
@@ -205,7 +205,7 @@ function Legacy({ me, isAdmin, dbm, label, confirm }: { me: Row; isAdmin: boolea
     const deviceId = (() => { try { let id = localStorage.getItem('pms_device_id'); if (!id) { id = crypto.randomUUID().slice(0, 8); localStorage.setItem('pms_device_id', id); } return id; } catch { return 'dev'; } })();
     const bySite: Record<string, number> = {}; let noBld = 0;
     for (const r of legacy) { const s = dbm.legacySiteOf(r); if (s) bySite[s] = (bySite[s] || 0) + 1; else noBld++; }
-    const writable = (s: string) => isAdmin || (me.role === 'desk' && s === me.site);
+    const writable = (s: string) => isAdmin || ((me.role === 'desk' || me.role === 'siteadmin') && s === me.site);
     async function upload() {
         const items: Row[] = [];
         for (const r of legacy) { const site = dbm.legacySiteOf(r) || (inc ? me.site : null); if (!site || !(isAdmin || site === me.site)) continue; const { id, ...slip } = r; items.push({ site, origin: `${deviceId}:${id}`, slip }); }
@@ -219,7 +219,7 @@ function Legacy({ me, isAdmin, dbm, label, confirm }: { me: Row; isAdmin: boolea
     }
     return <Shell title="Move this browser's old data to the cloud" sub="Slips saved on this computer before the cloud switch are still in this browser. Upload them once; uploading again never creates duplicates. The local copy stays in this browser as a backup.">
         <div className="flex flex-wrap gap-2"><Badge variant="outline">{legacy.length} slip(s) in this browser</Badge>{Object.entries(bySite).map(([s, n]) => <Badge key={s} variant="outline" className={writable(s) ? 'border-ok text-ok' : 'border-warn text-warn'}>{n} {label(s)}{writable(s) ? '' : ' — upload these from a ' + label(s) + ' desk'}</Badge>)}{noBld > 0 && <Badge variant="outline">{noBld} with no building</Badge>}</div>
-        {noBld > 0 && (me.role === 'desk' || isAdmin) && <label className="flex items-center gap-2 text-sm"><Checkbox checked={inc} onCheckedChange={v => setInc(v === true)} /> Also upload the <b>{noBld}</b> slip(s) with no building, as <b>{label(me.site)}</b> slips</label>}
+        {noBld > 0 && (me.role === 'desk' || me.role === 'siteadmin' || isAdmin) && <label className="flex items-center gap-2 text-sm"><Checkbox checked={inc} onCheckedChange={v => setInc(v === true)} /> Also upload the <b>{noBld}</b> slip(s) with no building, as <b>{label(me.site)}</b> slips</label>}
         <div className="flex items-center gap-3"><Button disabled={me.role === 'viewer' || busy} onClick={() => void upload()}>Upload</Button><Msg>{msg}</Msg></div></Shell>;
 }
 
@@ -227,10 +227,11 @@ function Legacy({ me, isAdmin, dbm, label, confirm }: { me: Row; isAdmin: boolea
 function Desks({ cfg, me, label, confirm, prompt }: { cfg: { SITES: Row; VIEWS: Row[]; NAV: Row[] }; me: Row; label: (s: string) => string; confirm: (o: any) => Promise<boolean>; prompt: (o: any) => Promise<string | null> }) {
     const { cloud } = useCore(); const c = cloud as any; const guard = useGuard();
     const [desks, setDesks] = useState<Row[]>([]), [audit, setAudit] = useState<Row[]>([]), [msg, setMsg] = useState('');
+    const owner = me.role === 'admin';   // a site admin manages only its own site's desk and viewer logins
     const [nd, setNd] = useState({ name: '', site: me.site, role: 'desk', pass: '' });
     const loadAudit = async () => { try { setAudit((await guard<any>(c.request('GET', '/api/audit?limit=100'))).audit); } catch { /* offline */ } };
     const loadDesks = async () => { try { setDesks((await guard<any>(c.request('GET', '/api/desks'))).desks); } catch (e: any) { setMsg(e.message); } };
-    useEffect(() => { void loadDesks(); void loadAudit(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { void loadDesks(); if (owner) void loadAudit(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
     async function patch(id: number, change: Row, done: string) {
         try { setDesks((await guard<any>(c.request('PATCH', `/api/desks/${id}`, change))).desks); setMsg(done); void loadAudit(); } catch (e: any) { setMsg(e.message); void loadDesks(); }
     }
@@ -247,7 +248,7 @@ function Desks({ cfg, me, label, confirm, prompt }: { cfg: { SITES: Row; VIEWS: 
             <Table><TableHeader><TableRow><TableHead>Desk</TableHead><TableHead>Site</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead>Last login</TableHead><TableHead /></TableRow></TableHeader>
                 <TableBody>{desks.map(d => <TableRow key={d.id} className={d.disabled ? 'opacity-60' : ''}>
                     <TableCell>{d.name}{d.id === me.id && <Badge variant="outline" className="ml-1.5">you</Badge>}</TableCell><TableCell>{label(d.site)}</TableCell>
-                    <TableCell><select className={sel} disabled={d.id === me.id} value={d.role} onChange={e => void patch(d.id, { role: e.target.value }, 'Role changed; that desk was logged out.')}>{['desk', 'viewer', 'admin'].map(r => <option key={r}>{r}</option>)}</select></TableCell>
+                    <TableCell><select className={sel} disabled={d.id === me.id || (!owner && !['desk', 'viewer'].includes(d.role))} value={d.role} onChange={e => void patch(d.id, { role: e.target.value }, 'Role changed; that desk was logged out.')}>{(owner ? ['desk', 'viewer', 'siteadmin', 'admin'] : ['desk', 'viewer']).map(r => <option key={r} value={r}>{r === 'siteadmin' ? 'site admin' : r}</option>)}</select></TableCell>
                     <TableCell>{d.disabled ? <Badge variant="destructive">disabled</Badge> : <Badge variant="outline" className="border-ok text-ok">active</Badge>}</TableCell><TableCell>{when(d.last_login)}</TableCell>
                     <TableCell className="space-x-1">
                         <Button size="sm" variant="outline" onClick={async () => { const pw = await prompt({ title: `New password for ${d.name}`, body: '8+ characters. They will be logged out on every computer.' }); if (pw) void patch(d.id, { password: pw }, `Password of ${d.name} changed.`); }}>Reset password</Button>
@@ -256,13 +257,13 @@ function Desks({ cfg, me, label, confirm, prompt }: { cfg: { SITES: Row; VIEWS: 
             <h4 className="font-bold">Add a desk</h4>
             <form className="flex flex-wrap gap-2" onSubmit={e => void add(e)}>
                 <Input className="w-56" placeholder="Desk name, e.g. Makkah Desk 2" required value={nd.name} onChange={e => setNd(x => ({ ...x, name: e.target.value }))} />
-                <select className={sel} value={nd.site} onChange={e => setNd(x => ({ ...x, site: e.target.value }))}>{Object.values(cfg.SITES).map((s: Row) => <option key={s.id} value={s.id}>{s.label}</option>)}</select>
-                <select className={sel} value={nd.role} onChange={e => setNd(x => ({ ...x, role: e.target.value }))}><option value="desk">desk — edits its own site</option><option value="viewer">viewer — read only</option><option value="admin">admin — everything</option></select>
+                <select className={sel} value={nd.site} onChange={e => setNd(x => ({ ...x, site: e.target.value }))}>{Object.values(cfg.SITES).filter((s: Row) => owner || s.id === me.site).map((s: Row) => <option key={s.id} value={s.id}>{s.label}</option>)}</select>
+                <select className={sel} value={nd.role} onChange={e => setNd(x => ({ ...x, role: e.target.value }))}><option value="desk">desk — edits its own site</option><option value="viewer">viewer — read only</option>{owner && <option value="siteadmin">site admin — manages its own site's logins</option>}{owner && <option value="admin">admin — every site, every setting</option>}</select>
                 <Input className="w-56" placeholder="Password (8+ characters)" minLength={8} required autoComplete="off" value={nd.pass} onChange={e => setNd(x => ({ ...x, pass: e.target.value }))} /><Button type="submit">Add</Button></form>
             <Msg>{msg}</Msg></Shell>
         <Access desks={desks} cfg={cfg} label={label} confirm={confirm} onSaved={(d: Row[]) => { setDesks(d); void loadAudit(); }} />
-        <Shell title="Recent changes" sub={null}><Table><TableHeader><TableRow><TableHead>When</TableHead><TableHead>Desk</TableHead><TableHead>Action</TableHead><TableHead>Slip</TableHead><TableHead>Detail</TableHead></TableRow></TableHeader>
-            <TableBody>{audit.length ? audit.map((a, i) => <TableRow key={i}><TableCell>{when(a.at)}</TableCell><TableCell>{a.desk || '—'}</TableCell><TableCell>{a.action}</TableCell><TableCell>{a.slip_id ?? ''}</TableCell><TableCell className="text-xs">{a.detail || ''}</TableCell></TableRow>) : <TableRow><TableCell colSpan={5} className="text-muted-foreground">Nothing yet.</TableCell></TableRow>}</TableBody></Table></Shell>
+        {owner && <Shell title="Recent changes" sub={null}><Table><TableHeader><TableRow><TableHead>When</TableHead><TableHead>Desk</TableHead><TableHead>Action</TableHead><TableHead>Slip</TableHead><TableHead>Detail</TableHead></TableRow></TableHeader>
+            <TableBody>{audit.length ? audit.map((a, i) => <TableRow key={i}><TableCell>{when(a.at)}</TableCell><TableCell>{a.desk || '—'}</TableCell><TableCell>{a.action}</TableCell><TableCell>{a.slip_id ?? ''}</TableCell><TableCell className="text-xs">{a.detail || ''}</TableCell></TableRow>) : <TableRow><TableCell colSpan={5} className="text-muted-foreground">Nothing yet.</TableCell></TableRow>}</TableBody></Table></Shell>}
     </>;
 }
 

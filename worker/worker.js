@@ -17,6 +17,10 @@
 
 const SITES = { makkah: 'Makkah', medina: 'Medina' };
 const ROLES = ['desk', 'viewer', 'admin'];
+// A site admin is an admin login flagged site_only: it manages the logins of its own site only. Stored as role 'admin' + site_only = 1 (the role column
+// has a CHECK), but every request sees role 'siteadmin', so each existing `role === 'admin'` check (all sites, settings, backups …) stays owner-only.
+const roleOf = (d) => (d.role === 'admin' && d.site_only ? 'siteadmin' : d.role);
+const GIVABLE = ['desk', 'viewer'];   // what a site admin may hand out
 const PBKDF2_ITER = 100000;           // Workers' maximum for PBKDF2
 const SESSION_DAYS = 30;
 const MAX_BULK = 45;                  // statements per request stay under D1's per-invocation limit
@@ -235,11 +239,11 @@ async function route(req, env) {
     if (mm && m === 'PUT') return updateBuilding(req, env, me, Number(mm[1]));
     if (mm && m === 'DELETE') return deleteBuilding(url, env, me, Number(mm[1]));
 
-    if (p === '/api/desks' && m === 'GET') { requireAdmin(me); return listDesks(env); }
-    if (p === '/api/desks' && m === 'POST') { requireAdmin(me); return createDesk(req, env, me); }
+    if (p === '/api/desks' && m === 'GET') { requireDeskManager(me); return listDesks(env, me); }
+    if (p === '/api/desks' && m === 'POST') { requireDeskManager(me); return createDesk(req, env, me); }
     mm = p.match(/^\/api\/desks\/(\d+)$/);
-    if (mm && m === 'PATCH') { requireAdmin(me); return updateDesk(req, env, me, Number(mm[1])); }
-    if (mm && m === 'DELETE') { requireAdmin(me); return deleteDesk(env, me, Number(mm[1])); }
+    if (mm && m === 'PATCH') { requireDeskManager(me); return updateDesk(req, env, me, Number(mm[1])); }
+    if (mm && m === 'DELETE') { requireDeskManager(me); return deleteDesk(env, me, Number(mm[1])); }
     if (p === '/api/audit' && m === 'GET') { requireAdmin(me); return listAudit(url, env); }
     if (p.startsWith('/api/backups')) { requireAdmin(me); const r = await backupRoute(p, m, url, req, env, me); if (r) return r; }
 
@@ -268,7 +272,7 @@ async function route(req, env) {
 // pages: the page ids this login may open (null = all); set by the admin on Setup
 const parsePages = (v) => { try { const a = v ? JSON.parse(v) : null; return Array.isArray(a) ? a : null; } catch { return null; } };
 const PAGES_OF = '(SELECT pages FROM desk_pages p WHERE p.desk_id = d.id) AS pages';
-const publicDesk = (d) => ({ id: d.id, name: d.name, site: d.site, role: d.role, pages: d.role === 'admin' ? null : parsePages(d.pages) });
+const publicDesk = (d) => ({ id: d.id, name: d.name, site: d.site, role: roleOf(d), pages: roleOf(d) === 'admin' ? null : parsePages(d.pages) });
 
 async function login(req, env) {
     const { name, password } = await body(req);
@@ -304,7 +308,7 @@ async function tokenHashOf(req) {
     return sha256(m[1].toLowerCase());
 }
 const sessionStmt = (env, tokenHash) => env.DB.prepare(
-    `SELECT s.expires_at, d.id, d.name, d.site, d.role, d.disabled, ${PAGES_OF} FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?`
+    `SELECT s.expires_at, d.id, d.name, d.site, d.role, d.site_only, d.disabled, ${PAGES_OF} FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?`
 ).bind(tokenHash);
 // a valid, unexpired session of an enabled desk; extends the login when less than half its lifetime is left
 async function checkSession(env, row, tokenHash) {
@@ -312,7 +316,7 @@ async function checkSession(env, row, tokenHash) {
     if (row.expires_at < plusDays(SESSION_DAYS / 2) && env.MAINTENANCE !== '1') {
         await env.DB.prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?').bind(plusDays(SESSION_DAYS), tokenHash).run();
     }
-    return { ...row, tokenHash };
+    return { ...row, role: roleOf(row), tokenHash };
 }
 /**
  * The login check and a request's own reads in one database trip. The reads run alongside the session lookup, but
@@ -330,6 +334,15 @@ async function authenticate(req, env) {
     return checkSession(env, await sessionStmt(env, tokenHash).first(), tokenHash);
 }
 
+function requireDeskManager(me) {
+    if (me.role !== 'admin' && me.role !== 'siteadmin') throw new HttpError(403, 'Only an admin can do this.');
+}
+// a site admin may touch only the desk / viewer logins of its own site; the owner admin may touch any
+function assertManages(me, desk) {
+    if (me.role === 'admin') return;
+    if (desk.site !== me.site) throw new HttpError(403, `You can only manage ${SITES[me.site]} logins.`);
+    if (!GIVABLE.includes(roleOf(desk))) throw new HttpError(403, 'Only the owner admin can change an admin login.');
+}
 function requireAdmin(me) {
     if (me.role !== 'admin') throw new HttpError(403, 'Only an admin can do this.');
 }
@@ -337,7 +350,7 @@ function requireAdmin(me) {
 function assertWrite(me, site) {
     if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
     if (me.role === 'admin') return;
-    if (me.role !== 'desk') throw new HttpError(403, `${me.name} is a read-only login.`);
+    if (me.role !== 'desk' && me.role !== 'siteadmin') throw new HttpError(403, `${me.name} is a read-only login.`);
     if (me.site !== site) throw new HttpError(403, `${me.name} can only change ${SITES[me.site]} slips.`);
 }
 
@@ -434,7 +447,7 @@ const pullArgs = (url) => ({
     limit: Math.min(PULL_LIMIT, Number(url.searchParams.get('limit')) || PULL_LIMIT),
 });
 // a desk or viewer login is sent only the slips of its own site (an admin gets both): less to download, keep in memory and compare
-const OWN_SITE = "(SELECT d.role = 'admin' OR d.site = slips.site FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?)";
+const OWN_SITE = "(SELECT (d.role = 'admin' AND d.site_only = 0) OR d.site = slips.site FROM sessions s JOIN desks d ON d.id = s.desk_id WHERE s.token_hash = ?)";
 const pullStmt = (url, env) => (tokenHash) => pullStmtFor(url, env, tokenHash);
 function pullStmtFor(url, env, tokenHash) {
     const { seq, id, limit } = pullArgs(url);
@@ -796,13 +809,14 @@ async function deleteBuilding(url, env, me, id) {
 
 /* ---------------------------------- desks ---------------------------------- */
 
-async function listDesks(env) {
+async function listDesks(env, me) {
+    const mine = me && me.role === 'siteadmin';
     const { results } = await env.DB.prepare(
-        `SELECT d.id, d.name, d.site, d.role, d.disabled, d.created_at,
+        `SELECT d.id, d.name, d.site, d.role, d.site_only, d.disabled, d.created_at,
                 (SELECT MAX(created_at) FROM sessions s WHERE s.desk_id = d.id) AS last_login, ${PAGES_OF}
-         FROM desks d ORDER BY d.site, d.name`
-    ).all();
-    return json({ desks: results.map(d => ({ ...d, pages: parsePages(d.pages) })) });
+         FROM desks d ${mine ? "WHERE d.site = ? AND d.role <> 'admin'" : ''} ORDER BY d.site, d.name`
+    ).bind(...(mine ? [me.site] : [])).all();
+    return json({ desks: results.map(({ site_only, ...d }) => ({ ...d, role: roleOf({ ...d, site_only }), pages: parsePages(d.pages) })) });
 }
 
 function checkPassword(pw) {
@@ -810,8 +824,16 @@ function checkPassword(pw) {
 }
 
 async function createDesk(req, env, me) {
-    const { name, site, role = 'desk', password } = await body(req);
+    const { name, site: wantedSite, role: wantedRole = 'desk', password } = await body(req);
     const n = String(name || '').trim();
+    // a site admin: only desk / viewer logins, only at its own site; the owner may also make a site admin ('siteadmin')
+    if (me.role === 'siteadmin') {
+        if (wantedSite !== me.site) throw new HttpError(403, `You can only add logins for ${SITES[me.site]}.`);
+        if (!GIVABLE.includes(wantedRole)) throw new HttpError(403, 'Only the owner admin can create an admin login.');
+    }
+    const site = wantedSite;
+    const siteOnly = wantedRole === 'siteadmin' ? 1 : 0;
+    const role = wantedRole === 'siteadmin' ? 'admin' : wantedRole;
     if (!/^[\w .-]{3,40}$/.test(n)) throw new HttpError(400, 'Desk name: 3–40 letters, digits, spaces, dot, dash or underscore.');
     if (!SITES[site]) throw new HttpError(400, 'Choose a site.');
     if (!ROLES.includes(role)) throw new HttpError(400, 'Unknown role.');
@@ -819,22 +841,29 @@ async function createDesk(req, env, me) {
     const salt = randomHex(16);
     try {
         // never reuse a deleted login's id (the change log still points at it)
-        await env.DB.prepare(`INSERT INTO desks (id, name, site, role, pw_hash, pw_salt, pw_iter, created_at)
-            VALUES (MAX(COALESCE((SELECT MAX(id) FROM desks), 0), COALESCE((SELECT MAX(id) FROM deleted_desks), 0)) + 1, ?, ?, ?, ?, ?, ?, ?)`)
-            .bind(n, site, role, await pbkdf2(password, salt, PBKDF2_ITER), salt, PBKDF2_ITER, now()).run();
+        await env.DB.prepare(`INSERT INTO desks (id, name, site, role, site_only, pw_hash, pw_salt, pw_iter, created_at)
+            VALUES (MAX(COALESCE((SELECT MAX(id) FROM desks), 0), COALESCE((SELECT MAX(id) FROM deleted_desks), 0)) + 1, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            .bind(n, site, role, siteOnly, await pbkdf2(password, salt, PBKDF2_ITER), salt, PBKDF2_ITER, now()).run();
     } catch (e) {
         if (/UNIQUE/i.test(String(e && e.message))) throw new HttpError(409, `A desk named "${n}" already exists.`);
         throw e;
     }
-    await auditStmt(env, me, 'desk-create', null, `${n} (${site}, ${role})`).run();
-    return listDesks(env);
+    await auditStmt(env, me, 'desk-create', null, `${n} (${site}, ${siteOnly ? 'site admin' : role})`).run();
+    return listDesks(env, me);
 }
 
 async function updateDesk(req, env, me, id) {
     const b = await body(req);
     const desk = await env.DB.prepare('SELECT * FROM desks WHERE id = ?').bind(id).first();
     if (!desk) throw new HttpError(404, 'No such desk.');
-    if (id === me.id && (b.disabled || (b.role && b.role !== 'admin'))) throw new HttpError(400, 'You cannot disable or demote your own admin login.');
+    assertManages(me, desk);
+    if (me.role === 'siteadmin') {
+        if (b.site !== undefined && b.site !== me.site) throw new HttpError(403, `You can only manage ${SITES[me.site]} logins.`);
+        if (b.role !== undefined && !GIVABLE.includes(b.role)) throw new HttpError(403, 'Only the owner admin can make an admin login.');
+    }
+    // the role a request asks for: 'siteadmin' is stored as admin + site_only
+    const wantRole = b.role === 'siteadmin' ? 'admin' : b.role, wantSiteOnly = b.role === 'siteadmin' ? 1 : 0;
+    if (id === me.id && (b.disabled || (b.role !== undefined && roleOf({ role: wantRole, site_only: wantSiteOnly }) !== me.role))) throw new HttpError(400, 'You cannot disable or demote your own admin login.');
     const sets = [], args = [], notes = [], extra = [];
     // page access: a list of page ids, or null for every page. Not a sign-out reason: the desk's
     // browser picks it up from /api/me within a minute.
@@ -855,7 +884,7 @@ async function updateDesk(req, env, me, id) {
         notes.push('password reset');
     }
     if (b.disabled !== undefined) { sets.push('disabled = ?'); args.push(b.disabled ? 1 : 0); notes.push(b.disabled ? 'disabled' : 'enabled'); }
-    if (b.role !== undefined) { if (!ROLES.includes(b.role)) throw new HttpError(400, 'Unknown role.'); sets.push('role = ?'); args.push(b.role); notes.push('role ' + b.role); }
+    if (b.role !== undefined) { if (!ROLES.includes(wantRole) && b.role !== 'siteadmin') throw new HttpError(400, 'Unknown role.'); sets.push('role = ?', 'site_only = ?'); args.push(wantRole, wantSiteOnly); notes.push('role ' + b.role); }
     if (b.site !== undefined) { if (!SITES[b.site]) throw new HttpError(400, 'Unknown site.'); sets.push('site = ?'); args.push(b.site); notes.push('site ' + b.site); }
     if (!sets.length && !extra.length) throw new HttpError(400, 'Nothing to change.');
     await env.DB.batch([
@@ -867,7 +896,7 @@ async function updateDesk(req, env, me, id) {
         ...extra,
         auditStmt(env, me, 'desk-update', null, `${desk.name}: ${notes.join(', ')}`),
     ]);
-    return listDesks(env);
+    return listDesks(env, me);
 }
 
 // Any login changes its own password: the current one is required (and counts towards the lockout),
@@ -984,7 +1013,7 @@ async function kgOp(req, env, me) {
     }
     throw new HttpError(409, 'Another desk is changing the KG list right now. Try again.');
 }
-function requireAdminOrDesk(me) { if (me.role !== 'admin' && me.role !== 'desk') throw new HttpError(403, 'Not allowed.'); }
+function requireAdminOrDesk(me) { if (me.role !== 'admin' && me.role !== 'desk' && me.role !== 'siteadmin') throw new HttpError(403, 'Not allowed.'); }
 
 // Saved assignments; the same entry twice is kept once (imports can be repeated)
 async function addKgLog(req, env, me) {
@@ -1069,11 +1098,12 @@ async function deleteKgLog(url, env, me, id) {
 // Remove a login for good: its sessions, page access and personal settings go with it. Its name is kept in
 // deleted_desks so the change log still says who did what. Not your own login, not the last admin.
 async function deleteDesk(env, me, id) {
-    const desk = await env.DB.prepare('SELECT id, name, site, role FROM desks WHERE id = ?').bind(id).first();
+    const desk = await env.DB.prepare('SELECT id, name, site, role, site_only FROM desks WHERE id = ?').bind(id).first();
     if (!desk) throw new HttpError(404, 'No such desk.');
+    assertManages(me, desk);
     if (id === me.id) throw new HttpError(400, 'You cannot delete the login you are using.');
-    if (desk.role === 'admin') {
-        const admins = await env.DB.prepare("SELECT COUNT(*) AS c FROM desks WHERE role = 'admin' AND disabled = 0").first('c');
+    if (desk.role === 'admin' && !desk.site_only) {
+        const admins = await env.DB.prepare("SELECT COUNT(*) AS c FROM desks WHERE role = 'admin' AND site_only = 0 AND disabled = 0").first('c');
         if (admins <= 1) throw new HttpError(400, 'This is the only active admin login; it cannot be deleted.');
     }
     await env.DB.batch([
@@ -1085,7 +1115,7 @@ async function deleteDesk(env, me, id) {
         env.DB.prepare('DELETE FROM desks WHERE id = ?').bind(id),
         auditStmt(env, me, 'desk-delete', null, `${desk.name} (${desk.site}, ${desk.role})`),
     ]);
-    return listDesks(env);
+    return listDesks(env, me);
 }
 
 /* ----------------------------------- Laundry ----------------------------------- */
@@ -1554,7 +1584,7 @@ async function voidLaundryBill(req, env, me, id) {
 // Admin or desk login: the worker handed the cash over → mark cash bills paid (or back to unpaid), one or many
 // at once. A desk login only touches bills of its own site.
 async function settleLaundryBills(req, env, me) {
-    if (me.role !== 'admin' && me.role !== 'desk') throw new HttpError(403, `${me.name} is a read-only login.`);
+    if (me.role !== 'admin' && me.role !== 'desk' && me.role !== 'siteadmin') throw new HttpError(403, `${me.name} is a read-only login.`);
     const b = await body(req);
     const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
     if (!ids.length) throw new HttpError(400, 'Choose at least one bill.');

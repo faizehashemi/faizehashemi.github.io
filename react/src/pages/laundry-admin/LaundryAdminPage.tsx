@@ -24,7 +24,7 @@ export default function LaundryAdminPage() {
     const { ask: confirm, dialog: confirmDialog } = useConfirm();
     const { ask: prompt, dialog: promptDialog } = usePrompt();
     const me = cloud.currentDesk();
-    const isAdmin = me?.role === 'admin', canPay = isAdmin || me?.role === 'desk';   // a desk login may mark its site's cash bills paid; the rest stays admin-only
+    const isAdmin = me?.role === 'admin', canPay = isAdmin || me?.role === 'desk' || me?.role === 'siteadmin';   // a desk login may mark its site's cash bills paid; the rest stays admin-only
 
     const [mods, setMods] = useState<{ laundry: any; lib: any } | null>(null);
     const [tab, setTab] = useState('bills');

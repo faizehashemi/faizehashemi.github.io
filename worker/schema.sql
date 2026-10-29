@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS desks (
     pw_hash     TEXT NOT NULL,              -- PBKDF2-SHA256, hex
     pw_salt     TEXT NOT NULL,              -- hex
     pw_iter     INTEGER NOT NULL,
+    site_only   INTEGER NOT NULL DEFAULT 0,   -- 1 with role 'admin' = site admin: manages the logins of its own site only
     disabled    INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL
 );

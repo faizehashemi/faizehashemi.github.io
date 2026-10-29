@@ -78,7 +78,7 @@ function applyDesk(desk, token) {
 // admin: everything · desk: own site · viewer: nothing
 export function canWrite(siteId) {
     const d = currentDesk();
-    return !!d && (d.role === 'admin' || (d.role === 'desk' && d.site === siteId));
+    return !!d && (d.role === 'admin' || ((d.role === 'desk' || d.role === 'siteadmin') && d.site === siteId));
 }
 
 export const state = { lastSync: null, online: true };

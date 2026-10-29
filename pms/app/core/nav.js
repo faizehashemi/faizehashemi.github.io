@@ -530,7 +530,7 @@ class SiteNav extends HTMLElement {
         r.querySelectorAll('[data-site]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.site === siteId)));
         this.renderQuick();
         if (desk) {
-            const canEdit = desk.role === 'admin' || (desk.role === 'desk' && desk.site === siteId);
+            const canEdit = desk.role === 'admin' || ((desk.role === 'desk' || desk.role === 'siteadmin') && desk.site === siteId);
             const role = canEdit ? desk.role : `${desk.role} · view only here`;
             r.getElementById('deskName').textContent = `${desk.name} · ${SITES[siteId]?.label || ''}`;
             r.getElementById('deskInfo').innerHTML = `<span class="mi-l">${esc(desk.name)}</span><span class="mi-h">${esc(SITES[desk.site]?.label)} · ${esc(role)}</span>`;
