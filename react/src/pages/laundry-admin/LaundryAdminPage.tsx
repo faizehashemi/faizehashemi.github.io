@@ -24,7 +24,7 @@ export default function LaundryAdminPage() {
     const { ask: confirm, dialog: confirmDialog } = useConfirm();
     const { ask: prompt, dialog: promptDialog } = usePrompt();
     const me = cloud.currentDesk();
-    const isAdmin = me?.role === 'admin', canPay = isAdmin || me?.role === 'desk' || me?.role === 'siteadmin';   // a desk login may mark its site's cash bills paid; the rest stays admin-only
+    const isAdmin = me?.role === 'admin' || me?.role === 'siteadmin', canPay = isAdmin || me?.role === 'desk' || me?.role === 'siteadmin';   // a desk login may mark its site's cash bills paid; the rest stays admin-only
 
     const [mods, setMods] = useState<{ laundry: any; lib: any } | null>(null);
     const [tab, setTab] = useState('bills');
@@ -42,7 +42,7 @@ export default function LaundryAdminPage() {
             setMods({ laundry, lib });
             // the receipt styles for the bill dialog (core/laundry.js RECEIPT_CSS), added while this page is open
             const st = document.createElement('style'); st.dataset.laundryReceipt = '1'; st.textContent = laundry.RECEIPT_CSS; document.head.appendChild(st);
-            try { const r = await api('GET', '/api/settings'); setInfo(r.settings.laundry_info || laundry.DEFAULT_INFO); setCats(r.settings.laundry_staff_categories?.[siteId] || []); } catch { setInfo(laundry.DEFAULT_INFO); }
+            try { const r = await api('GET', `/api/settings?site=${siteId}`); setInfo(r.settings.laundry_info || laundry.DEFAULT_INFO); setCats(r.settings.laundry_staff_categories?.[siteId] || []); } catch { setInfo(laundry.DEFAULT_INFO); }
             await Promise.all([loadItems(), loadStaff()]).catch(() => { /* ignore */ });
         })();
         return () => { document.querySelectorAll('style[data-laundry-receipt]').forEach(e => e.remove()); };

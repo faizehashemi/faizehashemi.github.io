@@ -305,15 +305,15 @@ export function StaffTab() {
 
 /* --------------------------- notice & log --------------------------- */
 export function NoticeTab() {
-    const { isAdmin, api, libs, info, setInfo } = useLa();
+    const { isAdmin, api, libs, info, setInfo, site } = useLa();
     const { jeddahDate, jeddahTime } = libs;
     const [text, setText] = useState(info), [msg, setMsg] = useState('');
-    const { data: audit, err } = useLoad<Row[]>(async () => { try { const r = await api('GET', '/api/settings'); const v = r.settings.laundry_info || libs.DEFAULT_INFO; setInfo(v); setText(v); } catch { /* ignore */ } return (await api('GET', '/api/laundry/audit')).audit; }, []);
+    const { data: audit, err } = useLoad<Row[]>(async () => { try { const r = await api('GET', `/api/settings?site=${site}`); const v = r.settings.laundry_info || libs.DEFAULT_INFO; setInfo(v); setText(v); } catch { /* ignore */ } return (await api('GET', '/api/laundry/audit')).audit; }, []);
     return (
         <div className="grid gap-3">
             <Card><CardHeader><CardTitle className="text-base">Notice for the laundry screen and receipts</CardTitle></CardHeader><CardContent className="grid gap-2">
                 <Textarea rows={4} maxLength={600} readOnly={!isAdmin} value={text} onChange={e => setText(e.target.value)} />
-                <div className="flex items-center gap-2"><span className="grow text-sm text-muted-foreground">{msg}</span>{isAdmin && <Button onClick={async () => { try { await api('PUT', '/api/settings', { settings: { laundry_info: text.trim() } }); setInfo(text.trim()); setMsg('Saved — shown on the laundry screen and receipts.'); } catch (e: any) { setMsg(e.message); } }}>Save notice</Button>}</div></CardContent></Card>
+                <div className="flex items-center gap-2"><span className="grow text-sm text-muted-foreground">{msg}</span>{isAdmin && <Button onClick={async () => { try { await api('PUT', '/api/settings', { settings: { laundry_info: text.trim() }, site }); setInfo(text.trim()); setMsg('Saved — shown on the laundry screen and receipts.'); } catch (e: any) { setMsg(e.message); } }}>Save notice</Button>}</div></CardContent></Card>
             <Card><CardHeader><CardTitle className="text-base">Laundry change log</CardTitle></CardHeader><CardContent>{err ? <Err e={err} /> : !audit ? <Loading /> : <ul className="grid gap-1.5 text-sm">{audit.length ? audit.map((a, i) => <li key={i}><small className="block text-xs text-muted-foreground">{jeddahDate(a.at)} {jeddahTime(a.at)} · {a.desk || ''} · {String(a.action).replace('laundry-', '')}</small>{a.detail || ''}</li>) : <li className="text-muted-foreground">Nothing yet.</li>}</ul>}</CardContent></Card>
         </div>
     );

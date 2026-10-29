@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,8 @@ import { useCore, useGuard, useLoadApp, useLoadCore } from '@/pms/PmsContext';
 // GL copy colours — then the one-time upload of this browser's old data, and (admin) desk logins, page access and the audit log.
 
 type Row = Record<string, any>;
+// who a settings change applies to: 'all' (every site; owner admin only) or a site id (a site admin is always held to its own)
+const ScopeCtx = createContext<string>('all');
 const SETUP_TABS: [string, string][] = [['desk', 'This desk'], ['stays', 'Stays & travel'], ['groups', 'Groups & colours'], ['data', 'Data'], ['desks', 'Desks & access']];
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 const sel = 'h-9 rounded-md border bg-background px-2 text-sm';
@@ -34,6 +36,9 @@ export default function SetupPage() {
     const { ask: prompt, dialog: promptDialog } = usePrompt();
     const me = cloud.currentDesk();
     const isAdmin = me?.role === 'admin';
+    const siteAdmin = me?.role === 'siteadmin';
+    const canSettings = isAdmin || siteAdmin;   // the settings of the stays, groups and travel: every site (owner) or its own site (site admin)
+    const [scope, setScope] = useState<string>(me?.role === 'siteadmin' ? me.site : 'all');
     const [cfg, setCfg] = useState<{ SITES: Row; VIEWS: Row[]; NAV: Row[] } | null>(null);
     const [dbm, setDbm] = useState<any>(null);
     const [set, setSet] = useState<Row | null>(null);
@@ -45,12 +50,13 @@ export default function SetupPage() {
         void (async () => {
             const [conf, d] = await Promise.all([loadApp('config.js'), loadCore('db')]);
             setCfg({ SITES: conf.SITES, VIEWS: conf.VIEWS, NAV: conf.NAV }); setDbm(d);
-            setSet(await guard<any>(st.loadSettings()));
+            setSet(await guard<any>(st.loadSettings(scope === 'all' ? null : scope, { global: scope === 'all' })));
         })();
         const t = () => tick(n => n + 1);
         window.addEventListener('pms:sync', t); return () => window.removeEventListener('pms:sync', t);
     }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-    const reload = async () => setSet(await guard<any>(st.loadSettings()));
+    const reload = async () => setSet(await guard<any>(st.loadSettings(scope === 'all' ? null : scope, { global: scope === 'all' })));
+    useEffect(() => { if (cfg) void reload(); }, [scope]);   // eslint-disable-line react-hooks/exhaustive-deps
     if (!cfg || !set || !me) return <div className="mx-auto max-w-[2400px] p-4 text-sm text-muted-foreground">Loading…</div>;
     const { SITES } = cfg;
     const rights = me.role === 'admin' ? 'change both sites, manage desks' : me.role === 'siteadmin' ? `change ${label(me.site)} slips, manage ${label(me.site)} logins` : me.role === 'desk' ? `change ${label(me.site)} slips, view ${Object.keys(SITES).filter(s => s !== me.site).map(label).join(', ')}` : 'view only';
@@ -61,16 +67,20 @@ export default function SetupPage() {
             <Tabs value={tab} onValueChange={t => { setTab(t); window.scrollTo(0, 0); }} className="gap-3">
                 <TabsList variant="underline">{SETUP_TABS.filter(([id]) => id !== 'desks' || isAdmin || me.role === 'siteadmin').map(([id, l]) => <TabsTrigger key={id} value={id}>{l}</TabsTrigger>)}</TabsList>
                 <TabsContent value="desk" className="grid gap-3"><ThisDesk me={me} rights={rights} label={label} /></TabsContent>
-                <TabsContent value="stays" className="grid gap-3">
-                    <Travel set={set} isAdmin={isAdmin} reload={reload} />
-                    <Delay set={set} isAdmin={isAdmin} reload={reload} />
-                    <ShPrefixes set={set} isAdmin={isAdmin} reload={reload} />
-                </TabsContent>
-                <TabsContent value="groups" className="grid gap-3">
-                    <Kg set={set} isAdmin={isAdmin} reload={reload} />
-                    <Fe set={set} isAdmin={isAdmin} reload={reload} />
-                    <GlColors set={set} isAdmin={isAdmin} reload={reload} label={label} />
-                </TabsContent>
+                <ScopeCtx.Provider value={scope}>
+                    <TabsContent value="stays" className="grid gap-3">
+                        <ScopeBar scope={scope} setScope={setScope} owner={isAdmin} label={label} sites={cfg.SITES} set={set} />
+                        <Travel key={scope} set={set} isAdmin={canSettings} reload={reload} />
+                        <Delay key={scope} set={set} isAdmin={canSettings} reload={reload} />
+                        <ShPrefixes key={scope} set={set} isAdmin={canSettings} reload={reload} />
+                    </TabsContent>
+                    <TabsContent value="groups" className="grid gap-3">
+                        <ScopeBar scope={scope} setScope={setScope} owner={isAdmin} label={label} sites={cfg.SITES} set={set} />
+                        <Kg key={scope} set={set} isAdmin={canSettings} reload={reload} />
+                        <Fe key={scope} set={set} isAdmin={canSettings} reload={reload} />
+                        <GlColors key={scope} set={set} isAdmin={canSettings} reload={reload} label={label} />
+                    </TabsContent>
+                </ScopeCtx.Provider>
                 <TabsContent value="data" className="grid gap-3"><Legacy me={me} isAdmin={isAdmin} dbm={dbm} label={label} confirm={confirm} /></TabsContent>
                 {(isAdmin || me.role === 'siteadmin') && <TabsContent value="desks" className="grid gap-3"><Desks cfg={cfg} me={me} label={label} confirm={confirm} prompt={prompt} /></TabsContent>}
             </Tabs>
@@ -91,16 +101,32 @@ function ThisDesk({ me: m, rights: rt, label: lb }: { me: Row; rights: string; l
         <div className="flex items-center gap-3"><Button variant="outline" onClick={async () => { setMsg('Syncing…'); try { await c.sync({ force: true }); setMsg('Up to date.'); } catch (e: any) { setMsg(e.message); } }}>Sync now</Button><Msg>{msg}</Msg></div></></Shell>;
 }
 
+// "Applies to": the owner admin picks every site or one site; a site admin only ever changes its own site
+function ScopeBar({ scope, setScope, owner, label, sites, set }: { scope: string; setScope: (s: string) => void; owner: boolean; label: (s: string) => string; sites: Row; set: Row }) {
+    const own: string[] = set?.overrides || [];
+    return (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-accent/40 px-3 py-2 text-sm">
+            <b>Applies to</b>
+            {owner
+                ? <select className={sel} value={scope} onChange={e => setScope(e.target.value)} aria-label="Applies to"><option value="all">All sites (the default)</option>{Object.values(sites).map((x: Row) => <option key={x.id} value={x.id}>{x.label} only</option>)}</select>
+                : <span>{label(scope)} only</span>}
+            <span className="text-muted-foreground">
+                {scope === 'all' ? 'Every site uses these unless a site has its own value.' : own.length ? `${label(scope)} has its own value for: ${own.join(', ')}. The rest follows the all-sites value.` : `${label(scope)} follows the all-sites values until you change one here.`}
+            </span>
+        </div>
+    );
+}
+
 type CardProps = { set: Row; isAdmin: boolean; reload: () => Promise<void> };
 function Shell({ title, sub, children }: { title: ReactNode; sub?: ReactNode; children: ReactNode }) {
     return <Card><CardHeader><CardTitle className="text-base">{title}</CardTitle>{sub && <p className="text-sm text-muted-foreground">{sub}</p>}</CardHeader><CardContent className="grid gap-3">{children}</CardContent></Card>;
 }
 function useSaver(reload: () => Promise<void>) {
-    const guard = useGuard(); const { settings } = useCore();
+    const guard = useGuard(); const { settings } = useCore(); const scope = useContext(ScopeCtx);
     const [msg, setMsg] = useState(''), [busy, setBusy] = useState(false);
     async function run(patch: Row, ok: string) {
         setBusy(true);
-        try { await guard((settings as any).saveSettings(patch)); await reload(); setMsg(ok); } catch (e: any) { setMsg(e.status === 404 ? 'The PMS server needs the update (worker.js + schema.sql) before this can be saved.' : e.message || String(e)); } finally { setBusy(false); }
+        try { await guard((settings as any).saveSettings(patch, scope === 'all' ? null : scope)); await reload(); setMsg(ok); } catch (e: any) { setMsg(e.status === 404 ? 'The PMS server needs the update (worker.js + schema.sql) before this can be saved.' : e.message || String(e)); } finally { setBusy(false); }
     }
     return { msg, setMsg, busy, run };
 }

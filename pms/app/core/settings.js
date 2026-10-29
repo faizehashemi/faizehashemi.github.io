@@ -40,26 +40,33 @@ export function to12h(hhmm) {
     return `${String(((h + 11) % 12) + 1).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
-let cached = (() => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { return null; } })();
+// the site on the page address (#/makkah/…): an owner admin gets that site's values; a login of one site always gets its own
+const siteOfHash = () => { const m = String(location.hash || '').match(/^#\/([a-z]+)\//); return m ? m[1] : null; };
+const cacheKey = (site) => `${CACHE_KEY}:${site || 'all'}`;
+const readCache = (site) => { try { return JSON.parse(localStorage.getItem(cacheKey(site)) || 'null'); } catch { return null; } };
+const cachedBy = {};
 
 /** { settings: {…all keys, defaults filled in}, updated_at, updated_by, fromServer } */
-export async function loadSettings() {
+export async function loadSettings(site = siteOfHash(), { global = false } = {}) {
+    const scope = global ? null : site;   // global: the all-sites values (an owner admin editing them in Setup)
+    let cached = cachedBy[scope || 'all'] ?? (cachedBy[scope || 'all'] = readCache(scope));
     try {
-        const r = await request('GET', '/api/settings');
-        cached = r;
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify(r)); } catch { }
+        const r = await request('GET', `/api/settings${scope ? `?site=${scope}` : ''}`);
+        cached = cachedBy[scope || 'all'] = r;
+        try { localStorage.setItem(cacheKey(scope), JSON.stringify(r)); } catch { }
     } catch (e) {
         if (!(e instanceof OfflineError) && !(e instanceof ApiError)) throw e; // offline or old server: use the copy / defaults
     }
-    return { settings: { ...DEFAULTS, ...(cached?.settings || {}) }, updated_at: cached?.updated_at || null, updated_by: cached?.updated_by || null, fromServer: !!cached };
+    return { settings: { ...DEFAULTS, ...(cached?.settings || {}) }, overrides: cached?.overrides || [], site: cached?.site || null, updated_at: cached?.updated_at || null, updated_by: cached?.updated_by || null, fromServer: !!cached };
 }
 
-export async function saveSettings(settings) {
-    const r = await request('PUT', '/api/settings', { settings });
-    cached = r;
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(r)); } catch { }
+/** scope: a site id = this site only (a site admin is always held to its own); null / undefined = every site (owner admin only) */
+export async function saveSettings(settings, scope = null, reset = null) {
+    const r = await request('PUT', '/api/settings', { settings, ...(scope ? { site: scope } : {}), ...(reset ? { reset } : {}) });
+    cachedBy[r.site || 'all'] = r;
+    try { localStorage.setItem(cacheKey(r.site || null), JSON.stringify(r)); } catch { }
     track('settings_saved', { keys: Object.keys(settings).join(',') });
-    return { settings: { ...DEFAULTS, ...r.settings }, updated_at: r.updated_at, updated_by: r.updated_by, fromServer: true };
+    return { settings: { ...DEFAULTS, ...r.settings }, overrides: r.overrides || [], site: r.site || null, updated_at: r.updated_at, updated_by: r.updated_by, fromServer: true };
 }
 
 /** The UMS import rules with the current settings applied (see staysOf in ums.js). */

@@ -197,8 +197,8 @@ async function route(req, env) {
     if (mm && m === 'PUT') return updateSlip(req, env, me, Number(mm[1]));
     if (mm && m === 'DELETE') return deleteSlip(url, env, me, Number(mm[1]));
 
-    if (p === '/api/settings' && m === 'GET') return getSettings(env);
-    if (p === '/api/settings' && m === 'PUT') { requireAdmin(me); return putSettings(req, env, me); }
+    if (p === '/api/settings' && m === 'GET') return getSettings(env, me, url.searchParams.get('site'));
+    if (p === '/api/settings' && m === 'PUT') { requireDeskManager(me); return putSettings(req, env, me, url); }
 
     if (p === '/api/kg' && m === 'GET') return getKg(env, String(url.searchParams.get('site') || me.site));
     if (p === '/api/kg/op' && m === 'POST') return kgOp(req, env, me);
@@ -684,36 +684,56 @@ const SETTINGS = {
     },
 };
 
-async function getSettings(env) {
+// Settings are global, and a site can have its own value for the SITE_SETTINGS keys, stored under "<site>/<key>". A login of a site gets its site's values
+// (its own where set, else the global ones); an owner admin gets the global ones, or those of the site it asks for (?site=).
+const SITE_SETTINGS = ['arrival_commute_hours', 'departure_lead_hours', 'transfer_checkin_time', 'transfer_checkout_time', 'laundry_info', 'kg_sessions', 'fe_windows', 'delay_hold_days', 'sh_prefixes', 'gl_colors'];
+async function getSettings(env, me, siteArg) {
+    const site = me.role === 'admin' ? (SITES[siteArg] ? siteArg : null) : me.site;
     const { results } = await env.DB.prepare(
         'SELECT s.key, s.value, s.updated_at, d.name AS updated_by FROM settings s LEFT JOIN desks d ON d.id = s.updated_by'
     ).all();
-    const settings = {};
+    const settings = {}, own = {}, overrides = [];
     let last = null;
     for (const r of results) {
-        settings[r.key] = JSON.parse(r.value);
+        const i = r.key.indexOf('/');
+        if (i > 0) {
+            if (r.key.slice(0, i) !== site) continue;           // another site's value
+            own[r.key.slice(i + 1)] = JSON.parse(r.value); overrides.push(r.key.slice(i + 1));
+        } else settings[r.key] = JSON.parse(r.value);
         if (!last || r.updated_at > last.updated_at) last = r;
     }
-    return json({ settings, updated_at: last ? last.updated_at : null, updated_by: last ? last.updated_by : null });
+    return json({ settings: { ...settings, ...own }, site, overrides, updated_at: last ? last.updated_at : null, updated_by: last ? last.updated_by : null });
 }
 
-async function putSettings(req, env, me) {
-    const { settings } = await body(req);
+async function putSettings(req, env, me, url) {
+    const { settings, site: bodySite, reset } = await body(req);
+    // who a change applies to: a site admin → its own site only; the owner admin → the site it names, else every site
+    const wanted = bodySite || (url && url.searchParams.get('site')) || null;
+    if (me.role === 'siteadmin' && wanted && wanted !== me.site) throw new HttpError(403, `You can only change ${SITES[me.site]}'s settings.`);
+    const scope = me.role === 'siteadmin' ? me.site : (SITES[wanted] ? wanted : null);
+    const keyOf = (k) => (scope ? `${scope}/${k}` : k);
+    if (Array.isArray(reset) && scope) {   // back to the all-sites value
+        const gone = reset.filter(k => SITE_SETTINGS.includes(k));
+        if (gone.length) await env.DB.batch([...gone.map(k => env.DB.prepare('DELETE FROM settings WHERE key = ?').bind(keyOf(k))), auditStmt(env, me, 'settings', null, `${scope}: back to the all-sites value of ${gone.join(', ')}`)]);
+    }
+    if (!settings || typeof settings !== 'object') return getSettings(env, me, scope);
     if (!settings || typeof settings !== 'object') throw new HttpError(400, 'settings must be an object.');
     const stmts = [];
     const notes = [];
     for (const [k, v] of Object.entries(settings)) {
         const def = SETTINGS[k];
         if (!def) throw new HttpError(400, `Unknown setting "${k}".`);
+        if (scope && !SITE_SETTINGS.includes(k)) throw new HttpError(403, 'That setting applies to every site; only the owner admin can change it.');
+        if (!scope && me.role !== 'admin') throw new HttpError(403, 'Only the owner admin can change a setting for every site.');
         const value = typeof v === 'number' ? Math.round(v * 4) / 4 : v; // quarter hours
         if (!def.check(value)) throw new HttpError(400, def.msg);
         stmts.push(env.DB.prepare('INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by')
-            .bind(k, JSON.stringify(value), now(), me.id));
-        notes.push(`${k}=${typeof value === 'object' ? JSON.stringify(value) : value}`);
+            .bind(keyOf(k), JSON.stringify(value), now(), me.id));
+        notes.push(`${scope ? scope + ' ' : ''}${k}=${typeof value === 'object' ? JSON.stringify(value) : value}`);
     }
     if (!stmts.length) throw new HttpError(400, 'Nothing to change.');
     await env.DB.batch([...stmts, auditStmt(env, me, 'settings', null, notes.join(', '))]);
-    return getSettings(env);
+    return getSettings(env, me, scope);
 }
 
 /* -------------------------------- buildings -------------------------------- */
@@ -1154,13 +1174,17 @@ const imageOk = (v) => typeof v === 'string' && (v === '' || (v.length <= 16 && 
 function laundrySite(me, site) {
     const s = String(site || me.site);
     if (!SITES[s]) throw new HttpError(400, `Unknown site "${s}".`);
+    if (me.role === 'siteadmin' && s !== me.site) throw new HttpError(403, `${me.name} works at ${SITES[me.site]}.`);
     return s;
 }
 function requireLaundryWrite(me, site) {
     if (me.role === 'viewer') throw new HttpError(403, `${me.name} is a read-only login.`);
     if (me.role !== 'admin' && me.site !== site) throw new HttpError(403, `${me.name} works at ${SITES[me.site]}.`);
 }
-const canSeeAll = (me) => me.role === 'admin' || me.role === 'viewer';
+const canSeeAll = (me) => me.role === 'admin' || me.role === 'siteadmin' || me.role === 'viewer';
+// laundry editing (prices, staff, categories, correcting / cancelling bills): the owner admin, or a site admin for its own site
+function requireLaundryAdmin(me) { if (me.role !== 'admin' && me.role !== 'siteadmin') throw new HttpError(403, 'Only an admin can do this.'); }
+function assertOwnSite(me, site) { if (me.role === 'siteadmin' && site !== me.site) throw new HttpError(403, `${me.name} works at ${SITES[me.site]}.`); }
 
 /* ---------------- items (price master) ---------------- */
 
@@ -1199,12 +1223,13 @@ function prepareItem(b) {
 }
 
 async function saveLaundryItem(req, env, me, id) {
-    requireAdmin(me);
+    requireLaundryAdmin(me);
     const b = await body(req);
     const x = prepareItem(b);
     if (id) {
         const old = await env.DB.prepare('SELECT * FROM laundry_items WHERE id = ?').bind(id).first();
         if (!old) throw new HttpError(404, 'No such item.');
+        assertOwnSite(me, old.site);
         const changes = [];
         if (old.name !== x.name) changes.push(`name "${old.name}" → "${x.name}"`);
         if (old.price !== x.price) changes.push(`price ${old.price / 100} → ${x.price / 100} SAR`);
@@ -1265,12 +1290,13 @@ function prepareStaff(b) {
     };
 }
 async function saveLaundryStaff(req, env, me, id) {
-    requireAdmin(me);
+    requireLaundryAdmin(me);
     const b = await body(req);
     const x = prepareStaff(b);
     if (id) {
         const old = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ?').bind(id).first();
         if (!old) throw new HttpError(404, 'No such staff profile.');
+        assertOwnSite(me, old.site);
         await env.DB.batch([
             env.DB.prepare(`UPDATE laundry_staff SET name = ?, staff_code = ?, room = ?, department = ?, contact = ?, category = ?, photo = ?, free = ?, active = ?,
                 started_on = ?, remarks = ?, limits = ?, updated_at = ?, updated_by = ? WHERE id = ?`)
@@ -1292,7 +1318,7 @@ async function saveLaundryStaff(req, env, me, id) {
 // Admin: the staff categories of a site (create, rename, delete). Renamed categories move their staff along;
 // staff in a deleted category become uncategorised.
 async function saveStaffCategories(req, env, me) {
-    requireAdmin(me);
+    requireLaundryAdmin(me);
     const b = await body(req);
     const site = laundrySite(me, b.site);
     const list = [...new Set((Array.isArray(b.categories) ? b.categories : []).map(n => text(n, 40)).filter(Boolean))];
@@ -1317,9 +1343,10 @@ async function saveStaffCategories(req, env, me) {
 
 // Admin: "delete" a profile = hide it (kept in the database with its whole free-laundry history)
 async function deleteLaundryStaff(env, me, id) {
-    requireAdmin(me);
+    requireLaundryAdmin(me);
     const s = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ?').bind(id).first();
     if (!s) throw new HttpError(404, 'No such staff profile.');
+    assertOwnSite(me, s.site);
     if (!s.deleted) {
         await env.DB.batch([
             env.DB.prepare('UPDATE laundry_staff SET deleted = 1, active = 0, updated_at = ?, updated_by = ? WHERE id = ?').bind(now(), me.id, id),
@@ -1535,9 +1562,10 @@ async function getBillRow(env, id) {
 
 // Admin: correct a bill (customer/room, quantities, items, payment); old lines keep their original price
 async function editLaundryBill(req, env, me, id) {
-    requireAdmin(me);
+    requireLaundryAdmin(me);
     const b = await body(req);
     const r = await getBillRow(env, id);
+    assertOwnSite(me, r.site);
     if (Number(b.version) !== r.version) throw new HttpError(409, 'Someone changed this bill meanwhile. Reload and try again.');
     if (r.voided) throw new HttpError(400, 'A cancelled bill cannot be edited.');
     const before = rowToBill(r);
@@ -1568,11 +1596,12 @@ async function editLaundryBill(req, env, me, id) {
 
 // Admin: cancel a bill; it stays (marked cancelled) and leaves every total
 async function voidLaundryBill(req, env, me, id) {
-    requireAdmin(me);
+    requireLaundryAdmin(me);
     const { reason } = await body(req);
     const why = text(reason, 200);
     if (!why) throw new HttpError(400, 'Give a reason for cancelling.');
     const r = await getBillRow(env, id);
+    assertOwnSite(me, r.site);
     if (r.voided) return json({ bill: rowToBill(r) });
     await env.DB.batch([
         env.DB.prepare('UPDATE laundry_bills SET voided = 1, void_reason = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ?').bind(why, now(), me.id, id),
