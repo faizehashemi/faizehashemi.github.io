@@ -11,12 +11,12 @@ const CITY_LABEL = { MAKKAH: 'Makkah', MADINA: 'Medina' };
 const SITE_CITY = (site) => SITES[site]?.umsCity || String(site || '').toUpperCase();
 const norm = (s) => String(s ?? '').trim();
 
-/** "2 Umra", "1 Umra 1 Medina", "1 Medina 1 Umra", "Makkah only", "Medina only"; any other order is the plain city order. */
+/** "Round Trip" (Makkah → Medina → Makkah), "Single Trip" (Makkah → Medina or Medina → Makkah), "Makkah only", "Medina only"; any other order is the plain city order. */
 export function routeName(cities) {
     const k = cities.join('>');
-    if (k === 'MAKKAH>MADINA>MAKKAH') return '2 Umra';
-    if (k === 'MAKKAH>MADINA') return '1 Umra 1 Medina';
-    if (k === 'MADINA>MAKKAH') return '1 Medina 1 Umra';
+    if (k === 'MAKKAH>MADINA>MAKKAH') return 'Round Trip';
+    if (k === 'MAKKAH>MADINA') return 'Single Trip';
+    if (k === 'MADINA>MAKKAH') return 'Single Trip';
     if (k === 'MAKKAH') return 'Makkah only';
     if (k === 'MADINA') return 'Medina only';
     return cities.map(c => CITY_LABEL[c] || c).join(' → ');
@@ -66,7 +66,7 @@ export function tripOf(slip, all = [], cfg = UMS) {
     const pax = { gents: n(slip.gents), ladies: n(slip.ladies), children: n(slip.children), infants: n(slip.infants), total: n(slip.total) };
     if (!pax.total) pax.total = pax.gents + pax.ladies + pax.children + pax.infants;
     return {
-        route: routeName(cities), cities: routeCities(cities), legs, stops, pax,
+        site, route: routeName(cities), cities: routeCities(cities), legs, stops, pax,
         name: norm(slip.tour_name), leader: norm(slip.group_leader), sh: norm(baseSh(slip.sh_no) || slip.sh_no),
         arrival: u?.arrival || null, departure: u?.departure || null, depFrom: legs.at(-1)?.label || '',
         hasMakkah: cities.includes('MAKKAH'),
@@ -104,11 +104,10 @@ export const ITINERARY_CSS = `
 .itin .who .sh { text-align: right; font-size: 10pt; color: #6b5e4a; }
 .itin .who .sh b { display: block; font-size: 18pt; color: #7a5a10; }
 .itin h2 { font-size: 9.5pt; letter-spacing: .16em; text-transform: uppercase; color: #8a7a5c; margin: 6mm 0 2.5mm; font-weight: 700; }
-.itin .tl { position: relative; margin-left: 3mm; padding-left: 8mm; border-left: 2px solid #e6d6a8; display: grid; gap: 4mm; }
-.itin .st { position: relative; }
-.itin .st::before { content: ""; position: absolute; left: -10.1mm; top: 1.4mm; width: 4mm; height: 4mm; border-radius: 50%; background: #d4af37; border: 1.2mm solid #fff; box-shadow: 0 0 0 1px #d4af37; }
-.itin .st.fly::before { background: #fff; }
-.itin .st.add::before { background: #fff; box-shadow: 0 0 0 1px #b9a77a; }
+.itin .tl { display: grid; gap: 3.5mm; }
+.itin .st { border: 1px solid #e6d6a8; border-left: 1.6mm solid #d4af37; border-radius: 3mm; background: #fffdf7; padding: 3.5mm 5mm; break-inside: avoid; }
+.itin .st.fly { border-left-color: #9a7414; background: #fff; }
+.itin .st.add { border-left-color: #b9a77a; border-style: dashed; border-left-style: solid; }
 .itin .st .k { font-size: 9.5pt; color: #8a7a5c; letter-spacing: .04em; }
 .itin .st .t { font-size: 14pt; font-weight: 800; color: #2b2217; }
 .itin .st .t small { font-size: 10pt; font-weight: 600; color: #7a5a10; margin-left: 2mm; }
@@ -136,7 +135,7 @@ export function itineraryHTML(trip) {
         <div class="row">${s.in ? `<div><span>Check-in</span><b>${esc(when(s.in))}</b></div>` : ''}${s.out ? `<div><span>Check-out</span><b>${esc(when(s.out))}</b></div>` : ''}${s.building ? `<div><span>Building</span><b>${esc(s.building)}</b></div>` : ''}</div>
         ${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}</div>`;
     return `<section class="itin">
-  <div class="brand"><b>FAIZ E HASHEMI</b><span>Check-in letter &amp; schedule</span></div>
+  <div class="brand"><b>${trip.site === 'makkah' ? 'HOTEL MOHAMMEDI MAKAN' : 'FAIZ E HASHEMI'}</b><span>Check-in letter &amp; schedule</span></div>
   <div class="route"><h1>${esc(trip.route)}</h1><p>${esc(trip.cities)}</p></div>
   <div class="who"><div class="name">${esc(trip.name || '—')}</div><div class="sh">SH Ref<b>${esc(trip.sh || '—')}</b></div>
     <div class="sub">${trip.leader ? `Group leader <b>${esc(trip.leader)}</b>` : ''}</div></div>
