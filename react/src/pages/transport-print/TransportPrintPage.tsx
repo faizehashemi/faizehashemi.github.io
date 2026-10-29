@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useCore, useGuard, useLoadApp, useLoadCore, useNav, useParams, useSite } from '@/pms/PmsContext';
 import { DayNav } from '../transport/DayNav';
 import css from './sheets.css?raw';
-import { fitSheets, luggageSheet, parseOnly, sheet, summary, type Libs } from './sheets';
+import { fitSheets, luggageSheet, parseOnly, sheet, sheet2, summary, type Libs } from './sheets';
 
 // Bus sheets: one A4 landscape page per bus (or car) of the day, laid out like the printed signs. "Print summary" prints the same choice as one list per
 // destination, "Luggage sheet" one A4 page per bus with the groups on it, and both can go to Excel. The paper output is the old page's markup and CSS
@@ -41,6 +41,10 @@ export default function TransportPrintPage() {
     const [doc, setDoc] = useState<{ rows: Row[] }>({ rows: [] });
     const [days, setDays] = useState<{ day: string; n: number }[]>([]);
     const [msg, setMsg] = useState(''), [note, setNote] = useState('');
+    // sign format: 1 = A4 landscape sign, 2 = A4 portrait with a very large bus number. Medina's default is 2, Makkah's 1; a desk's own pick is kept per site.
+    const fmtKey = `pms_bus_format:${siteId}`;
+    const [fmt, setFmt] = useState<'1' | '2'>(() => { try { const v = localStorage.getItem(fmtKey); if (v === '1' || v === '2') return v; } catch { /* default */ } return siteId === 'medina' ? '2' : '1'; });
+    const pickFmt = (v: '1' | '2') => { setFmt(v); try { localStorage.setItem(fmtKey, v); } catch { /* not saved */ } };
     const [lugOpen, setLugOpen] = useState(false);
     const [lugOff, setLugOff] = useState<string[]>([]);
     const [xl, setXl] = useState('');
@@ -65,9 +69,9 @@ export default function TransportPrintPage() {
         return groups.filter(g => picked.includes(g.dest.id)).map((g): Row => ({ ...g, buses: g.buses.filter((b: Row) => !o || o.has(Number(b.bus))) })).filter(g => g.buses.length);
     };
     const L: Libs | null = libs ? { vehicleWord: T.vehicleWord, sheetDate: T.sheetDate, time12: T.time12, tripRows: libs.ex.tripRows, ziyaratSummary: libs.ziyarat.ziyaratSummary } : null;
-    const pages = chosen().flatMap(g => g.buses.map((b: Row) => sheet(T, day, g.dest, b)));
+    const pages = chosen().flatMap(g => g.buses.map((b: Row) => (fmt === '2' ? sheet2(T, day, g.dest, b, site.label.toUpperCase()) : sheet(T, day, g.dest, b))));
     const sheetsHtml = pages.join('') || `<p class="tq-none">${doc.rows.length ? 'No buses for this choice.' : 'No transport list saved for this day.'}</p>`;
-    useLayoutEffect(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }, [sheetsHtml]);
+    useLayoutEffect(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }, [sheetsHtml, fmt]);
 
     function toggleDest(id: string, on: boolean) {
         const nextPicked = on ? [...picked, id] : picked.filter(x => x !== id);
@@ -124,9 +128,10 @@ export default function TransportPrintPage() {
             <style>{css}</style>
             <div className="tq-tools mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pt-4 sm:px-4">
                 <header className="flex flex-wrap items-start justify-between gap-3">
-                    <div><h1 className="text-2xl font-bold text-primary">Bus sheets</h1><p className="text-sm text-muted-foreground">One page per bus, to stick on the bus. Printed A4 landscape — choose “Landscape” if the printer asks.</p></div>
+                    <div><h1 className="text-2xl font-bold text-primary">Bus sheets</h1><p className="text-sm text-muted-foreground">One page per bus, to stick on the bus. {fmt === '2' ? 'Format two prints A4 portrait.' : 'Format one prints A4 landscape — choose “Landscape” if the printer asks.'}</p></div>
                     <div className="flex flex-wrap gap-2">
                         <Button asChild variant="outline"><a href={href('transport', { day })}>🚌 Transport day</a></Button>
+                        <select aria-label="Sign format" className="h-9 rounded-md border bg-background px-2 text-sm" value={fmt} onChange={e => pickFmt(e.target.value as '1' | '2')} title="The layout of the bus sign"><option value="1">Format 1 — landscape</option><option value="2">Format 2 — portrait, big number</option></select>
                         <Button disabled={none} onClick={() => window.print()}><Printer className="size-4" />Print</Button>
                         <Button variant="outline" title="One A4 landscape page per bus: the groups on it" onClick={() => setLugOpen(o => !o)}>🧳 Luggage sheet</Button>
                         <Button variant="outline" disabled={none || !L} title="One list of all the chosen trips of the day" onClick={printSummary}>📋 Print summary</Button>

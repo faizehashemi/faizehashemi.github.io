@@ -91,3 +91,25 @@ html.tq-print-lug .tq-lugsheets { display: block; }
 @page luggage { size: A4 landscape; margin: 8mm; }
 @media print {
     html.tq-print-lug .tq-tools { display: none !important; }
+
+/* ---------- Format two: A4 portrait bus sign (Medina's default) ---------- */
+.sheet.sheet2 { width: 190mm; height: 277mm; padding: 6mm 8mm; display: flex; flex-direction: column; align-items: stretch; page: bus2; font-family: Arial, Helvetica, sans-serif; }
+.s2-date { font: 600 10pt Arial, sans-serif; text-align: center; color: #333; }
+.s2-title { font: 900 30pt "Arial Black", Arial, sans-serif; text-align: center; text-transform: uppercase; line-height: 1.05; margin-top: 1mm; }
+.s2-word { font: 900 38pt "Arial Black", Arial, sans-serif; text-align: center; text-transform: uppercase; line-height: 1.1; }
+.s2-word small { font-size: 20pt; font-weight: 700; margin-left: 4mm; }
+.s2-num { flex: 1 1 0; min-height: 40mm; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.s2-num .n { font: 900 200pt/1 "Arial Black", Arial, sans-serif; color: #3a3a3a; }
+.sheet2 .s2-tbl { flex: none; width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3mm; }
+.sheet2 .s2-tbl th, .sheet2 .s2-tbl td { border: 2px solid #000; padding: 1.6mm 2.4mm; text-align: center; vertical-align: middle; }
+.sheet2 .s2-tbl th { font: 900 11pt "Times New Roman", serif; background: #e9e5f0; }
+.sheet2 .s2-tbl td { font-family: "Times New Roman", Times, Georgia, serif; font-weight: 700; font-size: var(--s2-row, 18pt); text-transform: uppercase; }
+.sheet2 .s2-tbl td.n { font-size: calc(var(--s2-row, 18pt) * 1.15); }
+.sheet2 .s2-tbl td b { display: block; font-weight: 900; }
+.sheet2 .s2-tbl td span { display: block; font-size: .72em; font-weight: 700; }
+.sheet2 .s2-tbl tfoot td { font: 900 12pt Arial, sans-serif; text-align: right; }
+.sheet2 .s2-tbl tfoot td.n { text-align: center; }
+.sheet2 .s2-from { margin-top: 2mm; font-size: 11pt; }
+.sheet2 .s2-from .from { display: block; font: 700 12pt Arial, sans-serif; }
+@page bus2 { size: A4 portrait; margin: 8mm; }
+@media print { .sheet.sheet2 { width: 100%; height: 277mm; } }

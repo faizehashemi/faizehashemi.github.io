@@ -41,6 +41,24 @@ export function sheet(T: T, day: string, dest: Row, b: Row) {
     </section>`;
 }
 
+// Format two: A4 portrait — the route as the title, a very large bus number, and a plain SH No / Group / Pax table under it (group name large, leader small).
+// Used by default at the Medina site; Makkah keeps format one (the landscape sign above).
+export function sheet2(T: T, day: string, dest: Row, b: Row, from: string) {   // from: the site's name, used only if a destination has no route
+    const word = T.vehicleWord(b.vehicle, b.vlabel);
+    return `<section class="sheet sheet2">
+      <div class="s2-date">Date - ${esc(T.sheetDate(day))}</div>
+      <div class="s2-title">${esc(String(dest.route || `${from}-${dest.label}`).replace('-', ' TO ').replace(/ MAKKAH$/, ' MECCA'))}${b.rows[0]?.part ? ` · ${b.rows[0].part === 'gents' ? 'GENTS' : 'LADIES'}` : ''}</div>
+      <div class="s2-word">${esc(word)} NO.${b.at ? ` <small>${esc(T.time12(b.at))}</small>` : ''}</div>
+      <div class="s2-num"><span class="n">${esc(b.bus ?? '')}</span></div>
+      <table class="s2-tbl"><colgroup><col style="width:17%"><col><col style="width:12%"></colgroup>
+        <thead><tr><th>SH No.</th><th>GROUP</th><th>PAX</th></tr></thead>
+        <tbody>${b.rows.map((r: Row) => `<tr><td class="n">${esc(r.ref)}</td><td><b>${esc(r.operator || '')}</b>${r.leader ? `<span>${esc(r.leader)}</span>` : ''}</td><td class="n">${esc(r.pax)}</td></tr>`).join('')}</tbody>
+        ${b.rows.length > 1 ? `<tfoot><tr><td colspan="2">TOTAL</td><td class="n">${esc(b.pax)}</td></tr></tfoot>` : ''}
+      </table>
+      ${fromLine(b) ? `<div class="s2-from">${fromLine(b)}</div>` : ''}
+    </section>`;
+}
+
 // Luggage sheet: A4 landscape, one per bus. The bus number small on top, the groups in a table of big bold black type, and the total.
 export function luggageSheet(T: T, b: Row) {
     const n = b.rows.length, size = n <= 3 ? 'l1' : n <= 6 ? 'l2' : n <= 10 ? 'l3' : 'l4';
@@ -82,7 +100,17 @@ export function summary(L: Libs, day: string, groups: Row[]) {
 
 /** A sheet is one fixed page: with many groups, step its text down (fit1 → fit4) until nothing runs past the bottom edge. */
 export function fitSheets(root: ParentNode) {
-    for (const s of root.querySelectorAll<HTMLElement>('.sheet')) {
+    // format two: the bus number takes the room the groups table leaves, as large as fits
+    for (const s of root.querySelectorAll<HTMLElement>('.sheet2')) {
+        const box = s.querySelector<HTMLElement>('.s2-num'), n = box?.firstElementChild as HTMLElement | null;
+        if (!box || !n) continue;
+        const rows = s.querySelectorAll('tbody tr').length;
+        s.style.setProperty('--s2-row', rows > 12 ? '9pt' : rows > 8 ? '11pt' : rows > 5 ? '14pt' : '18pt');
+        let lo = 40, hi = 520;
+        for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; n.style.fontSize = mid + 'pt'; if (n.scrollHeight <= box.clientHeight + 1 && n.scrollWidth <= box.clientWidth + 1) lo = mid; else hi = mid; }
+        n.style.fontSize = lo + 'pt';
+    }
+    for (const s of root.querySelectorAll<HTMLElement>('.sheet:not(.sheet2)')) {
         s.classList.remove('fit1', 'fit2', 'fit3', 'fit4');
         for (let k = 1; k <= 4 && s.scrollHeight > s.clientHeight + 1; k++) { if (k > 1) s.classList.remove(`fit${k - 1}`); s.classList.add(`fit${k}`); }
     }

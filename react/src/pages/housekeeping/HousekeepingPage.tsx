@@ -33,7 +33,7 @@ export default function HousekeepingPage() {
     const { prefs, setPrefs } = usePrefs();
     const [day, setDay] = useState(ymd(new Date()));
     const [bld, setBld] = useState('');
-    const [hideDone, setHideDone] = useState(false), [urgentOnly, setUrgentOnly] = useState(false);
+    const [hideDone, setHideDone] = useState(false), [cats, setCats] = useState<number[]>([1, 2, 3, 4]);   // the cleaning categories that Print and Copy image include
     const [newStaff, setNewStaff] = useState('');
     const doneKey = `pms_hk_done:${siteId}:${day}`;
     const readDone = () => { try { return new Set<string>(JSON.parse(localStorage.getItem(doneKey) || '[]')); } catch { return new Set<string>(); } };
@@ -84,28 +84,28 @@ export default function HousekeepingPage() {
 
     function print() {
         if (!bld) { alert('Choose a building first.'); return; }
-        const list = rows.filter(r => !urgentOnly || r.p === 1);
-        if (urgentOnly && !list.length) { alert('No Urgent rooms on this day.'); return; }
+        const list = rows.filter(r => cats.includes(r.p));
+        if (!list.length) { alert('No rooms in the ticked categories on this day.'); return; }
         const w = window.open('', '_blank');
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print again.'); return; }
         w.document.open();
-        w.document.write(printHtml(list, { urgentOnly, all: bld === '*', buildingName: bld, day, staffOn }));
+        w.document.write(printHtml(list, { cats, all: bld === '*', buildingName: bld, day, staffOn }));
         w.document.close();
     }
 
     // the same report as Print (and the same Urgent-only tick), as a picture on the clipboard — saved as a file where the browser cannot copy pictures
     async function copyImage() {
         if (!bld) { alert('Choose a building first.'); return; }
-        const list = rows.filter(r => !urgentOnly || r.p === 1);
-        if (urgentOnly && !list.length) { alert('No Urgent rooms on this day.'); return; }
-        const cv = reportCanvas(list, { urgentOnly, all: bld === '*', buildingName: bld, day, staffOn });
+        const list = rows.filter(r => cats.includes(r.p));
+        if (!list.length) { alert('No rooms in the ticked categories on this day.'); return; }
+        const cv = reportCanvas(list, { cats, all: bld === '*', buildingName: bld, day, staffOn });
         try {
             if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('no picture clipboard');
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Promise<Blob>((res, rej) => cv.toBlob(b => (b ? res(b) : rej(new Error('empty'))), 'image/png')) })]);
             alert('Copied — paste it into WhatsApp.');
         } catch {
             const a = document.createElement('a');
-            a.href = cv.toDataURL('image/png'); a.download = `housekeeping-${day}${urgentOnly ? '-urgent' : ''}.png`; a.click();
+            a.href = cv.toDataURL('image/png'); a.download = `housekeeping-${day}${cats.length === 4 ? '' : '-' + cats.join('')}.png`; a.click();
         }
     }
 
@@ -124,7 +124,8 @@ export default function HousekeepingPage() {
                         <Select value={bld} onValueChange={setBld}><SelectTrigger id="hkBld" className="min-w-52"><SelectValue placeholder="Choose a building…" /></SelectTrigger>
                             <SelectContent>{buildings.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}<SelectItem value="*">All buildings</SelectItem></SelectContent></Select></div>
                     <div className="flex gap-1.5">{[['Yesterday', -1], ['Today', 0], ['Tomorrow', 1]].map(([l, n]) => <Button key={l} variant="outline" onClick={() => setDay(shift(ymd(new Date()), n as number))}>{l}</Button>)}</div>
-                    <div className="flex items-center gap-2 pb-2"><Checkbox id="hkUrgent" checked={urgentOnly} onCheckedChange={v => setUrgentOnly(v === true)} /><Label htmlFor="hkUrgent">Urgent only (Print and Copy image)</Label></div>
+                    <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-2"><legend className="sr-only">Print and Copy image include</legend><span className="text-sm font-semibold">Print:</span>
+                        {[1, 2, 3, 4].map(p => <label key={p} className="inline-flex items-center gap-1.5 text-sm"><Checkbox checked={cats.includes(p)} onCheckedChange={v => setCats(c => (v === true ? [...c, p].sort() : c.filter(x => x !== p)))} />{PRIO[p]}</label>)}</fieldset>
                     <Button onClick={print}><Printer className="size-4" />Print</Button>
                     <Button variant="outline" onClick={() => void copyImage()}><Copy className="size-4" />Copy image</Button>
                 </div>

@@ -65,18 +65,19 @@ export function computeHousekeeping(slips: Record<string, any>[], buildings: Bui
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 /** The printed page: floor by floor (building first when all buildings), then each category's room numbers on that floor. */
-export function printHtml(rows: HkRow[], opts: { urgentOnly: boolean; all: boolean; buildingName: string; day: string; staffOn: (bld: string, floor: string) => string[] }) {
-    const { urgentOnly, all } = opts;
+export function printHtml(rows: HkRow[], opts: { cats: number[]; all: boolean; buildingName: string; day: string; staffOn: (bld: string, floor: string) => string[] }) {
+    const { cats, all } = opts;
+    const urgentOnly = cats.length === 1 && cats[0] === 1;
     const floors = [...new Set(rows.map(r => `${r.bld}|${r.floor}`))].sort((x, y) => natural(x.split('|')[0], y.split('|')[0]) || natural(x.split('|')[1], y.split('|')[1]));
     const body = floors.map(f => {
         const [bld, floor] = f.split('|');
         const here = rows.filter(r => r.bld === bld && r.floor === floor);
-        const cats = (urgentOnly ? [1] : [1, 2, 3, 4]).map(p => {
+        const trs = cats.map(p => {
             const rs = here.filter(r => r.p === p).map(r => r.room).sort(natural);
             return rs.length ? `<tr><th>${esc(PRIO[p])}<small>${rs.length}</small></th><td><div class="rooms">${rs.map(x => `<span>${esc(x)}</span>`).join('')}</div></td></tr>` : '';
         }).join('');
         const staff = opts.staffOn(bld, floor);
-        return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}${staff.length ? ` <span class="staff">— ${staff.map(esc).join(', ')}</span>` : ''}</h2><table>${cats}</table></section>`;
+        return `<section><h2>${all ? `${esc(bld)} · ` : ''}Floor ${esc(floor)}${staff.length ? ` <span class="staff">— ${staff.map(esc).join(', ')}</span>` : ''}</h2><table>${trs}</table></section>`;
     }).join('') || '<p>—</p>';
     const title = urgentOnly ? 'Urgent Room Cleaning Assignment Report' : 'Room Cleaning Assignment Report';
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>
@@ -98,8 +99,9 @@ export function printHtml(rows: HkRow[], opts: { urgentOnly: boolean; all: boole
 }
 
 /** The same report as printHtml, drawn on a canvas (to paste as a picture): floors in order, a line per cleaning category with the rooms as boxes that wrap. */
-export function reportCanvas(rows: HkRow[], opts: { urgentOnly: boolean; all: boolean; buildingName: string; day: string; staffOn: (bld: string, floor: string) => string[] }) {
-    const { urgentOnly, all } = opts;
+export function reportCanvas(rows: HkRow[], opts: { cats: number[]; all: boolean; buildingName: string; day: string; staffOn: (bld: string, floor: string) => string[] }) {
+    const { cats, all } = opts;
+    const urgentOnly = cats.length === 1 && cats[0] === 1;
     const S = 2, W = 900, M = 20, LAB = 250, CHIP_W = 62, CHIP_H = 28, GAP = 6, PADY = 8;
     const font = (w: number, px: number) => `${w} ${px}px Arial, Helvetica, sans-serif`;
     const floors = [...new Set(rows.map(r => `${r.bld}|${r.floor}`))].sort((x, y) => natural(x.split('|')[0], y.split('|')[0]) || natural(x.split('|')[1], y.split('|')[1]));
@@ -109,7 +111,7 @@ export function reportCanvas(rows: HkRow[], opts: { urgentOnly: boolean; all: bo
         const [bld, floor] = f.split('|');
         const here = rows.filter(r => r.bld === bld && r.floor === floor);
         const staff = opts.staffOn(bld, floor);
-        const lines = (urgentOnly ? [1] : [1, 2, 3, 4]).map(p => { const rs = here.filter(r => r.p === p).map(r => r.room).sort(natural); return { label: PRIO[p], n: rs.length, rooms: rs }; }).filter(l => l.n);
+        const lines = cats.map(p => { const rs = here.filter(r => r.p === p).map(r => r.room).sort(natural); return { label: PRIO[p], n: rs.length, rooms: rs }; }).filter(l => l.n);
         return { head: `${all ? `${bld} · ` : ''}Floor ${floor}${staff.length ? ` — ${staff.join(', ')}` : ''}`, lines };
     });
     const lineH = (n: number) => Math.max(1, Math.ceil(n / perLine)) * (CHIP_H + GAP) - GAP + 2 * PADY;
