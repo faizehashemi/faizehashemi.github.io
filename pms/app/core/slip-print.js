@@ -55,6 +55,11 @@ export function findCombinedRooms(rec, rows) {
 /** Room rows a slip needs so that none is cut off (at least `min`). */
 export const rowsFor = (rec, min = 8) => Math.max(min, (rec.rooms?.gents || []).length, (rec.rooms?.ladies || []).length);
 
+// Exclusive rooms say "EXCL"; their building shows only when this is ticked (Check-ins and Print pages, kept in this browser)
+export const EXCL_BLD_KEY = 'pms_excl_building';
+export const showExclBuilding = () => { try { return localStorage.getItem(EXCL_BLD_KEY) === '1'; } catch { return false; } };
+export const setShowExclBuilding = (on) => { try { localStorage.setItem(EXCL_BLD_KEY, on ? '1' : '0'); } catch { } };
+
 /** One copy of the slip. */
 export function slipHTML(rec, rows) {
     const gents = (rec.rooms?.gents || []).slice(0, rows);
@@ -67,7 +72,8 @@ export function slipHTML(rec, rows) {
             const beds = r && (r.assigned !== '' && r.assigned != null) ? r.assigned
                 : (r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0);
             // an Exclusive room says so, with its building (the row's own, else the slip's)
-            const excl = r && r.room_no && r.exclusive ? `<small style="display:block;font-size:8px;font-weight:700;line-height:1.1">EXCL · ${esc(String(r.building || rec.building || '').toUpperCase())}</small>` : '';
+            const exB = showExclBuilding() ? ` · ${esc(String(r.building || rec.building || '').toUpperCase())}` : '';
+            const excl = r && r.room_no && r.exclusive ? `<small style="display:block;font-size:8px;font-weight:700;line-height:1.1">EXCL${exB}</small>` : '';
             out.push(`<tr><td>${esc(room)}${excl}</td><td>${esc(beds)}</td></tr>`);
         }
         return out.join('');

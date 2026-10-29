@@ -33,6 +33,8 @@ export default function CheckinsPage() {
     const { href } = useNav();
     const { prefs } = usePrefs();
     const slips = useSlips(120_000);
+    const [exclB, setExclB] = useState(() => { try { return localStorage.getItem('pms_excl_building') === '1'; } catch { return false; } });
+    const pickExclB = (v: boolean) => { try { localStorage.setItem('pms_excl_building', v ? '1' : '0'); } catch { /* not saved */ } setExclB(v); };
     const [withIt, setWithIt] = useState(() => { try { return localStorage.getItem('pms_print_itin') === '1'; } catch { return false; } });
     const pickIt = (v: boolean) => { setWithIt(v); try { localStorage.setItem('pms_print_itin', v ? '1' : '0'); } catch { /* not saved */ } };
     const [libs, setLibs] = useState<{ flights: any; slipPrint: any; colsMod: any } | null>(null);
@@ -192,6 +194,7 @@ export default function CheckinsPage() {
                     <div className="flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{rows.length} slips • {rows.reduce((s, r) => s + guests(r), 0)} guests</span>
                         <Button size="sm" variant="outline" onClick={() => csv(kind)}><Download className="size-3.5" />Export CSV</Button>
                         <Button size="sm" variant="outline" onClick={() => printTable(kind)}><Printer className="size-3.5" />Print table</Button>
+                        <label className="flex items-center gap-1.5 text-sm" title="Exclusive rooms show only 'Excl' unless this is ticked (table, printed table and printed slips)"><input type="checkbox" checked={exclB} onChange={e => pickExclB(e.target.checked)} />show building on Excl rooms</label>
                         {may.print && libs && <>
                             <label className="flex items-center gap-1.5 text-sm" title="Follow every slip with its A4 itinerary letter (slip on an A4 page, then the letter)"><input type="checkbox" checked={withIt} onChange={e => pickIt(e.target.checked)} />with itinerary</label>
                             <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(rows, { title: `check-${kind}s ${rangeLabel}`, ...(withIt ? { itinerary: slips.data ?? [] } : {}) })}>Print slips</Button>

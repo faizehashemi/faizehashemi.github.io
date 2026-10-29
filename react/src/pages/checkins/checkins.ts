@@ -18,11 +18,12 @@ const within = (dt: Date | null, a: Date, b: Date) => !!dt && dt >= a && dt <= b
 const byRoom = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });   // 2, 10, 101; 12A after 12
 
 // a partial departure (delayed group, core/stay.js) lists only the rooms leaving then
-// an Exclusive room (one group has the whole room) is marked "Excl" with its building: "1203 Excl · MOHAMMEDI"
+// an Exclusive room (one group has the whole room) is marked "1203 Excl"; its building is added ("1203 Excl · MOHAMMEDI") when the desk ticks "Show building on Excl rooms"
 const roomLabel = (x: any, slip: Row) => {
     const no = String(x.room_no || '').trim();
     if (!no || !x.exclusive) return no;
-    return `${no} Excl · ${String(x.building || x.rowBuilding || slip.building || '').trim().toUpperCase()}`.replace(/ · $/, '');
+    let show = false; try { show = localStorage.getItem('pms_excl_building') === '1'; } catch { /* hidden */ }   // the "Show building on Excl rooms" tick
+    return show ? `${no} Excl · ${String(x.building || x.rowBuilding || slip.building || '').trim().toUpperCase()}`.replace(/ · $/, '') : `${no} Excl`;
 };
 export function roomsFromSlip(r: Row): string[] {
     if (r._dep) return [...new Set(r._dep.rooms.map((x: any) => roomLabel(x, r)))].filter(Boolean).sort(byRoom);
