@@ -9,6 +9,8 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { PageHeader } from '@/components/PageHeader';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePrefs } from '@/hooks/usePrefs';
 import { useCore, useGuard, useLoadApp, useLoadCore, useNav, useParams, useViews } from '@/pms/PmsContext';
 
@@ -17,6 +19,9 @@ import { useCore, useGuard, useLoadApp, useLoadCore, useNav, useParams, useViews
 
 type Row = Record<string, any>;
 const BROWSER_KEYS = new Set(['D', 'E', 'F']);   // Alt+<these> open the browser's own menus in some browsers — allowed, but worth a warning
+// the tabs, and which tab holds each card
+const SETTINGS_TABS: [string, string][] = [['account', 'Account'], ['look', 'Appearance'], ['menus', 'Menus & shortcuts'], ['pages', 'Pages'], ['data', 'Data & backup']];
+const TAB_OF: Record<string, string> = { password: 'account', look: 'look', layout: 'look', menu: 'menus', quick: 'menus', keys: 'menus', start: 'pages', slip: 'pages', checkins: 'pages', data: 'data', backup: 'data' };
 const SECTIONS: [string, string][] = [['password', 'Password'], ['look', 'Appearance'], ['layout', 'Menu & layout'], ['menu', 'Menu builder'], ['quick', 'Quick links'], ['keys', 'Shortcuts'], ['start', 'Start page'], ['slip', 'Slip page'], ['checkins', 'Check-ins page'], ['data', 'Data & privacy'], ['backup', 'Backup & reset']];
 const NOT_IN_MENU = new Set(['home', 'login', 'blank']);
 const sel = 'h-9 rounded-md border bg-background px-2 text-sm';
@@ -50,6 +55,7 @@ export default function SettingsPage() {
     const toastT = useRef<ReturnType<typeof setTimeout>>(undefined);
     const secRefs = useRef<Record<string, HTMLElement | null>>({});
     const [cur, setCur] = useState('password');
+    const [tab, setTab] = useState('account');
     const fileRef = useRef<HTMLInputElement>(null), menuFile = useRef<HTMLInputElement>(null);
     const flash = (t: string) => { setToast(t); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(''), 1600); };
     const save = (patch: Row, text = 'Saved') => { setPrefs(patch); flash(text); };
@@ -67,6 +73,7 @@ export default function SettingsPage() {
     const section = params.get('section');
     useEffect(() => { if (cfg && section) requestAnimationFrame(() => show(section, false)); }, [cfg]);   // eslint-disable-line react-hooks/exhaustive-deps
     function show(sec: string, smooth = true) {
+        if (TAB_OF[sec] && TAB_OF[sec] !== tab) { setTab(TAB_OF[sec]); setCur(sec); setTimeout(() => show(sec, false), 60); return; }   // open the tab that holds it first
         const el = secRefs.current[sec]; if (!el) return;
         setCur(sec); el.scrollIntoView({ behavior: smooth && !p.reduceMotion ? 'smooth' : 'auto', block: 'start' });
         if (sec === 'password') setTimeout(() => document.getElementById('pwCur')?.focus({ preventScroll: true }), 300);
@@ -126,15 +133,17 @@ export default function SettingsPage() {
     }
     const dl = (name: string, text: string) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
     const noSlipBld = p.slipDefaultBuilding && !buildings.includes(p.slipDefaultBuilding) ? [...buildings, p.slipDefaultBuilding] : buildings;
-    const card = (id: string, title: string, body: ReactNode) => <section ref={el => { secRefs.current[id] = el; }} key={id} className="scroll-mt-20"><Card><CardHeader><CardTitle>{title}</CardTitle></CardHeader><CardContent>{body}</CardContent></Card></section>;
+    const card = (id: string, title: string, body: ReactNode) => TAB_OF[id] !== tab ? null : <section ref={el => { secRefs.current[id] = el; }} key={id} className="scroll-mt-20"><Card><CardHeader><CardTitle>{title}</CardTitle></CardHeader><CardContent>{body}</CardContent></Card></section>;
 
     return (
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
-            <header><h1 className="text-2xl font-bold text-primary">Settings</h1>
-                <p className="text-sm text-muted-foreground">Changes apply at once and are saved <b>with your login</b>, so you get the same settings on any computer or phone you log in on. Other logins are not affected.{' '}
-                    {sync && <span className={sync.ok ? 'text-ok' : 'text-destructive'}>{sync.ok ? '✓ Saved to your login.' : 'Not saved to the server yet (offline?) — kept on this device and sent when the connection is back.'}</span>}</p></header>
-            <div className="grid items-start gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
-                <nav aria-label="Settings sections" className="flex flex-wrap gap-1 lg:sticky lg:top-20 lg:grid">{SECTIONS.map(([id, l]) => <a key={id} href="#" aria-current={cur === id} className={cn('rounded-md px-3 py-1.5 text-sm hover:bg-accent', cur === id && 'bg-accent font-bold')} onClick={e => { e.preventDefault(); show(id); }}>{l}</a>)}</nav>
+            <PageHeader view="settings" parent="" title="Settings" current={SETTINGS_TABS.find(t => t[0] === tab)?.[1]} />
+            <p className="-mt-1 text-sm text-muted-foreground">Changes apply at once and are saved <b>with your login</b>, so you get the same settings on any computer or phone you log in on. Other logins are not affected.{' '}
+                    {sync && <span className={sync.ok ? 'text-ok' : 'text-destructive'}>{sync.ok ? '✓ Saved to your login.' : 'Not saved to the server yet (offline?) — kept on this device and sent when the connection is back.'}</span>}</p>
+            <Tabs value={tab} onValueChange={t => { setTab(t); window.scrollTo(0, 0); }}>
+                <TabsList variant="underline">{SETTINGS_TABS.map(([id, l]) => <TabsTrigger key={id} value={id}>{l}</TabsTrigger>)}</TabsList>
+            </Tabs>
+            <div className="grid items-start gap-4">
                 <div className="grid min-w-0 gap-3">
                     {card('password', 'Change password', <>
                         <p className="mb-2 text-xs text-muted-foreground">{me ? `Desk login: ${me.name} (${SITES[me.site]?.label || me.site}, ${me.role})` : ''}</p>

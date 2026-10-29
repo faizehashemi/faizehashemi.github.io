@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/PageHeader';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 // a colour for a page time: green under 1 s, amber under 3 s, red above
 const toneOf = (ms?: number | null) => ms == null ? '' : ms < 1000 ? 'ok' : ms < 3000 ? 'mid' : 'bad';
 const toneClass = (t: string) => t === 'ok' ? 'text-ok' : t === 'mid' ? 'text-warn' : t === 'bad' ? 'text-destructive' : '';
+const PTAB_LABEL: Record<string, string> = { overview: 'Overview', issues: 'Issues', refused: 'Refused saves', feedback: 'Feedback', errors: 'Errors' };
 const none = <p className="p-3 text-sm text-muted-foreground">No data yet.</p>;
 
 function Kpi({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: string; tone?: string }) {
@@ -117,7 +119,7 @@ export default function PerformancePage() {
     const views = useViews();
     const qc = useQueryClient();
     const isAdmin = cloud.currentDesk()?.role === 'admin';
-    const [days, setDays] = useState('7'), [site, setSite] = useState('all');
+    const [days, setDays] = useState('7'), [site, setSite] = useState('all'), [ptab, setPtab] = useState('overview');
     const [fbStars, setFbStars] = useState('all'), [fbStatus, setFbStatus] = useState('all'), [fbPage, setFbPage] = useState('all');
     const pageName = (id?: string) => views.find(v => v.id === id)?.label || id || '—';
 
@@ -157,8 +159,8 @@ export default function PerformancePage() {
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="flex flex-wrap items-end justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                    <h1 className="text-2xl font-bold text-primary">Performance &amp; feedback</h1>
-                    <p className="text-sm text-muted-foreground">How long pages take on the desks' own devices and connections, what breaks, and what the desks say about each page.</p>
+                    <PageHeader view="performance" title="Performance & feedback" current={PTAB_LABEL[ptab]} />
+                    <p className="mt-1 text-sm text-muted-foreground">How long pages take on the desks' own devices and connections, what breaks, and what the desks say about each page.</p>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
                     <Select value={days} onValueChange={setDays}><SelectTrigger className="w-40" aria-label="Period"><SelectValue /></SelectTrigger>
@@ -173,8 +175,8 @@ export default function PerformancePage() {
             {s && !s.totals.routes && <p className="text-sm text-muted-foreground">No page timings yet — they arrive as desks use the PMS (sent every few minutes).</p>}
 
             {s && t && <>
-                <Tabs defaultValue="overview" className="gap-3">
-                    <TabsList className="h-auto w-full justify-start">
+                <Tabs value={ptab} onValueChange={setPtab} className="gap-3">
+                    <TabsList variant="underline">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="issues">Issues{newIssues ? ` (${newIssues} new)` : ''}</TabsTrigger>
                         <TabsTrigger value="refused">Refused saves{denToday ? ` (${denToday} today)` : ''}</TabsTrigger>

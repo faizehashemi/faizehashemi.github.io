@@ -3,6 +3,8 @@ import { Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +18,7 @@ import { useCore, useGuard, useLoadApp, useLoadCore } from '@/pms/PmsContext';
 // GL copy colours — then the one-time upload of this browser's old data, and (admin) desk logins, page access and the audit log.
 
 type Row = Record<string, any>;
+const SETUP_TABS: [string, string][] = [['desk', 'This desk'], ['stays', 'Stays & travel'], ['groups', 'Groups & colours'], ['data', 'Data'], ['desks', 'Desks & access']];
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
 const sel = 'h-9 rounded-md border bg-background px-2 text-sm';
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -35,6 +38,7 @@ export default function SetupPage() {
     const [dbm, setDbm] = useState<any>(null);
     const [set, setSet] = useState<Row | null>(null);
     const [, tick] = useState(0);
+    const [tab, setTab] = useState('desk');
     const label = (s: string) => cfg?.SITES[s]?.label || s;
 
     useEffect(() => {
@@ -53,16 +57,23 @@ export default function SetupPage() {
 
     return (
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
-            <h1 className="text-2xl font-bold text-primary">Setup</h1>
-            <ThisDesk me={me} rights={rights} label={label} />
-            <Travel set={set} isAdmin={isAdmin} reload={reload} />
-            <Kg set={set} isAdmin={isAdmin} reload={reload} />
-            <Fe set={set} isAdmin={isAdmin} reload={reload} />
-            <Delay set={set} isAdmin={isAdmin} reload={reload} />
-            <ShPrefixes set={set} isAdmin={isAdmin} reload={reload} />
-            <GlColors set={set} isAdmin={isAdmin} reload={reload} label={label} />
-            <Legacy me={me} isAdmin={isAdmin} dbm={dbm} label={label} confirm={confirm} />
-            {isAdmin && <Desks cfg={cfg} me={me} label={label} confirm={confirm} prompt={prompt} />}
+            <PageHeader view="setup" title="Setup" current={SETUP_TABS.find(t => t[0] === tab)?.[1]} />
+            <Tabs value={tab} onValueChange={t => { setTab(t); window.scrollTo(0, 0); }} className="gap-3">
+                <TabsList variant="underline">{SETUP_TABS.filter(([id]) => id !== 'desks' || isAdmin).map(([id, l]) => <TabsTrigger key={id} value={id}>{l}</TabsTrigger>)}</TabsList>
+                <TabsContent value="desk" className="grid gap-3"><ThisDesk me={me} rights={rights} label={label} /></TabsContent>
+                <TabsContent value="stays" className="grid gap-3">
+                    <Travel set={set} isAdmin={isAdmin} reload={reload} />
+                    <Delay set={set} isAdmin={isAdmin} reload={reload} />
+                    <ShPrefixes set={set} isAdmin={isAdmin} reload={reload} />
+                </TabsContent>
+                <TabsContent value="groups" className="grid gap-3">
+                    <Kg set={set} isAdmin={isAdmin} reload={reload} />
+                    <Fe set={set} isAdmin={isAdmin} reload={reload} />
+                    <GlColors set={set} isAdmin={isAdmin} reload={reload} label={label} />
+                </TabsContent>
+                <TabsContent value="data" className="grid gap-3"><Legacy me={me} isAdmin={isAdmin} dbm={dbm} label={label} confirm={confirm} /></TabsContent>
+                {isAdmin && <TabsContent value="desks" className="grid gap-3"><Desks cfg={cfg} me={me} label={label} confirm={confirm} prompt={prompt} /></TabsContent>}
+            </Tabs>
             {confirmDialog}{promptDialog}
         </div>
     );

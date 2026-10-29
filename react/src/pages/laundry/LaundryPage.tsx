@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/PageHeader';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCore, useGuard, useLoadApp, useLoadCore, useSite } from '@/pms/PmsContext';
 import css from './pos.css?raw';
@@ -281,6 +282,7 @@ export default function LaundryPage() {
         <div ref={rootRef}>
             <style>{css + L.RECEIPT_CSS + L.KEYPAD_CSS}</style>
             <div className={`ld${free ? ' free' : ''}${building ? ' bld' : ''}`}>
+                <div className="ld-head"><PageHeader view="laundry" title="Laundry POS" current={TABS.find(t => t[0] === tab)?.[2]} /></div>
                 <nav className="ld-tabs" role="tablist" aria-label="Laundry POS">
                     {TABS.map(([k, ic, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => { setTab(k); window.scrollTo(0, 0); }}><span aria-hidden="true">{ic}</span>{l}</button>)}
                 </nav>

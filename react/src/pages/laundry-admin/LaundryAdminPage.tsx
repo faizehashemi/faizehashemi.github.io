@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/PageHeader';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { usePrompt } from '@/components/PromptDialog';
 import { useCore, useGuard, useLoadCore, useSite } from '@/pms/PmsContext';
@@ -62,10 +63,10 @@ export default function LaundryAdminPage() {
     return (
         <LaProvider value={ctx}>
             <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
-                <header className="flex flex-wrap items-baseline gap-3"><h1 className="text-2xl font-bold text-primary">🧺 Laundry admin</h1>
-                    <span className="text-sm text-muted-foreground">{site.label} · {isAdmin ? 'admin' : canPay ? 'desk · can mark cash paid' : 'view only'}</span></header>
+                <PageHeader view="laundry-admin" title="Laundry admin" current={TABS.find(t => t[0] === tab)?.[1].replace(/^\S+\s/, '')}>
+                    <span className="text-sm text-muted-foreground">{site.label} · {isAdmin ? 'admin' : canPay ? 'desk · can mark cash paid' : 'view only'}</span></PageHeader>
                 <Tabs value={tab} onValueChange={setTab}>
-                    <TabsList className="h-auto w-full justify-start">{TABS.map(([k, l]) => <TabsTrigger key={k} value={k}>{l}</TabsTrigger>)}</TabsList>
+                    <TabsList variant="underline">{TABS.map(([k, l]) => <TabsTrigger key={k} value={k}>{l}</TabsTrigger>)}</TabsList>
                     <TabsContent key={`bills-${epoch}`} value="bills"><BillsTab /></TabsContent>
                     <TabsContent key={`payments-${epoch}`} value="payments"><PaymentsTab /></TabsContent>
                     <TabsContent key={`reports-${epoch}`} value="reports"><ReportsTab /></TabsContent>
