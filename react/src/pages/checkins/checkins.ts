@@ -18,11 +18,17 @@ const within = (dt: Date | null, a: Date, b: Date) => !!dt && dt >= a && dt <= b
 const byRoom = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });   // 2, 10, 101; 12A after 12
 
 // a partial departure (delayed group, core/stay.js) lists only the rooms leaving then
+// an Exclusive room (one group has the whole room) is marked "Excl" with its building: "1203 Excl · MOHAMMEDI"
+const roomLabel = (x: any, slip: Row) => {
+    const no = String(x.room_no || '').trim();
+    if (!no || !x.exclusive) return no;
+    return `${no} Excl · ${String(x.building || x.rowBuilding || slip.building || '').trim().toUpperCase()}`.replace(/ · $/, '');
+};
 export function roomsFromSlip(r: Row): string[] {
-    if (r._dep) return [...new Set(r._dep.rooms.map(x => String(x.room_no)))].sort(byRoom);
+    if (r._dep) return [...new Set(r._dep.rooms.map((x: any) => roomLabel(x, r)))].filter(Boolean).sort(byRoom);
     const bag: string[] = [];
-    (r.rooms?.gents || []).forEach((x: any) => bag.push(String(x.room_no || '').trim()));
-    (r.rooms?.ladies || []).forEach((x: any) => bag.push(String(x.room_no || '').trim()));
+    (r.rooms?.gents || []).forEach((x: any) => bag.push(roomLabel(x, r)));
+    (r.rooms?.ladies || []).forEach((x: any) => bag.push(roomLabel(x, r)));
     return Array.from(new Set(bag.filter(Boolean))).sort(byRoom);
 }
 export function guests(r: Row) { if (r._dep) return r._dep.pax; const tot = num(r.total); if (tot) return tot; return num(r.gents) + num(r.ladies) + num(r.children ?? r.child) + num(r.infants ?? r.infant); }

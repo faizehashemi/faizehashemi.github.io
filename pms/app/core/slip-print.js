@@ -66,7 +66,9 @@ export function slipHTML(rec, rows) {
             const room = r && r.room_no ? r.room_no : '-';
             const beds = r && (r.assigned !== '' && r.assigned != null) ? r.assigned
                 : (r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0);
-            out.push(`<tr><td>${esc(room)}</td><td>${esc(beds)}</td></tr>`);
+            // an Exclusive room says so, with its building (the row's own, else the slip's)
+            const excl = r && r.room_no && r.exclusive ? `<small style="display:block;font-size:8px;font-weight:700;line-height:1.1">EXCL · ${esc(String(r.building || rec.building || '').toUpperCase())}</small>` : '';
+            out.push(`<tr><td>${esc(room)}${excl}</td><td>${esc(beds)}</td></tr>`);
         }
         return out.join('');
     };

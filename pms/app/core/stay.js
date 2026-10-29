@@ -88,13 +88,13 @@ export function departuresOf(s) {
     const rows = rowsOf(s);
     if (!isDelayed(s) || !rows.length) {
         const at = slipEnd(s);
-        return at ? [{ at, rooms: rows.map(r => ({ side: r.side, room_no: r.room_no, beds: r.beds })), beds: rows.reduce((n, r) => n + r.beds, 0), status: 'booked', last: true }] : [];
+        return at ? [{ at, rooms: rows.map(r => ({ side: r.side, room_no: r.room_no, beds: r.beds, exclusive: r.exclusive, building: r.building })), beds: rows.reduce((n, r) => n + r.beds, 0), status: 'booked', last: true }] : [];
     }
     const by = new Map();
     for (const r of rows) {
         if (!r.end) continue;
         const e = by.get(r.end) || { at: r.end, rooms: [], beds: 0, status: r.status };
-        e.rooms.push({ side: r.side, room_no: r.room_no, beds: r.beds });
+        e.rooms.push({ side: r.side, room_no: r.room_no, beds: r.beds, exclusive: r.exclusive, building: r.building });
         e.beds += r.beds;
         if (r.status === 'unknown' || (r.status === 'tentative' && e.status !== 'unknown')) e.status = r.status;
         by.set(r.end, e);
