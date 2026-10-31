@@ -125,7 +125,7 @@ class SiteNav extends HTMLElement {
           --gold:#d4af37; --gold-2:#e6b422; --gold-soft:#f3d984; --ink:#1f160f; --muted:#3d3226;
           --edge:#e8dcc4; --panel:#fffdf8; --shadow:0 10px 30px rgba(60,40,10,.12);
           display:block; position:sticky; top:0; z-index:1000;
-          font:14px/1.4 "Rockwell Extra Bold",Rockwell,Georgia,serif; color:var(--ink);
+          font:500 15px/1.4 "EB Garamond",Garamond,Georgia,serif; color:var(--ink);
         }
         :host([hidden]){ display:none }
         *{ box-sizing:border-box; scrollbar-width:none }

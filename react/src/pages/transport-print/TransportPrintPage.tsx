@@ -45,6 +45,11 @@ export default function TransportPrintPage() {
     const fmtKey = `pms_bus_format:${siteId}`;
     const [fmt, setFmt] = useState<'1' | '2'>(() => { try { const v = localStorage.getItem(fmtKey); if (v === '1' || v === '2') return v; } catch { /* default */ } return siteId === 'medina' ? '2' : '1'; });
     const pickFmt = (v: '1' | '2') => { setFmt(v); try { localStorage.setItem(fmtKey, v); } catch { /* not saved */ } };
+    // print font: auto = each format's own look (format two's bus number is Rockwell Extra Bold), or one typeface for every sheet
+    const pfKey = 'pms_bus_font';
+    const [pfont, setPfont] = useState<'auto' | 'rock' | 'gar'>(() => { try { const v = localStorage.getItem(pfKey); if (v === 'rock' || v === 'gar') return v; } catch { /* auto */ } return 'auto'; });
+    const pickFont = (v: 'auto' | 'rock' | 'gar') => { setPfont(v); try { localStorage.setItem(pfKey, v); } catch { /* not saved */ } };
+    const pfCls = pfont === 'rock' ? ' pf-rock' : pfont === 'gar' ? ' pf-gar' : '';
     const [lugOpen, setLugOpen] = useState(false);
     const [lugOff, setLugOff] = useState<string[]>([]);
     const [xl, setXl] = useState('');
@@ -69,9 +74,9 @@ export default function TransportPrintPage() {
     const L: Libs | null = libs ? { vehicleWord: T.vehicleWord, sheetDate: T.sheetDate, time12: T.time12, tripRows: libs.ex.tripRows, ziyaratSummary: libs.ziyarat.ziyaratSummary } : null;
     const pages = chosen().flatMap(g => g.buses.map((b: Row) => (fmt === '2' ? sheet2(T, day, g.dest, b, site.label.toUpperCase()) : sheet(T, day, g.dest, b))));
     const sheetsHtml = pages.join('') || `<p class="tq-none">${doc.rows.length ? 'No buses for this choice.' : 'No transport list saved for this day.'}</p>`;
-    useLayoutEffect(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }, [sheetsHtml, fmt]);
+    useLayoutEffect(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }, [sheetsHtml, fmt, pfont]);
     // the bus number's font (Rockwell Extra Bold, assets/fonts) loads after the first fit: fit again once it is in
-    useEffect(() => { if (fmt === '2') void document.fonts?.load('200pt "Rockwell Extra Bold"').then(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }); }, [sheetsHtml, fmt]);
+    useEffect(() => { if (fmt === '2') void document.fonts?.load('200pt "Rockwell Extra Bold"').then(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }); }, [sheetsHtml, fmt, pfont]);
 
     function toggleDest(id: string, on: boolean) {
         const nextPicked = on ? [...picked, id] : picked.filter(x => x !== id);
@@ -84,15 +89,15 @@ export default function TransportPrintPage() {
         const w = window.open('', '_blank');
         if (!w) { setMsg('The browser blocked the new tab. Allow pop-ups for this site, then press Print again.'); return; }
         const font = new URL('assets/fonts/rockwell-extra-bold.ttf', document.baseURI).href;
-        const css2 = css.replace('url("assets/fonts/rockwell-extra-bold.ttf")', `url("${font}")`);
+        const css2 = css.replace('url("assets/fonts/rockwell-extra-bold.ttf")', `url("${font}")`).replace('url("assets/fonts/EBGaramond-Variable.ttf")', `url("${new URL('assets/fonts/EBGaramond-Variable.ttf', document.baseURI).href}")`);
         w.document.open();
         w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>${css2}
             body { margin: 0; background: #eee; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .tq-sheets { padding: 12px 12px 30px; } .tq-summary, .tq-lugsheets { display: block !important; max-width: 1060px; margin: 12px auto; padding: 8mm; background: #fff; }
             @media print { body { background: #fff; } .tq-summary, .tq-lugsheets { max-width: none; margin: 0; padding: 0; } }
-        </style></head><body><div class="${wrapCls}">${html}</div><script>
+        </style></head><body><div class="${wrapCls}${pfCls}">${html}</div><script>
             (async function () {
-                try { await document.fonts.load('200pt "Rockwell Extra Bold"'); } catch (e) { }
+                try { await document.fonts.load('200pt "Rockwell Extra Bold"'); await document.fonts.load('800 20pt "EB Garamond"'); } catch (e) { }
                 (${fitSheets.toString()})(document); (${fitLuggage.toString()})(document);
                 setTimeout(function () { window.focus(); window.print(); }, 300);
             })();
@@ -136,6 +141,7 @@ export default function TransportPrintPage() {
                     <div><h1 className="text-2xl font-bold text-primary">Bus sheets</h1><p className="text-sm text-muted-foreground">One page per bus, to stick on the bus. {fmt === '2' ? 'Format two prints A4 portrait.' : 'Format one prints A4 landscape — choose “Landscape” if the printer asks.'}</p></div>
                     <div className="flex flex-wrap gap-2">
                         <Button asChild variant="outline"><a href={href('transport', { day })}>🚌 Transport day</a></Button>
+                        <select aria-label="Print font" className="h-9 rounded-md border bg-background px-2 text-sm" value={pfont} onChange={e => pickFont(e.target.value as 'auto' | 'rock' | 'gar')} title="The typeface of the printed sheets"><option value="auto">Font: each format's own</option><option value="rock">Font: Rockwell Extra Bold</option><option value="gar">Font: Garamond</option></select>
                         <select aria-label="Sign format" className="h-9 rounded-md border bg-background px-2 text-sm" value={fmt} onChange={e => pickFmt(e.target.value as '1' | '2')} title="The layout of the bus sign"><option value="1">Format 1 — landscape</option><option value="2">Format 2 — portrait, big number</option></select>
                         <Button disabled={none} onClick={printSheets}><Printer className="size-4" />Print</Button>
                         <Button variant="outline" title="One A4 landscape page per bus: the groups on it" onClick={() => setLugOpen(o => !o)}>🧳 Luggage sheet</Button>
@@ -161,7 +167,7 @@ export default function TransportPrintPage() {
                 {note && <div className="rounded-md border border-ok/40 bg-ok-soft px-3 py-2 text-sm text-ok">{note}</div>}
                 {msg && <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">{msg}</div>}
             </div>
-            <div ref={sheetsRef} className="tq-sheets" dangerouslySetInnerHTML={{ __html: sheetsHtml }} />
+            <div ref={sheetsRef} className={`tq-sheets${pfCls}`} dangerouslySetInnerHTML={{ __html: sheetsHtml }} />
         </>
     );
 }

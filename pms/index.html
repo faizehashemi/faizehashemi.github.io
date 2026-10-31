@@ -39,10 +39,11 @@
         /* no scrollbars anywhere (pages still scroll by wheel, touch, keys and drag); with none shown there is no width change between short and long pages */
         html, * { scrollbar-width: none; -ms-overflow-style: none; }
         *::-webkit-scrollbar { display: none; width: 0; height: 0; }
-        /* the site's typeface: Rockwell Extra Bold (a single heavy weight, so no faked bold) */
-        @font-face { font-family: "Rockwell Extra Bold"; src: url("assets/fonts/rockwell-extra-bold.ttf") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
-        html { font-synthesis: none; }
-        body, input, select, textarea, button { font-family: "Rockwell Extra Bold", Rockwell, Georgia, serif; }
+        /* the site's typeface: EB Garamond, a variable font — any weight from 400 to 800 (Rockwell Extra Bold stays a print option on the bus sheets) */
+        @font-face { font-family: "EB Garamond"; src: url("assets/fonts/EBGaramond-Variable.ttf") format("truetype"); font-weight: 400 800; font-style: normal; font-display: swap; }
+        @font-face { font-family: "EB Garamond"; src: url("assets/fonts/EBGaramond-Italic-Variable.ttf") format("truetype"); font-weight: 400 800; font-style: italic; font-display: swap; }
+        body, input, select, textarea, button { font-family: "EB Garamond", Garamond, Georgia, serif; }
+        body { font-weight: 500; font-size-adjust: 0.5; }   /* a touch heavier and larger than Garamond's small default, so text stays dark and easy to read */
         body { margin: 0 !important; }
         #view { padding: 8px; box-sizing: border-box; }
         #view[data-view="home"], #view[data-view="laundry"], #view[data-view="login"] { padding: 0; }
@@ -53,7 +54,7 @@
     <link rel="stylesheet" href="app/core/responsive.css" id="responsive-css" data-shell>
     <!-- page loader (app/core/loader.js) -->
     <link rel="stylesheet" href="app/core/loader.css" data-shell>
-    <link rel="preload" href="assets/fonts/rockwell-extra-bold.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="assets/fonts/EBGaramond-Variable.ttf" as="font" type="font/ttf" crossorigin>
 </head>
 <body>
     <site-nav data-shell></site-nav>

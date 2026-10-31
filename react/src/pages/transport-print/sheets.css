@@ -94,6 +94,10 @@ html.tq-print-lug .tq-lugsheets { display: block; }
 }
 
 @font-face { font-family: "Rockwell Extra Bold"; src: url("assets/fonts/rockwell-extra-bold.ttf") format("truetype"); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: "EB Garamond"; src: url("assets/fonts/EBGaramond-Variable.ttf") format("truetype"); font-weight: 400 800; font-display: swap; }
+/* the Print font choice on the page: every bus sheet, summary and luggage sheet in one typeface (auto = each format's own) */
+.pf-rock .sheet, .pf-rock .sheet *, .pf-rock .lug, .pf-rock .lug *, .pf-rock .sum, .pf-rock .sum * { font-family: "Rockwell Extra Bold", Rockwell, Georgia, serif !important; font-weight: 400 !important; }
+.pf-gar .sheet, .pf-gar .sheet *, .pf-gar .lug, .pf-gar .lug *, .pf-gar .sum, .pf-gar .sum * { font-family: "EB Garamond", Garamond, Georgia, serif !important; font-weight: 800 !important; }
 /* ---------- Format two: A4 portrait bus sign (Medina's default) ---------- */
 .sheet.sheet2 { width: 190mm; height: 277mm; padding: 6mm 8mm; display: flex; flex-direction: column; align-items: stretch; page: bus2; font-family: Arial, Helvetica, sans-serif; }
 .s2-date { font: 600 10pt Arial, sans-serif; text-align: center; color: #333; }

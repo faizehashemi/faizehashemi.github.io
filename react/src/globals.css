@@ -69,7 +69,7 @@
 /* scoped base (what preflight would do, for React content only) */
 @layer base {
     .pms-react, .pms-react *, .pms-react *::before, .pms-react *::after { box-sizing: border-box; border-color: var(--border); }
-    .pms-react { font-family: "Rockwell Extra Bold", Rockwell, Georgia, serif; color: var(--foreground); line-height: 1.5; -webkit-text-size-adjust: 100%; }
+    .pms-react { font-family: "EB Garamond", Garamond, Georgia, serif; font-weight: 500; color: var(--foreground); line-height: 1.5; -webkit-text-size-adjust: 100%; }
     .pms-react button, .pms-react input, .pms-react select, .pms-react textarea { font: inherit; color: inherit; }
     .pms-react button { cursor: pointer; background: transparent; border: 0; }
     /* links take the colour of the text around them (no browser blue / purple); a plain link is the PMS deep gold with a soft gold underline */
