@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { natural, num, roomsOf, slipPax, stamp, when } from '@/lib/format';
 import { useSlips } from '@/hooks/useSlips';
-import { useCore } from '@/pms/PmsContext';
+import { useCore, useSite } from '@/pms/PmsContext';
 
 const LIMIT = 300;
 type Slip = Record<string, any>;
@@ -45,6 +46,66 @@ function RoomTable({ s, k, label }: { s: Slip; k: string; label: string }) {
     );
 }
 
+// Every transport trip of this slip: the saved transport days around its stay, the rows whose SH ref is this slip's, each with its vehicle, bus number
+// and the other groups riding the same vehicle. A grouped trip (adjusted into another vehicle) shows that vehicle's route and number.
+function TransportBox({ s }: { s: Slip }) {
+    const { stay, transport } = useCore();
+    const T = transport as any;
+    const { siteId } = useSite();
+    const ref = String(s.sh_no ?? '').replace(/^S/i, '');
+    const q = useQuery({
+        queryKey: ['slip-transport', siteId, s.id, s.sh_no, s.checkin_date, s.checkout_date],
+        queryFn: async () => {
+            const a = stay.slipStart(s), b = stay.slipEnd(s);
+            if (!a || !b) return [];
+            const lo = T.addDays(T.ymd(new Date(a)), -2), hi = T.addDays(T.ymd(new Date(b)), 2);
+            const days = ((await T.listDays(siteId)) as { day: string }[]).map(d => d.day).filter(d => d >= lo && d <= hi).slice(0, 30);
+            const docs = await Promise.all(days.map(d => T.loadDay(siteId, d)));
+            const out: Slip[] = [];
+            for (const doc of docs) {
+                const rows: Slip[] = doc.rows || [], info = T.resolve(rows);
+                for (const r of rows.filter(x => String(x.ref ?? '').replace(/^S/i, '') === ref)) {
+                    const i = info.get(r.key) || {}, main = i.parent || r;
+                    const riders = rows.filter(x => x.key !== r.key && (x.key === main.key || info.get(x.key)?.parent === main));
+                    out.push({ r, i, main, riders, day: doc.day || r.day });
+                }
+            }
+            return out.sort((x, y) => String(x.day + (x.r.at || '')).localeCompare(String(y.day + (y.r.at || ''))));
+        },
+        staleTime: 60_000,
+    });
+    const list = q.data ?? [];
+    return (
+        <div className="grid gap-2">
+            <h3 className="text-sm font-bold text-primary">Transport</h3>
+            {q.isLoading ? <p className="text-sm text-muted-foreground">Loading transport…</p>
+                : q.isError ? <p className="text-sm text-destructive">Could not load the transport list.</p>
+                : !list.length ? <p className="text-sm text-muted-foreground">No transport trip is saved for this slip.</p>
+                : list.map(({ r, i, main, riders, day }, n) => {
+                    const dest = T.destById?.[i.dest];
+                    const veh = T.vehicleWord(i.vehicle, i.vlabel), no = i.bus;
+                    return (
+                        <div key={n} className="grid gap-1.5 rounded-lg border bg-white p-2.5">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2"><b>{T.longDate(day)}{r.at ? ` · ${T.time12(r.at)}` : ''}</b><Badge variant="outline">{dest ? dest.title : (i.route || r.route || '—')}</Badge></div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Field label="Route">{i.route || r.route || '—'}</Field>
+                                <Field label="Vehicle">{no != null && no !== '' ? `${veh} no. ${no}` : veh}{i.parent && <small className="ml-1 font-normal">(adjusted into {main.vch || main.operator})</small>}</Field>
+                                <Field label="Pax">{r.pax || '—'}{(r.m || r.f || r.c) ? ` (M ${r.m || 0} · F ${r.f || 0} · C ${r.c || 0})` : ''}</Field>
+                                <Field label="Building">{i.building || r.building || '—'}</Field>
+                                {(main.transporter || r.transporter) && <Field label="Transporter">{main.transporter || r.transporter}</Field>}
+                                {(main.vch || r.vch) && <Field label="Vch No">{main.vch || r.vch}</Field>}
+                                {(r.dora || main.dora) && <Field label="Dora No">{r.dora || main.dora}</Field>}
+                                {(r.rooms || []).length > 0 && <Field label="Rooms">{r.rooms.join(', ')}</Field>}
+                            </div>
+                            {r.remarks && <p className="text-sm"><b>Remarks:</b> {r.remarks}</p>}
+                            {riders.length > 0 && <div className="text-sm"><b>Also on this vehicle:</b> {riders.map((x: Slip) => `${x.operator || '—'} (SH ${x.ref}, ${x.pax || 0} pax)`).join(' · ')}</div>}
+                        </div>
+                    );
+                })}
+        </div>
+    );
+}
+
 function Detail({ s }: { s: Slip }) {
     const { stay } = useCore();
     const delayed = stay.isDelayed(s);
@@ -71,6 +132,7 @@ function Detail({ s }: { s: Slip }) {
             <RoomTable s={s} k="ladies" label="Ladies rooms" />
             {!stay.rowsOf(s).length && <p className="text-muted-foreground">No rooms assigned yet.</p>}
             {note && <div><h3 className="text-sm font-bold text-primary">Notes</h3><p className="whitespace-pre-wrap">{note}</p></div>}
+            <TransportBox s={s} />
         </div>
     );
 }
