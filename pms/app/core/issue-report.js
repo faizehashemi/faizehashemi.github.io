@@ -114,14 +114,14 @@ dialog.pms-ir { width: min(560px, calc(100vw - 16px)); max-height: calc(100dvh -
 dialog.pms-ir::backdrop { background: rgba(30, 20, 5, .45); }
 .pms-ir form { display: grid; gap: 10px; padding: 16px; }
 .pms-ir h2 { margin: 0; font-size: 18px; color: #9a7414; }
-.pms-ir p { margin: 0; color: #6b5e4a; font-size: 13px; }
+.pms-ir p { margin: 0; color: #3d3226; font-size: 13px; }
 .pms-ir .ir-shot { border: 1px solid #e3d2b1; border-radius: 10px; overflow: hidden; background: #f1ead9; max-height: 220px; display: grid; place-items: center; }
 .pms-ir .ir-shot img { max-width: 100%; max-height: 220px; display: block; }
 .pms-ir textarea { font: inherit; width: 100%; min-height: 90px; padding: 9px 11px; border: 1px solid #d9c49d; border-radius: 10px; background: #fff; resize: vertical; box-sizing: border-box; }
 .pms-ir label.ir-chk { display: flex; gap: 8px; align-items: center; font-size: 13px; }
-.pms-ir details { font-size: 12.5px; color: #6b5e4a; }
+.pms-ir details { font-size: 12.5px; color: #3d3226; }
 .pms-ir .ir-act { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
-.pms-ir button { font: inherit; font-weight: 800; padding: 9px 18px; border-radius: 999px; border: 1px solid #d9c49d; background: #fff; color: #6b5e4a; cursor: pointer; }
+.pms-ir button { font: inherit; font-weight: 800; padding: 9px 18px; border-radius: 999px; border: 1px solid #d9c49d; background: #fff; color: #3d3226; cursor: pointer; }
 .pms-ir button.ir-send { background: #9a7414; border-color: #9a7414; color: #fff; }
 .pms-ir button:disabled { opacity: .5; cursor: default; }
 .pms-ir .ir-msg { margin-right: auto; font-size: 13px; }

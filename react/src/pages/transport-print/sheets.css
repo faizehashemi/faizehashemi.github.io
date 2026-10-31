@@ -33,7 +33,7 @@
 .sheet.fit4 .bus .n { font-size: 44pt; } .sheet.fit4 .bus .w { font-size: 26pt; }
 .sheet.fit4 .date, .sheet.fit4 .time, .sheet.fit4 .dest { font-size: 15pt; } .sheet.fit4 .col { font-size: 10pt; }
 .sheet.fit4 .foot .from { font-size: 13pt; } .sheet.fit4 .foot .total { font-size: 13pt; }
-.tq-none { padding: 30px; color: var(--muted); text-align: center; }
+.tq-none { padding: 30px; color: var(--muted-foreground); text-align: center; }
 
 /* ---------- Print summary (only while printing it) ---------- */
 .tq-summary { display: none; }
@@ -101,7 +101,7 @@ html.tq-print-lug .tq-lugsheets { display: block; }
 .s2-word { font: 900 38pt "Arial Black", Arial, sans-serif; text-align: center; text-transform: uppercase; line-height: 1.1; }
 .s2-word small { font-size: 20pt; font-weight: 700; margin-left: 4mm; }
 .s2-num { flex: 1 1 0; min-height: 40mm; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.s2-num .n { font: 400 200pt/1 "Rockwell Extra Bold", "Rockwell", "Arial Black", Arial, sans-serif; color: #3a3a3a; }
+.s2-num .n { font: 400 200pt/1 "Rockwell Extra Bold", "Rockwell", "Arial Black", Arial, sans-serif; color: #000; -webkit-text-stroke: 0; }
 .sheet2 .s2-tbl { flex: none; width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3mm; }
 .sheet2 .s2-tbl th, .sheet2 .s2-tbl td { border: 2px solid #000; padding: 1.6mm 2.4mm; text-align: center; vertical-align: middle; }
 .sheet2 .s2-tbl th { font: 900 11pt "Times New Roman", serif; background: #e9e5f0; }

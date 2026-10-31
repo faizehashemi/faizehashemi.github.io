@@ -3,7 +3,7 @@
             --bg: #f7efe1; /* page background (cream) */
             --panel: #fffaf1; /* cards/panels (warm off-white) */
             --text: #2b1e15; /* deep brown */
-            --muted: #6b5e4a; /* tobacco */
+            --muted: #3d3226; /* tobacco */
             --gold: #d4af37; /* accent */
             --gold2: #f3d984; /* light accent */
             --edge: #dcc7a4; /* soft border */
@@ -190,13 +190,13 @@
             }
 
         .help {
-            color: var(--muted);
+            color: var(--muted-foreground);
             font-size: 11px;
             margin-top: 4px
         }
 
         .muted {
-            color: var(--muted)
+            color: var(--muted-foreground)
         }
 
         .toolbar {
@@ -322,7 +322,7 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .gl-badge { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 6px; background: #9a5b00; color: #fff; font-size: 11px; font-weight: 800; vertical-align: middle; cursor: default; }
 .wrap button.btn-warn { border-color: #c0392b; color: #a12a2a; background: #fdecea; }
 .wrap button:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: grayscale(.4); }
-.wrap button.linkish { border: 0; background: none; padding: 6px 4px; color: var(--muted); text-decoration: underline; font-size: 13px; }
+.wrap button.linkish { border: 0; background: none; padding: 6px 4px; color: var(--muted-foreground); text-decoration: underline; font-size: 13px; }
 
 /* Pick rooms: side switch + feedback line */
 .rp .rp-lbl { font-size: 12px; color: #5b6778; }
@@ -362,17 +362,17 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .sh-ver.active { background: #fff7dc; border-color: #d4af37; box-shadow: 0 0 0 2px rgba(212, 175, 55, .35); }
 .sh-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .sh-n { font-size: 15px; color: var(--c); }
-.sh-act { font-weight: 700; } .sh-by, .sh-at { color: #6b5e4a; font-size: 12.5px; }
+.sh-act { font-weight: 700; } .sh-by, .sh-at { color: #3d3226; font-size: 12.5px; }
 .sh-badge { font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
 .sh-badge.on { background: #d4af37; color: #3b2a06; } .sh-badge.br { background: #efe3ff; color: #5b2a8f; }
 .sh-sum { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 5px 0; font-size: 12.5px; }
 .sh-chg { padding: 1px 8px; border-radius: 8px; background: #f6ecd2; } .sh-chg b { color: #7a5410; }
-.sh-first, .sh-more { color: #6b5e4a; font-style: italic; }
+.sh-first, .sh-more { color: #3d3226; font-style: italic; }
 .sh-btns { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 .sh-use { font: inherit; font-size: 12.5px; font-weight: 800; padding: 4px 12px; border-radius: 999px; border: 1px solid #b8931f; background: #fff; color: #7a5410; cursor: pointer; }
 .sh-use:hover { background: #fff6dd; }
 .sh-det { margin-top: 6px; border-collapse: collapse; font-size: 12.5px; width: 100%; max-width: 640px; }
-.sh-det th { text-align: left; width: 110px; color: #6b5e4a; padding: 2px 8px 2px 0; vertical-align: top; } .sh-det td { padding: 2px 0; overflow-wrap: anywhere; }
+.sh-det th { text-align: left; width: 110px; color: #3d3226; padding: 2px 8px 2px 0; vertical-align: top; } .sh-det td { padding: 2px 0; overflow-wrap: anywhere; }
 
 /* Pick rooms: a gents / ladies room refused for the other side; Exclusive */
 .rp .rp-err { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #fde2df; border: 1px solid #e3a7a1; color: #8f1d12; font-size: 13px; }
@@ -401,7 +401,7 @@ td:has(> #notes) { grid-column: 2 / -1; min-width: 0; }
 .ums-held { margin: 8px 0; padding: 10px 14px; border: 2px solid #c0392b; border-radius: 12px; background: #fde8e8; color: #7a1a12; font-weight: 700; }
 
 .trip { margin-top: 14px; padding: 10px 12px; border: 1px solid #e3d2b1; border-radius: 10px; background: #fffaf1; }
-.trip h3 { margin: 0 0 6px; font-size: 15px; } .trip h3 small { font-weight: 500; color: #6b5e4a; margin-left: 8px; }
+.trip h3 { margin: 0 0 6px; font-size: 15px; } .trip h3 small { font-weight: 500; color: #3d3226; margin-left: 8px; }
 .trip-list { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
 .trip-list li span { margin-left: 10px; color: #4b4031; } .trip-list li em { margin-left: 8px; font-size: 11px; color: #7a5a10; font-style: normal; background: #f4e3b8; padding: 1px 7px; border-radius: 999px; }
 .trip-list li.here { font-weight: 700; }

@@ -1,6 +1,6 @@
         :root { /* Cream • Gold • Brown */
             --b: #dcc7a4;
-            --m: #5e4a39;
+            --m: #3d3226;
             --bg: #f7efe1;
             --gold: #d4af37
         }
@@ -265,7 +265,7 @@
 .lg-item[open] summary::before { content: '▾'; }
 .lg-when { font-weight: 700; white-space: nowrap; }
 .lg-kind { font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #f3e6ca; color: #7a5b13; }
-.lg-note { flex: 1 1 260px; color: #5e4a39; font-size: 13px; }
+.lg-note { flex: 1 1 260px; color: #3d3226; font-size: 13px; }
 .lg-undone { font-size: 12px; font-weight: 700; color: #a12a2a; }
 .lg-item.undone { opacity: .75; }
 .lg-item .pl-hint { margin: 0 12px 6px; }

@@ -1,7 +1,7 @@
         :root {
             /* Cream • Gold • Brown palette */
             --ink: #1a0f0a; /* darkest brown for all text */
-            --muted: #5e4a39; /* softer brown for secondary text */
+            --muted: #3d3226; /* softer brown for secondary text */
             --bg: #f7efe1; /* page background (cream) */
             --card: #fffaf1; /* panels */
             --border: #dcc7a4; /* soft cream-gold border */

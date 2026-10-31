@@ -50,7 +50,7 @@ dialog.tp-plan h2 { margin: 0 0 6px; font-size: 18px; }
 .tp-plan-tbl thead th { position: sticky; top: 0; background: #fff8e1; font-size: 12px; }
 .tp-plan-tbl td.n { text-align: right; font-weight: 700; }
 .tp-plan-tbl small { display: block; color: var(--muted); font-size: 11.5px; }
-.tp-plan-tbl tr.listed td { background: #e8e4dc; color: #6b5e4a; }
+.tp-plan-tbl tr.listed td { background: #e8e4dc; color: #3d3226; }
 .tp-plan-tbl tr.picked td { background: #dff3d8; }
 .tp-plan-tbl tr.listed { opacity: .85; }
 .tp-plan-tbl select, .tp-plan-tbl input[type=time] { font: inherit; padding: 4px 6px; border: 1px solid var(--edge); border-radius: 8px; }

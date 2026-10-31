@@ -22,7 +22,7 @@ body .app-footer a { color: var(--gold-2) }
 .lp-logo { width: 104px; justify-self: center; margin-bottom: 2px }
 .lp-card h1 { margin: 0; text-align: center; font: 26px/1.1 "Lilita One", Inter, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--navy) }
 .lp-card h1 span { color: var(--gold-deep) }
-.lp-muted { color: #6b5e4a; text-align: center; margin: 0 0 10px; font-size: 14px }
+.lp-muted { color: #3d3226; text-align: center; margin: 0 0 10px; font-size: 14px }
 .lp-card label { font-weight: 700; font-size: 13px; margin-top: 6px }
 .lp-card input { width: 100%; padding: 11px 13px; font: inherit; font-size: 15px; border: 1.5px solid #d9c49d; border-radius: 12px; background: #fff; color: #2b1e15 }
 .lp-card input:focus-visible { outline: 3px solid var(--gold); outline-offset: 1px; border-color: var(--gold) }

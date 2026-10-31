@@ -17,7 +17,7 @@
 #pms-loader .pl-arc { fill: none; stroke: #c9a227; stroke-width: 6; stroke-linecap: round;
     stroke-dasharray: 90 237; transform-origin: 60px 60px; animation: pl-arc 1.4s ease-in-out infinite; }
 #pms-loader .pl-title { margin: 0; font-weight: 800; font-size: 16px; color: #7a5410; letter-spacing: .02em; }
-#pms-loader .pl-line { margin: 0; min-height: 18px; font-size: 12px; color: #6b5e4a; }
+#pms-loader .pl-line { margin: 0; min-height: 18px; font-size: 12px; color: #3d3226; }
 #pms-loader .pl-dots { display: flex; gap: 6px; margin-top: 2px; }
 #pms-loader .pl-dots i { width: 7px; height: 7px; border-radius: 50%; background: #d4af37; animation: pl-dot 1.2s ease-in-out infinite; }
 #pms-loader .pl-dots i:nth-child(2) { animation-delay: .15s; }

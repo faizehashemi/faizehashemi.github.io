@@ -77,13 +77,13 @@ function show(page, site, trigger, tries = 0) {
         .pms-fb .fb-stars button:hover { transform: scale(1.15); }
         .pms-fb .fb-more { display: grid; gap: 8px; margin-top: 10px; }
         .pms-fb .fb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-        .pms-fb .fb-chips button { font: inherit; font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid #d9c49d; background: #fff; color: #6b5e4a; cursor: pointer; }
+        .pms-fb .fb-chips button { font: inherit; font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid #d9c49d; background: #fff; color: #3d3226; cursor: pointer; }
         .pms-fb .fb-chips button.on { background: #9a7414; border-color: #9a7414; color: #fff; }
         .pms-fb textarea { font: inherit; width: 100%; min-height: 64px; padding: 8px 10px; border: 1px solid #d9c49d; border-radius: 10px; background: #fff; resize: vertical; box-sizing: border-box; }
         .pms-fb .fb-send { font: inherit; font-weight: 800; padding: 7px 16px; border: 0; border-radius: 999px; background: #9a7414; color: #fff; cursor: pointer; }
         .pms-fb .fb-send:disabled { opacity: .5; cursor: default; }
-        .pms-fb .fb-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(154, 116, 20, .12); color: #6b5e4a; font-size: 15px; cursor: pointer; }
-        .pms-fb .fb-note { font-size: 12px; color: #6b5e4a; }
+        .pms-fb .fb-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(154, 116, 20, .12); color: #3d3226; font-size: 15px; cursor: pointer; }
+        .pms-fb .fb-note { font-size: 12px; color: #3d3226; }
         @media print { .pms-fb { display: none; } }
       </style>
       <div class="fb-row"><span>💬 <b>How is your experience with this page?</b></span>

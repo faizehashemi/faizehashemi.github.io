@@ -96,12 +96,12 @@ export function printGrid(mx, { building, date, time, site }) {
         #gridPrintDlg { border: 0; border-radius: 16px; padding: 18px 20px; width: min(92vw, 380px); box-shadow: 0 24px 60px rgba(0,0,0,.3); font: 14px/1.45 system-ui, sans-serif; color: #2b1e15; }
         #gridPrintDlg::backdrop { background: rgba(43, 30, 21, .4); }
         #gridPrintDlg h2 { margin: 0 0 4px; font-size: 17px; color: #9a7414; }
-        #gridPrintDlg p { margin: 0 0 14px; color: #6b5e4a; font-size: 13px; }
+        #gridPrintDlg p { margin: 0 0 14px; color: #3d3226; font-size: 13px; }
         #gridPrintDlg .gp { display: grid; gap: 8px; }
         #gridPrintDlg button { font: inherit; font-weight: 800; padding: 10px 14px; border-radius: 12px; border: 1px solid #b8931f; background: #fff; color: #7a5410; cursor: pointer; text-align: left; }
         #gridPrintDlg button.main { background: linear-gradient(#e6c65a, #d4af37); color: #3b2a06; }
-        #gridPrintDlg button small { display: block; font-weight: 500; color: #6b5e4a; }
-        #gridPrintDlg .x { text-align: center; border-color: #ddd; color: #6b5e4a; }
+        #gridPrintDlg button small { display: block; font-weight: 500; color: #3d3226; }
+        #gridPrintDlg .x { text-align: center; border-color: #ddd; color: #3d3226; }
       </style>
       <h2>Print the grid</h2><p>${esc(title)}</p>
       <div class="gp">

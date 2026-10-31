@@ -6,7 +6,7 @@
 .gridp .corner { position: sticky; top: 0; left: 0; z-index: 3; background: #f3e6ca; width: 84px; height: 44px; font-weight: 800; padding: 6px; text-align: center; }
 .gridp .cell { width: var(--cellW); height: var(--cellH); display: grid; grid-template-rows: auto auto 1fr; align-items: center; justify-items: center; padding: 6px; background: #fffdf5; color: #2b1e15; }
 .gridp .cell .cap { font-weight: 700; }
-.gridp .cell .meta { font-size: calc(var(--fs) - 1px); text-align: center; line-height: 1.1; color: #6b5e4a; }
+.gridp .cell .meta { font-size: calc(var(--fs) - 1px); text-align: center; line-height: 1.1; color: #3d3226; }
 .gridp .cell.occ { background: #e8c765; }
 .gridp .cell.under { background: #F7C131 !important; color: #663300 !important; }
 .gridp .cell.under .cap { color: #663300 !important; }

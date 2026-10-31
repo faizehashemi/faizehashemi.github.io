@@ -1,7 +1,7 @@
         /* === theme: cream / gold / brown === */
         :root {
             --ink: #2b1e15; /* text */
-            --muted: #6b5e4a; /* secondary */
+            --muted: #3d3226; /* secondary */
             --card: #fffaf1; /* panels/cards */
             --border: #dcc7a4; /* lines */
             --hdrBg: #f3e6ca; /* header rows & gutter */

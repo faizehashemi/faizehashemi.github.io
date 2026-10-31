@@ -1,5 +1,5 @@
 /* Room cleaning (cream • gold • brown; priority colours) */
-:root { --hk-bg: #f7efe1; --hk-panel: #fffaf1; --hk-ink: #2b1e15; --hk-muted: #6b5e4a; --hk-gold: #d4af37; --hk-gold-deep: #9a7414; --hk-edge: #e3d2b1; --hk-shade: 0 8px 24px rgba(92, 64, 28, .10); }
+:root { --hk-bg: #f7efe1; --hk-panel: #fffaf1; --hk-ink: #2b1e15; --hk-muted: #3d3226; --hk-gold: #d4af37; --hk-gold-deep: #9a7414; --hk-edge: #e3d2b1; --hk-shade: 0 8px 24px rgba(92, 64, 28, .10); }
 body { background: var(--hk-bg) url("../../../assets/pattern_gold_2x.png") repeat; background-size: 150px auto; margin: 0; color: var(--hk-ink); }
 .hk { max-width: 1280px; margin: 0 auto; padding: 16px 16px 28px; display: grid; gap: 14px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .hk * { box-sizing: border-box; }

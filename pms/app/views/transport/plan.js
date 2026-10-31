@@ -62,7 +62,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
         dlg.className = 'tp-plan';
         const opts = (sel) => `<option value="">No vehicle needed</option>` + dests.map(d => `<option value="${d.id}"${d.id === sel ? ' selected' : ''}>${d.icon} ${esc(d.title)}</option>`).join('');
         dlg.innerHTML = `
-          <style>.tp-plan-tbl tr.listed td { background: #e3e0da; color: #6b5e4a; } .tp-plan-tbl tr.picked td { background: #d9f0d0; }</style>
+          <style>.tp-plan-tbl tr.listed td { background: #e3e0da; color: #3d3226; } .tp-plan-tbl tr.picked td { background: #d9f0d0; }</style>
           <h2>Plan from check-outs <span class="tp-muted">— ${esc(day)}</span></h2>
           <p class="tp-muted">${lines.length ? `${lines.length} check-out${lines.length === 1 ? '' : 's'} on this day. The destination is taken from each slip's <b>To</b> (or the UMS departure airport); change it, or pick “No vehicle needed” for groups who arrange their own way. Time is the check-out time — change it if the vehicle leaves earlier.` : 'No group checks out on this day.'}</p>
           ${lines.length ? `<div class="tp-plan-scroll"><table class="tp-plan-tbl"><thead><tr><th></th><th>SH</th><th>Group</th><th>Pax</th><th>Check-out</th><th>Goes to</th></tr></thead><tbody>

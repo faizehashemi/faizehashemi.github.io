@@ -41,7 +41,7 @@ function blockOldApp(info, have) {
         <h2 style="margin:6px 0 8px;font-size:21px">Update required</h2>
         <p style="margin:0 0 14px">This version of the app (${have}) is no longer supported. Download and install the new version (${info.android_latest || info.android_min}) to continue.</p>
         <a href="${url}" style="display:block;padding:14px;border-radius:14px;background:#1f8a4c;color:#fff;font-weight:800;text-decoration:none;font-size:18px">⬇ Download the new app</a>
-        <p style="margin:12px 0 0;font-size:12px;color:#6b5e4a">After installing, open the app again. Your login and data are kept.</p>`);
+        <p style="margin:12px 0 0;font-size:12px;color:#3d3226">After installing, open the app again. Your login and data are kept.</p>`);
 }
 
 // A new build: one line at the top of the page (the page stays usable) with an Update now button; it reloads by itself after the countdown.

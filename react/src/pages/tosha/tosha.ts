@@ -135,7 +135,7 @@ export function drawImage(m: Model): HTMLCanvasElement {
     line(y, HEAD, '#ffd966');
     m.head.forEach((s, i) => cell(s, i, y, HEAD, '900 15px "Arial Black", Arial, sans-serif', '#3d3100'));
     y += HEAD;
-    if (!m.rows.length) { line(y, ROW, '#fff2cc'); g.font = '600 17px Arial'; g.fillStyle = '#6b5e4a'; g.fillText('No buses', P + 10, y + ROW / 2); y += ROW; }
+    if (!m.rows.length) { line(y, ROW, '#fff2cc'); g.font = '600 17px Arial'; g.fillStyle = '#3d3226'; g.fillText('No buses', P + 10, y + ROW / 2); y += ROW; }
     for (const r of m.rows) {
         line(y, ROW, r.slot ? '#ffe8a3' : '#fff2cc');
         r.cells.forEach((s, i) => cell(s, i, y, ROW, r.slot ? '800 17px Arial, sans-serif' : '700 17px Arial, sans-serif', '#1f1600'));

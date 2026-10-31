@@ -179,7 +179,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .bar { position: sticky; top: 0; display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #fffaf1;
   border-bottom: 1px solid #dcc7a4; font: 14px system-ui, sans-serif; color: #2b1e15; z-index: 1; }
 .bar button { font: inherit; padding: 6px 14px; border: 1px solid #d4af37; border-radius: 8px; background: #d4af37; color: #fff; font-weight: 700; cursor: pointer; }
-.bar span { color: #6b5e4a; font-size: 12px; }
+.bar span { color: #3d3226; font-size: 12px; }
 @media screen {
   body { background: #e9e6df; }
   /* each page as it will print: A5 landscape */
@@ -212,7 +212,7 @@ dialog.gl-dlg::backdrop { background: rgba(15, 23, 42, .55); }
 .gl-dlg .gl-wrap { display: flex; flex-direction: column; height: 100%; }
 .gl-dlg .gl-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fffaf1; border-bottom: 1px solid #dcc7a4; }
 .gl-dlg .gl-head h2 { margin: 0; font-size: 17px; flex: 1; }
-.gl-dlg .gl-head p { margin: 2px 0 0; font-size: 12px; color: #6b5e4a; }
+.gl-dlg .gl-head p { margin: 2px 0 0; font-size: 12px; color: #3d3226; }
 .gl-dlg button { font: inherit; cursor: pointer; border: 1px solid #d4af37; background: #fffdf5; color: #7a5b13; border-radius: 8px; padding: 6px 12px; }
 .gl-dlg button:hover { background: #fff6dd; }
 .gl-dlg button:disabled { opacity: .5; cursor: progress; }

@@ -333,7 +333,7 @@ export default async function mount(ctx) {
         for (let i = 0; i <= steps; i++) {
             const y = H - padB - (i / steps) * chartH;
             g.strokeStyle = i ? 'rgba(154,116,20,.18)' : '#9a7414'; g.beginPath(); g.moveTo(padL, y); g.lineTo(W - padR, y); g.stroke();
-            g.fillStyle = '#6b5e4a'; g.font = '11px system-ui, sans-serif'; g.textAlign = 'right';
+            g.fillStyle = '#3d3226'; g.font = '11px system-ui, sans-serif'; g.textAlign = 'right';
             g.fillText(String(Math.round((i / steps) * maxV)), padL - 6, y + 4);
         }
         const groupW = chartW / Math.max(1, rows.length), barW = Math.max(2, Math.min(14, groupW / 4));
@@ -344,7 +344,7 @@ export default async function mount(ctx) {
                 g.fillStyle = ['#2e7dd1', '#23a56b', '#e3a92b'][j];
                 g.fillRect(x0 + j * barW, H - padB - h, barW - 1, h);
             });
-            g.fillStyle = '#6b5e4a'; g.font = '10px system-ui, sans-serif'; g.textAlign = 'right';
+            g.fillStyle = '#3d3226'; g.font = '10px system-ui, sans-serif'; g.textAlign = 'right';
             g.save(); g.translate(padL + idx * groupW + groupW / 2, H - padB + 8); g.rotate(-Math.PI / 4);
             g.fillText(r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name, 0, 0); g.restore();
         });

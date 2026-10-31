@@ -1,0 +1,5 @@
+# Files that never change under the same name are kept by the browser, so a page does not ask the server for them again.
+/assets/*
+  Cache-Control: public, max-age=2592000
+/react/chunks/*
+  Cache-Control: public, max-age=31536000, immutable

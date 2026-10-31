@@ -4,7 +4,7 @@ export type Ev = { sh_no: string; start: Date; end: Date; assigned: number; bloc
 
 const ROW_H = 36, HDR_H = 48, GUTTER = 150, MIN_PX_HR = 20, MAX_PX_HR = 600;
 // the PMS cream / gold / brown palette (the legacy page took these from its CSS variables)
-const C = { ink: '#2b1e15', muted: '#6b5e4a', card: '#fffaf1', border: '#dcc7a4', hdrBg: '#f3e6ca', vacant: '#fffdf5', rowAlt: '#fff9ec', occupied: '#e8c765', occupied2: '#d7b047' };
+const C = { ink: '#2b1e15', muted: '#3d3226', card: '#fffaf1', border: '#dcc7a4', hdrBg: '#f3e6ca', vacant: '#fffdf5', rowAlt: '#fff9ec', occupied: '#e8c765', occupied2: '#d7b047' };
 
 export class TimelineChart {
     private ctx: CanvasRenderingContext2D;

@@ -9,7 +9,7 @@
 .app-footer {
     max-width: 1400px; margin: 24px auto 8px; padding: 14px 16px 18px;
     border-top: 1px solid #e3d3b3; text-align: center;
-    font: 13px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color: #6b5e4a;
+    font: 13px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color: #3d3226;
 }
 .app-footer a { color: #8a6512; font-weight: 650; text-decoration: none; white-space: nowrap }
 .app-footer a:hover { text-decoration: underline }
@@ -57,7 +57,7 @@
     }
     #view table.pms-cards > tbody > tr > td:last-child, #view table.pms-cards > tfoot > tr > td:last-child { border-bottom: 0 !important; }
     #view table.pms-cards > tbody > tr > td::before, #view table.pms-cards > tfoot > tr > td::before {
-        content: attr(data-label); font-size: 12px; font-weight: 650; color: #6b5e4a; text-transform: none; letter-spacing: 0;
+        content: attr(data-label); font-size: 12px; font-weight: 650; color: #3d3226; text-transform: none; letter-spacing: 0;
     }
     #view table.pms-cards > tbody > tr > td[data-label=""], #view table.pms-cards > tfoot > tr > td[data-label=""] { grid-template-columns: 1fr; }
     #view table.pms-cards > tbody > tr > td[data-label=""]::before, #view table.pms-cards > tfoot > tr > td[data-label=""]::before { content: none; }

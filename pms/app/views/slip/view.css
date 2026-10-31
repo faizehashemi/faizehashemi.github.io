@@ -3,7 +3,7 @@
             --bg: #f7efe1; /* page background (cream) */
             --panel: #fffaf1; /* cards/panels (warm off-white) */
             --text: #2b1e15; /* deep brown */
-            --muted: #6b5e4a; /* tobacco */
+            --muted: #3d3226; /* tobacco */
             --gold: #d4af37; /* accent */
             --gold2: #f3d984; /* light accent */
             --edge: #dcc7a4; /* soft border */
@@ -362,17 +362,17 @@ dialog.rp::backdrop { background: rgba(15, 23, 42, .55); }
 .sh-ver.active { background: #fff7dc; border-color: #d4af37; box-shadow: 0 0 0 2px rgba(212, 175, 55, .35); }
 .sh-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .sh-n { font-size: 15px; color: var(--c); }
-.sh-act { font-weight: 700; } .sh-by, .sh-at { color: #6b5e4a; font-size: 12.5px; }
+.sh-act { font-weight: 700; } .sh-by, .sh-at { color: #3d3226; font-size: 12.5px; }
 .sh-badge { font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; }
 .sh-badge.on { background: #d4af37; color: #3b2a06; } .sh-badge.br { background: #efe3ff; color: #5b2a8f; }
 .sh-sum { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 5px 0; font-size: 12.5px; }
 .sh-chg { padding: 1px 8px; border-radius: 8px; background: #f6ecd2; } .sh-chg b { color: #7a5410; }
-.sh-first, .sh-more { color: #6b5e4a; font-style: italic; }
+.sh-first, .sh-more { color: #3d3226; font-style: italic; }
 .sh-btns { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 .sh-use { font: inherit; font-size: 12.5px; font-weight: 800; padding: 4px 12px; border-radius: 999px; border: 1px solid #b8931f; background: #fff; color: #7a5410; cursor: pointer; }
 .sh-use:hover { background: #fff6dd; }
 .sh-det { margin-top: 6px; border-collapse: collapse; font-size: 12.5px; width: 100%; max-width: 640px; }
-.sh-det th { text-align: left; width: 110px; color: #6b5e4a; padding: 2px 8px 2px 0; vertical-align: top; } .sh-det td { padding: 2px 0; overflow-wrap: anywhere; }
+.sh-det th { text-align: left; width: 110px; color: #3d3226; padding: 2px 8px 2px 0; vertical-align: top; } .sh-det td { padding: 2px 0; overflow-wrap: anywhere; }
 
 /* Pick rooms: a gents / ladies room refused for the other side; Exclusive */
 .rp .rp-err { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #fde2df; border: 1px solid #e3a7a1; color: #8f1d12; font-size: 13px; }

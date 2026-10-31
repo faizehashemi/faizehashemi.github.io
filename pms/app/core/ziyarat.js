@@ -49,9 +49,9 @@ export function openZiyaratSplit(main, riders, all) {
             .z-dlg .z-times input { width: 120px; }
             .z-dlg table { width: 100%; border-collapse: collapse; font-size: 13px; }
             .z-dlg th, .z-dlg td { border: 1px solid #e3d2b1; padding: 4px 6px; text-align: center; vertical-align: middle; }
-            .z-dlg td:nth-child(2) { text-align: left; } .z-dlg td small { display: block; color: #6b5e4a; font-size: 11.5px; }
+            .z-dlg td:nth-child(2) { text-align: left; } .z-dlg td small { display: block; color: #3d3226; font-size: 11.5px; }
             .z-dlg th.z-g, .z-dlg td.z-g { background: #eef5ff; } .z-dlg th.z-l, .z-dlg td.z-l { background: #fff0f5; }
-            .z-dlg .z-note { font-size: 12.5px; color: #6b5e4a; margin: 8px 0 0; }
+            .z-dlg .z-note { font-size: 12.5px; color: #3d3226; margin: 8px 0 0; }
             .z-dlg footer { padding: 10px 18px 14px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
             .z-dlg footer button { font: inherit; font-weight: 800; padding: 8px 16px; border-radius: 999px; border: 1px solid #b8931f; background: #fff; color: #7a5410; cursor: pointer; }
             .z-dlg footer .main { background: #9a7414; color: #fff; border-color: #9a7414; }

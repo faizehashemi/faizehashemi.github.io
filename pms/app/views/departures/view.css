@@ -1,5 +1,5 @@
 /* Delayed departures (cream • gold • brown, red for trouble) */
-:root { --dp-bg: #f7efe1; --dp-panel: #fffaf1; --dp-ink: #2b1e15; --dp-muted: #6b5e4a; --dp-gold: #d4af37; --dp-gold-deep: #9a7414; --dp-edge: #e3d2b1; --dp-shade: 0 8px 24px rgba(92, 64, 28, .10); }
+:root { --dp-bg: #f7efe1; --dp-panel: #fffaf1; --dp-ink: #2b1e15; --dp-muted: #3d3226; --dp-gold: #d4af37; --dp-gold-deep: #9a7414; --dp-edge: #e3d2b1; --dp-shade: 0 8px 24px rgba(92, 64, 28, .10); }
 body { background: var(--dp-bg) url("../../../assets/pattern_gold_2x.png") repeat; background-size: 150px auto; margin: 0; color: var(--dp-ink); }
 .dp { max-width: 1320px; margin: 0 auto; padding: 16px 16px 28px; display: grid; gap: 14px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .dp * { box-sizing: border-box; }

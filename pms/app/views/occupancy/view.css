@@ -1,6 +1,6 @@
 /* Occupancy details (cream • gold • brown) */
 :root {
-    --oc-bg: #f7efe1; --oc-panel: #fffaf1; --oc-ink: #2b1e15; --oc-muted: #6b5e4a;
+    --oc-bg: #f7efe1; --oc-panel: #fffaf1; --oc-ink: #2b1e15; --oc-muted: #3d3226;
     --oc-gold: #d4af37; --oc-gold-deep: #9a7414; --oc-edge: #e3d2b1; --oc-shade: 0 8px 24px rgba(92, 64, 28, .10);
 }
 body { background: var(--oc-bg) url("../../../assets/pattern_gold_2x.png") repeat; background-size: 150px auto; margin: 0; color: var(--oc-ink); }

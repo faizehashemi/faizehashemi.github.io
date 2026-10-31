@@ -99,9 +99,9 @@ export const ITINERARY_CSS = `
 .itin .route p { margin: 0; font-size: 12pt; color: #7a5a10; font-weight: 700; }
 .itin .who { background: #fbf4e0; border-radius: 3mm; padding: 4mm 5mm; display: grid; grid-template-columns: 1fr auto; gap: 1mm 6mm; }
 .itin .who .name { font-size: 15pt; font-weight: 800; }
-.itin .who .sub { font-size: 10.5pt; color: #6b5e4a; }
+.itin .who .sub { font-size: 10.5pt; color: #3d3226; }
 .itin .who .sub b { color: #2b2217; font-size: 11.5pt; }
-.itin .who .sh { text-align: right; font-size: 10pt; color: #6b5e4a; }
+.itin .who .sh { text-align: right; font-size: 10pt; color: #3d3226; }
 .itin .who .sh b { display: block; font-size: 18pt; color: #7a5a10; }
 .itin h2 { font-size: 9.5pt; letter-spacing: .16em; text-transform: uppercase; color: #8a7a5c; margin: 6mm 0 2.5mm; font-weight: 700; }
 .itin .tl { display: grid; gap: 3.5mm; }
@@ -115,7 +115,7 @@ export const ITINERARY_CSS = `
 .itin .row div { min-width: 0; }
 .itin .row span { display: block; font-size: 8.5pt; color: #8a7a5c; text-transform: uppercase; letter-spacing: .08em; }
 .itin .row b { font-size: 12.5pt; font-weight: 800; color: #1f1a12; }
-.itin .note { font-size: 10pt; color: #6b5e4a; margin-top: 1mm; }
+.itin .note { font-size: 10pt; color: #3d3226; margin-top: 1mm; }
 .itin .pax { display: grid; grid-template-columns: repeat(5, 1fr); background: #fbf4e0; border-radius: 3mm; overflow: hidden; }
 .itin .pax div { padding: 3.5mm 2mm; text-align: center; }
 .itin .pax div + div { border-left: 1px solid #f0e2b6; }

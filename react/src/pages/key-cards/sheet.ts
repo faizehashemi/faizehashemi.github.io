@@ -32,9 +32,9 @@ export function cardsSheet({ day, layout, site, cards }: { day: string; layout: 
         .pg { width: 281mm; height: 193mm; display: grid; grid-template-columns: repeat(${L.cols}, 1fr); grid-template-rows: repeat(${L.rows}, 1fr); gap: 2mm; overflow: hidden; }
         .pg + .pg { break-before: page; page-break-before: always; }
         .c { border: 1.2px solid #000; border-radius: 1.5mm; overflow: hidden; min-height: 0; min-width: 0; }
-        .in { height: 100%; padding: 2mm 2.4mm; font-size: 10pt; line-height: 1.25; overflow-wrap: anywhere; display: flex; flex-direction: column; }
+        .in { height: 100%; padding: 2mm 2.4mm; font-size: ${L.cols >= 4 ? 8 : 9}pt; line-height: 1.25; overflow-wrap: anywhere; display: flex; flex-direction: column; }
         .d { font-size: .8em; font-weight: 700; border-bottom: 1px solid #999; padding-bottom: .5mm; margin-bottom: .8mm; }
-        .n { font-weight: 800; font-size: 1.3em; line-height: 1.2; margin-bottom: .3em; }
+        .n { font-weight: 800; line-height: 1.2; margin-bottom: .6mm; }   /* group and leader names stay small; only the room list grows */
         .m { font-size: .8em; color: #333; margin-bottom: 1mm; }
         .r { display: flex; flex-wrap: wrap; align-content: flex-start; gap: .35em .9em; flex: 1 1 auto; }
         .r span { white-space: nowrap; }
@@ -43,10 +43,10 @@ export function cardsSheet({ day, layout, site, cards }: { day: string; layout: 
         @media screen { body { padding: 8mm; background: #eee; } .pg { background: #fff; margin: 0 auto 8mm; outline: 1px solid #bbb; } }
     </style></head><body>${pages.map(p => `<section class="pg" style="grid-template-columns:repeat(${gridOf(p.length).cols},1fr);grid-template-rows:repeat(${gridOf(p.length).rows},1fr)">${p.map(card).join('')}</section>`).join('')}
     <script>
-        // size each card's text to the largest that still fits its cell (the cards fill the page, so the text fills the card), then open the print dialog
+        // grow each card's room list to the largest size that still fits its cell (the cards fill the page), then open the print dialog
         for (const c of document.querySelectorAll('.c')) {
-            const inn = c.firstElementChild; let lo = 4, hi = 30;
-            const fits = pt => { inn.style.fontSize = pt + 'pt'; return inn.scrollHeight <= c.clientHeight + 1 && inn.scrollWidth <= c.clientWidth + 1; };
+            const inn = c.firstElementChild, rooms = inn.querySelector('.r'); let lo = 4, hi = 30;
+            const fits = pt => { rooms.style.fontSize = pt + 'pt'; return inn.scrollHeight <= c.clientHeight + 1 && inn.scrollWidth <= c.clientWidth + 1; };
             for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
             fits(lo);
         }

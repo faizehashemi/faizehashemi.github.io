@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useCore, useGuard, useLoadApp, useLoadCore, useNav, useParams, useSite } from '@/pms/PmsContext';
 import { DayNav } from '../transport/DayNav';
 import css from './sheets.css?raw';
-import { fitSheets, fitLuggage, luggageSheet, parseOnly, sheet, sheet2, summary, type Libs } from './sheets';
+import { fitLuggage, fitSheets, luggageSheet, parseOnly, sheet, sheet2, summary, type Libs } from './sheets';
 
 // Bus sheets: one A4 landscape page per bus (or car) of the day, laid out like the printed signs. "Print summary" prints the same choice as one list per
 // destination, "Luggage sheet" one A4 page per bus with the groups on it, and both can go to Excel. The paper output is the old page's markup and CSS
@@ -50,8 +50,6 @@ export default function TransportPrintPage() {
     const [xl, setXl] = useState('');
     const [libs, setLibs] = useState<any>(null);
     const sheetsRef = useRef<HTMLDivElement>(null);
-    const sumRef = useRef<HTMLDivElement>(null);
-    const lugRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         void (async () => {
@@ -81,26 +79,31 @@ export default function TransportPrintPage() {
         setOff(nextOff);
         try { localStorage.setItem(OFF_KEY, JSON.stringify(nextOff)); localStorage.removeItem(OLD_PICK_KEY); } catch { /* ignore */ }
     }
-    // print modes: a class on <html> makes the other blocks step aside (sheets.css); it is removed when the dialog closes
-    const rootEl = document.documentElement;
-    const endMode = (cls: string, el: HTMLElement | null) => { rootEl.classList.remove(cls); if (el) el.innerHTML = ''; };
-    useEffect(() => {
-        const after = () => { if (rootEl.classList.contains('tq-print-summary')) endMode('tq-print-summary', sumRef.current); if (rootEl.classList.contains('tq-print-lug')) endMode('tq-print-lug', lugRef.current); };
-        window.addEventListener('afterprint', after);
-        return () => { window.removeEventListener('afterprint', after); rootEl.classList.remove('tq-print-summary', 'tq-print-lug'); };
-    }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-    const printSummary = () => {
-        if (!sumRef.current || !L) return;
-        sumRef.current.innerHTML = summary(L, day, chosen());
-        rootEl.classList.add('tq-print-summary'); window.print(); setTimeout(() => endMode('tq-print-summary', sumRef.current), 500);   // print() returns once the dialog closes
-    };
+    // Every print opens its own tab with a preview of the pages, then the print dialog (as the slips do): the sheets, the summary and the luggage sheets
+    function printTab(title: string, wrapCls: string, html: string) {
+        const w = window.open('', '_blank');
+        if (!w) { setMsg('The browser blocked the new tab. Allow pop-ups for this site, then press Print again.'); return; }
+        const font = new URL('assets/fonts/rockwell-extra-bold.ttf', document.baseURI).href;
+        const css2 = css.replace('url("assets/fonts/rockwell-extra-bold.ttf")', `url("${font}")`);
+        w.document.open();
+        w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>${css2}
+            body { margin: 0; background: #eee; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .tq-sheets { padding: 12px 12px 30px; } .tq-summary, .tq-lugsheets { display: block !important; max-width: 1060px; margin: 12px auto; padding: 8mm; background: #fff; }
+            @media print { body { background: #fff; } .tq-summary, .tq-lugsheets { max-width: none; margin: 0; padding: 0; } }
+        </style></head><body><div class="${wrapCls}">${html}</div><script>
+            (async function () {
+                try { await document.fonts.load('200pt "Rockwell Extra Bold"'); } catch (e) { }
+                (${fitSheets.toString()})(document); (${fitLuggage.toString()})(document);
+                setTimeout(function () { window.focus(); window.print(); }, 300);
+            })();
+        <\/script></body></html>`);
+        w.document.close();
+    }
+    const printSheets = () => printTab(`Bus sheets ${day}`, 'tq-sheets', pages.join(''));
+    const printSummary = () => { if (L) printTab(`Bus summary ${day}`, 'tq-summary', summary(L, day, chosen())); };
     const lugGroups = groups.filter(g => g.buses.length);
     const lugCount = groups.filter(g => !lugOff.includes(g.dest.id)).reduce((s, g) => s + g.buses.length, 0);
-    const printLug = () => {
-        if (!lugRef.current) return;
-        lugRef.current.innerHTML = groups.filter(g => !lugOff.includes(g.dest.id)).flatMap(g => g.buses.map((b: Row) => luggageSheet(T, b))).join('');
-        rootEl.classList.add('tq-print-lug'); fitLuggage(lugRef.current); window.print(); setTimeout(() => endMode('tq-print-lug', lugRef.current), 500);
-    };
+    const printLug = () => printTab(`Luggage sheets ${day}`, 'tq-lugsheets', groups.filter(g => !lugOff.includes(g.dest.id)).flatMap(g => g.buses.map((b: Row) => luggageSheet(T, b))).join(''));
     // the summary as one picture on the clipboard: drawn off-screen (so it has its styles), each destination's table stacked
     async function copySummaryImage() {
         if (!L) return;
@@ -134,7 +137,7 @@ export default function TransportPrintPage() {
                     <div className="flex flex-wrap gap-2">
                         <Button asChild variant="outline"><a href={href('transport', { day })}>🚌 Transport day</a></Button>
                         <select aria-label="Sign format" className="h-9 rounded-md border bg-background px-2 text-sm" value={fmt} onChange={e => pickFmt(e.target.value as '1' | '2')} title="The layout of the bus sign"><option value="1">Format 1 — landscape</option><option value="2">Format 2 — portrait, big number</option></select>
-                        <Button disabled={none} onClick={() => window.print()}><Printer className="size-4" />Print</Button>
+                        <Button disabled={none} onClick={printSheets}><Printer className="size-4" />Print</Button>
                         <Button variant="outline" title="One A4 landscape page per bus: the groups on it" onClick={() => setLugOpen(o => !o)}>🧳 Luggage sheet</Button>
                         <Button variant="outline" disabled={none || !L} title="One list of all the chosen trips of the day" onClick={printSummary}>📋 Print summary</Button>
                         <Button variant="outline" disabled={none || !L} title="The summary tables as one picture on the clipboard, to paste into a chat" onClick={() => void copySummaryImage()}><ImageDown className="size-4" />Copy summary image</Button>
@@ -159,8 +162,6 @@ export default function TransportPrintPage() {
                 {msg && <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">{msg}</div>}
             </div>
             <div ref={sheetsRef} className="tq-sheets" dangerouslySetInnerHTML={{ __html: sheetsHtml }} />
-            <div ref={sumRef} className="tq-summary" aria-hidden="true" />
-            <div ref={lugRef} className="tq-lugsheets" aria-hidden="true" />
         </>
     );
 }

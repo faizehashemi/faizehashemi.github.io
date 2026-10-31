@@ -1,5 +1,5 @@
 /* Search slips (cream • gold • brown) */
-:root { --ss-bg: #f7efe1; --ss-panel: #fffaf1; --ss-ink: #2b1e15; --ss-muted: #6b5e4a; --ss-gold: #d4af37; --ss-gold-deep: #9a7414; --ss-edge: #e3d2b1; --ss-shade: 0 8px 24px rgba(92, 64, 28, .10); }
+:root { --ss-bg: #f7efe1; --ss-panel: #fffaf1; --ss-ink: #2b1e15; --ss-muted: #3d3226; --ss-gold: #d4af37; --ss-gold-deep: #9a7414; --ss-edge: #e3d2b1; --ss-shade: 0 8px 24px rgba(92, 64, 28, .10); }
 body { background: var(--ss-bg) url("../../../assets/pattern_gold_2x.png") repeat; background-size: 150px auto; margin: 0; color: var(--ss-ink); }
 .ss { max-width: 1400px; margin: 0 auto; padding: 16px 16px 28px; display: grid; gap: 14px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
 .ss * { box-sizing: border-box; }

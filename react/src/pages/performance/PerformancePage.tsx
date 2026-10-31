@@ -98,7 +98,7 @@ function PagesTable({ rows, pageName }: { rows: Group[]; pageName: (id?: string)
                 <TableHead key={c.id} className={c.id === 'name' ? '' : 'text-right'} aria-sort={sort.id === c.id ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
                     <button type="button" className="inline-flex items-center gap-1 whitespace-nowrap font-semibold hover:text-primary" title="Sort highest to lowest, click again for lowest to highest"
                         onClick={() => setSort(s => (s.id === c.id ? { id: c.id, dir: (-s.dir) as 1 | -1 } : { id: c.id, dir: c.id === 'name' ? 1 : -1 }))}>
-                        {c.label}<span className={cn('text-[10px]', sort.id === c.id ? 'text-primary' : 'text-muted-foreground/60')}>{sort.id === c.id ? (sort.dir === 1 ? '▲' : '▼') : '⇅'}</span>
+                        {c.label}<span className={cn('text-[10px]', sort.id === c.id ? 'text-primary' : 'text-muted-foreground')}>{sort.id === c.id ? (sort.dir === 1 ? '▲' : '▼') : '⇅'}</span>
                     </button>
                 </TableHead>))}</TableRow></TableHeader>
             <TableBody>{list.map(g => (
