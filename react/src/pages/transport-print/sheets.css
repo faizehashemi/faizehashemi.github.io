@@ -78,7 +78,7 @@ html.tq-print-summary .tq-summary { display: block; }
 .tq-lugsheets { display: none; }
 html.tq-print-lug .tq-sheets, html.tq-print-lug .tq-summary { display: none !important; }
 html.tq-print-lug .tq-lugsheets { display: block; }
-.lug { page: luggage; display: flex; flex-direction: column; align-items: stretch; height: 194mm; color: #000; background: #fff; break-after: page; page-break-after: always; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
+.lug { page: luggage; display: flex; flex-direction: column; align-items: stretch; height: 190mm; color: #000; background: #fff; break-after: page; page-break-after: always; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
 .lug:last-child { break-after: auto; page-break-after: auto; }
 .lug-no { font: 700 16pt Arial, sans-serif; text-transform: uppercase; margin: 0 0 3mm; }
 .lug-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; flex: none; }
@@ -86,13 +86,14 @@ html.tq-print-lug .tq-lugsheets { display: block; }
 .lug-tbl th { font-size: 12pt; background: #fff; }
 .lug-tbl th:nth-child(1) { width: 36%; } .lug-tbl th:nth-child(2) { width: 34%; } .lug-tbl th:nth-child(3) { width: 16%; } .lug-tbl th:nth-child(4) { width: 14%; }
 .lug.l1 .lug-tbl td { font-size: 28pt; } .lug.l2 .lug-tbl td { font-size: 20pt; padding: 1.8mm; } .lug.l3 .lug-tbl td { font-size: 14pt; padding: 1.2mm; } .lug.l4 .lug-tbl td { font-size: 11pt; padding: .8mm; }
-.lug-tbl tfoot td { font-size: 18pt; }
+.lug-tbl tfoot td { font-size: 18pt; text-align: right; } .lug-tbl tfoot td.n { text-align: center; }
 .lug-arrow { flex: 1 1 0; min-height: 18mm; width: 100%; margin-top: 4mm; }
 @page luggage { size: A4 landscape; margin: 8mm; }
 @media print {
     html.tq-print-lug .tq-tools { display: none !important; }
 }
 
+@font-face { font-family: "Rockwell Extra Bold"; src: url("assets/fonts/rockwell-extra-bold.ttf") format("truetype"); font-weight: 400 900; font-display: swap; }
 /* ---------- Format two: A4 portrait bus sign (Medina's default) ---------- */
 .sheet.sheet2 { width: 190mm; height: 277mm; padding: 6mm 8mm; display: flex; flex-direction: column; align-items: stretch; page: bus2; font-family: Arial, Helvetica, sans-serif; }
 .s2-date { font: 600 10pt Arial, sans-serif; text-align: center; color: #333; }
@@ -100,7 +101,7 @@ html.tq-print-lug .tq-lugsheets { display: block; }
 .s2-word { font: 900 38pt "Arial Black", Arial, sans-serif; text-align: center; text-transform: uppercase; line-height: 1.1; }
 .s2-word small { font-size: 20pt; font-weight: 700; margin-left: 4mm; }
 .s2-num { flex: 1 1 0; min-height: 40mm; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.s2-num .n { font: 900 200pt/1 "Arial Black", Arial, sans-serif; color: #3a3a3a; }
+.s2-num .n { font: 400 200pt/1 "Rockwell Extra Bold", "Rockwell", "Arial Black", Arial, sans-serif; color: #3a3a3a; }
 .sheet2 .s2-tbl { flex: none; width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3mm; }
 .sheet2 .s2-tbl th, .sheet2 .s2-tbl td { border: 2px solid #000; padding: 1.6mm 2.4mm; text-align: center; vertical-align: middle; }
 .sheet2 .s2-tbl th { font: 900 11pt "Times New Roman", serif; background: #e9e5f0; }

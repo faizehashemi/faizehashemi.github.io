@@ -67,7 +67,7 @@ export function luggageSheet(T: T, b: Row) {
       <table class="lug-tbl">
         <thead><tr><th>GROUP NAME</th><th>GROUP LEADER</th><th>SH NO.</th><th>PAX</th></tr></thead>
         <tbody>${b.rows.map((r: Row) => `<tr><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td></tr>`).join('')}</tbody>
-        ${n > 1 ? `<tfoot><tr><td colspan="4">TOTAL</td><td class="n">${esc(b.pax)}</td></tr></tfoot>` : ''}
+        ${n > 1 ? `<tfoot><tr><td colspan="3">TOTAL</td><td class="n">${esc(b.pax)}</td></tr></tfoot>` : ''}
       </table>
     </section>`;
 }
@@ -113,5 +113,14 @@ export function fitSheets(root: ParentNode) {
     for (const s of root.querySelectorAll<HTMLElement>('.sheet:not(.sheet2)')) {
         s.classList.remove('fit1', 'fit2', 'fit3', 'fit4');
         for (let k = 1; k <= 4 && s.scrollHeight > s.clientHeight + 1; k++) { if (k > 1) s.classList.remove(`fit${k - 1}`); s.classList.add(`fit${k}`); }
+    }
+}
+
+/** A luggage sheet is one fixed page: step the table text down until the groups and the total fit above the bottom edge (needs the sheets on screen / in print mode). */
+export function fitLuggage(root: ParentNode) {
+    for (const l of root.querySelectorAll<HTMLElement>('.lug')) {
+        const cells = [...l.querySelectorAll<HTMLElement>('.lug-tbl td')];
+        let pt = parseFloat(getComputedStyle(cells[0] ?? l).fontSize) * 0.75 || 14;
+        while (pt > 6 && l.scrollHeight > l.clientHeight + 1) { pt -= 0.5; for (const c of cells) { c.style.fontSize = `${pt}pt`; c.style.padding = `${Math.max(0.4, pt / 12)}mm`; } }
     }
 }

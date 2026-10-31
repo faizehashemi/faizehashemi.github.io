@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useCore, useGuard, useLoadApp, useLoadCore, useNav, useParams, useSite } from '@/pms/PmsContext';
 import { DayNav } from '../transport/DayNav';
 import css from './sheets.css?raw';
-import { fitSheets, luggageSheet, parseOnly, sheet, sheet2, summary, type Libs } from './sheets';
+import { fitSheets, fitLuggage, luggageSheet, parseOnly, sheet, sheet2, summary, type Libs } from './sheets';
 
 // Bus sheets: one A4 landscape page per bus (or car) of the day, laid out like the printed signs. "Print summary" prints the same choice as one list per
 // destination, "Luggage sheet" one A4 page per bus with the groups on it, and both can go to Excel. The paper output is the old page's markup and CSS
@@ -72,6 +72,8 @@ export default function TransportPrintPage() {
     const pages = chosen().flatMap(g => g.buses.map((b: Row) => (fmt === '2' ? sheet2(T, day, g.dest, b, site.label.toUpperCase()) : sheet(T, day, g.dest, b))));
     const sheetsHtml = pages.join('') || `<p class="tq-none">${doc.rows.length ? 'No buses for this choice.' : 'No transport list saved for this day.'}</p>`;
     useLayoutEffect(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }, [sheetsHtml, fmt]);
+    // the bus number's font (Rockwell Extra Bold, assets/fonts) loads after the first fit: fit again once it is in
+    useEffect(() => { if (fmt === '2') void document.fonts?.load('200pt "Rockwell Extra Bold"').then(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }); }, [sheetsHtml, fmt]);
 
     function toggleDest(id: string, on: boolean) {
         const nextPicked = on ? [...picked, id] : picked.filter(x => x !== id);
@@ -97,7 +99,7 @@ export default function TransportPrintPage() {
     const printLug = () => {
         if (!lugRef.current) return;
         lugRef.current.innerHTML = groups.filter(g => !lugOff.includes(g.dest.id)).flatMap(g => g.buses.map((b: Row) => luggageSheet(T, b))).join('');
-        rootEl.classList.add('tq-print-lug'); window.print(); setTimeout(() => endMode('tq-print-lug', lugRef.current), 500);
+        rootEl.classList.add('tq-print-lug'); fitLuggage(lugRef.current); window.print(); setTimeout(() => endMode('tq-print-lug', lugRef.current), 500);
     };
     // the summary as one picture on the clipboard: drawn off-screen (so it has its styles), each destination's table stacked
     async function copySummaryImage() {

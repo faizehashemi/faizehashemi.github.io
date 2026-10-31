@@ -99,7 +99,7 @@ export function slipHTML(rec, rows) {
         <tr><th>CHILDREN</th><td>${esc(rec.children)}</td><th>INFANTS</th><td>${esc(rec.infants)}</td></tr>
       </tbody>
     </table>
-    ${String(rec.notes || '').trim() ? `<table class="grid pair" style="margin-top:2mm"><tbody><tr><th>NOTES</th><td colspan="3" style="text-align:left!important;white-space:pre-wrap">${esc(String(rec.notes).trim())}</td></tr></tbody></table>` : ''}
+    ${String(rec.notes || '').trim() ? `<table class="grid pair" style="margin-top:2mm"><tbody><tr><th>NOTES</th><td colspan="3" class="slip-notes" style="text-align:left!important;white-space:pre-wrap">${esc(String(rec.notes).trim())}</td></tr></tbody></table>` : ''}
     <div class="subtables">
       <table class="mini"><caption>GENTS</caption><thead><tr><th>Room No</th><th>Assigned Beds</th></tr></thead><tbody>${fillRows(gents)}</tbody></table>
       <table class="mini"><caption>LADIES</caption><thead><tr><th>Room No</th><th>Assigned Beds</th></tr></thead><tbody>${fillRows(ladies)}</tbody></table>
@@ -126,6 +126,7 @@ export const SLIP_CSS = `
 .pms-slips .pair th { width: 28%; }
 .pms-slips .subtables { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; margin-top: 2mm; }
 .pms-slips .mini caption { caption-side: top; text-align: left; font-weight: 700; font-size: 11px; margin-bottom: 1mm; color: var(--ink); }
+.pms-slips.gl .slip-notes, .gl-dlg .gl-card .slip-notes { color: #c00000 !important; font-weight: 800 !important; }   /* GL copy: the notes stand out in bold red */
 .pms-slips .gl-note { display: none; font-size: 10px; margin-top: 4px; color: var(--ink); }
 .pms-slips.gl .gl-note { display: block; }
 `;

@@ -32,6 +32,7 @@ export default function SlipPage() {
     const use24 = (timefmt as any).use24() as boolean;
 
     const [mods, setMods] = useState<{ picker: any; modal: any; hist: any; tele: any; itin: any } | null>(null);
+    const [addOpen, setAddOpen] = useState(false);   // the add-a-stop form is hidden until asked for, so the slip stays short
     const [extras, setExtras] = useState<Row[]>([]);   // the stops a desk added to the trip (slip.trip_extra), saved with Edit / Save
     const [stopDraft, setStopDraft] = useState({ after: '-1', place: '', in_date: '', in_time: '', out_date: '', out_time: '', note: '' });
     const [form, setForm] = useState<Form>(emptyForm());
@@ -431,7 +432,8 @@ export default function SlipPage() {
                             {extras.length > 0 && <div className="trip-extra">{extras.map((x, i) => (
                                 <span key={i} className="chip">{x.place}{x.in_date ? ` · ${x.in_date}` : ''} <button type="button" aria-label={`Remove stop ${x.place}`} onClick={() => setExtras(v => v.filter((_, k) => k !== i))}>✕</button></span>
                             ))}</div>}
-                            {!db.readonly && <div className="trip-add">
+                            {!db.readonly && !addOpen && <button type="button" className="linkish" onClick={() => setAddOpen(true)}>+ Add an extra stop to the itinerary</button>}
+                            {!db.readonly && addOpen && <div className="trip-add">
                                 <select aria-label="Where the stop goes" value={stopDraft.after} onChange={e => setStopDraft(v => ({ ...v, after: e.target.value }))}>
                                     <option value="-1">above {trip.legs[0]?.label}</option>
                                     {trip.legs.map((l: Row, i: number) => <option key={i} value={i}>{i === trip.legs.length - 1 ? `below ${l.label}` : `between ${l.label} and ${trip.legs[i + 1].label}`}</option>)}
@@ -440,7 +442,7 @@ export default function SlipPage() {
                                 <input type="date" aria-label="In date" value={stopDraft.in_date} onChange={e => setStopDraft(v => ({ ...v, in_date: e.target.value }))} /><input type="time" aria-label="In time" value={stopDraft.in_time} onChange={e => setStopDraft(v => ({ ...v, in_time: e.target.value }))} />
                                 <input type="date" aria-label="Out date" value={stopDraft.out_date} onChange={e => setStopDraft(v => ({ ...v, out_date: e.target.value }))} /><input type="time" aria-label="Out time" value={stopDraft.out_time} onChange={e => setStopDraft(v => ({ ...v, out_time: e.target.value }))} />
                                 <input placeholder="Note (optional)" value={stopDraft.note} onChange={e => setStopDraft(v => ({ ...v, note: e.target.value }))} />
-                                <button type="button" onClick={addStop}>Add stop</button>
+                                <button type="button" onClick={() => { addStop(); }}>Add stop</button><button type="button" className="linkish" onClick={() => setAddOpen(false)}>Close</button>
                             </div>}
                             <p className="muted">Stays at this site come from its slips; a stay at the other site shows only its dates. Added stops are saved with Edit and appear on the itinerary letter.</p>
                         </section>
