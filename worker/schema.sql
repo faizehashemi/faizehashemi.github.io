@@ -460,3 +460,10 @@ CREATE TABLE IF NOT EXISTS passport_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, site TEXT NOT NULL, sh_no TEXT, tour TEXT, leader TEXT, pax INTEGER, building TEXT, rooms TEXT, desk_id INTEGER, desk TEXT
 );
 CREATE INDEX IF NOT EXISTS passport_log_site_at ON passport_log(site, at);
+
+-- Arrival sheet edits (Transport → Arrival sheet): the desks' own changes to one site's sheet for one day (cells, added / hidden rows,
+-- headings) — JSON in data; never applied to slips or transport. The Worker also creates this table on first use.
+CREATE TABLE IF NOT EXISTS arrival_sheets (
+    site TEXT NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by INTEGER, updated_name TEXT,
+    PRIMARY KEY (site, day)
+);

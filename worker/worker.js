@@ -429,6 +429,60 @@ async function aiJobReport(req, env, id) {
     return json({ ok: true });
 }
 
+/* ------------------------------ arrival sheet edits ------------------------------ */
+// The Arrival sheet (Transport → Arrival sheet) is built from the slips and the other site's transport day; desks may then change any cell, add or hide
+// rows and rename the headings. Those edits belong to that sheet only (site + day) and never touch a slip or the transport list:
+// GET/PUT /api/arrival-sheet?site=&day= → { sheet: { labels, cells, added, hidden } | null, updated_at, updated_by }. Viewers read only.
+let arrivalTableReady = false;
+async function ensureArrivalSheets(env) {
+    if (arrivalTableReady) return;
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS arrival_sheets (site TEXT NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL,
+        updated_by INTEGER, updated_name TEXT, PRIMARY KEY (site, day))`).run();
+    arrivalTableReady = true;
+}
+const arrivalArgs = (url, me) => {
+    const site = SITES[url.searchParams.get('site')] ? url.searchParams.get('site') : me.site, day = String(url.searchParams.get('day') || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new HttpError(400, 'Which day?');
+    if (me.role === 'siteadmin' && site !== me.site) throw new HttpError(403, `You can only see ${SITES[me.site]}.`);
+    return { site, day };
+};
+async function getArrivalSheet(url, env, me) {
+    const { site, day } = arrivalArgs(url, me);
+    await ensureArrivalSheets(env);
+    const r = await env.DB.prepare('SELECT data, updated_at, updated_name FROM arrival_sheets WHERE site = ? AND day = ?').bind(site, day).first();
+    return json({ sheet: r ? JSON.parse(r.data) : null, updated_at: r?.updated_at || null, updated_by: r?.updated_name || null });
+}
+async function putArrivalSheet(req, url, env, me) {
+    const { site, day } = arrivalArgs(url, me);
+    assertWrite(me, site);
+    const b = await body(req);
+    await ensureArrivalSheets(env);
+    if (b.sheet == null) {   // back to the PMS data
+        await env.DB.batch([
+            env.DB.prepare('DELETE FROM arrival_sheets WHERE site = ? AND day = ?').bind(site, day),
+            auditStmt(env, me, 'arrival-sheet', null, `${site} ${day}: edits cleared (back to the PMS data)`),
+        ]);
+        return json({ sheet: null, updated_at: null, updated_by: null });
+    }
+    // keep only the expected shape, every value a short string (the page renders them as text)
+    const str = (v, n = 120) => String(v ?? '').replace(/[<>]/g, '').slice(0, n);
+    const obj = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+    const fields = (o) => Object.fromEntries(Object.entries(obj(o)).slice(0, 20).map(([k, v]) => [str(k, 20), str(v)]));
+    const sheet = {
+        labels: fields(b.sheet.labels),
+        cells: Object.fromEntries(Object.entries(obj(b.sheet.cells)).slice(0, 400).map(([k, v]) => [str(k, 80), fields(v)])),
+        added: (Array.isArray(b.sheet.added) ? b.sheet.added : []).slice(0, 100).map(a => ({ key: str(a?.key, 40), v: fields(a?.v) })),
+        hidden: (Array.isArray(b.sheet.hidden) ? b.sheet.hidden : []).slice(0, 400).map(k => str(k, 80)),
+    };
+    const data = JSON.stringify(sheet);
+    if (data.length > 200000) throw new HttpError(413, 'The sheet is too large.');
+    const t = now();
+    await env.DB.prepare(`INSERT INTO arrival_sheets (site, day, data, updated_at, updated_by, updated_name) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(site, day) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by, updated_name = excluded.updated_name`)
+        .bind(site, day, data, t, me.id, me.name).run();
+    return json({ sheet, updated_at: t, updated_by: me.name });
+}
+
 /* --------------------------------- routes --------------------------------- */
 
 async function route(req, env) {
@@ -499,6 +553,8 @@ async function route(req, env) {
     if (mm && m === 'POST') return undoAllocLog(req, env, me, Number(mm[1]));
 
 
+    if (p === '/api/arrival-sheet' && m === 'GET') return getArrivalSheet(url, env, me);
+    if (p === '/api/arrival-sheet' && m === 'PUT') return putArrivalSheet(req, url, env, me);
     if (p === '/api/transport' && m === 'GET') return getTransport(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
     if (p === '/api/tosha' && m === 'GET') return getTosha(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
     if (p === '/api/tosha' && m === 'PUT') return putTosha(req, env, me);
