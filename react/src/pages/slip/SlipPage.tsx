@@ -31,7 +31,7 @@ export default function SlipPage() {
     const prefs = prefsLib.getPrefs() as Row;
     const use24 = (timefmt as any).use24() as boolean;
 
-    const [mods, setMods] = useState<{ picker: any; modal: any; hist: any; tele: any; itin: any } | null>(null);
+    const [mods, setMods] = useState<{ picker: any; modal: any; hist: any; tele: any; itin: any; sp: any } | null>(null);
     const [addOpen, setAddOpen] = useState(false);   // the add-a-stop form is hidden until asked for, so the slip stays short
     const [extras, setExtras] = useState<Row[]>([]);   // the stops a desk added to the trip (slip.trip_extra), saved with Edit / Save
     const [stopDraft, setStopDraft] = useState({ after: '-1', place: '', in_date: '', in_time: '', out_date: '', out_time: '', note: '' });
@@ -57,14 +57,14 @@ export default function SlipPage() {
     // ---- boot ----
     useEffect(() => {
         void (async () => {
-            const [picker, modal, hist, tele, itin] = await Promise.all([loadApp('views/slip/room-picker.js'), loadApp('views/slip/checkmodal.js'), loadApp('views/slip/history.js'), loadCore('telemetry'), loadCore('itinerary')]);
+            const [picker, modal, hist, tele, itin, sp] = await Promise.all([loadApp('views/slip/room-picker.js'), loadApp('views/slip/checkmodal.js'), loadApp('views/slip/history.js'), loadCore('telemetry'), loadCore('itinerary'), loadCore('slip-print')]);
             try { const s = (await guard<any>(st.loadSettings())).settings; const pf = s.sh_prefixes || st.DEFAULTS.sh_prefixes; setShCfg({ prefixes: pf, re: st.shPattern(pf), hold: Number(s.delay_hold_days) || st.DEFAULTS.delay_hold_days }); } catch { /* defaults */ }
             const b = await guard<Row[]>(R.loadBuildings()); setBuildings(b); bldRef.current = b;
             // this browser's defaults for a new slip (Settings → Slip page)
             setForm(f => ({ ...f, building: prefs.slipDefaultBuilding || '', checkin_time: prefs.slipCheckinTime || '', checkout_time: prefs.slipCheckoutTime || '' }));
             if (db.readonly) setStatus(db.readonlyReason);
             await refreshCache();
-            setMods({ picker, modal, hist, tele, itin });
+            setMods({ picker, modal, hist, tele, itin, sp });
         })();
     }, []);   // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
@@ -347,6 +347,10 @@ export default function SlipPage() {
         <>
             <style>{css}</style>
             <div className="wrap" ref={rootRef}>
+                {rec && <div className="slip-corner no-print">
+                    <button type="button" title="This slip as an A5 picture to send to its group leader (Copy picture / Save JPEG)" onClick={() => void mods.sp.openGlCopies([rec], { title: `SH ${rec.sh_no}` })}>GL copy</button>
+                    <button type="button" title="Print this slip (A5)" onClick={() => mods.sp.printSlips([rec], { title: `SH ${rec.sh_no}` })}>Print slip</button>
+                </div>}
                 <table className="grid kv"><tbody>
                     <tr>
                         <td colSpan={2}><div className="inline">

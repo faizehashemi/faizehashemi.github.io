@@ -11,6 +11,8 @@ const CACHE_KEY = 'pms_settings_cache';
 // server key → default
 export const DEFAULTS = {
     arrival_commute_hours: UMS.arrivalCommuteHours,
+    // Arrival sheet (Transport): landing at the other city's airport (Jeddah for Medina) or coming by road from the other city → hours until the hotel
+    arrival_other_hours: 5,
     departure_lead_hours: UMS.departureLeadHours,
     transfer_checkin_time: UMS.transferCheckinTime,
     transfer_checkout_time: UMS.transferCheckoutTime,

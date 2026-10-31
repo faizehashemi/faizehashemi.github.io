@@ -409,3 +409,5 @@ td:has(> #notes) { grid-column: 2 / -1; min-width: 0; }
 .trip-extra .chip button { border: 0; background: none; cursor: pointer; }
 .trip-add { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .trip-add input, .trip-add select { padding: 4px 6px; }
+
+.wrap .slip-corner { display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 8px; }

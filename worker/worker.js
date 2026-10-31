@@ -638,6 +638,7 @@ const HHMM = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
 const HOURS = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 24;
 const SETTINGS = {
     arrival_commute_hours: { check: HOURS, msg: 'Arrival travel time must be 0–24 hours.' },
+    arrival_other_hours: { check: HOURS, msg: 'Travel time from another city must be 0–24 hours.' },
     departure_lead_hours: { check: HOURS, msg: 'Departure lead time must be 0–24 hours.' },
     transfer_checkin_time: { check: HHMM, msg: 'Check-in time between cities must be HH:MM.' },
     transfer_checkout_time: { check: HHMM, msg: 'Check-out time between cities must be HH:MM.' },
@@ -686,7 +687,7 @@ const SETTINGS = {
 
 // Settings are global, and a site can have its own value for the SITE_SETTINGS keys, stored under "<site>/<key>". A login of a site gets its site's values
 // (its own where set, else the global ones); an owner admin gets the global ones, or those of the site it asks for (?site=).
-const SITE_SETTINGS = ['arrival_commute_hours', 'departure_lead_hours', 'transfer_checkin_time', 'transfer_checkout_time', 'laundry_info', 'kg_sessions', 'fe_windows', 'delay_hold_days', 'sh_prefixes', 'gl_colors'];
+const SITE_SETTINGS = ['arrival_commute_hours', 'arrival_other_hours', 'departure_lead_hours', 'transfer_checkin_time', 'transfer_checkout_time', 'laundry_info', 'kg_sessions', 'fe_windows', 'delay_hold_days', 'sh_prefixes', 'gl_colors'];
 async function getSettings(env, me, siteArg) {
     const site = me.role === 'admin' ? (SITES[siteArg] ? siteArg : null) : me.site;
     const { results } = await env.DB.prepare(

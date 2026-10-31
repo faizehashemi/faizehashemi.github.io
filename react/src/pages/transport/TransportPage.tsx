@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,6 +44,11 @@ export default function TransportPage() {
     const [days, setDays] = useState<{ day: string; n: number }[]>([]);
     const [filter, setFilter] = useState<'sign' | 'all'>('sign');
     const [find, setFind] = useState('');
+    // Rooms column: hidden until ticked. A trip's rooms start as its slip's; editing keeps a copy on the trip only (rooms_set) — the slip is never touched
+    const [showRooms, setShowRooms] = useState(() => { try { return localStorage.getItem('pms_tp_rooms') === '1'; } catch { return false; } });
+    const pickRooms = (on: boolean) => { setShowRooms(on); try { localStorage.setItem('pms_tp_rooms', on ? '1' : '0'); } catch { /* not saved */ } };
+    const [slipsAll, setSlipsAll] = useState<Row[]>([]);
+    useEffect(() => { if (showRooms) void guard<Row[]>(db.all()).then(a => setSlipsAll(a.filter(x => !x.deleted)), () => setSlipsAll([])); }, [showRooms]);   // eslint-disable-line react-hooks/exhaustive-deps
     const [msg, setMsgState] = useState<{ text: string; kind: 'ok' | 'bad' } | null>(null);
     const [saving, setSaving] = useState(false);
     const [loaded, setLoaded] = useState(false);
@@ -192,6 +198,25 @@ export default function TransportPage() {
         }).sort((a, b) => a.at.localeCompare(b.at));
         await save(next, `time of SH ${row.ref}: ${row.at.slice(11, 16)} → ${hm}${riders.length ? ` (+${riders.length} grouped)` : ''}`);
     }
+    const slipRoomsOf = (r: Row): string[] => {
+        const ref = String(r.ref ?? '').trim();
+        if (!ref) return [];
+        const same = slipsAll.filter(x => ums.baseSh(x.sh_no) === ums.baseSh(ref));
+        const s = same.find(x => x.checkin_date === day || x.checkout_date === day) || same[0];
+        return s ? [...new Set(['gents', 'ladies'].flatMap(k => (s.rooms?.[k] || []).map((x: Row) => String(x.room_no || '').trim()).filter(Boolean)))] : [];
+    };
+    const roomsOf = (r: Row): string[] => (r.rooms_set ? (r.rooms || []) : (slipRoomsOf(r).length ? slipRoomsOf(r) : (r.rooms || [])));
+    async function editRooms(row: Row) {
+        const v = await promptAsk({ title: `Rooms for SH ${row.ref} on this trip`, body: 'A copy for transport only — the slip is not changed. Separate with commas; leave empty to follow the slip again.', value: roomsOf(row).join(', ') });
+        if (v === null) return;
+        const list = cleanText(v).split(/[,\s]+/).map(x => x.trim()).filter(Boolean).slice(0, 60);
+        await save(rows.map(x => (x.key !== row.key ? x : list.length ? { ...x, rooms: list, rooms_set: true } : { ...x, rooms_set: false })), `rooms of SH ${row.ref}`);
+    }
+    const roomsCell = (r: Row) => {
+        const list = roomsOf(r), text = list.length ? list.join(', ') : '—';
+        if (!writable) return <TableCell className="min-w-32">{text}</TableCell>;
+        return <TableCell className="min-w-32"><button type="button" className={cn(ghost, r.rooms_set && manualCls)} title={r.rooms_set ? 'Edited for transport (the slip is unchanged)' : 'From the slip — click to edit a copy for transport'} onClick={() => !saving && void editRooms(r)}>{text} <Pencil className="size-3 opacity-60" /></button></TableCell>;
+    };
     async function editName(row: Row, field: string) {
         const v = await promptAsk({ title: `${NAME_LABEL[field]} for ${row.ref ? `SH ${row.ref}` : 'this trip'} (${T.time12(row.at)})`, value: row[field] || '' });
         if (v === null) return;
@@ -415,7 +440,7 @@ export default function TransportPage() {
                         <small className="font-normal text-muted-foreground">{fleet(s.buses)} · {s.groups} groups · {s.pax} pax</small>
                         {air && s.buses.length > 1 && writable && <Button size="sm" variant="outline" className="ml-auto" title="Number this destination's vehicles 1, 2, 3… by departure time" onClick={() => void byTime(s.dest.id)}>🔢 Number by time</Button>}</div>
                     {body.length ? <div className="overflow-x-auto"><Table>
-                        <TableHeader><TableRow><TableHead>Vehicle</TableHead><TableHead>Time</TableHead><TableHead>From</TableHead><TableHead>SH</TableHead><TableHead>Tour operator</TableHead><TableHead>Group leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Transporter</TableHead><TableHead>Remarks</TableHead>{writable && <TableHead />}</TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>Vehicle</TableHead><TableHead>Time</TableHead><TableHead>From</TableHead><TableHead>SH</TableHead><TableHead>Tour operator</TableHead><TableHead>Group leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Transporter</TableHead>{showRooms && <TableHead>Rooms</TableHead>}<TableHead>Remarks</TableHead>{writable && <TableHead />}</TableRow></TableHeader>
                         <TableBody>{body.map(({ r, b, i }) => (
                             <TableRow key={r.key} className={cn(i > 0 && 'bg-muted/40', r.at < past && 'opacity-55')}>
                                 <TableCell className="whitespace-nowrap">{i ? `↳ ${T.vehicleNo(b.bus, b.vehicle, b.vlabel)}` : writable
@@ -432,6 +457,7 @@ export default function TransportPage() {
                                     : `${veh[b.vehicle].icon} ${T.vehicleNo(b.bus, b.vehicle, b.vlabel) || b.bus || '—'}`}
                                     {!i && writable && b.vehicle === 'other' && sub(b.vlabel)}</TableCell>
                                 {timeCell(r)}{fromCell(r, i ? b : null)}{refCell(r)}{nameCell(r, 'operator')}{nameCell(r, 'leader')}{paxCell(r)}{trCell(r, !!i)}
+                                {showRooms && roomsCell(r)}
                                 <TableCell className="min-w-40">
                                     {!i && <span className={cn('mr-1.5 rounded border px-1.5 py-0.5 text-xs font-bold', T.limited(r) && b.pax > T.BUS_LIMIT && 'border-destructive bg-destructive/10 text-destructive')} title={`Pax on this ${veh[b.vehicle].title.toLowerCase()}${T.limited(r) ? ` (a bus carries at most ${T.BUS_LIMIT})` : ''}`}>{b.pax}{T.limited(r) ? ` / ${T.BUS_LIMIT}` : ''}</span>}
                                     {r.part && <Badge variant="outline" className="mr-1">{r.part === 'gents' ? 'GENTS' : 'LADIES'}</Badge>}{r.remarks}
@@ -456,7 +482,7 @@ export default function TransportPage() {
                     <TableCell>{i.route || '—'}{i.parent ? sub('grouped') : null}</TableCell>
                     <TableCell className="whitespace-nowrap">{i.dest ? `${veh[i.vehicle].icon} ${i.vehicle === 'other' ? T.vehicleNo(i.bus, i.vehicle, i.vlabel) : i.bus ?? '—'}` : ''}</TableCell>
                     {refCell(r)}{nameCell(r, 'operator')}{nameCell(r, 'leader')}{paxCell(r)}{trCell(r, !!i.parent)}
-                    <TableCell>{(r.rooms || []).join(', ')}</TableCell><TableCell>{r.remarks}</TableCell>{delCell(r)}
+                    {roomsCell(r)}<TableCell>{r.remarks}</TableCell>{delCell(r)}
                 </TableRow>); })}</TableBody></Table></div>;
     }
 
@@ -489,6 +515,7 @@ export default function TransportPage() {
                             {([['sign', 'Signage trips'], ['all', 'All trips']] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={filter === k} className={cn('px-3 py-1.5 text-sm', filter === k ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-accent')} onClick={() => setFilter(k)}>{l}</button>)}
                         </div>
                         <Input type="search" className="min-w-48 flex-1" placeholder="Find SH, group, leader, transporter, vch…" aria-label="Find" value={find} onChange={e => setFind(e.target.value)} />
+                        <label className="inline-flex items-center gap-1.5 text-sm font-semibold"><Checkbox checked={showRooms} onCheckedChange={v => pickRooms(v === true)} />Show rooms</label>
                         {writable && <>
                             <Button title="Make trips from the groups checking out on this day" disabled={saving} onClick={() => void plan()}>🧭 Plan from check-outs</Button>
                             <Button variant="outline" disabled={saving || !doc.version} title="Number each destination again from 1 in time order" onClick={() => void renumber()}>Renumber buses</Button>

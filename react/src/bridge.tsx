@@ -45,6 +45,7 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
     'laundry-admin': () => import('@/pages/laundry-admin/LaundryAdminPage'),
     'transport-import': () => import('@/pages/transport-import/TransportImportPage'),
     'transport-print': () => import('@/pages/transport-print/TransportPrintPage'),
+    arrival: () => import('@/pages/arrival/ArrivalPage'),
 };
 
 export const reactPages = () => Object.keys(PAGES);

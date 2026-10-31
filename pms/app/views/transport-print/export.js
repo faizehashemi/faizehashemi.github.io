@@ -90,7 +90,7 @@ export async function exportSheets(day, groups, site) {
 export async function exportSummary(day, groups, site) {
     const wb = await workbook();
     const ws = wb.addWorksheet('Summary', landscape());
-    ws.columns = [{ width: 30 }, { width: 34 }, { width: 11 }, { width: 8 }, { width: 13 }, { width: 18 }, { width: 13 }, { width: 6 }];
+    ws.columns = [{ width: 9 }, { width: 30 }, { width: 34 }, { width: 11 }, { width: 8 }, { width: 13 }, { width: 18 }, { width: 13 }];   // BUS NO first, as on the printed summary
     const zy = [];
     let row = 1;
     for (const g of groups) {
@@ -99,25 +99,25 @@ export async function exportSummary(day, groups, site) {
         if (!buses.length) continue;
         const pax = buses.reduce((s, b) => s + b.pax, 0);
         // band: date and destination, bold black on the yellow
-        ws.getCell(row, 1).value = sheetDate(day); ws.mergeCells(row, 2, row, 8); ws.getCell(row, 2).value = g.dest.label;
-        for (let c = 1; c <= 8; c++) { const x = ws.getCell(row, c); x.fill = fill('FFF1C232'); x.font = { bold: true, size: c === 1 ? 15 : 20, underline: true, color: BLACK, name: 'Arial Black' }; x.alignment = center; x.border = box(); }
+        ws.mergeCells(row, 1, row, 2); ws.getCell(row, 1).value = sheetDate(day); ws.mergeCells(row, 3, row, 8); ws.getCell(row, 3).value = g.dest.label;
+        for (let c = 1; c <= 8; c++) { const x = ws.getCell(row, c); x.fill = fill('FFF1C232'); x.font = { bold: true, size: c <= 2 ? 15 : 20, underline: true, color: BLACK, name: 'Arial Black' }; x.alignment = center; x.border = box(); }
         ws.getRow(row).height = 32; row++;
-        ['GROUP', 'GROUP LEADER', 'SH REF', 'PAX', 'TIME', 'BUILDING', 'VEHICLE', 'NO'].forEach((h, i) => {
+        ['BUS NO', 'GROUP', 'GROUP LEADER', 'SH REF', 'PAX', 'TIME', 'BUILDING', 'VEHICLE'].forEach((h, i) => {
             const x = ws.getCell(row, i + 1); x.value = h; x.fill = fill('FFFFD966'); x.font = { bold: true, size: 10.5, underline: true, name: 'Arial Black' }; x.alignment = center; x.border = box();
         });
         row++;
         for (const { r, b, rider } of tripRows(buses)) {
-            [r.operator || '', r.leader || '', r.ref ?? '', r.pax ?? '', time12(b.at), r.building || b.building || '', vehicleWord(b.vehicle, b.vlabel), b.bus ?? ''].forEach((v, i) => {
+            [b.bus ?? '', r.operator || '', r.leader || '', r.ref ?? '', r.pax ?? '', time12(b.at), r.building || b.building || '', vehicleWord(b.vehicle, b.vlabel)].forEach((v, i) => {
                 const x = ws.getCell(row, i + 1); x.value = v; x.fill = fill(rider ? 'FFFFFAF0' : 'FFFFF2CC'); x.border = box();
                 x.font = { bold: true, size: 11, color: { argb: 'FF3D3100' }, name: 'Times New Roman' };
-                x.alignment = { ...center, horizontal: i < 2 || i === 5 ? 'left' : 'center' };
+                x.alignment = { ...center, horizontal: i === 1 || i === 2 || i === 6 ? 'left' : 'center' };
             });
             ws.getRow(row).height = 22; row++;
         }
-        ws.mergeCells(row, 1, row, 3);
+        ws.mergeCells(row, 1, row, 4);
         ws.getCell(row, 1).value = `${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups`;
-        ws.getCell(row, 4).value = pax;
-        for (let c = 1; c <= 8; c++) { const x = ws.getCell(row, c); x.border = box(); x.font = { bold: true, size: 11 }; x.alignment = { vertical: 'middle', horizontal: c === 4 ? 'center' : 'left' }; }
+        ws.getCell(row, 5).value = pax;
+        for (let c = 1; c <= 8; c++) { const x = ws.getCell(row, c); x.border = box(); x.font = { bold: true, size: 11 }; x.alignment = { vertical: 'middle', horizontal: c === 5 ? 'center' : 'left' }; }
         row += 2;
     }
     if (row === 1) wb.removeWorksheet(ws.id);
