@@ -143,6 +143,47 @@ function ensureCss() {
 /* --------------------------------- printing --------------------------------- */
 
 /**
+ * Print only the itinerary letters of these slips: one A4 page each, in a tab of its own that opens the print dialog (as printSlips does).
+ * @param {object[]} recs  slips
+ * @param {object[]} all   every slip of this site (the other stays of a trip are read from them)
+ */
+export function printItineraries(recs, all, opts = {}) {
+    if (!recs.length) { alert('No slips to print itineraries for.'); return; }
+    const w = window.open('', '_blank');
+    if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print itinerary again.'); return; }
+    const title = `Itineraries${opts.title ? ' — ' + opts.title : ''}`;
+    const pages = recs.map(rec => `<div class="pg">${itineraryHTML(tripOf(rec, all))}</div>`).join('');
+    w.document.open();
+    w.document.write(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+${ITINERARY_CSS}
+@page { size: A4 portrait; margin: 0; }
+.pg { width: 210mm; height: 297mm; overflow: hidden; break-after: page; page-break-after: always; }
+.pg:last-child { break-after: auto; page-break-after: auto; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #fff; }
+body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.bar { position: sticky; top: 0; display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: #fffaf1; border-bottom: 1px solid #dcc7a4; font: 14px system-ui, sans-serif; color: #2b1e15; z-index: 1; }
+.bar button { font: inherit; padding: 6px 14px; border: 1px solid #d4af37; border-radius: 8px; background: #d4af37; color: #fff; font-weight: 700; cursor: pointer; }
+.bar span { color: #3d3226; font-size: 12px; }
+@media screen { body { background: #e9e6df; } .pg { margin: 10mm auto; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); } }
+@media print { .bar { display: none; } }
+</style></head>
+<body>
+<div class="bar"><button type="button" onclick="window.print()">Print</button><span>${recs.length} itinerar${recs.length === 1 ? 'y' : 'ies'} · A4 portrait, one per page</span></div>
+${pages}
+<script>
+window.addEventListener('load', function () {
+  var go = function () { window.focus(); window.print(); };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(go, 200); }); else setTimeout(go, 300);
+});
+</script>
+</body></html>`);
+    w.document.close();
+}
+
+/**
  * Print the slips: A5 landscape, two copies side by side, one page per slip (like the Print page).
  * They open in a tab of their own that holds nothing but the slips (no page background, menus or page
  * styles to leak into the print); that tab opens the print dialog itself. Call it straight from the

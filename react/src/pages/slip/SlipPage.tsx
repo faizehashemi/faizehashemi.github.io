@@ -350,6 +350,7 @@ export default function SlipPage() {
                 {rec && <div className="slip-corner no-print">
                     <button type="button" title="This slip as an A5 picture to send to its group leader (Copy picture / Save JPEG)" onClick={() => void mods.sp.openGlCopies([rec], { title: `SH ${rec.sh_no}` })}>GL copy</button>
                     <button type="button" title="Print this slip (A5)" onClick={() => mods.sp.printSlips([rec], { title: `SH ${rec.sh_no}` })}>Print slip</button>
+                    <button type="button" title="The A4 itinerary letter of this slip" onClick={() => mods.sp.printItineraries([rec], dbCache, { title: `SH ${rec.sh_no}` })}>Print itinerary</button>
                 </div>}
                 <table className="grid kv"><tbody>
                     <tr>

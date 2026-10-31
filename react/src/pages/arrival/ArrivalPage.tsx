@@ -71,7 +71,7 @@ export default function ArrivalPage() {
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div><h1 className="text-2xl font-bold text-primary">Arrival sheet</h1>
-                    <p className="text-sm text-muted-foreground">Who reaches {site.label} on this day: the buses from {otherName} (numbered as on that site's transport list), then the airport arrivals. Time = when the group is expected at the hotel (Setup → Travel times).</p></div>
+                    <p className="text-sm text-muted-foreground">Who reaches {site.label} on this day: the buses from {otherName} (numbered as on that site's transport list), then the airport arrivals. Arrival time = when the group is expected at the hotel (Setup → Travel times).</p></div>
                 <div className="flex flex-wrap gap-2">
                     <Button onClick={print} disabled={!model.length}><Printer className="size-4" />Print</Button>
                     <Button variant="outline" onClick={() => void copyImage()} disabled={!model.length}><ImageDown className="size-4" />Copy image</Button>

@@ -118,8 +118,9 @@ export default function PerformancePage() {
     const guard = useGuard();
     const views = useViews();
     const qc = useQueryClient();
-    const isAdmin = cloud.currentDesk()?.role === 'admin';
-    const [days, setDays] = useState('7'), [site, setSite] = useState('all'), [ptab, setPtab] = useState('overview');
+    const meDesk = cloud.currentDesk(), siteOnly = meDesk?.role === 'siteadmin';   // a site admin sees its own site's timings and feedback only
+    const isAdmin = meDesk?.role === 'admin' || siteOnly;
+    const [days, setDays] = useState('7'), [site, setSite] = useState(siteOnly ? String(meDesk?.site) : 'all'), [ptab, setPtab] = useState('overview');
     const [fbStars, setFbStars] = useState('all'), [fbStatus, setFbStatus] = useState('all'), [fbPage, setFbPage] = useState('all');
     const pageName = (id?: string) => views.find(v => v.id === id)?.label || id || '—';
 
@@ -165,8 +166,8 @@ export default function PerformancePage() {
                 <div className="flex flex-wrap items-end gap-2">
                     <Select value={days} onValueChange={setDays}><SelectTrigger className="w-40" aria-label="Period"><SelectValue /></SelectTrigger>
                         <SelectContent><SelectItem value="1">Last 24 hours</SelectItem><SelectItem value="7">Last 7 days</SelectItem><SelectItem value="30">Last 30 days</SelectItem><SelectItem value="90">Last 90 days</SelectItem></SelectContent></Select>
-                    <Select value={site} onValueChange={setSite}><SelectTrigger className="w-36" aria-label="Site"><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Both sites</SelectItem><SelectItem value="makkah">Makkah</SelectItem><SelectItem value="medina">Medina</SelectItem></SelectContent></Select>
+                    {!siteOnly && <Select value={site} onValueChange={setSite}><SelectTrigger className="w-36" aria-label="Site"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="all">Both sites</SelectItem><SelectItem value="makkah">Makkah</SelectItem><SelectItem value="medina">Medina</SelectItem></SelectContent></Select>}
                     <Button variant="outline" onClick={() => void data.refetch()}><RefreshCw className={cn('size-4', data.isFetching && 'animate-spin')} />Refresh</Button>
                 </div>
             </header>

@@ -77,14 +77,14 @@ export const ARRIVAL_CSS = `
 export function arrivalHtml(rows: ArrivalRow[], dateText: string) {
     const total = rows.reduce((n, r) => n + r.pax, 0);
     return `<table class="arr">
-      <colgroup><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:25%"><col style="width:25%"><col style="width:7%"><col style="width:7%"><col style="width:11%"></colgroup>
+      <colgroup><col style="width:9%"><col style="width:11%"><col style="width:8%"><col style="width:26%"><col style="width:26%"><col style="width:10%"><col style="width:10%"></colgroup>
       <thead>
-        <tr class="ttl"><th colspan="8">ARRIVAL</th></tr>
-        <tr class="dt"><th colspan="4">DATE:-</th><th class="v" colspan="4">${esc(dateText)}</th></tr>
-        <tr class="hd"><th>BUS NO</th><th>TIME</th><th>REF NO</th><th>GROUP NAME</th><th></th><th class="fl">FLOOR</th><th>PAX</th><th>ARRIVAL<br>TIME</th></tr>
+        <tr class="ttl"><th colspan="7">ARRIVAL</th></tr>
+        <tr class="dt"><th colspan="3">DATE:-</th><th class="v" colspan="4">${esc(dateText)}</th></tr>
+        <tr class="hd"><th>BUS NO</th><th>ARRIVAL<br>TIME</th><th>REF NO</th><th>GROUP NAME</th><th></th><th class="fl">FLOOR</th><th>PAX</th></tr>
       </thead>
-      <tbody>${rows.length ? rows.map(r => `<tr><td class="bus${r.kind === 'air' ? ' air' : ''}">${esc(r.bus)}</td><td class="tm">${esc(r.time)}</td><td class="ref">${esc(r.ref)}</td><td>${esc(r.group)}</td><td>${esc(r.leader || '-')}</td><td class="fl">${esc(r.floor)}</td><td class="px">${r.pax || ''}</td><td></td></tr>`).join('')
-        : '<tr><td class="none" colspan="8">No arrivals for this day.</td></tr>'}</tbody>
-      <tfoot><tr><td colspan="6">TOTAL</td><td>${total}</td><td></td></tr></tfoot>
+      <tbody>${rows.length ? rows.map(r => `<tr><td class="bus${r.kind === 'air' ? ' air' : ''}">${esc(r.bus)}</td><td class="tm">${esc(r.time)}</td><td class="ref">${esc(r.ref)}</td><td>${esc(r.group)}</td><td>${esc(r.leader || '-')}</td><td class="fl">${esc(r.floor)}</td><td class="px">${r.pax || ''}</td></tr>`).join('')
+        : '<tr><td class="none" colspan="7">No arrivals for this day.</td></tr>'}</tbody>
+      <tfoot><tr><td colspan="6">TOTAL</td><td>${total}</td></tr></tfoot>
     </table>`;
 }

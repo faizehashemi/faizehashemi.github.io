@@ -65,8 +65,12 @@ export function tripOf(slip, all = [], cfg = UMS) {
     const n = (v) => Math.max(0, parseInt(v, 10) || 0);
     const pax = { gents: n(slip.gents), ladies: n(slip.ladies), children: n(slip.children), infants: n(slip.infants), total: n(slip.total) };
     if (!pax.total) pax.total = pax.gents + pax.ladies + pax.children + pax.infants;
+    // the rooms as the slip shows them: room number and the pax assigned to it (the capacity where none is assigned), gents and ladies apart
+    const roomList = (k) => (slip.rooms?.[k] || []).filter(x => norm(x.room_no)).map(x => ({
+        room: norm(x.room_no), n: n(x.assigned !== '' && x.assigned != null ? x.assigned : x.capacity), excl: !!x.exclusive,
+    }));
     return {
-        site, route: routeName(cities), cities: routeCities(cities), legs, stops, pax,
+        site, rooms: { gents: roomList('gents'), ladies: roomList('ladies') }, route: routeName(cities), cities: routeCities(cities), legs, stops, pax,
         name: norm(slip.tour_name), leader: norm(slip.group_leader), sh: norm(baseSh(slip.sh_no) || slip.sh_no),
         arrival: u?.arrival || null, departure: u?.departure || null, depFrom: legs.at(-1)?.label || '',
         hasMakkah: cities.includes('MAKKAH'),
@@ -122,9 +126,26 @@ export const ITINERARY_CSS = `
 .itin .pax span { display: block; font-size: 8.5pt; color: #8a7a5c; text-transform: uppercase; letter-spacing: .08em; }
 .itin .pax b { font-size: 17pt; color: #2b2217; }
 .itin .pax div.tot b { color: #7a5a10; }
+.itin .rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.itin .rooms.one { grid-template-columns: 1fr; }
+.itin .rg { background: #fffdf7; border: 1px solid #ecdfb8; border-radius: 3mm; padding: 3mm 4mm; }
+.itin .rg h3 { margin: 0 0 2mm; font-size: 8.5pt; letter-spacing: .1em; text-transform: uppercase; color: #8a7a5c; font-weight: 700; }
+.itin .rg h3 b { color: #7a5a10; margin-left: 1.5mm; }
+.itin .rc { display: flex; flex-wrap: wrap; gap: 1.8mm; }
+.itin .rm { display: inline-flex; align-items: baseline; gap: 1.5mm; background: #fbf4e0; border-radius: 2mm; padding: 1.1mm 2.6mm; }
+.itin .rm b { font-size: 12pt; color: #1f1a12; font-weight: 800; }
+.itin .rm span { font-size: 8.5pt; color: #7a6a4a; }
+.itin .rm i { font-style: normal; font-size: 7.5pt; color: #7a5a10; font-weight: 700; letter-spacing: .06em; }
 .itin .foot { margin-top: auto; padding-top: 5mm; border-top: 1px solid #ecdfb8; font-size: 10pt; color: #5c503a; line-height: 1.5; text-align: center; }
 .itin .foot b { color: #2b2217; }
 `;
+
+// "Rooms": a soft card per side with a chip per room — the room number and how many pax are in it
+function roomsBlock(rooms) {
+    const side = (title, list) => list.length ? `<div class="rg"><h3>${title}<b>${list.length} room${list.length === 1 ? '' : 's'}</b></h3><div class="rc">${list.map(x => `<div class="rm"><b>${esc(x.room)}</b>${x.excl ? '<i>EXCL</i>' : ''}${x.n ? `<span>${x.n} pax</span>` : ''}</div>`).join('')}</div></div>` : '';
+    const g = side('Gents', rooms?.gents || []), l = side('Ladies', rooms?.ladies || []);
+    return g || l ? `<h2>Rooms</h2><div class="rooms${g && l ? '' : ' one'}">${g}${l}</div>` : '';
+}
 
 /** One A4 letter (a `.itin` block; put ITINERARY_CSS on the page). */
 export function itineraryHTML(trip) {
@@ -147,6 +168,7 @@ export function itineraryHTML(trip) {
   </div>
   <h2>Pax</h2>
   <div class="pax"><div><span>Gents</span><b>${p.gents}</b></div><div><span>Ladies</span><b>${p.ladies}</b></div><div><span>Children</span><b>${p.children}</b></div><div><span>Infants</span><b>${p.infants}</b></div><div class="tot"><span>Total</span><b>${p.total}</b></div></div>
+  ${roomsBlock(trip.rooms)}
   <div class="foot">${trip.hasMakkah ? 'Makkah Atraaf Ziyarat and Sabaq time will be informed later.<br>' : ''}<b>Please complete your checkout / Lawazim formalities at least 24 hours before your checkout date &amp; time.</b><br>Lawazim to be paid in Saudi Arabian Riyals only (cash or credit card).</div>
 </section>`;
 }

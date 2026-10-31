@@ -1,5 +1,5 @@
 // Ported from pms/print_slip_a5.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
-import { slipHTML, glColors, glColor, printSlips, showExclBuilding, setShowExclBuilding } from '../../core/slip-print.js';
+import { slipHTML, glColors, glColor, printSlips, printItineraries, showExclBuilding, setShowExclBuilding } from '../../core/slip-print.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -101,14 +101,11 @@ const { db } = ctx;
         $('rows').addEventListener('change', renderSlips);
 
         // Plain Print: ensure no GL theming bleeds into it
-        // "with itinerary": the slips and their A4 letters alternate, printed from a page of their own
+        // "Print itinerary": the A4 letters of the selected slips, printed from a page of their own
         const exclBox = $('exclBld'); exclBox.checked = showExclBuilding();
         exclBox.addEventListener('change', () => { setShowExclBuilding(exclBox.checked); renderSlips(); });
-        const itinBox = $('withItin');
-        try { itinBox.checked = localStorage.getItem('pms_print_itin') === '1'; } catch { /* default off */ }
-        itinBox.addEventListener('change', () => { try { localStorage.setItem('pms_print_itin', itinBox.checked ? '1' : '0'); } catch { /* not saved */ } });
+        $('btnItin').addEventListener('click', () => printItineraries(CURRENT, CACHE));
         $('btnPrint').addEventListener('click', () => {
-            if (itinBox.checked) { printSlips(CURRENT, { itinerary: CACHE }); return; }
             clearThemes(); GL_MODE_ACTIVE = false; window.print();
         });
 

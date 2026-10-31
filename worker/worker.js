@@ -250,19 +250,20 @@ async function route(req, env) {
     // Performance page: page timings and in-page feedback from every login; the summary and the feedback for admins
     if (p === '/api/telemetry' && m === 'POST') return postTelemetry(req, env, me);
     if (p === '/api/feedback' && m === 'POST') return postFeedback(req, env, me);
-    if (p === '/api/perf/summary' && m === 'GET') { requireAdmin(me); return perfSummary(url, env); }
-    if (p === '/api/feedback' && m === 'GET') { requireAdmin(me); return listFeedback(url, env); }
+    // read by the owner admin (every site) and by a site admin (its own site only: perfSite())
+    if (p === '/api/perf/summary' && m === 'GET') { requirePerf(me); return perfSummary(url, env, me); }
+    if (p === '/api/feedback' && m === 'GET') { requirePerf(me); return listFeedback(url, env, me); }
     mm = p.match(/^\/api\/feedback\/(\d+)$/);
-    if (mm && m === 'PATCH') { requireAdmin(me); return patchFeedback(req, env, Number(mm[1])); }
+    if (mm && m === 'PATCH') { requirePerf(me); return patchFeedback(req, env, Number(mm[1]), me); }
     // "Facing an issue?" reports (pms/app/core/issue-report.js): a screenshot of the desk's screen and what the browser knew, for the Performance page
     if (p === '/api/issues' && m === 'POST') return postIssue(req, env, me);
-    if (p === '/api/issues' && m === 'GET') { requireAdmin(me); return listIssues(url, env); }
+    if (p === '/api/issues' && m === 'GET') { requirePerf(me); return listIssues(url, env, me); }
     mm = p.match(/^\/api\/issues\/(\d+)$/);
-    if (mm && m === 'GET') { requireAdmin(me); return getIssue(env, Number(mm[1])); }
-    if (mm && m === 'PATCH') { requireAdmin(me); return patchIssue(req, env, Number(mm[1])); }
+    if (mm && m === 'GET') { requirePerf(me); return getIssue(env, Number(mm[1]), me); }
+    if (mm && m === 'PATCH') { requirePerf(me); return patchIssue(req, env, Number(mm[1]), me); }
     // Slip saves the PMS refused (rooms over their beds, no bed count, dates …) with every condition checked — for debugging
     if (p === '/api/slip-denials' && m === 'POST') return postSlipDenials(req, env, me);
-    if (p === '/api/slip-denials' && m === 'GET') { requireAdmin(me); return listSlipDenials(url, env); }
+    if (p === '/api/slip-denials' && m === 'GET') { requirePerf(me); return listSlipDenials(url, env, me); }
 
     throw new HttpError(404, 'Not found');
 }
@@ -343,6 +344,9 @@ function assertManages(me, desk) {
     if (desk.site !== me.site) throw new HttpError(403, `You can only manage ${SITES[me.site]} logins.`);
     if (!GIVABLE.includes(roleOf(desk))) throw new HttpError(403, 'Only the owner admin can change an admin login.');
 }
+// The Performance page: the owner admin sees every site, a site admin only its own (perfSite forces it)
+function requirePerf(me) { if (me.role !== 'admin' && me.role !== 'siteadmin') throw new HttpError(403, 'Only an admin can do this.'); }
+const perfSite = (me, asked) => (me.role === 'siteadmin' ? me.site : asked);
 function requireAdmin(me) {
     if (me.role !== 'admin') throw new HttpError(403, 'Only an admin can do this.');
 }
@@ -2969,9 +2973,9 @@ function perfGroups(rows, keyOf) {
 }
 
 // GET /api/perf/summary?days=7&site=makkah — page timings grouped every useful way, recent errors, feedback stars per page
-async function perfSummary(url, env) {
+async function perfSummary(url, env, me) {
     const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days')) || 7));
-    const site = url.searchParams.get('site');
+    const site = perfSite(me, url.searchParams.get('site'));
     const since = new Date(Date.now() - days * 864e5).toISOString();
     await env.DB.prepare('DELETE FROM perf_events WHERE at < ?').bind(new Date(Date.now() - 90 * 864e5).toISOString()).run();
     const where = `at >= ?${SITES[site] ? ' AND site = ?' : ''}`, args = SITES[site] ? [since, site] : [since];
@@ -3003,11 +3007,12 @@ async function perfSummary(url, env) {
     });
 }
 
-async function listFeedback(url, env) {
+async function listFeedback(url, env, me) {
     const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
     const since = new Date(Date.now() - days * 864e5).toISOString();
+    const site = perfSite(me, null);
     const { results } = await env.DB.prepare(`SELECT id, at, desk, site, role, page, trigger, rating, tags, text, page_ms, device, browser, net_type, colo, country, build, status
-        FROM feedback WHERE at >= ? ORDER BY id DESC LIMIT 1000`).bind(since).all();
+        FROM feedback WHERE at >= ?${site ? ' AND site = ?' : ''} ORDER BY id DESC LIMIT 1000`).bind(...(site ? [since, site] : [since])).all();
     return json({ feedback: results });
 }
 
@@ -3033,9 +3038,9 @@ async function postSlipDenials(req, env, me) {
 }
 
 // GET /api/slip-denials?days=7&site=makkah — newest first
-async function listSlipDenials(url, env) {
+async function listSlipDenials(url, env, me) {
     const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days')) || 7));
-    const site = url.searchParams.get('site');
+    const site = perfSite(me, url.searchParams.get('site'));
     const since = new Date(Date.now() - days * 864e5).toISOString();
     await env.DB.prepare('DELETE FROM slip_denials WHERE at < ?').bind(new Date(Date.now() - 90 * 864e5).toISOString()).run();
     const { results } = await env.DB.prepare(`SELECT id, at, desk, site, role, action, sh_no, slip_id, building, kinds, rooms, detail, device, browser, build
@@ -3043,9 +3048,10 @@ async function listSlipDenials(url, env) {
     return json({ denials: results });
 }
 
-async function patchFeedback(req, env, id) {
+async function patchFeedback(req, env, id, me) {
     const { status } = await body(req);
     if (!['new', 'seen', 'handled'].includes(status)) throw new HttpError(400, 'status: new, seen or handled.');
+    if (me.role === 'siteadmin' && (await env.DB.prepare('SELECT site FROM feedback WHERE id = ?').bind(id).first('site')) !== me.site) throw new HttpError(403, 'That feedback is from another site.');
     await env.DB.prepare('UPDATE feedback SET status = ? WHERE id = ?').bind(status, id).run();
     return json({ ok: true });
 }
@@ -3083,27 +3089,28 @@ async function postIssue(req, env, me) {
     return json({ ok: true, id: r.meta?.last_row_id ?? null });
 }
 
-async function listIssues(url, env) {
+async function listIssues(url, env, me) {
     await ensureIssues(env);
     const days = Math.min(365, Math.max(1, Number(url.searchParams.get('days')) || 30));
     await env.DB.prepare('DELETE FROM issue_reports WHERE at < ?').bind(new Date(Date.now() - 180 * 864e5).toISOString()).run();
     const { results } = await env.DB.prepare(`SELECT id, at, desk, site, role, page, url, text, viewport, device, browser, build, colo, country, status, length(shot) > 0 AS has_shot
-        FROM issue_reports WHERE at >= ? ORDER BY id DESC LIMIT 500`).bind(new Date(Date.now() - days * 864e5).toISOString()).all();
+        FROM issue_reports WHERE at >= ?${me.role === 'siteadmin' ? ' AND site = ?' : ''} ORDER BY id DESC LIMIT 500`).bind(...[new Date(Date.now() - days * 864e5).toISOString(), ...(me.role === 'siteadmin' ? [me.site] : [])]).all();
     return json({ issues: results });
 }
 
-async function getIssue(env, id) {
+async function getIssue(env, id, me) {
     await ensureIssues(env);
     const row = await env.DB.prepare('SELECT * FROM issue_reports WHERE id = ?').bind(id).first();
-    if (!row) throw new HttpError(404, 'No such report.');
+    if (!row || (me.role === 'siteadmin' && row.site !== me.site)) throw new HttpError(404, 'No such report.');
     let diag = {}; try { diag = JSON.parse(row.diag || '{}'); } catch { /* keep empty */ }
     return json({ issue: { ...row, diag } });
 }
 
-async function patchIssue(req, env, id) {
+async function patchIssue(req, env, id, me) {
     const { status } = await body(req);
     if (!['new', 'seen', 'handled'].includes(status)) throw new HttpError(400, 'status: new, seen or handled.');
     await ensureIssues(env);
+    if (me.role === 'siteadmin' && (await env.DB.prepare('SELECT site FROM issue_reports WHERE id = ?').bind(id).first('site')) !== me.site) throw new HttpError(403, 'That report is from another site.');
     await env.DB.prepare('UPDATE issue_reports SET status = ? WHERE id = ?').bind(status, id).run();
     return json({ ok: true });
 }
