@@ -33,5 +33,15 @@ if [ "$1" = "staging" ]; then
   exit 0
 fi
 
+# AI fixes (Performance page) are committed to GitHub, not to this folder: refuse to deploy over one this folder lacks
+if [ -z "$PMS_SKIP_AI_CHECK" ]; then
+  node -e "
+    const fs=require('fs'); let loc=[]; try { loc=JSON.parse(fs.readFileSync('../pms/ai-fixes.json','utf8')); } catch {}
+    fetch('https://raw.githubusercontent.com/faizehashemi/faizehashemi.github.io/main/pms/ai-fixes.json?'+Date.now()).then(r => r.ok ? r.json() : []).then(gh => {
+      const have=new Set(loc.map(x=>x.id)), miss=(Array.isArray(gh)?gh:[]).filter(x=>!have.has(x.id));
+      if (miss.length) { console.error('STOP: GitHub has AI fixes this folder does not: '+miss.map(x=>'#'+x.id+' '+x.title).join('; ')+'\n  Run: sh tools/pull-ai-fixes.sh  (or PMS_SKIP_AI_CHECK=1 sh web/deploy.sh to deploy anyway)'); process.exit(1); }
+    }).catch(() => console.warn('(could not check GitHub for AI fixes - deploying anyway)'));
+  "
+fi
 node -e "const f='../pms/version.json',fs=require('fs'),v=JSON.parse(fs.readFileSync(f,'utf8'));v.web='$STAMP';fs.writeFileSync(f,JSON.stringify(v,null,2)+'\n');console.log('build',v.web)"
 npx --yes wrangler@4 deploy

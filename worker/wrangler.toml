@@ -36,3 +36,7 @@ binding = "DB"
 # ~325 ms to the old Sydney database "pms" 588fe34b-73a2-4c07-83dd-46e5da3fad30, kept unchanged as the way back).
 database_name = "pms-weur"
 database_id = "e1514322-3dae-4fd9-abff-bbee6bf375e3"
+
+# Workers AI — the read-only ✨ assistant in the top bar (worker.js "AI: assistant + fixes")
+[ai]
+binding = "AI"

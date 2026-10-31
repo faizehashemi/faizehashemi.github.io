@@ -24,3 +24,7 @@ id = "28174fd771b248f8b4419d666bff0688"
 binding = "DB"
 database_name = "pms-staging"
 database_id = "14dfd233-517a-4e6c-8175-2c817ffbe269"
+
+# Workers AI — the read-only ✨ assistant in the top bar (worker.js "AI: assistant + fixes")
+[ai]
+binding = "AI"

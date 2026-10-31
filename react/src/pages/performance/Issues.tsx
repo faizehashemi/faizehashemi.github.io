@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useCore, useGuard } from '@/pms/PmsContext';
+import { AiFixButton } from './AiFixes';
 
 // Performance → "Issue reports": what the desks sent with "Facing an issue?" (core/issue-report.js → POST /api/issues) — their words, a picture of their screen
 // and what their browser knew (window size, device, recent errors and failed calls, the text on the page, anything wider than the window). Opening one marks it Seen.
@@ -14,7 +15,7 @@ const when = (iso?: string) => (iso ? new Date(iso).toLocaleString(undefined, { 
 const SITE: Record<string, string> = { makkah: 'Makkah', medina: 'Medina' };
 const Items = ({ title, items, mono = true }: { title: string; items?: string[]; mono?: boolean }) => (items?.length ? <div><h4 className="mt-2 text-sm font-bold">{title}</h4><ul className={`ml-5 list-disc text-xs ${mono ? 'font-mono' : ''}`}>{items.map((x, i) => <li key={i}>{x}</li>)}</ul></div> : null);
 
-function Detail({ row, onStatus }: { row: IssueRow; onStatus: (s: string) => void }) {
+function Detail({ row, onStatus, canFix, onFix }: { row: IssueRow; onStatus: (s: string) => void; canFix: boolean; onFix: () => void }) {
     const { cloud } = useCore();
     const guard = useGuard();
     const [issue, setIssue] = useState<Row | null>(null), [err, setErr] = useState(''), [copied, setCopied] = useState('');
@@ -39,6 +40,8 @@ function Detail({ row, onStatus }: { row: IssueRow; onStatus: (s: string) => voi
             <Items title="Pages visited just before" items={d.recent_pages} /><Items title="Dialogs open" items={d.open_dialogs} mono={false} />
             {d.dom && <details><summary className="cursor-pointer">Text on the page</summary><pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-xs">{d.dom}</pre></details>}
             <div className="flex flex-wrap items-center gap-2">
+                <AiFixButton can={canFix} source="issue" sourceId={issue.id} title={`Issue #${issue.id} on ${issue.page || 'a page'}: ${String(issue.text || '').slice(0, 120)}`}
+                    detail={(() => { const { shot: _s, ...rest } = issue; return JSON.stringify(rest, null, 1).slice(0, 11000); })()} onDone={onFix} />
                 <Button size="sm" variant="outline" onClick={async () => { const { shot: _s, ...rest } = issue; try { await navigator.clipboard.writeText(JSON.stringify(rest, null, 2)); setCopied('Copied ✓'); } catch { setCopied('Could not copy'); } }}>Copy the full report (JSON, without the picture)</Button><span className="text-xs">{copied}</span>
                 <label className="ml-auto flex items-center gap-2">Status
                     <Select value={row.status} onValueChange={st => { void cloud.request('PATCH', `/api/issues/${row.id}`, { status: st }).then(() => onStatus(st)); }}><SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger><SelectContent>{['new', 'seen', 'handled'].map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label></div>
@@ -46,7 +49,7 @@ function Detail({ row, onStatus }: { row: IssueRow; onStatus: (s: string) => voi
     );
 }
 
-export function IssuesSection({ list, onStatus }: { list: IssueRow[]; onStatus: (id: number, status: string) => void }) {
+export function IssuesSection({ list, onStatus, canFix = false, onFix = () => { } }: { list: IssueRow[]; onStatus: (id: number, status: string) => void; canFix?: boolean; onFix?: () => void }) {
     const [status, setStatus] = useState('open'), [page, setPage] = useState('all'), [showHandled, setShowHandled] = useState(false), [openId, setOpenId] = useState<number | null>(null);
     const pages = useMemo(() => [...new Set(list.map(i => i.page).filter(Boolean))].sort() as string[], [list]);
     // new and seen only, unless "Show handled" is ticked
@@ -70,7 +73,7 @@ export function IssuesSection({ list, onStatus }: { list: IssueRow[]; onStatus: 
                                 <TableCell><Badge variant={i.status === 'new' ? 'destructive' : 'outline'}>{i.status}</Badge></TableCell>
                                 <TableCell className="max-w-[34rem] whitespace-normal">{i.text.slice(0, 140)}{i.text.length > 140 ? '…' : ''}</TableCell>
                             </TableRow>,
-                            openId === i.id && <TableRow key={`${i.id}-d`}><TableCell colSpan={8} className="whitespace-normal bg-muted/30"><Detail row={i} onStatus={s => onStatus(i.id, s)} /></TableCell></TableRow>,
+                            openId === i.id && <TableRow key={`${i.id}-d`}><TableCell colSpan={8} className="whitespace-normal bg-muted/30"><Detail row={i} onStatus={s => onStatus(i.id, s)} canFix={canFix} onFix={onFix} /></TableCell></TableRow>,
                         ])}</TableBody>
                     </Table>
                 </div>

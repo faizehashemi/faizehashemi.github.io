@@ -85,6 +85,12 @@ function overflowing() {
     }
     return out;
 }
+/** This browser's recent errors, failed calls and pages — for the ✨ assistant (core/ai-assistant.js). */
+export function recentDiag() {
+    let build = ''; try { build = context().build || ''; } catch { }
+    return { errors: [...errors], failed_calls: [...failed], recent_pages: [...routes], build };
+}
+
 function diagnostics(page, site) {
     const ctx = context(), p = getPrefs(), outlet = document.getElementById('view');
     return {

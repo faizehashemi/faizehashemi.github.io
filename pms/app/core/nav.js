@@ -59,6 +59,7 @@ class SiteNav extends HTMLElement {
         <nav class="cats" id="cats"></nav>
 
         <div class="tools">
+          <button type="button" class="srch ai" data-ai title="Ask the PMS — read-only AI assistant" aria-label="Ask the PMS (AI assistant)">✨</button>
           <button type="button" class="srch" data-search title="Find a page (Ctrl+K)" aria-label="Find a page">🔍</button>
           <div class="dd desk-dd">
             <button type="button" class="desk" id="deskBtn" aria-haspopup="true" aria-expanded="false"><span id="deskName"></span><i class="caret"></i></button>
@@ -231,6 +232,7 @@ class SiteNav extends HTMLElement {
         .dr-sec.open > .dr-h{ color:#8a6512 }
         .dr-sec.open > .dr-h .caret, .sd-grp.open > .sd-h .caret{ transform:rotate(-135deg) translateY(-2px) }
         .srch{ border:1px solid var(--edge); background:#fff; border-radius:999px; width:34px; height:34px; display:inline-grid; place-items:center; font-size:14px }
+        .srch.ai{ background:linear-gradient(135deg, #fff6dc, #fff); border-color:var(--gold) }
         .srch:hover{ background:#fbf1d8 }
 
         /* left sidebar */
@@ -323,6 +325,8 @@ class SiteNav extends HTMLElement {
                 return;
             }
             if (e.target.closest('[data-search]')) { closeMenus(); this.closeDrawer(); this.openSearch(); }
+            // ✨ the read-only AI assistant (loaded the first time it is opened)
+            if (e.target.closest('[data-ai]')) { closeMenus(); this.closeDrawer(); import('./ai-assistant.js').then(m => m.toggleAssistant()).catch(() => { }); }
         });
         r.addEventListener('mouseover', (e) => {
             const dd = e.target.closest('.bar .dd');

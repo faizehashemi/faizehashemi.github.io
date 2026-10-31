@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useCore, useGuard, useViews } from '@/pms/PmsContext';
 import { DenialsSection, type Denial } from './Denials';
 import { IssuesSection, type IssueRow } from './Issues';
+import { AiFixButton, AiFixesSection, type AiJobs } from './AiFixes';
 
 // Performance & feedback (Data, admins): page timings from every desk's browser (core/telemetry.js → perf_events) and the in-page feedback
 // (core/feedback.js → feedback). Server: GET /api/perf/summary, GET /api/feedback, PATCH /api/feedback/:id, GET /api/slip-denials.
@@ -30,7 +31,7 @@ const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
 // a colour for a page time: green under 1 s, amber under 3 s, red above
 const toneOf = (ms?: number | null) => ms == null ? '' : ms < 1000 ? 'ok' : ms < 3000 ? 'mid' : 'bad';
 const toneClass = (t: string) => t === 'ok' ? 'text-ok' : t === 'mid' ? 'text-warn' : t === 'bad' ? 'text-destructive' : '';
-const PTAB_LABEL: Record<string, string> = { overview: 'Overview', issues: 'Issues', refused: 'Refused saves', feedback: 'Feedback', errors: 'Errors' };
+const PTAB_LABEL: Record<string, string> = { overview: 'Overview', issues: 'Issues', refused: 'Refused saves', feedback: 'Feedback', errors: 'Errors', ai: 'AI fixes' };
 const none = <p className="p-3 text-sm text-muted-foreground">No data yet.</p>;
 
 function Kpi({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: string; tone?: string }) {
@@ -136,6 +137,13 @@ export default function PerformancePage() {
             return { s, fb: f.feedback.filter(x => site === 'all' || x.site === site), denials: dn.denials, issues: is.issues.filter(x => site === 'all' || x.site === site) };
         },
     });
+    // AI fixes: the list for every admin; approving is for mukrram only (the server says so in can_approve, and checks again on POST)
+    const ai = useQuery({
+        queryKey: ['ai-jobs'], enabled: isAdmin, refetchInterval: 20000,
+        queryFn: () => cloud.request('GET', '/api/ai/jobs').catch(() => ({ jobs: [], can_approve: false, configured: false })) as Promise<AiJobs>,
+    });
+    const canFix = !!ai.data?.can_approve;
+    const aiBusy = (ai.data?.jobs ?? []).filter(j => j.status === 'queued' || j.status === 'running').length;
     const setStatus = useMutation({
         mutationFn: ({ id, status }: { id: number; status: string }) => guard(cloud.request('PATCH', `/api/feedback/${id}`, { status })),
         onSuccess: (_r, v) => qc.setQueryData(['perf', days, site], (old: any) => old && ({ ...old, fb: old.fb.map((f: Feedback) => f.id === v.id ? { ...f, status: v.status } : f) })),
@@ -183,6 +191,7 @@ export default function PerformancePage() {
                         <TabsTrigger value="refused">Refused saves{denToday ? ` (${denToday} today)` : ''}</TabsTrigger>
                         <TabsTrigger value="feedback">Feedback{newFb ? ` (${newFb} new)` : ''}</TabsTrigger>
                         <TabsTrigger value="errors">Errors{errs.length ? ` (${errs.length})` : ''}</TabsTrigger>
+                        <TabsTrigger value="ai">🤖 AI fixes{aiBusy ? ` (${aiBusy} working)` : ''}</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview" className="grid gap-3">
                 <section className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
@@ -233,7 +242,7 @@ export default function PerformancePage() {
 
                     </TabsContent>
                     <TabsContent value="issues">
-                <Card><CardContent><IssuesSection list={data.data?.issues ?? []} onStatus={(id, status) => qc.setQueryData(['perf', days, site], (old: any) => old && ({ ...old, issues: old.issues.map((x: IssueRow) => x.id === id ? { ...x, status } : x) }))} /></CardContent></Card>
+                <Card><CardContent><IssuesSection canFix={canFix} onFix={() => void ai.refetch()} list={data.data?.issues ?? []} onStatus={(id, status) => qc.setQueryData(['perf', days, site], (old: any) => old && ({ ...old, issues: old.issues.map((x: IssueRow) => x.id === id ? { ...x, status } : x) }))} /></CardContent></Card>
 
                     </TabsContent>
                     <TabsContent value="refused">
@@ -274,11 +283,15 @@ export default function PerformancePage() {
                 <Block title="Recent errors" note="pages that could not open and script errors, newest first">
                     {errs.length ? (
                         <Table>
-                            <TableHeader><TableRow><TableHead>When</TableHead><TableHead>Page</TableHead><TableHead>Error</TableHead><TableHead>Login</TableHead><TableHead>Device</TableHead></TableRow></TableHeader>
-                            <TableBody>{errs.map((e, i) => <TableRow key={i}><TableCell className="whitespace-nowrap">{when(e.at)}</TableCell><TableCell>{pageName(e.page)}</TableCell><TableCell className="break-all font-mono text-xs text-destructive">{e.err}</TableCell><TableCell>{e.desk}</TableCell><TableCell>{[e.device, e.browser].filter(Boolean).join(' · ')}</TableCell></TableRow>)}</TableBody>
+                            <TableHeader><TableRow><TableHead>When</TableHead><TableHead>Page</TableHead><TableHead>Error</TableHead><TableHead>Login</TableHead><TableHead>Device</TableHead>{canFix && <TableHead />}</TableRow></TableHeader>
+                            <TableBody>{errs.map((e, i) => <TableRow key={i}><TableCell className="whitespace-nowrap">{when(e.at)}</TableCell><TableCell>{pageName(e.page)}</TableCell><TableCell className="break-all font-mono text-xs text-destructive">{e.err}</TableCell><TableCell>{e.desk}</TableCell><TableCell>{[e.device, e.browser].filter(Boolean).join(' · ')}</TableCell>
+                                {canFix && <TableCell><AiFixButton can source="error" title={`Error on ${pageName(e.page)}: ${String(e.err || '').slice(0, 140)}`} detail={JSON.stringify({ ...e, same_error_count: errs.filter(x => x.err === e.err).length }, null, 1)} onDone={() => void ai.refetch()} /></TableCell>}</TableRow>)}</TableBody>
                         </Table>
                     ) : <p className="p-3 text-sm text-muted-foreground">No errors in this period. 🎉</p>}
                 </Block>
+                    </TabsContent>
+                    <TabsContent value="ai">
+                <Card><CardContent><AiFixesSection data={ai.data} onChanged={() => void ai.refetch()} /></CardContent></Card>
                     </TabsContent>
                 </Tabs>
             </>}
