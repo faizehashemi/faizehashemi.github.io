@@ -46,6 +46,7 @@ const PAGES: Record<string, () => Promise<PageModule>> = {
     'transport-import': () => import('@/pages/transport-import/TransportImportPage'),
     'transport-print': () => import('@/pages/transport-print/TransportPrintPage'),
     arrival: () => import('@/pages/arrival/ArrivalPage'),
+    passport: () => import('@/pages/passport/PassportPage'),
 };
 
 export const reactPages = () => Object.keys(PAGES);

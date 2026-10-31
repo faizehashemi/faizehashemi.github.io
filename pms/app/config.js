@@ -26,7 +26,7 @@ export const DEFAULT_SITE = 'makkah';
 
 // Pages that run as React (react/ → pms/react/) for every login, approved 2026-10-27 (the laundry POS too, 2026-10-27). Back to the standard page: add ?legacy=1 to the address (e.g. …/#/makkah/slip?legacy=1), set localStorage pms_react_off=1 in one browser, or remove the page here.
 // One login can be given a page early with prefs.reactPages (canary), this browser with localStorage pms_react_pages (see react-bridge.js).
-export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
+export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
@@ -58,6 +58,7 @@ export const VIEWS = [
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
     { id: 'laundry',      label: 'Laundry POS',        title: 'Laundry POS',           hint: 'New bill, staff only, building linen, logs, pending cash' },
     { id: 'laundry-admin', label: 'Laundry admin',     title: 'Laundry admin',         hint: 'Sales, reports, bills, prices, staff' },
+    { id: 'passport', label: 'Passport slip', title: 'Passport Slip', hint: 'Print the note asking reception to release a group\'s passports' },
     { id: 'pending-checkouts', label: 'Pending checkouts', title: 'Pending Checkouts',    hint: 'UMS checkout list: zero-advance groups and their rooms' },
     { id: 'transport',    label: 'Transport day',      title: 'Transport',             hint: 'The day\'s trips, bus numbers, signage link' },
     { id: 'transport-import', label: 'Transport import', title: 'Transport Import',    hint: 'Paste the transport list; review changes before saving' },
@@ -77,7 +78,7 @@ export const NAV = [
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'arrival', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
-    { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts'] },
+    { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts', 'passport'] },
     { id: 'data',   label: 'Data',           views: ['slip-search', 'ums', 'admin', 'setup', 'performance', 'backups', 'changelog'] },
 ];
 
