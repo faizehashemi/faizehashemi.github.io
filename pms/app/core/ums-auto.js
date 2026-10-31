@@ -76,6 +76,9 @@ export async function runImport({ siteId, html, fileName, via, fetchedAt, planOv
     return navigator.locks ? navigator.locks.request(`pms-ums-${siteId}`, work) : work();
 }
 
+/** A file from any source (the Chrome extension, the UMS bridge): shown on the UMS page and, if auto-import is on for this device, applied. */
+export async function deliverFile(file) { return onFile(file); }
+
 async function onFile(file) {
     ext.latestFile = file;
     emit('pms:ums-file', file);

@@ -1,0 +1,21 @@
+{
+  "name": "ums-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright automation bridge to the legacy ASP.NET Web Forms UMS (ums.sigatulhaj.org): navigation, forms, extraction, sessions. CAPTCHAs are never bypassed — they pause for a human.",
+  "engines": { "node": ">=20" },
+  "bin": { "ums-bridge": "./src/cli.js" },
+  "scripts": {
+    "test": "node --test \"test/unit/*.test.js\"",
+    "test:int": "node --test \"test/integration/*.test.js\"",
+    "serve": "node src/cli.js serve",
+    "login": "node src/cli.js login",
+    "status": "node src/cli.js status",
+    "export": "node src/cli.js export",
+    "record": "node src/cli.js record"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

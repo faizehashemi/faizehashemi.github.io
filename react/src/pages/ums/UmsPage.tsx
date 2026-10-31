@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -37,6 +38,35 @@ export default function UmsPage() {
     const [, tick] = useState(0);
     const file = useRef<HTMLInputElement>(null);
     const u = ums as any;
+
+    // ---- the UMS bridge on this computer (tools/ums-bridge): logs in to the UMS in a real browser window, the PMS reads UMS through it ----
+    const [br, setBr] = useState<any>(null);                       // core/ums-bridge.js
+    const [bst, setBst] = useState<Row>({ running: false, paired: false });
+    const [bcfg, setBcfg] = useState({ url: 'http://127.0.0.1:8787', token: '', everyMin: 0 });
+    const [bmsg, setBmsg] = useState(''), [bbusy, setBbusy] = useState('');
+    const refreshBridge = async (m = br) => { if (m) { try { setBst(await m.status()); } catch (e: any) { setBst({ running: false, paired: false, error: e.message }); } } };
+    useEffect(() => {
+        let alive = true; let mod: any = null; let t: any = null;
+        void loadCore('ums-bridge').then(m => {
+            if (!alive) return;
+            mod = m; setBr(m); setBcfg(m.getConfig()); void refreshBridge(m);
+            t = setInterval(() => { if (document.visibilityState === 'visible') void refreshBridge(m); }, 4000);
+            m.startAutoFetch((r: Row) => { if (r.file) { void load({ ...r.file }); setBmsg(`Fetched from UMS · ${new Date().toLocaleTimeString()}`); } else if (r.error) setBmsg(`Automatic fetch failed: ${r.error.message}`); });
+        });
+        return () => { alive = false; clearInterval(t); mod?.stopAutoFetch(); };
+    }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+    const bridgeNote = (st: Row | null) => (st?.state === 'awaiting_human' ? 'A browser window is open on the bridge computer — log in to UMS there (credentials, CAPTCHA, Login).' : '');
+    async function bridgeDo(what: 'login' | 'fetch') {
+        if (!br) return;
+        setBbusy(what); setBmsg(what === 'login' ? 'Opening the UMS login on the bridge computer…' : 'Fetching the Group List from UMS…');
+        try {
+            const onTick = (st: Row | null) => { const n = bridgeNote(st); if (n) setBmsg(n); void refreshBridge(); };
+            if (what === 'login') { await br.login({ onTick }); setBmsg('Logged in to UMS.'); }
+            else { const f = await br.fetchGroupList({}, { onTick }); await load({ ...f }); setBmsg(`Fetched from UMS · ${new Date().toLocaleTimeString()}`); }
+        } catch (e: any) { setBmsg(e.code === 'CAPTCHA_TIMEOUT' ? 'Nobody logged in within the time allowed — try again.' : e.message || 'Failed.'); }
+        finally { setBbusy(''); void refreshBridge(); }
+    }
+    const saveBridge = () => { if (!br) return; br.setConfig({ url: bcfg.url.trim() || 'http://127.0.0.1:8787', token: bcfg.token.trim(), everyMin: bcfg.everyMin }); br.startAutoFetch(() => {}); setBmsg('Saved.'); void refreshBridge(); };
 
     useEffect(() => {
         void loadCore('ums-auto').then(a => { setAuto(a); a.askExtension('get-latest'); });
@@ -116,6 +146,23 @@ export default function UmsPage() {
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header><h1 className="text-2xl font-bold text-primary">UMS Import — {site.label}</h1>
                 <p className="text-sm text-muted-foreground">Brings the UMS Group List into this site's slips. UMS decides names, leader, pax and dates; building and rooms stay exactly as the desk set them. Nothing is deleted.</p></header>
+            <Card><CardHeader><CardTitle className="text-base">UMS bridge <span className="text-sm font-normal text-muted-foreground">— on this computer: logs in to UMS in a real browser window; the PMS reads UMS through it</span></CardTitle></CardHeader><CardContent className="grid gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Pill tone={bst.running && bst.paired && !bst.badToken ? 'ok' : bst.running ? 'warn' : undefined}>{!bst.running ? 'not running' : bst.badToken ? 'wrong token' : !bst.paired ? 'running — paste its token' : bst.state === 'awaiting_human' ? 'waiting for you to log in to UMS' : bst.authenticated ? 'connected · logged in to UMS' : 'connected'}</Pill>
+                    <Button size="sm" disabled={!bst.paired || !!bbusy || !!bst.badToken} onClick={() => void bridgeDo('login')}>{bbusy === 'login' ? 'Waiting for you…' : 'Log in to UMS'}</Button>
+                    <Button size="sm" variant="outline" disabled={!bst.paired || !!bbusy || !!bst.badToken} onClick={() => void bridgeDo('fetch')}>{bbusy === 'fetch' ? 'Fetching…' : 'Fetch Group List now'}</Button>
+                    <label className="flex items-center gap-1.5 text-sm">every
+                        <select className="h-8 rounded-md border bg-background px-1" value={bcfg.everyMin} onChange={e => { const v = Number(e.target.value); setBcfg(c => ({ ...c, everyMin: v })); br?.setConfig({ everyMin: v }); br?.startAutoFetch((r: Row) => { if (r.file) { void load({ ...r.file }); setBmsg(`Fetched from UMS · ${new Date().toLocaleTimeString()}`); } else if (r.error) setBmsg(`Automatic fetch failed: ${r.error.message}`); }); }}>
+                            <option value={0}>— (not automatic)</option>{[15, 30, 60].map(m => <option key={m} value={m}>{m} min</option>)}</select> while this page is open</label>
+                </div>
+                {bmsg && <p className="text-sm">{bmsg}</p>}
+                <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Connection</summary>
+                    <div className="mt-2 flex flex-wrap items-end gap-2">
+                        <label className="grid gap-1 text-xs">Address<Input className="w-56" value={bcfg.url} onChange={e => setBcfg(c => ({ ...c, url: e.target.value }))} /></label>
+                        <label className="grid gap-1 text-xs">Token<Input className="w-72" type="password" autoComplete="off" placeholder="printed when the bridge starts" value={bcfg.token} onChange={e => setBcfg(c => ({ ...c, token: e.target.value }))} /></label>
+                        <Button size="sm" variant="outline" onClick={saveBridge}>Save</Button></div>
+                    <p className="mt-2 text-xs text-muted-foreground">Start the bridge on this computer: <code>cd tools/ums-bridge</code>, then <code>npm run serve</code> (set <code>UMS_MANUAL_LOGIN=1</code> and <code>UMS_HEADLESS=0</code> so UMS opens in a window where you log in yourself). The address and token are kept in this browser only. The bridge never solves the CAPTCHA — you do.</p></details>
+            </CardContent></Card>
             <div className="grid gap-3 lg:grid-cols-2">
                 <Card><CardHeader><CardTitle className="text-base">1 · Load the Group List</CardTitle></CardHeader><CardContent className="grid gap-3">
                     <label className={cn('grid cursor-pointer place-items-center rounded-xl border-2 border-dashed p-6 text-center text-sm', over && 'border-gold bg-accent')} onDragOver={e => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); void fromFile(e.dataTransfer.files[0]); }}>

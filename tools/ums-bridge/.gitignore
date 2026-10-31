@@ -1,0 +1,5 @@
+node_modules/
+.ums-bridge/
+*.enc
+session.key
+.env
