@@ -454,3 +454,9 @@ CREATE TABLE IF NOT EXISTS issue_reports (
     status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'seen', 'handled'))
 );
 CREATE INDEX IF NOT EXISTS issue_reports_at ON issue_reports(at);
+
+-- Passport release slips printed on Accounts → Passport slip (POST/GET /api/passport-log). The Worker also creates this table on first use.
+CREATE TABLE IF NOT EXISTS passport_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, site TEXT NOT NULL, sh_no TEXT, tour TEXT, leader TEXT, pax INTEGER, building TEXT, rooms TEXT, desk_id INTEGER, desk TEXT
+);
+CREATE INDEX IF NOT EXISTS passport_log_site_at ON passport_log(site, at);

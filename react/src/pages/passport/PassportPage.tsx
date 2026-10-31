@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Printer, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useSlips } from '@/hooks/useSlips';
-import { useCore, useSite } from '@/pms/PmsContext';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useCore, useGuard, useSite } from '@/pms/PmsContext';
 import { paxOf, printPassportSlip, roomList } from './passport';
 
 // Passport slip (Accounts): find a group by its SH number, then print the note that asks the reception to hand back its passports because the dues are cleared.
@@ -13,8 +15,9 @@ type Row = Record<string, any>;
 const base = (v: unknown) => String(v ?? '').trim().toUpperCase().replace(/^S(?=\d)/, '');
 
 export default function PassportPage() {
-    const { stay, ums } = useCore();
-    const { site } = useSite();
+    const { stay, ums, cloud } = useCore();
+    const guard = useGuard(), qc = useQueryClient();
+    const { site, siteId } = useSite();
     const slips = useSlips();
     const [sh, setSh] = useState(''), [q, setQ] = useState('');
     const [msg, setMsg] = useState('');
@@ -25,7 +28,13 @@ export default function PassportPage() {
         return all.sort((a, b) => String(b.checkin_date).localeCompare(String(a.checkin_date)));
     }, [q, slips.data, ums]);
     const go = () => { setMsg(''); setQ(sh); };
-    const print = (s: Row) => { if (!printPassportSlip(s, site.label)) setMsg('The browser blocked the new tab. Allow pop-ups for this site, then press the button again.'); };
+    const log = useQuery({ queryKey: ['passport-log', siteId], queryFn: async () => ((await guard<any>(cloud.request('GET', `/api/passport-log?site=${siteId}`))).log ?? []) as Row[] });
+    // the new tab opens first (from the click), then the slip is entered in the log
+    const print = (s: Row) => {
+        if (!printPassportSlip(s, site.label)) { setMsg('The browser blocked the new tab. Allow pop-ups for this site, then press the button again.'); return; }
+        void cloud.request('POST', '/api/passport-log', { site: siteId, sh_no: String(s.sh_no ?? ''), tour: s.tour_name || '', leader: String(s.group_leader || '').trim(), pax: paxOf(s), building: s.building || '', rooms: roomList(s).join(', ') })
+            .then(() => qc.invalidateQueries({ queryKey: ['passport-log', siteId] }), () => setMsg('The slip was printed but could not be entered in the log.'));
+    };
 
     return (
         <div className="mx-auto grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-3 px-3 pb-10 pt-4 sm:px-4">
@@ -58,6 +67,21 @@ export default function PassportPage() {
                     </CardContent></Card>
                 );
             })}
+            <Card><CardContent className="grid gap-2">
+                <h2 className="text-base font-bold text-primary">Passport slips issued <span className="text-sm font-normal text-muted-foreground">— {site.label}, newest first</span></h2>
+                {log.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : !(log.data ?? []).length ? <p className="text-sm text-muted-foreground">No passport slip has been printed yet.</p>
+                    : <div className="max-h-[50vh] overflow-auto"><Table>
+                        <TableHeader><TableRow><TableHead>When</TableHead><TableHead>SH</TableHead><TableHead>Group · leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Building · rooms</TableHead><TableHead>Issued by</TableHead></TableRow></TableHeader>
+                        <TableBody>{(log.data ?? []).map(l => (
+                            <TableRow key={l.id}>
+                                <TableCell className="whitespace-nowrap">{new Date(l.at).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</TableCell>
+                                <TableCell><b>{l.sh_no}</b></TableCell>
+                                <TableCell>{l.tour || '—'}<small className="block text-muted-foreground">{l.leader || '—'}</small></TableCell>
+                                <TableCell className="text-right">{l.pax || '—'}</TableCell>
+                                <TableCell>{l.building || '—'}{l.rooms && <small className="block text-muted-foreground">{l.rooms}</small>}</TableCell>
+                                <TableCell>{l.desk}</TableCell>
+                            </TableRow>))}</TableBody></Table></div>}
+            </CardContent></Card>
         </div>
     );
 }

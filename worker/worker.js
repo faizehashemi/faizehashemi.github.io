@@ -255,6 +255,9 @@ async function route(req, env) {
     if (p === '/api/feedback' && m === 'GET') { requirePerf(me); return listFeedback(url, env, me); }
     mm = p.match(/^\/api\/feedback\/(\d+)$/);
     if (mm && m === 'PATCH') { requirePerf(me); return patchFeedback(req, env, Number(mm[1]), me); }
+    // Passport release slips issued (Accounts → Passport slip): who printed one for which group and when
+    if (p === '/api/passport-log' && m === 'POST') return postPassportLog(req, env, me);
+    if (p === '/api/passport-log' && m === 'GET') return listPassportLog(url, env, me);
     // "Facing an issue?" reports (pms/app/core/issue-report.js): a screenshot of the desk's screen and what the browser knew, for the Performance page
     if (p === '/api/issues' && m === 'POST') return postIssue(req, env, me);
     if (p === '/api/issues' && m === 'GET') { requirePerf(me); return listIssues(url, env, me); }
@@ -3059,6 +3062,35 @@ async function patchFeedback(req, env, id, me) {
 /* ------------------------------ issue reports ------------------------------ */
 // A desk presses "Facing an issue?" and the browser sends: what they typed, a JPEG of what they were looking at (optional, ≤ 900 kB), and a diagnostics record
 // (window size, device, recent errors and failed calls, the page's visible text …) as JSON. The table is created on first use. Kept 180 days.
+// The passport release slip log: one row for every slip printed on Accounts → Passport slip. The table is created on first use. A login sees its own site's rows; the owner admin either site's.
+let passportReady = false;
+async function ensurePassportLog(env) {
+    if (passportReady) return;
+    await env.DB.batch([
+        env.DB.prepare(`CREATE TABLE IF NOT EXISTS passport_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, site TEXT NOT NULL, sh_no TEXT, tour TEXT, leader TEXT, pax INTEGER, building TEXT, rooms TEXT, desk_id INTEGER, desk TEXT)`),
+        env.DB.prepare('CREATE INDEX IF NOT EXISTS passport_log_site_at ON passport_log(site, at)'),
+    ]);
+    passportReady = true;
+}
+const passportSite = (me, asked) => (me.role === 'admin' && SITES[asked] ? asked : me.site);
+async function postPassportLog(req, env, me) {
+    requireAdminOrDesk(me);
+    const f = await body(req);
+    const sh = tStr(f.sh_no, 30) || '';
+    if (!sh) throw new HttpError(400, 'sh_no is required.');
+    await ensurePassportLog(env);
+    await env.DB.prepare('INSERT INTO passport_log (at, site, sh_no, tour, leader, pax, building, rooms, desk_id, desk) VALUES (?,?,?,?,?,?,?,?,?,?)')
+        .bind(new Date().toISOString(), passportSite(me, f.site), sh, tStr(f.tour, 120) || '', tStr(f.leader, 120) || '', tInt(f.pax, 100000) || 0, tStr(f.building, 60) || '', tStr(f.rooms, 400) || '', me.id, me.name).run();
+    return json({ ok: true });
+}
+async function listPassportLog(url, env, me) {
+    await ensurePassportLog(env);
+    const { results } = await env.DB.prepare('SELECT id, at, site, sh_no, tour, leader, pax, building, rooms, desk FROM passport_log WHERE site = ? ORDER BY id DESC LIMIT 300')
+        .bind(passportSite(me, url.searchParams.get('site'))).all();
+    return json({ log: results });
+}
+
 let issuesReady = false;
 async function ensureIssues(env) {
     if (issuesReady) return;
