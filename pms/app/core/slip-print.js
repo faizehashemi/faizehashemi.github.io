@@ -5,7 +5,7 @@
 //                             or copy as an image for the group leader
 // The Print page keeps its own stylesheet; other pages get SLIP_CSS (scoped to .pms-slips).
 
-import { tripOf, itineraryHTML, ITINERARY_CSS } from './itinerary.js';
+import { tripOf, itineraryHTML, ITINERARY_CSS, fitItineraries } from './itinerary.js';
 import { loadScript } from './lib.js';
 import { loadSettings, DEFAULTS } from './settings.js';
 import { getPrefs } from './prefs.js';
@@ -175,6 +175,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 ${pages}
 <script>
 window.addEventListener('load', function () {
+  (${fitItineraries.toString()})(document);   // shrink each letter until it fits its A4 page
   var go = function () { window.focus(); window.print(); };
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(go, 200); }); else setTimeout(go, 300);
 });
@@ -236,6 +237,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 ${sheets}
 <script>
 window.addEventListener('load', function () {
+  (${fitItineraries.toString()})(document);   // shrink each letter until it fits its A4 page
   var go = function () { window.focus(); window.print(); };
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(go, 200); }); else setTimeout(go, 300);
 });
