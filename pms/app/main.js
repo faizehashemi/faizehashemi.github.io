@@ -191,6 +191,7 @@ async function route() {
     try {
         // a page switched to React (react-bridge.js) has no legacy html / js / css to load
         const useReact = reactPageOn(view.id);
+        if (useReact && cssLink) { cssLink.remove(); cssLink = null; }   // a legacy page's stylesheet must not linger under a React page (its bare `label { color: var(--muted) }` made labels pale)
         if (!useReact && !htmlCache.has(view.id)) {
             const resp = await fetch(`app/views/${view.id}/view.html`);
             htmlCache.set(view.id, await resp.text());

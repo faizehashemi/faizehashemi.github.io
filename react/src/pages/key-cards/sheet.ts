@@ -34,7 +34,7 @@ export function cardsSheet({ day, layout, site, cards }: { day: string; layout: 
         .c { border: 1.2px solid #000; border-radius: 1.5mm; overflow: hidden; min-height: 0; min-width: 0; }
         .in { height: 100%; padding: 2mm 2.4mm; font-size: 10pt; line-height: 1.25; overflow-wrap: anywhere; display: flex; flex-direction: column; }
         .d { font-size: .8em; font-weight: 700; border-bottom: 1px solid #999; padding-bottom: .5mm; margin-bottom: .8mm; }
-        .n { font-weight: 800; }
+        .n { font-weight: 800; font-size: 1.3em; line-height: 1.2; margin-bottom: .3em; }
         .m { font-size: .8em; color: #333; margin-bottom: 1mm; }
         .r { display: flex; flex-wrap: wrap; align-content: flex-start; gap: .35em .9em; flex: 1 1 auto; }
         .r span { white-space: nowrap; }
