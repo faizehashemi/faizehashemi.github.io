@@ -152,13 +152,13 @@ async function chatNotify(req, env) {
 //    answered by Cloudflare Workers AI (binding AI) with a few tools that read the database. Every tool checks the login's own
 //    rights first — the pages it may open (desk_pages) and its site (a site admin sees only its site) — so the assistant never
 //    shows anything the login could not already see in the PMS. It has no tool that writes. Capped per login per day.
-// 2) AI fixes (Performance page → "Fix with AI", POST /api/ai/fix): ONLY the login AI_FIXER (mukrram, desk 14) may approve one —
+// 2) AI fixes (Performance page → "Fix with AI", POST /api/ai/fix): ONLY the login AI_FIXER (taha.ali, desk 14) may approve one —
 //    not even another admin. The Worker records the job and asks GitHub to run .github/workflows/pms-ai-fix.yml (Claude Code on
 //    the owner's subscription token), which writes the fix, deploys staging → production and reports back to
 //    POST /api/ai/jobs/:id/report (shared secret AI_CALLBACK_SECRET). Secrets: GITHUB_DISPATCH_TOKEN, AI_CALLBACK_SECRET.
 
 const AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-const AI_FIXER = { id: 14, name: 'mukrram' };          // the one login allowed to approve an AI fix
+const AI_FIXER = { id: 14, name: 'taha.ali' };   // the one login allowed to approve an AI fix (desk 14, renamed from mukrram on 2026-11-01)
 const AI_REPO = 'faizehashemi/faizehashemi.github.io';
 const AI_DAILY_DEFAULT = 25;                            // questions per login per day (var AI_DAILY_LIMIT overrides)
 let aiTablesReady = false;
@@ -373,9 +373,9 @@ async function aiAsk(req, env, me) {
 /* ---- AI fixes (Performance page) ---- */
 const isAiFixer = (me) => me.id === AI_FIXER.id && String(me.name).toLowerCase() === AI_FIXER.name;
 
-// POST /api/ai/fix { source, source_id, title, detail, note } — mukrram only
+// POST /api/ai/fix { source, source_id, title, detail, note } — taha.ali only
 async function aiFixRequest(req, env, me) {
-    if (!isAiFixer(me)) throw new HttpError(403, 'Only mukrram can approve an AI fix.');
+    if (!isAiFixer(me)) throw new HttpError(403, 'Only taha.ali can approve an AI fix.');
     await ensureAiTables(env);
     const b = await body(req);
     const title = text(b.title, 200);
@@ -404,7 +404,7 @@ async function aiFixRequest(req, env, me) {
     return json({ job: await env.DB.prepare('SELECT * FROM ai_jobs WHERE id = ?').bind(id).first() }, 201);
 }
 
-// GET /api/ai/jobs — the Performance page's "AI fixes" list (admins and site admins read; only mukrram approves)
+// GET /api/ai/jobs — the Performance page's "AI fixes" list (admins and site admins read; only taha.ali approves)
 async function aiJobs(env, me) {
     requirePerf(me);
     await ensureAiTables(env);

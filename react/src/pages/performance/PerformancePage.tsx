@@ -137,7 +137,7 @@ export default function PerformancePage() {
             return { s, fb: f.feedback.filter(x => site === 'all' || x.site === site), denials: dn.denials, issues: is.issues.filter(x => site === 'all' || x.site === site) };
         },
     });
-    // AI fixes: the list for every admin; approving is for mukrram only (the server says so in can_approve, and checks again on POST)
+    // AI fixes: the list for every admin; approving is for taha.ali only (the server says so in can_approve, and checks again on POST)
     const ai = useQuery({
         queryKey: ['ai-jobs'], enabled: isAdmin, refetchInterval: 20000,
         queryFn: () => cloud.request('GET', '/api/ai/jobs').catch(() => ({ jobs: [], can_approve: false, configured: false })) as Promise<AiJobs>,

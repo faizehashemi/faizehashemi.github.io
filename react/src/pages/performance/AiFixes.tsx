@@ -6,7 +6,7 @@ import { useCore } from '@/pms/PmsContext';
 
 // Performance → "AI fixes": approve a problem (an issue report, an error, or one written here) and an AI writes the fix and deploys it
 // live — staging first, then production, rolled back by itself if the live site stops answering. Server: POST /api/ai/fix (ONLY the
-// login mukrram — the server refuses everybody else, admins included), GET /api/ai/jobs; GitHub workflow .github/workflows/pms-ai-fix.yml.
+// login taha.ali — the server refuses everybody else, admins included), GET /api/ai/jobs; GitHub workflow .github/workflows/pms-ai-fix.yml.
 
 export type AiJob = { id: number; title: string; status: string; message?: string; note?: string; requested_name?: string; requested_at: string; updated_at: string;
     run_url?: string; commit_sha?: string; deploy_web?: string; deploy_api?: string; files?: string; summary?: string; source?: string; source_id?: string };
@@ -45,7 +45,7 @@ export function AiFixesSection({ data, onChanged }: { data?: AiJobs; onChanged: 
     return (
         <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">AI fixes</h2>
-                <span className="text-xs text-muted-foreground">approved by mukrram only · the AI fixes the code, deploys staging → live, and reports back · it never changes the database</span></div>
+                <span className="text-xs text-muted-foreground">approved by taha.ali only · the AI fixes the code, deploys staging → live, and reports back · it never changes the database</span></div>
             {data && !data.configured && <p className="rounded-md border border-warn/50 bg-warn/10 p-2 text-sm">GitHub is not connected yet, so approved fixes cannot start. (Server secret GITHUB_DISPATCH_TOKEN.)</p>}
             {data?.can_approve && (
                 <div className="grid max-w-2xl gap-2 rounded-lg border p-3">
