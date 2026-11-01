@@ -411,3 +411,5 @@ td:has(> #notes) { grid-column: 2 / -1; min-width: 0; }
 .trip-add input, .trip-add select { padding: 4px 6px; }
 
 .wrap .slip-corner { display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 8px; }
+/* a loaded slip's SH: read only (New Slip frees it) */
+#sh_no.sh-locked { background: #f3efe6; color: #4a3b22; font-weight: 700; cursor: not-allowed; }

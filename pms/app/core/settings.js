@@ -95,9 +95,12 @@ export function shiftTime(date, time, hours) {
     return { date: t.toISOString().slice(0, 10), time: t.toISOString().slice(11, 16) };
 }
 
-/** A pattern for a valid SH No.: digits, optionally after one of the prefixes (longest first, so ES wins over E). */
+/** The prefixes of the numbers the PMS itself gives new slips (worker.js PMS_SH_PREFIX): MP1001 at Makkah, DP1001 at Medina */
+export const PMS_SH_PREFIXES = ['MP', 'DP'];
+
+/** A pattern for a valid SH No.: digits, optionally after one of the prefixes (longest first, so ES wins over E); PMS-made numbers always count. */
 export function shPattern(prefixes = DEFAULTS.sh_prefixes) {
-    const list = [...new Set((prefixes || []).map(p => String(p).trim().toUpperCase()).filter(p => /^[A-Z]{1,4}$/.test(p)))]
+    const list = [...new Set([...(prefixes || []), ...PMS_SH_PREFIXES].map(p => String(p).trim().toUpperCase()).filter(p => /^[A-Z]{1,4}$/.test(p)))]
         .sort((a, b) => b.length - a.length);
     return new RegExp(`^(?:${list.length ? `(?:${list.join('|')})` : ''})?\\d+$`, 'i');
 }

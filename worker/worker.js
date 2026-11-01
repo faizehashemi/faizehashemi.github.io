@@ -838,10 +838,33 @@ async function syncHeartbeat(req, url, env) {
     return b.reply(([slips, prefs], me) => ({ ...pullReply(url, slips), desk: publicDesk(me), prefs_at: prefs.results[0]?.updated_at || null }));
 }
 
+// SH numbers a desk cannot make up: a new slip keeps the SH it was given only when the PMS already knows that SH (a copy, or a second
+// stay of a group that has a slip — live or deleted, either site). Any other new slip gets the PMS's own number, MP1001, MP1002 … at
+// Makkah and DP1001 … at Medina (one counter per site, table counters), so a typed number can never clash with a UMS group later.
+// A saved slip's SH cannot be changed on Edit (updateSlip) — that is how one group's slip got overwritten with another group.
+const PMS_SH_PREFIX = { makkah: 'MP', medina: 'DP' };
+let countersReady = false;
+async function nextPmsSh(env, site) {
+    if (!countersReady) { await env.DB.prepare('CREATE TABLE IF NOT EXISTS counters (key TEXT PRIMARY KEY, n INTEGER NOT NULL)').run(); countersReady = true; }
+    const prefix = PMS_SH_PREFIX[site] || 'XP';
+    for (let i = 0; i < 20; i++) {
+        const r = await env.DB.prepare("INSERT INTO counters (key, n) VALUES (?, 1001) ON CONFLICT(key) DO UPDATE SET n = n + 1 RETURNING n").bind(`sh|${site}`).first();
+        const sh = `${prefix}${r.n}`;
+        if (!(await env.DB.prepare('SELECT 1 FROM slips WHERE upper(sh_no) = ? LIMIT 1').bind(sh).first())) return sh;
+    }
+    throw new HttpError(500, 'Could not make a new SH number. Try again.');
+}
+async function shKnown(env, sh) {
+    const u = String(sh ?? '').trim().toUpperCase();
+    if (!u) return false;
+    return !!(await env.DB.prepare('SELECT 1 FROM slips WHERE upper(sh_no) = ? OR upper(sh_no) = ? LIMIT 1').bind(u, u.replace(/^S+(?=\d)/, '')).first());
+}
+
 async function createSlip(req, env, me) {
     const { slip } = await body(req);
     const site = String(slip && slip.site || me.site);
     assertWrite(me, site);
+    if (slip && typeof slip === 'object' && !(await shKnown(env, slip.sh_no))) slip.sh_no = await nextPmsSh(env, site);
     const s = prepareSlip(slip);
     const at = now();
     const [res] = await env.DB.batch([insertStmt(env, me, site, s, null, at), verStmt(env, me, at, 'create', 'edit', null)]);
@@ -861,6 +884,10 @@ async function updateSlip(req, env, me, id) {
     assertWrite(me, row.site);
     if (slip && slip.site && slip.site !== row.site && me.role !== 'admin') throw new HttpError(403, 'Only an admin can move a slip to the other site.');
     const s = prepareSlip(slip);
+    // the SH stays the slip's own: typing another group's number over a saved slip is refused (the owner admin may correct one)
+    if (String(s.sh_no || '').trim().toUpperCase() !== String(row.sh_no || '').trim().toUpperCase() && me.role !== 'admin') {
+        throw new HttpError(403, `The SH number of a saved slip cannot be changed (this slip is SH ${row.sh_no}). For another group press New Slip — a new slip gets its own number.`);
+    }
     const at = now();
     const [res] = await env.DB.batch([updateStmt(env, me, id, Number(version), s, at), verStmt(env, me, at, 'edit', 'edit', SLIP_NOTES.has(note) ? note : null)]);
     if (!res.meta.changes) {

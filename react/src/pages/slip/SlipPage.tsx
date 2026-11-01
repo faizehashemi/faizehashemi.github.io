@@ -215,12 +215,20 @@ export default function SlipPage() {
             if (idRef.current && cacheRef.current.find(r => r.id === idRef.current)?.ums && !(await confirmAsk({ title: 'This slip comes from the UMS import', confirmLabel: 'Create a copy anyway',
                 body: 'Use "Edit" to update it (rooms, building, times).\n"Save" creates a separate copy that will double-count.\n\nCreate a separate copy anyway?' }))) return;
             const d = data();
+            // a brand-new slip gets its SH from the PMS (MP… / DP…); the SH box only finds slips. A typed SH that already has a slip is opened instead.
+            if (!idRef.current) {
+                const typed = form.sh_no.trim().toUpperCase();
+                if (typed && (await pickStayFor(typed))) { setStatus(`SH ${typed} already has a slip — press Fetch to open it (or New Slip, then Save, for another group).`); return; }
+                d.sh_no = '';
+            }
             const r = await runCheck();   // guard before saving
             if (!r.pass) { notSaved(r, 'saved', idRef.current ? 'copy' : 'save'); return; }
             const id = await db.add(d);
             setCurrentId(id); setUnlocked(false);
-            setStatus(`Saved as #${id}`); await refreshCache();
-            report(r, { tone: 'ok', title: `Saved ✓ — SH ${d.sh_no || '—'} (#${id})`, lead: leadOf(r, d) });
+            const savedSh = ((await refreshCache()).find(x => x.id === id)?.sh_no as string) || d.sh_no;
+            setForm(f => ({ ...f, sh_no: String(savedSh || '') }));
+            setStatus(`Saved as #${id} — SH ${savedSh}`);
+            report(r, { tone: 'ok', title: `Saved ✓ — SH ${savedSh || '—'} (#${id})`, lead: leadOf(r, d) });
         } catch (err: any) { setStatus(err instanceof cloud.UserError ? err.message : 'Save failed.'); console.error('Save error:', err); saveError(err, 'Save'); }
         finally { setBusy(false); }
     }
@@ -355,8 +363,11 @@ export default function SlipPage() {
                 <table className="grid kv"><tbody>
                     <tr>
                         <td colSpan={2}><div className="inline">
-                            <input placeholder="SH Number" id="sh_no" name="sh_no" type="text" value={form.sh_no} onChange={set('sh_no')} onBlur={() => void onShBlur()} />
-                            <button id="btnFetchSh" type="button" title="Fetch latest slip with this SH" onClick={() => void fetchBySh()}>Fetch</button>
+                            {/* a loaded slip's SH is its own and cannot be typed over (New Slip frees the box); on a new slip the box only finds slips — Save gives a PMS number */}
+                            <input placeholder={loaded ? 'SH Number' : 'SH No. to find a slip'} id="sh_no" name="sh_no" type="text" value={form.sh_no} onChange={set('sh_no')} onBlur={() => void onShBlur()}
+                                readOnly={loaded} aria-readonly={loaded} className={loaded ? 'sh-locked' : undefined}
+                                title={loaded ? 'This slip\'s own SH — it cannot be changed. Press New Slip to look up another SH.' : 'Type an SH and press Fetch to open its slip. A new slip gets its own SH (MP… / DP…) when you Save.'} />
+                            <button id="btnFetchSh" type="button" title={loaded ? 'Press New Slip first to look up another SH' : 'Fetch latest slip with this SH'} disabled={loaded} onClick={() => void fetchBySh()}>Fetch</button>
                             {stays.length >= 2 && <select id="stayPick" title="This SH has more than one stay here" value={String(currentId ?? '')} onChange={e => { const r = stays.find(x => x.id === Number(e.target.value)); if (r) { setCurrentId(r.id); setUnlocked(false); load(r); setStatus(`Loaded stay #${r.id} for SH ${r.sh_no}`); } }}>
                                 {stays.map(r => <option key={r.id} value={r.id}>{r.sh_no} · {(r.checkin_date || '').split('-').reverse().join('/')} → {(r.checkout_date || '').split('-').reverse().join('/')}{r.building ? ' · ' + r.building : ''}</option>)}</select>}
                         </div></td>
