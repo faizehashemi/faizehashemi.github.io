@@ -119,23 +119,30 @@ export const ARRIVAL_CSS = `
 .arr tfoot td { font: 900 14pt Arial, Helvetica, sans-serif; background: #fff; }
 .arr tbody tr { break-inside: avoid; page-break-inside: avoid; }
 .arr thead { display: table-header-group; }
+.arr td.nm { overflow-wrap: break-word; word-break: normal; white-space: normal; }
+.arr.img td.nm { font-size: 8.5pt; line-height: 1.15; padding-left: 1mm; padding-right: 1mm; }
 .arr .none { padding: 8mm; font: 400 12pt Arial, sans-serif; text-transform: none; }
 `;
 // bus · time · ref · group · leader · floor · male · female · child · infant · total
 export const COL_WIDTHS = ['10%', '9%', '8%', '19%', '17%', '7%', '5.5%', '5.5%', '5%', '5%', '9%'];
+/** Copy image: the group and leader columns at half their width (names wrap onto the lines below); the other columns keep their size, so the
+ *  picture is that much narrower — IMAGE_WIDTH px instead of 1000 */
+const half = COL_WIDTHS.map((w, i) => parseFloat(w) / (i === 3 || i === 4 ? 2 : 1)), halfSum = half.reduce((a, b) => a + b, 0);
+export const IMAGE_COL_WIDTHS = half.map(w => `${(w / halfSum * 100).toFixed(3)}%`);
+export const IMAGE_WIDTH = Math.round(1000 * halfSum / 100);
 
 /** the sheet as plain HTML — for Print and Copy image (the page itself shows the same table with editable cells) */
-export function arrivalHtml(rows: ShownRow[], sheet: Sheet | null | undefined, dateText: string) {
+export function arrivalHtml(rows: ShownRow[], sheet: Sheet | null | undefined, dateText: string, { image = false } = {}) {
     const L = (id: string) => esc(label(sheet, id, dateText));
-    return `<table class="arr">
-      <colgroup>${COL_WIDTHS.map(w => `<col style="width:${w}">`).join('')}</colgroup>
+    return `<table class="arr${image ? ' img' : ''}">
+      <colgroup>${(image ? IMAGE_COL_WIDTHS : COL_WIDTHS).map(w => `<col style="width:${w}">`).join('')}</colgroup>
       <thead>
         <tr class="ttl"><th colspan="11">${L('title')}</th></tr>
         <tr class="dt"><th colspan="3">${L('dateLbl')}</th><th class="v" colspan="8">${L('date')}</th></tr>
         <tr class="hd"><th rowspan="2">${L('bus')}</th><th rowspan="2">${L('time')}</th><th rowspan="2">${L('ref')}</th><th rowspan="2">${L('group')}</th><th rowspan="2">${L('leader')}</th><th rowspan="2" class="fl">${L('floor')}</th><th colspan="5">${L('pax')}</th></tr>
         <tr class="hd"><th class="sub">${L('m')}</th><th class="sub">${L('f')}</th><th class="sub">${L('c')}</th><th class="sub">${L('i')}</th><th class="sub">${L('total')}</th></tr>
       </thead>
-      <tbody>${rows.length ? rows.map(r => `<tr><td class="bus ${busSize(r.v.bus)}">${esc(r.v.bus)}</td><td class="tm">${esc(r.v.time)}</td><td class="ref">${esc(r.v.ref)}</td><td>${esc(r.v.group)}</td><td>${esc(r.v.leader)}</td><td class="fl">${esc(r.v.floor)}</td>`
+      <tbody>${rows.length ? rows.map(r => `<tr><td class="bus ${busSize(r.v.bus)}">${esc(r.v.bus)}</td><td class="tm">${esc(r.v.time)}</td><td class="ref">${esc(r.v.ref)}</td><td class="nm">${esc(r.v.group)}</td><td class="nm">${esc(r.v.leader)}</td><td class="fl">${esc(r.v.floor)}</td>`
         + (['m', 'f', 'c', 'i'] as Field[]).map(k => `<td class="px">${esc(r.v[k])}</td>`).join('') + `<td class="px tot">${esc(r.v.pax)}</td></tr>`).join('')
         : '<tr><td class="none" colspan="11">No arrivals for this day.</td></tr>'}</tbody>
       <tfoot><tr><td colspan="6">${L('sum')}</td>${(['m', 'f', 'c', 'i', 'pax'] as Field[]).map(k => `<td>${columnTotal(rows, k)}</td>`).join('')}</tr></tfoot>

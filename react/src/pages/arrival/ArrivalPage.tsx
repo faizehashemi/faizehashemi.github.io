@@ -6,7 +6,7 @@ import { useSlips } from '@/hooks/useSlips';
 import { useCore, useGuard, useLoadCore, useNav, useParams, useSite } from '@/pms/PmsContext';
 import { DayNav } from '../transport/DayNav';
 import {
-    ARRIVAL_CSS, COL_WIDTHS, INBOUND_DEST, applySheet, arrivalHtml, buildArrival, busSize, columnTotal, label, otherSite,
+    ARRIVAL_CSS, COL_WIDTHS, IMAGE_WIDTH, INBOUND_DEST, applySheet, arrivalHtml, buildArrival, busSize, columnTotal, label, otherSite,
     type Field, type Sheet, type ShownRow,
 } from './arrival';
 
@@ -115,8 +115,8 @@ export default function ArrivalPage() {
     async function copyImage() {
         setMsg(''); setNote('');
         const host = document.createElement('div');
-        host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1000px;background:#fff';
-        host.innerHTML = `<style>${ARRIVAL_CSS}</style>${html}`;
+        host.style.cssText = `position:fixed;left:-10000px;top:0;width:${IMAGE_WIDTH}px;background:#fff`;
+        host.innerHTML = `<style>${ARRIVAL_CSS}</style>${arrivalHtml(shown, sheet, dateText, { image: true })}`;
         document.body.appendChild(host);
         try {
             const lib = await loadCore('table-image');
