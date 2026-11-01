@@ -117,5 +117,9 @@ html.tq-print-lug .tq-lugsheets { display: block; }
 .sheet2 .s2-tbl tfoot td.n { text-align: center; }
 .sheet2 .s2-from { margin-top: 2mm; font-size: 11pt; }
 .sheet2 .s2-from .from { display: block; font: 700 12pt Arial, sans-serif; }
+/* the Hajj Mishkat watermark (optional): centred behind everything on the sheet; the sheet's own content stays on top */
+.sheet.sheet2 { position: relative; }
+.sheet2 > :not(.s2-wm) { position: relative; z-index: 1; }
+.sheet2 .s2-wm { position: absolute; z-index: 0; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 150mm; max-width: 82%; max-height: 88%; object-fit: contain; pointer-events: none; user-select: none; }
 @page bus2 { size: A4 portrait; margin: 8mm; }
 @media print { .sheet.sheet2 { width: 100%; height: 277mm; } }

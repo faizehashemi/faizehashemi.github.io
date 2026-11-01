@@ -43,9 +43,10 @@ export function sheet(T: T, day: string, dest: Row, b: Row) {
 
 // Format two: A4 portrait — the route as the title, a very large bus number, and a plain SH No / Group / Pax table under it (group name large, leader small).
 // Used by default at the Medina site; Makkah keeps format one (the landscape sign above).
-export function sheet2(T: T, day: string, dest: Row, b: Row, from: string) {   // from: the site's name, used only if a destination has no route
+// wm: the Hajj Mishkat emblem (assets/mishkat.svg) as a light watermark behind the sheet — switched on and its opacity set on the page.
+export function sheet2(T: T, day: string, dest: Row, b: Row, from: string, wm?: { src: string; opacity: number } | null) {   // from: the site's name, used only if a destination has no route
     const word = T.vehicleWord(b.vehicle, b.vlabel);
-    return `<section class="sheet sheet2">
+    return `<section class="sheet sheet2">${wm ? `<img class="s2-wm" src="${esc(wm.src)}" alt="" style="opacity:${Math.min(1, Math.max(0, wm.opacity))}">` : ''}
       <div class="s2-date">Date - ${esc(T.sheetDate(day))}</div>
       <div class="s2-title">${esc(String(dest.route || `${from}-${dest.label}`).replace('-', ' TO ').replace(/ MAKKAH$/, ' MECCA'))}${b.rows[0]?.part ? ` · ${b.rows[0].part === 'gents' ? 'GENTS' : 'LADIES'}` : ''}</div>
       <div class="s2-word">${esc(word)} NO.${b.at ? ` <small>${esc(T.time12(b.at))}</small>` : ''}</div>

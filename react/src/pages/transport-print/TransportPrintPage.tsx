@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { useCore, useGuard, useLoadApp, useLoadCore, useNav, useParams, useSite } from '@/pms/PmsContext';
 import { DayNav } from '../transport/DayNav';
 import css from './sheets.css?raw';
@@ -50,6 +51,11 @@ export default function TransportPrintPage() {
     const [pfont, setPfont] = useState<'auto' | 'rock' | 'gar'>(() => { try { const v = localStorage.getItem(pfKey); if (v === 'rock' || v === 'gar') return v; } catch { /* auto */ } return 'auto'; });
     const pickFont = (v: 'auto' | 'rock' | 'gar') => { setPfont(v); try { localStorage.setItem(pfKey, v); } catch { /* not saved */ } };
     const pfCls = pfont === 'rock' ? ' pf-rock' : pfont === 'gar' ? ' pf-gar' : '';
+    // format two's Hajj Mishkat watermark: on / off and how strong (opacity in %), kept per browser like the format and font
+    const wmKey = 'pms_bus_watermark';
+    const [wm, setWm] = useState<{ on: boolean; pct: number }>(() => { try { const v = JSON.parse(localStorage.getItem(wmKey) || 'null'); if (v && typeof v.on === 'boolean') return { on: v.on, pct: Math.min(40, Math.max(2, Number(v.pct) || 8)) }; } catch { /* default */ } return { on: false, pct: 8 }; });
+    const pickWm = (v: { on: boolean; pct: number }) => { setWm(v); try { localStorage.setItem(wmKey, JSON.stringify(v)); } catch { /* not saved */ } };
+    const wmSrc = new URL('assets/mishkat.svg', document.baseURI).href;   // absolute, so the print tab finds it too
     const [lugOpen, setLugOpen] = useState(false);
     const [lugOff, setLugOff] = useState<string[]>([]);
     const [xl, setXl] = useState('');
@@ -72,7 +78,7 @@ export default function TransportPrintPage() {
         return groups.filter(g => picked.includes(g.dest.id)).map((g): Row => ({ ...g, buses: g.buses.filter((b: Row) => !o || o.has(Number(b.bus))) })).filter(g => g.buses.length);
     };
     const L: Libs | null = libs ? { vehicleWord: T.vehicleWord, sheetDate: T.sheetDate, time12: T.time12, tripRows: libs.ex.tripRows, ziyaratSummary: libs.ziyarat.ziyaratSummary } : null;
-    const pages = chosen().flatMap(g => g.buses.map((b: Row) => (fmt === '2' ? sheet2(T, day, g.dest, b, site.label.toUpperCase()) : sheet(T, day, g.dest, b))));
+    const pages = chosen().flatMap(g => g.buses.map((b: Row) => (fmt === '2' ? sheet2(T, day, g.dest, b, site.label.toUpperCase(), wm.on ? { src: wmSrc, opacity: wm.pct / 100 } : null) : sheet(T, day, g.dest, b))));
     const sheetsHtml = pages.join('') || `<p class="tq-none">${doc.rows.length ? 'No buses for this choice.' : 'No transport list saved for this day.'}</p>`;
     useLayoutEffect(() => { if (sheetsRef.current) fitSheets(sheetsRef.current); }, [sheetsHtml, fmt, pfont]);
     // the bus number's font (Rockwell Extra Bold, assets/fonts) loads after the first fit: fit again once it is in
@@ -98,6 +104,8 @@ export default function TransportPrintPage() {
         </style></head><body><div class="${wrapCls}${pfCls}">${html}</div><script>
             (async function () {
                 try { await document.fonts.load('200pt "Rockwell Extra Bold"'); await document.fonts.load('800 20pt "EB Garamond"'); } catch (e) { }
+                // the watermark picture must be in before the print dialog, or it prints blank
+                await Promise.all([].slice.call(document.images).map(function (im) { return im.complete ? 0 : new Promise(function (r) { im.onload = im.onerror = r; }); }));
                 (${fitSheets.toString()})(document); (${fitLuggage.toString()})(document);
                 setTimeout(function () { window.focus(); window.print(); }, 300);
             })();
@@ -143,6 +151,15 @@ export default function TransportPrintPage() {
                         <Button asChild variant="outline"><a href={href('transport', { day })}>🚌 Transport day</a></Button>
                         <select aria-label="Print font" className="h-9 rounded-md border bg-background px-2 text-sm" value={pfont} onChange={e => pickFont(e.target.value as 'auto' | 'rock' | 'gar')} title="The typeface of the printed sheets"><option value="auto">Font: each format's own</option><option value="rock">Font: Rockwell Extra Bold</option><option value="gar">Font: Garamond</option></select>
                         <select aria-label="Sign format" className="h-9 rounded-md border bg-background px-2 text-sm" value={fmt} onChange={e => pickFmt(e.target.value as '1' | '2')} title="The layout of the bus sign"><option value="1">Format 1 — landscape</option><option value="2">Format 2 — portrait, big number</option></select>
+                        {fmt === '2' && (
+                            <span className="flex h-9 items-center gap-2 rounded-md border bg-background px-2 text-sm" title="The Hajj Mishkat emblem printed lightly behind format two">
+                                <Switch checked={wm.on} onCheckedChange={on => pickWm({ ...wm, on })} aria-label="Watermark" />
+                                <span>Watermark</span>
+                                {wm.on && <label className="flex items-center gap-1">opacity
+                                    <input type="number" min={2} max={40} step={1} value={wm.pct} aria-label="Watermark opacity (%)" className="h-7 w-14 rounded border px-1 text-right"
+                                        onChange={e => pickWm({ ...wm, pct: Math.min(40, Math.max(2, Number(e.target.value) || 8)) })} />%</label>}
+                            </span>
+                        )}
                         <Button disabled={none} onClick={printSheets}><Printer className="size-4" />Print</Button>
                         <Button variant="outline" title="One A4 landscape page per bus: the groups on it" onClick={() => setLugOpen(o => !o)}>🧳 Luggage sheet</Button>
                         <Button variant="outline" disabled={none || !L} title="One list of all the chosen trips of the day" onClick={printSummary}>📋 Print summary</Button>
