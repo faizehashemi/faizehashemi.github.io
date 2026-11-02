@@ -26,9 +26,9 @@ export const DEFAULT_SITE = 'makkah';
 
 // Pages that run as React (react/ → pms/react/) for every login, approved 2026-10-27 (the laundry POS too, 2026-10-27). Back to the standard page: add ?legacy=1 to the address (e.g. …/#/makkah/slip?legacy=1), set localStorage pms_react_off=1 in one browser, or remove the page here.
 // One login can be given a page early with prefs.reactPages (canary), this browser with localStorage pms_react_pages (see react-bridge.js).
-// The menu bar, router and page frame as React (react/src/shell) instead of core/nav.js + legacy-shell.js. Off in production until approved on staging;
+// The menu bar, router and page frame as React (react/src/shell) instead of core/nav.js + legacy-shell.js. On for everybody since 2026-11-02 (approved after staging);
 // one browser: localStorage pms_react_shell = 1 (on) / 0 (off); one visit: ?shell=react / ?shell=legacy in the address (see main.js).
-export const REACT_SHELL = false;
+export const REACT_SHELL = true;
 export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
