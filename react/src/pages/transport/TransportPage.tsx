@@ -295,8 +295,22 @@ export default function TransportPage() {
             body: [...lines, ...(missing.length ? ['', `Not in this site's slips: ${missing.join(', ')} — you will be asked their pax next.`] : []), ...(already.length ? ['', `Already on this day's list: ${already.join(', ')} — they are added again.`] : [])].join('\n'),
         }))) return;
         const adds = found.map(g => g.add);
-        const have = T.vehiclePax(rows, parent.key), more = adds.reduce((s, a) => s + (Number(a.pax) || 0), 0);
-        if (T.limited(parent) && have + more > T.BUS_LIMIT) { setMsg(`This bus has ${have} pax; adding ${more} more would pass the limit of ${T.BUS_LIMIT} per bus. Put the group on another bus.`, 'bad'); return; }
+        // a Ziyarat bus split into gents and ladies (core/ziyarat.js): each group is split the same way — its gents on the gents bus, its ladies and
+        // children on the ladies bus (the split window's default) — and each bus is held to the limit with only the part it carries
+        const gKey = parent.part === 'gents' ? parent.key : parent.part === 'ladies' ? String(parent.key).replace(/-L$/, '') : '';
+        const gBus = gKey ? rows.find(r => r.key === gKey) : undefined, lBus = gKey ? rows.find(r => r.key === `${gKey}-L`) : undefined;
+        if (gBus && lBus) {
+            const over = ([bus, more, what]: [Row, number, string]) => {
+                const have = T.vehiclePax(rows, bus.key);
+                return T.limited(bus) && have + more > T.BUS_LIMIT ? `The ${what} bus has ${have} pax; adding ${more} more ${what} would pass the limit of ${T.BUS_LIMIT} per bus.` : '';
+            };
+            const why = ([[gBus, adds.reduce((s, a) => s + n(a.m), 0), 'gents'], [lBus, adds.reduce((s, a) => s + n(a.f) + n(a.c), 0), 'ladies']] as [Row, number, string][]).map(over).filter(Boolean);
+            if (why.length) { setMsg(`${why.join(' ')} Put the group on another bus.`, 'bad'); return; }
+        } else {
+            const have = T.vehiclePax(rows, parent.key), more = adds.reduce((s, a) => s + (Number(a.pax) || 0), 0);
+            if (T.limited(parent) && have + more > T.BUS_LIMIT) { setMsg(`This bus has ${have} pax; adding ${more} more would pass the limit of ${T.BUS_LIMIT} per bus. Put the group on another bus.`, 'bad'); return; }
+        }
+        const fromSlips = adds.length;
         for (const sh of missing) {
             const p = await promptAsk({ title: `SH ${sh} is not in this site's slips`, body: 'Add it anyway? Number of pax (Cancel to skip):', type: 'number' });
             if (p === null || !n(p)) continue;
@@ -304,7 +318,20 @@ export default function TransportPage() {
         }
         if (!adds.length) return;
         const stamp = Date.now().toString(36).toUpperCase();
-        const riders = adds.map((add, i) => ({ key: `M${stamp}${i}`, dora: '', vch: '', transporter: '', at: parent.at, route: '', remarks: `added to SH ${parent.ref}'s ${T.vehicleOf(parent)}`, adj: '', loc: '', ...add, with: parent.key, manual: true }));
+        const base = (add: Row, i: number) => ({ key: `M${stamp}${i}`, dora: '', vch: '', transporter: '', at: parent.at, route: '', remarks: `added to SH ${parent.ref}'s ${T.vehicleOf(parent)}`, adj: '', loc: '', ...add, with: parent.key, manual: true });
+        const riders: Row[] = adds.flatMap((add, i) => {
+            if (!gBus || !lBus) return [base(add, i)];
+            if (i >= fromSlips) {   // typed by hand (not in the slips): its pax go on the bus it was added to
+                const p = n(add.pax), G = parent.part === 'gents';
+                return [{ ...base(add, i), at: parent.at, with: parent.key, part: parent.part, m: G ? p : 0, f: G ? 0 : p, c: 0, inf: 0 }];
+            }
+            // as the split window makes them: the gents trip always (Undo split puts the group back together from it), the ladies trip when it has pax
+            const m = n(add.m), l = n(add.f), c = n(add.c);
+            const g: Row = { ...base(add, i), at: gBus.at, with: gBus.key, part: 'gents', m, f: 0, c: 0, inf: 0, pax: m, pax_manual: true, split_orig: { m: add.m, f: add.f, c: add.c, pax: add.pax, at: gBus.at } };
+            return l + c > 0
+                ? [g, { ...base(add, i), key: `${g.key}-L`, at: lBus.at, with: lBus.key, part: 'ladies', m: 0, f: l, c, inf: 0, pax: l + c, remarks: `ladies part of SH ${add.ref || ''}`.trim() }]
+                : [g];
+        });
         await save([...rows, ...riders].sort((a, b) => a.at.localeCompare(b.at)), `SH ${adds.map(a => a.ref).join(', ')} added to ${parent.ref ? `SH ${parent.ref}` : 'a vehicle'}`);
     }
     async function submitAddBus(destId: string, f: { time: string; veh: string; transporter: string; vch: string; sh: string }) {
