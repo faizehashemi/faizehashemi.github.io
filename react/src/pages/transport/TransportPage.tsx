@@ -299,7 +299,9 @@ export default function TransportPage() {
         // a Ziyarat bus split into gents and ladies (core/ziyarat.js): each group is split the same way — its gents on the gents bus, its ladies and
         // children on the ladies bus (the split window's default) — and each bus is held to the limit with only the part it carries
         const gKey = parent.part === 'gents' ? parent.key : parent.part === 'ladies' ? String(parent.key).replace(/-L$/, '') : '';
-        const gBus = gKey ? rows.find(r => r.key === gKey) : undefined, lBus = gKey ? rows.find(r => r.key === `${gKey}-L`) : undefined;
+        // the vehicles the clicked group's gents and ladies trips ride in (gender-wise planned buses need not pair up: a group's ladies may ride another group's bus)
+        const busOf = (r: Row | undefined) => (r ? info.get(r.key)?.parent || r : undefined);
+        const gBus = busOf(gKey ? rows.find(r => r.key === gKey) : undefined), lBus = busOf(gKey ? rows.find(r => r.key === `${gKey}-L`) : undefined);
         const own = { g: false, l: false };   // a part that does not fit gets a bus of its own (same route and time as its split bus)
         if (gBus && lBus) {
             const load = (bus: Row, more: number) => ({ have: T.vehiclePax(rows, bus.key), more, over: T.limited(bus) && T.vehiclePax(rows, bus.key) + more > T.BUS_LIMIT });
@@ -407,7 +409,8 @@ export default function TransportPage() {
         const mod = await loadApp('views/transport/plan.js');
         const trips: Row[] | null = await mod.openCheckoutPlan({ day, siteId, slips, rows });
         if (!trips?.length) return;
-        await save(T.assignBuses([...rows.map(r => ({ ...r })), ...trips].sort((a, b) => a.at.localeCompare(b.at)), rows), `${trips[0].remarks.replace(/, with SH .*/, '')}: ${trips.length} group${trips.length === 1 ? '' : 's'} (SH ${trips.map(t => t.ref).join(', ')})`);
+        const shs = [...new Set(trips.map(t => String(t.ref)))];   // a gender-wise Ziyarat group has a gents and a ladies trip
+        await save(T.assignBuses([...rows.map(r => ({ ...r })), ...trips].sort((a, b) => a.at.localeCompare(b.at)), rows), `${trips[0].remarks.replace(/, with SH .*| · .*/, '')}: ${shs.length} group${shs.length === 1 ? '' : 's'} (SH ${shs.join(', ')})`);
     }
     async function renumber() {
         if (!(await confirmAsk({ title: 'Renumber the buses?', confirmLabel: 'Renumber', body: 'Number every destination again from 1, in time order?\nBuses and cars count apart. Numbers typed in by hand are replaced, and sheets already stuck on buses may no longer match.' }))) return;

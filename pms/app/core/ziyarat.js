@@ -117,6 +117,66 @@ export function openZiyaratSplit(main, riders, all) {
     });
 }
 
+/**
+ * Gender-wise Ziyarat buses for the planner ("Plan trips" → Madina Ziyarat — check-ins, gents and ladies apart).
+ * groups: [{ ref, operator, leader, m, f, c, rooms, building }] — gents part = m, ladies part = f + c (children with the ladies, as the split window).
+ * Each part is packed on its own, to as few buses as it can while keeping each hotel's groups together: a part bigger than a bus fills whole buses
+ * (60 → 49 + 11; the 11 rides with others); then each hotel's pieces are packed biggest first into the first bus with room (first-fit decreasing),
+ * and last the hotels' part-full buses are merged the same way (two hotels share a bus only when that saves one).
+ * Returns the day's new trips in the split model: a group's gents trip is <key> (part 'gents', with split_orig so Undo split works), its ladies
+ * trip <key>-L; extra pieces of a big part get <key>~2, <key>~2-L …. The first piece on a bus is that bus's own trip (route, time), the others
+ * ride with it. Pure: no DOM, no saving.
+ */
+export function packZiyarat(groups, { gAt, lAt, keyOf, limit = 49 }) {
+    const pieces = (total, cap) => [...Array(Math.floor(total / cap)).fill(cap), ...(total % cap ? [total % cap] : [])];
+    // first-fit decreasing of things with a size into bins of `limit`
+    const ffd = (things) => {
+        const bins = [];
+        for (const t of [...things].sort((a, b) => b.size - a.size)) {
+            const bin = bins.find(b => b.size + t.size <= limit) || (bins.push({ size: 0, items: [] }), bins[bins.length - 1]);
+            bin.size += t.size; bin.items.push(...(t.items || [t]));
+        }
+        return bins;
+    };
+    const trips = [];
+    for (const part of ['gents', 'ladies']) {
+        const G = part === 'gents';
+        const items = [];
+        groups.forEach((g, gi) => {
+            const total = G ? n(g.m) : n(g.f) + n(g.c);
+            if (!total) return;
+            let f = n(g.f), c = n(g.c);   // a ladies piece takes ladies first, then children
+            pieces(total, limit).forEach((size, j) => {
+                const pf = G ? 0 : Math.min(f, size), pc = G ? 0 : size - pf;
+                f -= pf; c -= pc;
+                items.push({ g, gi, j, size, m: G ? size : 0, f: pf, c: pc });
+            });
+        });
+        items.sort((a, b) => a.gi - b.gi || a.j - b.j);   // stable order before the size sorts below
+        const byHotel = new Map();
+        for (const it of items) { const h = it.g.building || ''; (byHotel.get(h) || byHotel.set(h, []).get(h)).push(it); }
+        const hotelBins = [...byHotel.values()].flatMap(ffd);
+        const full = hotelBins.filter(b => b.size >= limit), partFull = hotelBins.filter(b => b.size < limit);
+        const buses = [...full, ...ffd(partFull)];
+        const at = G ? gAt : lAt;
+        for (const bus of buses) {
+            let host = null;
+            for (const it of bus.items) {
+                const g = it.g, base = keyOf(it.gi) + (it.j ? `~${it.j + 1}` : '');
+                const t = {
+                    key: G ? base : `${base}-L`, ref: g.ref, operator: g.operator || '', leader: g.leader || '', rooms: g.rooms || [], ...(g.building ? { building: g.building } : {}),
+                    part, m: it.m, f: it.f, c: it.c, inf: 0, pax: it.size, pax_manual: true, at, manual: true, dora: '', vch: '', transporter: '', adj: '', loc: '',
+                    remarks: `${part} part of SH ${g.ref || ''}`.trim(),
+                    ...(G && !it.j ? { split_orig: { m: n(g.m), f: n(g.f), c: n(g.c), pax: n(g.m) + n(g.f) + n(g.c), at: gAt } } : {}),
+                };
+                if (!host) { host = t; trips.push({ ...t, route: ZIYARAT_ROUTE }); }
+                else trips.push({ ...t, route: '', with: host.key });
+            }
+        }
+    }
+    return trips.sort((a, b) => a.at.localeCompare(b.at));
+}
+
 /** "21/10/26" */
 const shortDate = (day) => { const [y, m, d] = day.split('-'); return `${d}/${m}/${y.slice(2)}`; };
 const isCoaster = (b) => b.vehicle === 'other' && /coaster/i.test(b.vlabel || '');

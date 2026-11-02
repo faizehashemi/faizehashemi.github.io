@@ -7,6 +7,7 @@
 import { destsFor, ymd, addDays, BUS_LIMIT } from '../../core/transport.js';
 import { departuresOf, isDelayed } from '../../core/stay.js';
 import { baseSh } from '../../core/ums.js';
+import { packZiyarat } from '../../core/ziyarat.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
@@ -78,6 +79,8 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
     const canZiyarat = dests.some(d => d.id === 'mdziyarat');
     // what to plan from, and from which date (the desk can change both)
     let mode = 'out', fromDay = day, lines = [];
+    // Madina Ziyarat goes gender-wise (a gents bus and a ladies bus): on by default, packed by core/ziyarat.js packZiyarat
+    let gender = true, gTime = ZIYARAT_TIME, lTime = ZIYARAT_TIME;
     return new Promise(resolve => {
         const dlg = document.createElement('dialog');
         dlg.className = 'tp-plan';
@@ -104,7 +107,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
             const what = Z ? `check-in${lines.length === 1 ? '' : 's'} on ${fromDay}` : `check-out${lines.length === 1 ? '' : 's'} on ${fromDay}`;
             dlg.querySelector('#plBody').innerHTML = `
               <p class="tp-muted">${lines.length ? (Z
-                ? `${lines.length} ${what}: their Madina Ziyarat goes on ${esc(day)}. Time is ${ZIYARAT_TIME} — change it per group; split gents and ladies on the day afterwards (⚥).`
+                ? `${lines.length} ${what}: their Madina Ziyarat goes on ${esc(day)}. Tick the groups; with gents and ladies on separate buses (below) the buses are made for you, else each group leaves at its own time (8:00 am unless changed).`
                 : `${lines.length} ${what}${other ? ` — the trips go on ${esc(day)}` : ''}. The destination is taken from each slip's <b>To</b> (or the UMS departure airport); change it, or pick “No vehicle needed” for groups who arrange their own way. Time is the check-out time — change it if the vehicle leaves earlier.`)
                 : `No group ${Z ? 'checked in' : 'checks out'} on ${esc(fromDay)}.`}</p>
               ${lines.length ? `<div class="tp-plan-scroll"><table class="tp-plan-tbl"><thead><tr><th></th><th>SH</th><th>Group</th><th>Pax</th><th>${Z ? 'Leaves at' : 'Check-out'}</th><th>Goes to</th></tr></thead><tbody>
@@ -116,7 +119,13 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
                   <td><input type="time" class="pl-time" value="${Z ? ZIYARAT_TIME : l.dest === 'mdmakkah' ? MD_MAKKAH_TIME : l.at.slice(11)}" data-orig="${l.at.slice(11)}" aria-label="Departure time"></td>
                   <td><select class="pl-dest" aria-label="Destination">${opts(l.dest)}</select>${l.listed ? '<small>already on this day’s list</small>' : l.to && !l.dest ? `<small>slip says To: ${esc(l.to)}</small>` : ''}</td>
                 </tr>`).join('')}</tbody></table></div>
-                <label class="tp-plan-share"><input type="checkbox" id="plShare"${Z ? ' checked' : ''}> Put groups going to the same place into one vehicle (at most ${BUS_LIMIT} pax) when they leave within <input type="number" id="plMin" min="5" max="240" value="30"> minutes of the first</label>` : ''}`;
+                ${Z ? `<div class="tp-plan-from tp-plan-gender">
+                    <label style="display:flex;gap:8px;align-items:center;font-size:13.5px"><input type="checkbox" id="plGender"${gender ? ' checked' : ''}> Gents and ladies on separate buses</label>
+                    <label>Gents leave at<input type="time" id="plGT" value="${esc(gTime)}"${gender ? '' : ' disabled'}></label>
+                    <label>Ladies leave at<input type="time" id="plLT" value="${esc(lTime)}"${gender ? '' : ' disabled'}></label>
+                  </div>
+                  <p class="tp-muted" id="plGenderNote"${gender ? '' : ' hidden'}>Every ticked group's gents go on gents buses and its ladies and children on ladies buses — as few buses as possible (at most ${BUS_LIMIT} each), a hotel's groups kept together where they can be. The times per group are not used.</p>` : ''}
+                <label class="tp-plan-share"${Z && gender ? ' hidden' : ''}><input type="checkbox" id="plShare"${Z ? ' checked' : ''}> Put groups going to the same place into one vehicle (at most ${BUS_LIMIT} pax) when they leave within <input type="number" id="plMin" min="5" max="240" value="30"> minutes of the first</label>` : ''}`;
             sum();
         };
         const picked = () => [...dlg.querySelectorAll('tr[data-i]')].map(tr => ({
@@ -138,6 +147,15 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
                 draw(); return;
             }
             if (e.target.matches('#plFrom')) { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { fromDay = e.target.value; draw(); } return; }
+            if (e.target.matches('#plGender')) {
+                gender = e.target.checked;
+                dlg.querySelector('#plGT').disabled = dlg.querySelector('#plLT').disabled = !gender;
+                dlg.querySelector('#plGenderNote').hidden = !gender;
+                dlg.querySelector('.tp-plan-share').hidden = gender;
+                return;
+            }
+            if (e.target.matches('#plGT')) { gTime = e.target.value; return; }
+            if (e.target.matches('#plLT')) { lTime = e.target.value; return; }
             const tr = e.target.closest('tr[data-i]');
             if (tr && e.target.matches('.pl-time')) e.target.dataset.touched = '1';
             if (tr && e.target.matches('.pl-dest')) {
@@ -160,8 +178,16 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
             const share = dlg.querySelector('#plShare')?.checked, gap = Math.max(5, n0(dlg.querySelector('#plMin')?.value) || 30);
             const from = mode === 'zin' ? `planned from check-ins of ${fromDay}` : `planned from check-outs${fromDay !== day ? ` of ${fromDay}` : ''}`;
             const trips = [];
+            // Madina Ziyarat gender-wise: the ticked Ziyarat groups are packed into gents buses and ladies buses (the rest are planned as below)
+            const zg = mode === 'zin' && gender ? p.filter(x => x.dest === 'mdziyarat') : [];
+            if (zg.length) {
+                if (!/^\d{2}:\d{2}$/.test(gTime) || !/^\d{2}:\d{2}$/.test(lTime)) { dlg.querySelector('#plSum').textContent = 'Fill in both times.'; return; }
+                const packed = packZiyarat(zg.map(x => ({ ref: x.line.sh, operator: x.line.name, leader: x.line.leader, m: x.line.m, f: x.line.f, c: x.line.c, rooms: x.line.rooms, building: x.line.building })),
+                    { gAt: `${day}T${gTime}`, lAt: `${day}T${lTime}`, keyOf: (i) => `P${stamp}Z${i}`, limit: BUS_LIMIT });
+                trips.push(...packed.map(t => ({ ...t, remarks: `${from} · ${t.remarks}` })));
+            }
             const mainOf = new Map();                     // dest → [{ main, at }]
-            p.sort((a, b) => a.time.localeCompare(b.time)).forEach((x, i) => {
+            p.filter(x => !zg.includes(x)).sort((a, b) => a.time.localeCompare(b.time)).forEach((x, i) => {
                 const l = x.line, dest = dests.find(d => d.id === x.dest);
                 const base = { key: `P${stamp}${i}`, ref: l.sh, operator: l.name, leader: l.leader, m: l.m, f: l.f, c: l.c, pax: l.pax, rooms: l.rooms,
                     dora: '', vch: '', transporter: '', adj: '', loc: '', at: `${day}T${x.time}`, manual: true, ...(l.building ? { building: l.building } : {}) };
