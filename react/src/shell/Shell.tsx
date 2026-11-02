@@ -131,13 +131,18 @@ function scopeDb(base: any) {
     return { db, guard, end: () => { scope.alive = false; } };
 }
 
+// The inline style / class of <html> and <body> before any page: every page leaves them as they were then. Not taken per page — the next page is
+// drawn while the one before is still up, so a dialog open on it (Radix puts pointer-events: none on <body>) would be taken for "how it was" and
+// put back later, leaving the whole page unclickable (seen 2026-11-02).
+let baseAttrs: { rootStyle: string | null; bodyStyle: string | null; bodyClass: string | null } | null = null;
+
 function PageFrame({ r, deps }: { r: Route; deps: ShellDeps }) {
     const { siteId, view, params } = r;
-    // taken while rendering, before this page adds anything (the page left before is gone by the time the clean-up below runs)
-    const [before] = useState(() => ({
-        body: new Set(Array.from(document.body.children)), head: new Set(Array.from(document.head.children)),
-        rootStyle: document.documentElement.getAttribute('style'), bodyStyle: document.body.getAttribute('style'), bodyClass: document.body.getAttribute('class'),
-    }));
+    // taken while rendering, before this page adds anything (what the page before left is removed by its own clean-up)
+    const [before] = useState(() => {
+        baseAttrs ??= { rootStyle: document.documentElement.getAttribute('style'), bodyStyle: document.body.getAttribute('style'), bodyClass: document.body.getAttribute('class') };
+        return { body: new Set(Array.from(document.body.children)), head: new Set(Array.from(document.head.children)), ...baseAttrs };
+    });
     const [scoped] = useState(() => scopeDb(deps.createDb(siteId)));
     const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }));
     const ctx = useMemo<PmsCtx>(() => ({

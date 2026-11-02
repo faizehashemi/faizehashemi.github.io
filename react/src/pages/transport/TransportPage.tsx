@@ -17,7 +17,7 @@ import { DayNav, cleanText } from './DayNav';
 
 // Transport day: the saved trips of one day (cloud, GET /api/transport), bus numbers per destination (type one in — kept by later imports), times (tap to
 // change, with a confirmation), vehicles, names, pax, groups riding with a bus, and the signage window. Day in the address: #/<site>/transport?day=YYYY-MM-DD.
-// The "Plan from check-outs" window and the Ziyarat split are the framework-free dialogs of the old page (views/transport/plan.js, core/ziyarat.js).
+// The "Plan trips" window (check-outs of a chosen date; Medina: Ziyarat from check-ins) and the Ziyarat split are the framework-free dialogs of the old page (views/transport/plan.js, core/ziyarat.js).
 
 type Row = Record<string, any>;
 const NAME_LABEL: Record<string, string> = { operator: 'Tour operator', leader: 'Group leader' };
@@ -143,7 +143,8 @@ export default function TransportPage() {
     // ---- the day's check: an SH listed more than once ----
     const dupes = useMemo(() => {
         const by = new Map<string, Row[]>();
-        for (const r of rows) { const k = String(r.ref || '').trim().toUpperCase(); if (!k || k === '0') continue; (by.get(k) ?? by.set(k, []).get(k)!).push(r); }
+        // a Ziyarat group split into gents and ladies has two trips (<key> and <key>-L) by design: they count once
+        for (const r of rows) { const k = String(r.ref || '').trim().toUpperCase(); if (!k || k === '0' || (r.part === 'ladies' && rows.some(x => x.key === String(r.key).replace(/-L$/, '')))) continue; (by.get(k) ?? by.set(k, []).get(k)!).push(r); }
         return [...by].filter(([, rs]) => rs.length > 1).map(([ref, rs]) => ({ ref, rows: rs }));
     }, [rows]);
     const dupeLines = (d: { rows: Row[] }) => d.rows.map(r => { const i = info.get(r.key); const to = i?.route || r.route || 'no route'; return `${T.time12(r.at)} · ${to}${i?.bus != null && !i.parent ? ' · bus ' + i.bus : i?.parent ? ' · grouped' : ''}`; });
@@ -299,16 +300,27 @@ export default function TransportPage() {
         // children on the ladies bus (the split window's default) — and each bus is held to the limit with only the part it carries
         const gKey = parent.part === 'gents' ? parent.key : parent.part === 'ladies' ? String(parent.key).replace(/-L$/, '') : '';
         const gBus = gKey ? rows.find(r => r.key === gKey) : undefined, lBus = gKey ? rows.find(r => r.key === `${gKey}-L`) : undefined;
+        const own = { g: false, l: false };   // a part that does not fit gets a bus of its own (same route and time as its split bus)
         if (gBus && lBus) {
-            const over = ([bus, more, what]: [Row, number, string]) => {
-                const have = T.vehiclePax(rows, bus.key);
-                return T.limited(bus) && have + more > T.BUS_LIMIT ? `The ${what} bus has ${have} pax; adding ${more} more ${what} would pass the limit of ${T.BUS_LIMIT} per bus.` : '';
-            };
-            const why = ([[gBus, adds.reduce((s, a) => s + n(a.m), 0), 'gents'], [lBus, adds.reduce((s, a) => s + n(a.f) + n(a.c), 0), 'ladies']] as [Row, number, string][]).map(over).filter(Boolean);
-            if (why.length) { setMsg(`${why.join(' ')} Put the group on another bus.`, 'bad'); return; }
+            const load = (bus: Row, more: number) => ({ have: T.vehiclePax(rows, bus.key), more, over: T.limited(bus) && T.vehiclePax(rows, bus.key) + more > T.BUS_LIMIT });
+            const G = load(gBus, adds.reduce((s, a) => s + n(a.m), 0)), L = load(lBus, adds.reduce((s, a) => s + n(a.f) + n(a.c), 0));
+            const line = (x: typeof G, what: string) => `${what} bus: ${x.have} + ${x.more} = ${x.have + x.more} of ${T.BUS_LIMIT}`;
+            if (G.over && L.over) { setMsg(`Neither part fits — ${line(G, 'gents')}, ${line(L, 'ladies')}. Put the group on another bus.`, 'bad'); return; }
+            if (G.over || L.over) {
+                const fits = G.over ? 'ladies' : 'gents', not = G.over ? 'gents' : 'ladies';
+                const at = T.time12((G.over ? gBus : lBus).at);
+                if (!(await confirmAsk({
+                    title: `Only the ${fits} fit on this bus`, confirmLabel: `Add — ${not} on a new bus`,
+                    body: [line(G, 'Gents'), line(L, 'Ladies (with the children)'), '', `The ${fits} of ${adds.map(a => `SH ${a.ref}`).join(', ')} go on this bus; the ${not}${not === 'ladies' ? ' and children' : ''} get a new ${not} bus of their own (Madina Ziyarat, ${at}).`].join('\n'),
+                }))) return;
+                if (G.over) own.g = true; else own.l = true;
+            }
         } else {
             const have = T.vehiclePax(rows, parent.key), more = adds.reduce((s, a) => s + (Number(a.pax) || 0), 0);
-            if (T.limited(parent) && have + more > T.BUS_LIMIT) { setMsg(`This bus has ${have} pax; adding ${more} more would pass the limit of ${T.BUS_LIMIT} per bus. Put the group on another bus.`, 'bad'); return; }
+            if (T.limited(parent) && have + more > T.BUS_LIMIT) {
+                const z = libs?.ziyarat.isZiyarat(siteId, parent.route) ? ' On Ziyarat the gents and ladies can ride apart: press ⚥ Split gents / ladies on this bus first, then add the group — each part is then counted on its own bus.' : ' Put the group on another bus.';
+                setMsg(`This bus has ${have} pax; adding ${more} more would pass the limit of ${T.BUS_LIMIT} per bus.${z}`, 'bad'); return;
+            }
         }
         const fromSlips = adds.length;
         for (const sh of missing) {
@@ -327,12 +339,21 @@ export default function TransportPage() {
             }
             // as the split window makes them: the gents trip always (Undo split puts the group back together from it), the ladies trip when it has pax
             const m = n(add.m), l = n(add.f), c = n(add.c);
-            const g: Row = { ...base(add, i), at: gBus.at, with: gBus.key, part: 'gents', m, f: 0, c: 0, inf: 0, pax: m, pax_manual: true, split_orig: { m: add.m, f: add.f, c: add.c, pax: add.pax, at: gBus.at } };
+            // a part with a bus of its own is a trip of its own: the split bus's route and time, no `with`
+            const ride = (r: Row, bus: Row, alone: boolean): Row => {
+                if (!alone) return { ...r, with: bus.key };
+                const { with: _w, ...x } = r;
+                return { ...x, route: bus.route || r.route, remarks: `${r.part} part of SH ${add.ref || ''}, on a bus of its own` };
+            };
+            const g = ride({ ...base(add, i), at: gBus.at, part: 'gents', m, f: 0, c: 0, inf: 0, pax: m, pax_manual: true, split_orig: { m: add.m, f: add.f, c: add.c, pax: add.pax, at: gBus.at } }, gBus, own.g);
             return l + c > 0
-                ? [g, { ...base(add, i), key: `${g.key}-L`, at: lBus.at, with: lBus.key, part: 'ladies', m: 0, f: l, c, inf: 0, pax: l + c, remarks: `ladies part of SH ${add.ref || ''}`.trim() }]
+                ? [g, ride({ ...base(add, i), key: `${g.key}-L`, at: lBus.at, part: 'ladies', m: 0, f: l, c, inf: 0, pax: l + c, remarks: `ladies part of SH ${add.ref || ''}`.trim() }, lBus, own.l)]
                 : [g];
         });
-        await save([...rows, ...riders].sort((a, b) => a.at.localeCompare(b.at)), `SH ${adds.map(a => a.ref).join(', ')} added to ${parent.ref ? `SH ${parent.ref}` : 'a vehicle'}`);
+        const next = [...rows, ...riders].sort((a, b) => a.at.localeCompare(b.at));
+        // a part on a bus of its own takes the next number of its destination (existing numbers stay)
+        await save(own.g || own.l ? T.assignBuses(next.map(r => ({ ...r })), rows) : next,
+            `SH ${adds.map(a => a.ref).join(', ')} added to ${parent.ref ? `SH ${parent.ref}` : 'a vehicle'}${own.g ? ' (gents on a new bus)' : own.l ? ' (ladies on a new bus)' : ''}`);
     }
     async function submitAddBus(destId: string, f: { time: string; veh: string; transporter: string; vch: string; sh: string }) {
         const dest = T.destsFor(siteId).find((d: Row) => d.id === destId);
@@ -386,7 +407,7 @@ export default function TransportPage() {
         const mod = await loadApp('views/transport/plan.js');
         const trips: Row[] | null = await mod.openCheckoutPlan({ day, siteId, slips, rows });
         if (!trips?.length) return;
-        await save(T.assignBuses([...rows.map(r => ({ ...r })), ...trips].sort((a, b) => a.at.localeCompare(b.at)), rows), `planned from check-outs: ${trips.length} group${trips.length === 1 ? '' : 's'} (SH ${trips.map(t => t.ref).join(', ')})`);
+        await save(T.assignBuses([...rows.map(r => ({ ...r })), ...trips].sort((a, b) => a.at.localeCompare(b.at)), rows), `${trips[0].remarks.replace(/, with SH .*/, '')}: ${trips.length} group${trips.length === 1 ? '' : 's'} (SH ${trips.map(t => t.ref).join(', ')})`);
     }
     async function renumber() {
         if (!(await confirmAsk({ title: 'Renumber the buses?', confirmLabel: 'Renumber', body: 'Number every destination again from 1, in time order?\nBuses and cars count apart. Numbers typed in by hand are replaced, and sheets already stuck on buses may no longer match.' }))) return;
@@ -544,7 +565,7 @@ export default function TransportPage() {
                         <Input type="search" className="min-w-48 flex-1" placeholder="Find SH, group, leader, transporter, vch…" aria-label="Find" value={find} onChange={e => setFind(e.target.value)} />
                         <label className="inline-flex items-center gap-1.5 text-sm font-semibold"><Checkbox checked={showRooms} onCheckedChange={v => pickRooms(v === true)} />Show rooms</label>
                         {writable && <>
-                            <Button title="Make trips from the groups checking out on this day" disabled={saving} onClick={() => void plan()}>🧭 Plan from check-outs</Button>
+                            <Button title="Make trips from the groups checking out on a date you pick (or, Medina, the Ziyarat of the groups who checked in the day before)" disabled={saving} onClick={() => void plan()}>🧭 Plan trips</Button>
                             <Button variant="outline" disabled={saving || !doc.version} title="Number each destination again from 1 in time order" onClick={() => void renumber()}>Renumber buses</Button>
                             <Button variant="outline" className="text-destructive" disabled={saving || !doc.version} onClick={() => void deleteDay()}>Delete day</Button></>}
                     </div>

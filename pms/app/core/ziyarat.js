@@ -1,4 +1,4 @@
-// Medina Ziyarat, gents and ladies apart (Medina only, route MADINA-MADINA ZIYARAT).
+// Medina Ziyarat, gents and ladies apart (route MADINA-MADINA ZIYARAT, on whichever site's Transport day it is listed).
 // On the Transport day a Ziyarat bus can be split: every group on it gets a GENTS trip (adults, gents' children,
 // infants) and a LADIES trip (adults, ladies' children, infants), each at its own time — the gents part keeps the
 // group's own trip (key), the ladies part is a new trip "<key>-L" (manual, so a pasted list never removes it).
@@ -10,7 +10,8 @@
 import { normRoute, time12 } from './transport.js';
 
 export const ZIYARAT_ROUTE = 'MADINA-MADINA ZIYARAT';
-export const isZiyarat = (site, route) => site === 'medina' && normRoute(route) === ZIYARAT_ROUTE;
+// by the route only: Ziyarat trips are sometimes kept on the Makkah desk's day too, and could not be split there (2026-11-02)
+export const isZiyarat = (_site, route) => normRoute(route) === ZIYARAT_ROUTE;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const n = (v) => Math.max(0, parseInt(v, 10) || 0);
 const pad = (x) => String(x).padStart(2, '0');
