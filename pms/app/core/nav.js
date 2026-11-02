@@ -9,31 +9,14 @@
 // events: 'site-change' (detail = siteId; admins only — other logins stay on their own site), 'logout'.
 // Only pages the login may open are listed (canOpen); quick links come from Settings.
 
-import { SITES, VIEWS, NAV } from '../config.js';
+import { SITES, VIEWS } from '../config.js';
 import { getPrefs, shortcutFor, modLabel, matchesShortcut } from './prefs.js';
 import { canOpen } from './cloud.js';
+import { menuFor, NOT_IN_SEARCH } from './menu.js';
+export { menuFor };   // Settings used to take it from here
 
 const viewById = Object.fromEntries(VIEWS.map(v => [v.id, v]));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-// Pages never offered in a menu group of their own (Settings lives in the login's dropdown)
-const NOT_IN_MENU = new Set(['home', 'login', 'blank', 'settings']);
-const NOT_IN_SEARCH = new Set(['home', 'login', 'blank']);
-
-/** The menu to show: the login's own groups (Settings → Menu) or the standard NAV; unplaced new pages at the end. */
-export function menuFor(p = getPrefs()) {
-    if (!Array.isArray(p.navMenu)) return NAV.map((c, i) => ({ id: `g${i}`, label: c.label, views: c.views.filter(id => viewById[id]) }));
-    const used = new Set(), groups = [];
-    for (const g of p.navMenu) {
-        const views = (Array.isArray(g?.views) ? g.views : []).filter(id => viewById[id] && !NOT_IN_MENU.has(id) && !used.has(id));
-        views.forEach(v => used.add(v));
-        groups.push({ id: `g${groups.length}`, label: String(g?.label || '').trim() || 'Untitled', views });
-    }
-    const hidden = new Set(Array.isArray(p.navHidden) ? p.navHidden : []);
-    const fresh = VIEWS.filter(v => !v.hidden && !NOT_IN_MENU.has(v.id) && !used.has(v.id) && !hidden.has(v.id)).map(v => v.id);
-    if (fresh.length) groups.push({ id: `g${groups.length}`, label: 'New pages', views: fresh });
-    return groups;
-}
 
 function menuItems(cat) {
     return cat.views.map(id => viewById[id]).filter(Boolean).map(v => `

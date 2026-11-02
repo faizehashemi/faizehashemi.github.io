@@ -1,0 +1,264 @@
+// The legacy shell (the <site-nav> custom element of core/nav.js + this hash router and view lifecycle) — used unless the React shell is
+// switched on (main.js). What runs behind every page is in services.js.
+//
+// Routes: #/<site>/<view>?<params>   e.g. #/makkah/slip?sh_no=38480
+// Each view lives in app/views/<id>/ as view.html + view.css + view.js (default export mount(ctx)).
+// Only one view is mounted at a time, so each view keeps its original page-level CSS untouched.
+// Anything a view attaches to window/document/body/head is tracked and undone on navigation.
+
+import { SITES, VIEWS, NAV, DEFAULT_SITE, LEGACY_PAGES } from './config.js';
+import { createDb } from './core/db.js';
+import { currentDesk, logout, canOpen, siteFor, firstPage } from './core/cloud.js';
+import './core/nav.js';
+import { watchTables } from './core/cards.js';
+import { pageview } from './core/analytics.js';
+import { getPrefs } from './core/prefs.js';
+import { reactPageOn, mountReact, preloadReact } from './react-bridge.js';
+import { startServices } from './services.js';
+
+const nav = document.querySelector('site-nav');
+const outlet = document.getElementById('view');
+let cssLink = null; // <link> of the mounted view's stylesheet
+const LAST_SITE_KEY = 'pms_last_site';
+
+/* ------------------------- listener tracking ------------------------- */
+
+const origAdd = EventTarget.prototype.addEventListener;
+const origRemove = EventTarget.prototype.removeEventListener;
+let tracked = null; // listeners added to window/document by the current view
+
+for (const target of [window, document]) {
+    target.addEventListener = function (type, fn, opts) {
+        // Views were written as standalone pages; the page has already loaded by the time they mount.
+        if ((type === 'DOMContentLoaded' && document.readyState !== 'loading') ||
+            (type === 'load' && this === window && document.readyState === 'complete')) {
+            setTimeout(() => typeof fn === 'function' ? fn.call(this, new Event(type)) : fn.handleEvent(new Event(type)), 0);
+            return;
+        }
+        if (tracked) tracked.push([this, type, fn, opts]);
+        return origAdd.call(this, type, fn, opts);
+    };
+}
+
+/* ------------------------------ routing ------------------------------ */
+
+function parseHash() {
+    const raw = location.hash.replace(/^#\/?/, '');
+    const [path, query = ''] = raw.split('?');
+    const [siteId, rawView] = path.split('/');
+    const viewId = VIEW_ALIAS[rawView] || rawView;   // pages that were removed open the page that took over their job
+    return { siteId, viewId, params: new URLSearchParams(query) };
+}
+
+function lastSite() {
+    const pref = getPrefs().startSite;
+    if (SITES[pref]) return pref;
+    try { const s = localStorage.getItem(LAST_SITE_KEY); return SITES[s] ? s : DEFAULT_SITE; }
+    catch { return DEFAULT_SITE; }
+}
+
+// the Movement page was folded into Check-ins (2026-10-27): old links and bookmarks land there
+const VIEW_ALIAS = { movement: 'checkins' };
+
+export function href(siteId, viewId, params) {
+    const q = params ? new URLSearchParams(params).toString() : '';
+    return `#/${siteId}/${viewId}${q ? '?' + q : ''}`;
+}
+
+// Legacy links inside view markup (e.g. href="accommodation_slip.html") → hash routes
+function rewriteLegacyLinks(root, siteId) {
+    root.querySelectorAll('a[href]').forEach(a => {
+        const h = a.getAttribute('href');
+        const m = h.match(/^(?:\.\/)?([\w-]+\.html)(\?.*)?$/);
+        if (m && LEGACY_PAGES[m[1]]) a.setAttribute('href', `#/${siteId}/${LEGACY_PAGES[m[1]]}${m[2] || ''}`);
+    });
+}
+
+/* ---------------------------- view lifecycle --------------------------- */
+
+// A view that is still loading when the user navigates away would otherwise resume and write
+// into the next view's DOM (views share ids like #status, #dateFrom, #tblIn). Each mount gets a
+// db whose calls stop settling once it is unmounted, so stale code halts at its next await.
+function scopeDb(base) {
+    const scope = { alive: true };
+    const never = () => new Promise(() => { });
+    const db = { ...base };
+    for (const [k, fn] of Object.entries(base)) {
+        if (typeof fn !== 'function') continue;
+        db[k] = (...args) => {
+            if (!scope.alive) return never();
+            return fn(...args).then(v => scope.alive ? v : never(), e => scope.alive ? Promise.reject(e) : never());
+        };
+    }
+    // ctx.guard(promise): the same for any other wait a view does (buildings, settings, requests)
+    const guard = (p) => Promise.resolve(p).then(v => scope.alive ? v : never(), e => scope.alive ? Promise.reject(e) : never());
+    return { db, guard, end: () => { scope.alive = false; } };
+}
+
+const htmlCache = new Map();
+let current = null; // { key, endDb, cleanup, listeners, bodyBefore, headBefore, rootStyle, bodyStyle, bodyClass }
+let routeSeq = 0;   // bumps on every navigation; an older in-flight route() gives up
+
+// Loads the view's stylesheet, then drops the previous one (no flash of unstyled content)
+// `seq` is the navigation it belongs to: a stylesheet that finishes loading after the user has already
+// moved on is dropped, so it can never replace the stylesheet of the page now showing.
+async function loadCss(viewId, seq) {
+    const url = `app/views/${viewId}/view.css`;
+    if (cssLink?.getAttribute('href') === url) return;
+    const next = document.createElement('link');
+    next.rel = 'stylesheet';
+    next.href = url;
+    next.dataset.shell = '';
+    // before the shell's responsive.css so its phone rules win over page styles
+    await new Promise(res => { next.onload = next.onerror = res; document.head.insertBefore(next, document.getElementById('responsive-css')); });
+    if (seq !== routeSeq) { next.remove(); return; }
+    if (cssLink !== next) cssLink?.remove();
+    cssLink = next;
+}
+
+function unmount() {
+    if (!current) return;
+    const c = current;
+    current = null;
+    tracked = null;
+    c.endDb();
+    c.stopTables?.();
+    try { c.cleanup?.(); } catch (e) { console.error('view cleanup failed', e); }
+    for (const [t, type, fn, opts] of c.listeners) origRemove.call(t, type, fn, opts);
+    for (const el of Array.from(document.body.children)) {
+        if (!c.bodyBefore.has(el) && !('shell' in el.dataset)) el.remove();
+    }
+    for (const el of Array.from(document.head.children)) {
+        if (!c.headBefore.has(el) && el.tagName === 'STYLE') el.remove();
+    }
+    const restore = (el, attr, val) => val == null ? el.removeAttribute(attr) : el.setAttribute(attr, val);
+    restore(document.documentElement, 'style', c.rootStyle);
+    restore(document.body, 'style', c.bodyStyle);
+    restore(document.body, 'class', c.bodyClass);
+    outlet.innerHTML = '';
+}
+
+async function route() {
+    let { siteId, viewId, params } = parseHash();
+    const desk = currentDesk();
+
+    if (!SITES[siteId]) siteId = desk?.site || lastSite();
+    // a Makkah login works on Makkah, a Medina login on Medina; only an admin can look at the other site
+    if (desk) siteId = siteFor(desk, siteId);
+    // Not logged in: the login screen, whatever the address says (it is kept for after login)
+    // no page in the address (opening the app): the start page from Settings
+    const start = !viewId && VIEWS.find(v => v.id === getPrefs().startView && !['login'].includes(v.id));
+    let view = !desk ? VIEWS.find(v => v.id === 'login')
+        : VIEWS.find(v => v.id === viewId && v.id !== 'login') || start || VIEWS.find(v => v.id === 'home');
+    // pages the admin has not given this login (Setup → Page access)
+    if (desk && !canOpen(view.id, desk)) {
+        // Home not allowed (or the start page): go to the login's first allowed page — quietly for Home
+        if (view.id !== 'home') nav.notice(`${view.label} is not available for ${desk.name}. Ask the admin if you need it.`);
+        view = VIEWS.find(v => v.id === firstPage(desk, NAV.flatMap(c => c.views)));
+        history.replaceState(null, '', href(siteId, view.id));
+    }
+
+    params.delete('source'); // old *_web redirects asked for the Cloud source; everything is cloud now
+    if (desk && (siteId !== parseHash().siteId || view.id !== viewId || parseHash().params.has('source'))) {
+        history.replaceState(null, '', href(siteId, view.id, params));
+    }
+    try { localStorage.setItem(LAST_SITE_KEY, siteId); } catch { }
+
+    const key = `${desk ? desk.id : '-'}/${siteId}/${view.id}/${params}`;
+    if (current?.key === key) return;
+
+    const seq = ++routeSeq;
+    const db = createDb(siteId);
+    nav.hidden = !desk;
+    if (desk) nav.setRoute(siteId, view.id, desk);
+    document.title = `${view.title} · ${SITES[siteId].label}`;
+    pageview(siteId, view.id);
+
+    // keep the old page's height while the new one loads, so the footer and the rest do not jump up and back down
+    if (outlet.offsetHeight) outlet.style.minHeight = `${outlet.offsetHeight}px`;
+    unmount();
+    window.dispatchEvent(new CustomEvent('pms:route-start', { detail: { view: view.id, site: siteId } }));
+    let opened = false;
+    outlet.setAttribute('aria-busy', 'true');
+    try {
+        // a page switched to React (react-bridge.js) has no legacy html / js / css to load
+        const useReact = reactPageOn(view.id);
+        if (useReact && cssLink) { cssLink.remove(); cssLink = null; }   // a legacy page's stylesheet must not linger under a React page (its bare `label { color: var(--muted) }` made labels pale)
+        if (!useReact && !htmlCache.has(view.id)) {
+            const resp = await fetch(`app/views/${view.id}/view.html`);
+            htmlCache.set(view.id, await resp.text());
+        }
+        const [{ default: mount }] = useReact ? [{ default: (c) => mountReact(view.id, c) }] : await Promise.all([
+            import(`./views/${view.id}/view.js`),
+            loadCss(view.id, seq),
+        ]);
+        if (seq !== routeSeq) return; // user navigated (view, site or source) while loading
+
+        const scoped = scopeDb(db);
+        current = {
+            key,
+            endDb: scoped.end,
+            listeners: (tracked = []),
+            bodyBefore: new Set(document.body.children),
+            headBefore: new Set(document.head.children),
+            rootStyle: document.documentElement.getAttribute('style'),
+            bodyStyle: document.body.getAttribute('style'),
+            bodyClass: document.body.getAttribute('class'),
+        };
+        outlet.innerHTML = useReact ? '' : htmlCache.get(view.id);
+        outlet.dataset.view = view.id;
+        rewriteLegacyLinks(outlet, siteId);
+        current.stopTables = useReact ? () => { } : watchTables(outlet); // data tables become cards on phones (React pages lay out their own)
+        window.scrollTo(0, 0);
+
+        const ctx = {
+            site: SITES[siteId],
+            siteId,
+            db: scoped.db,
+            guard: scoped.guard,
+            params,
+            root: outlet,
+            navigate: (v, p) => { location.hash = href(siteId, v, p); },
+            href: (v, p) => href(siteId, v, p),
+        };
+        const mine = current;
+        const cleanup = await mount(ctx);
+        if (typeof cleanup === 'function') {
+            if (current === mine) mine.cleanup = cleanup; else cleanup();
+        }
+        opened = true;
+    } catch (err) {
+        console.error(err);
+        outlet.innerHTML = `<div style="max-width:720px;margin:40px auto;padding:16px;border:1px solid #e6bcbc;background:#fff1f1;border-radius:12px;font:14px system-ui">
+            <b>Could not open “${view.title}”.</b><br>${String(err && err.message || err)}</div>`;
+    } finally {
+        if (seq === routeSeq) { outlet.removeAttribute('aria-busy'); outlet.style.minHeight = ''; }
+        if (seq === routeSeq) window.dispatchEvent(new CustomEvent('pms:route-done', { detail: { view: view.id, site: siteId, ok: opened } }));
+    }
+}
+
+/* -------------------------------- boot -------------------------------- */
+
+nav.addEventListener('site-change', (e) => {
+    const { viewId, params } = parseHash();
+    location.hash = href(e.detail, viewId || 'home', params);
+});
+nav.addEventListener('logout', async () => {
+    await logout(); // → 'pms:logged-out' → route()
+});
+const started = startServices({
+    route, unmount,
+    forceRoute: () => { if (current) current.key = null; route(); },
+    setBadge: (text, warn) => nav.setBadge(text, warn),
+    setRoute: () => { const { siteId, viewId } = parseHash(); nav.setRoute(siteId, viewId, currentDesk()); },
+    siteId: () => parseHash().siteId,
+    viewId: () => parseHash().viewId,
+    preload: async (id) => {
+        if (reactPageOn(id)) return preloadReact(id);
+        if (!htmlCache.has(id)) htmlCache.set(id, await (await fetch(`app/views/${id}/view.html`)).text());
+        await Promise.all([import(`./views/${id}/view.js`), fetch(`app/views/${id}/view.css`)]);
+    },
+});
+origAdd.call(window, 'hashchange', route);
+route();
+started();

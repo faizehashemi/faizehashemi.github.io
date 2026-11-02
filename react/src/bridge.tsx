@@ -5,49 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { PmsProvider } from '@/pms/PmsContext';
-import type { PmsCtx, PageModule } from '@/pms/types';
+import type { PmsCtx } from '@/pms/types';
+import { PAGES } from '@/page-list';
 import './globals.css';
-
-// one lazy chunk per page; a page appears here when it has been ported
-const PAGES: Record<string, () => Promise<PageModule>> = {
-    blank: () => import('@/pages/blank/BlankPage'),
-    paxchart: () => import('@/pages/paxchart/PaxChartPage'),
-    'slip-search': () => import('@/pages/slip-search/SlipSearchPage'),
-    backups: () => import('@/pages/backups/BackupsPage'),
-    changelog: () => import('@/pages/changelog/ChangelogPage'),
-    'key-cards': () => import('@/pages/key-cards/KeyCardsPage'),
-    'pending-checkouts': () => import('@/pages/pending-checkouts/PendingCheckoutsPage'),
-    'menu-card': () => import('@/pages/menu-card/MenuCardPage'),
-    performance: () => import('@/pages/performance/PerformancePage'),
-    occupancy: () => import('@/pages/occupancy/OccupancyPage'),
-    housekeeping: () => import('@/pages/housekeeping/HousekeepingPage'),
-    departures: () => import('@/pages/departures/DeparturesPage'),
-    tosha: () => import('@/pages/tosha/ToshaPage'),
-    grouping: () => import('@/pages/grouping/GroupingPage'),
-    'group-export': () => import('@/pages/group-export/GroupExportPage'),
-    kg: () => import('@/pages/kg/KgPage'),
-    mawaid: () => import('@/pages/mawaid/MawaidPage'),
-    timeline: () => import('@/pages/timeline/TimelinePage'),
-    grid: () => import('@/pages/grid/GridPage'),
-    checkins: () => import('@/pages/checkins/CheckinsPage'),
-    transport: () => import('@/pages/transport/TransportPage'),
-    slip: () => import('@/pages/slip/SlipPage'),
-    forecast: () => import('@/pages/forecast/ForecastPage'),
-    home: () => import('@/pages/home/HomePage'),
-    setup: () => import('@/pages/setup/SetupPage'),
-    builder: () => import('@/pages/builder/BuilderPage'),
-    settings: () => import('@/pages/settings/SettingsPage'),
-    login: () => import('@/pages/login/LoginPage'),
-    admin: () => import('@/pages/admin/AdminPage'),
-    ums: () => import('@/pages/ums/UmsPage'),
-    laundry: () => import('@/pages/laundry/LaundryPage'),
-    'signage-builder': () => import('@/pages/signage-builder/SignageBuilderPage'),
-    'laundry-admin': () => import('@/pages/laundry-admin/LaundryAdminPage'),
-    'transport-import': () => import('@/pages/transport-import/TransportImportPage'),
-    'transport-print': () => import('@/pages/transport-print/TransportPrintPage'),
-    arrival: () => import('@/pages/arrival/ArrivalPage'),
-    passport: () => import('@/pages/passport/PassportPage'),
-};
+export { mountShell } from '@/shell/Shell';
 
 export const reactPages = () => Object.keys(PAGES);
 /** Fetch a page's code ahead of time (the router does this for every page once the first one is showing), so a menu click has nothing left to download. */

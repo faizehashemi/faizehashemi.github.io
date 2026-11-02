@@ -62,7 +62,7 @@ export default function SettingsPage() {
 
     useEffect(() => {
         void (async () => {
-            const [conf, nav, cols] = await Promise.all([loadApp('config.js'), loadCore('nav'), loadCore('checkins-cols')]);
+            const [conf, nav, cols] = await Promise.all([loadApp('config.js'), loadCore('menu'), loadCore('checkins-cols')]);
             setCfg({ SITES: conf.SITES, NAV: conf.NAV }); setLibs({ nav, cols: cols.CHECKINS_COLS });
             try { const list = await guard<any[]>(rooms.loadBuildings()); setBuildings([...new Set(Object.keys(conf.SITES).flatMap(s => rooms.buildingNames(list, s)))] as string[]); } catch { /* ignore */ }
         })();
