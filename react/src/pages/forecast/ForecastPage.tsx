@@ -1,44 +1,147 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, Play } from 'lucide-react';
 import { AllocLog } from '@/components/AllocLog';
-import { useCore, useDb, useGuard, usePmsCtx, useLoadApp, useSite } from '@/pms/PmsContext';
+import { PageHeader } from '@/components/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCore, useDb, useGuard, useLoadApp, useLoadCore, usePmsCtx, useSite } from '@/pms/PmsContext';
 import css from './forecast.css?raw';
-import { fmt, parseDT, runForecast } from './forecast';
+import { vacancy, type Vacancy, type VacRow } from './vacancy';
 
-// Vacancy Forecast: the rooms occupied / vacant at a chosen date and time, capacity deviations and the headcount — then the building Planner and the one-click day
-// Allocator (the framework-free windows of the old page, views/forecast/planner.js and allocate.js, drawn into this page) and the log of bulk changes.
-// Rooms and bed counts come from Rooms & Buildings when it has the building (else from slip history).
+// Forecast, in three tabs. Vacancy forecast: the user builds the question (from → to, which buildings), presses Run forecast and gets, per room, its beds,
+// the most beds in use in that period and the beds still free — with an Excel download of exactly what is shown. Building planner and Day allocation are the
+// framework-free windows of the old page (views/forecast/planner.js and allocate.js), kept mounted while hidden; the log of bulk changes sits under them.
 
 type Row = Record<string, any>;
-const clean = (s: unknown) => String(s ?? '').trim();
 const pad = (n: number) => String(n).padStart(2, '0');
+const local = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const show = (ms: number) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(ms);
+const FILTERS = [['all', 'All rooms'], ['space', 'With free beds'], ['vacant', 'Empty'], ['full', 'Full']] as const;
+type Filter = typeof FILTERS[number][0];
+const keep = (f: Filter) => (r: VacRow) => f === 'all' || (f === 'vacant' ? r.used === 0 : f === 'full' ? r.free === 0 : (r.free ?? 0) > 0);
 
-export default function ForecastPage() {
+function VacancyTab() {
     const { stay, rooms } = useCore();
-    const R = rooms as any;
+    const R = rooms as any, S = stay as any;
     const db = useDb();
     const guard = useGuard();
+    const loadCore = useLoadCore();
+    const { siteId } = useSite();
+    const now = new Date();
+    const [from, setFrom] = useState(local(now)), [to, setTo] = useState(local(new Date(+now + 24 * 3600e3)));
+    const [blds, setBlds] = useState<Row[]>([]), [slips, setSlips] = useState<Row[] | null>(null), [picked, setPicked] = useState<string[]>([]);
+    const [res, setRes] = useState<(Vacancy & { from: number; to: number; buildings: string[] }) | null>(null);
+    const [filter, setFilter] = useState<Filter>('all'), [msg, setMsg] = useState(''), [busy, setBusy] = useState(false);
+
+    useEffect(() => {
+        void (async () => {
+            try { const [b, s] = await Promise.all([guard<Row[]>(R.loadBuildings()), db.all() as Promise<Row[]>]); setBlds(b); setSlips(s); }
+            catch (e) { console.error(e); setMsg('Could not read the slips in this browser. Open the slip page once, then come back.'); }
+        })();
+    }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+    const options = useMemo(() => {
+        const set = R.buildingNames(blds, siteId) as string[];
+        return set.length ? set : [...new Set((slips || []).map(s => String(s.building || '').trim().toUpperCase()).filter(Boolean))].sort();
+    }, [blds, slips, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+    const f = Date.parse(from), t = Date.parse(to);
+    const problem = !(f > 0) || !(t > 0) ? 'Choose both dates and times.' : t <= f ? '"To" must be after "From".' : !picked.length ? 'Pick at least one building.' : !slips ? 'Loading the slips…' : '';
+    const run = () => {
+        if (problem) return;
+        setBusy(true);
+        setTimeout(() => {   // let the button show "Working…" first
+            try { setRes({ ...vacancy({ slips: slips!, buildings: picked, from: f, to: t, libs: { rowsOf: S.rowsOf, normB: S.normB, activeRooms: (b: string) => R.activeRooms(blds, b) } }), from: f, to: t, buildings: picked }); setFilter('all'); setMsg(''); }
+            catch (e: any) { setMsg('The forecast failed: ' + (e?.message || e)); }
+            finally { setBusy(false); }
+        }, 0);
+    };
+    const shown = res ? res.rows.filter(keep(filter)) : [];
+    const many = (res?.buildings.length ?? 0) > 1;
+    async function excel() {
+        if (!res) return;
+        const lib = await loadCore('lib');
+        await lib.loadScript(lib.LIBS.xlsx);
+        const X = (window as any).XLSX, wb = X.utils.book_new();
+        X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([
+            ['Vacancy forecast'], ['From', show(res.from)], ['To', show(res.to)], ['Buildings', res.buildings.join(', ')], ['Showing', FILTERS.find(x => x[0] === filter)![1]], [],
+            ['Rooms', res.rooms], ['Empty rooms', res.vacant], ['Rooms with some beds free', res.withSpace], ['Full rooms', res.full], ['Free beds', res.freeBeds],
+        ]), 'Summary');
+        X.utils.book_append_sheet(wb, X.utils.json_to_sheet(shown.map(r => ({ Building: r.building, Room: r.room, Beds: r.capacity ?? '', 'Beds in use (most)': r.used, 'Free beds': r.free ?? '', Groups: r.groups }))), 'Rooms');
+        X.writeFile(wb, `Vacancy ${from.slice(0, 10)} to ${to.slice(0, 10)}.xlsx`);
+    }
+
+    return (
+        <div className="grid gap-4">
+            <section className="grid gap-4 rounded-xl border bg-card p-4">
+                <div className="flex flex-wrap items-end gap-4">
+                    <div className="grid gap-1.5"><Label htmlFor="vf-from">From</Label><Input id="vf-from" type="datetime-local" value={from} onChange={e => setFrom(e.target.value)} className="w-56" /></div>
+                    <div className="grid gap-1.5"><Label htmlFor="vf-to">To</Label><Input id="vf-to" type="datetime-local" value={to} min={from} onChange={e => setTo(e.target.value)} className="w-56" /></div>
+                </div>
+                <div className="grid gap-2">
+                    <div className="flex items-center gap-3"><span className="text-sm font-medium">Buildings</span>
+                        <button type="button" className="text-xs text-primary underline" onClick={() => setPicked(options)}>All</button>
+                        <button type="button" className="text-xs text-primary underline" onClick={() => setPicked([])}>None</button></div>
+                    <div className="flex flex-wrap gap-2">
+                        {options.map(b => (
+                            <Label key={b} className={`cursor-pointer gap-2 rounded-lg border px-3 py-2 ${picked.includes(b) ? 'border-primary bg-primary/10' : ''}`}>
+                                <Checkbox checked={picked.includes(b)} onCheckedChange={v => setPicked(p => (v === true ? [...p, b] : p.filter(x => x !== b)))} />{b}
+                            </Label>
+                        ))}
+                        {!options.length && <span className="text-sm text-muted-foreground">{slips ? 'No buildings set up for this site.' : 'Loading…'}</span>}
+                    </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button size="lg" onClick={run} disabled={!!problem || busy} className="shadow-md ring-2 ring-primary/30"><Play className="size-4" />{busy ? 'Working…' : 'Run forecast'}</Button>
+                    {problem && <span className="text-sm text-muted-foreground">{problem}</span>}
+                </div>
+                {msg && <p className="text-sm text-destructive">{msg}</p>}
+            </section>
+
+            {res && (
+                <section className="grid gap-3 rounded-xl border bg-card p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div><h2 className="text-lg font-bold">{show(res.from)} → {show(res.to)}</h2><p className="text-sm text-muted-foreground">{res.buildings.join(', ')}</p></div>
+                        <Button variant="outline" onClick={() => void excel()} disabled={!shown.length}><Download className="size-4" />Download Excel</Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                        {[['Free beds', res.freeBeds, 'text-emerald-700'], ['Rooms', res.rooms, ''], ['Empty rooms', res.vacant, ''], ['Rooms with some beds free', res.withSpace, ''], ['Full rooms', res.full, '']].map(([l, v, c]) => (
+                            <div key={l as string} className="rounded-lg border p-3"><div className={`text-2xl font-bold ${c}`}>{v}</div><div className="text-xs text-muted-foreground">{l}</div></div>
+                        ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Free beds = beds still free for the whole period (beds minus the most in use at any one time). An Exclusive room counts as full.</p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {FILTERS.map(([k, l]) => <Button key={k} size="sm" variant={filter === k ? 'default' : 'outline'} onClick={() => setFilter(k)}>{l} ({res.rows.filter(keep(k)).length})</Button>)}
+                    </div>
+                    <div className="max-h-[65vh] overflow-auto rounded-lg border">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-muted text-left"><tr>
+                                {many && <th className="p-2">Building</th>}<th className="p-2">Room</th><th className="p-2 text-right">Beds</th><th className="p-2 text-right">In use (most)</th><th className="p-2 text-right">Free beds</th><th className="p-2">Groups in the period</th>
+                            </tr></thead>
+                            <tbody>
+                                {shown.map(r => (
+                                    <tr key={r.building + r.room} className="border-t">
+                                        {many && <td className="p-2">{r.building}</td>}<td className="p-2 font-medium">{r.room}</td><td className="p-2 text-right">{r.capacity ?? '?'}</td><td className="p-2 text-right">{r.used || ''}</td>
+                                        <td className={`p-2 text-right font-bold ${r.free ? 'text-emerald-700' : 'text-muted-foreground'}`}>{r.free ?? '?'}</td><td className="p-2 text-xs text-muted-foreground">{r.groups}</td>
+                                    </tr>
+                                ))}
+                                {!shown.length && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No rooms here.</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
+        </div>
+    );
+}
+
+export default function ForecastPage() {
     const ctx = usePmsCtx();
     const loadApp = useLoadApp();
-    const { siteId } = useSite();
     const plRef = useRef<HTMLElement>(null), alRef = useRef<HTMLElement>(null);
-    const now = new Date();
-    const [date, setDate] = useState(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`), [time, setTime] = useState(`${pad(now.getHours())}:${pad(now.getMinutes())}`);
-    const [building, setBuilding] = useState('ALL'), [mode, setMode] = useState('builder'), [manual, setManual] = useState('');
-    const [slips, setSlips] = useState<Row[]>([]), [blds, setBlds] = useState<Row[]>([]), [status, setStatus] = useState('');
-    const [result, setResult] = useState<ReturnType<typeof runForecast> | null>(null);
-
-    const refreshDB = useCallback(async () => {
-        const b = await guard<Row[]>(R.loadBuildings()), s = (await db.all()) as Row[];
-        setBlds(b); setSlips(s); setStatus(`${s.length} slip(s) loaded from DB.`);
-        return { b, s };
-    }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-    const run = (b = blds, s = slips, bld = building) => {
-        const when = parseDT(date, time);
-        if (!when) { setStatus('Choose a valid date and time.'); return; }
-        const r = runForecast({ when, building: bld, mode, manualText: manual, slips: s, buildings: b, siteId, stay, rooms });
-        setResult(r); setStatus(r.status);
-    };
-    useEffect(() => { refreshDB().then(({ b, s }) => run(b, s)).catch(err => { console.error(err); setStatus('Could not read local DB. Open the slip page first in this browser and save at least one slip.'); }); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+    const [tab, setTab] = useState('vacancy');
     useEffect(() => {
         let alive = true;
         void (async () => {
@@ -49,47 +152,21 @@ export default function ForecastPage() {
         })();
         return () => { alive = false; };
     }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-
-    const present = [...new Set(slips.map(r => clean(r.building)).filter(Boolean))];
-    const canon = R.buildingNames(blds, siteId) as string[];
-    const options = [...new Set(['ALL', ...canon, ...present])].filter(Boolean);
-    const sm = result?.summary;
+    const TABS: [string, string][] = [['vacancy', 'Vacancy forecast'], ['planner', 'Building planner'], ['allocator', 'Day allocation']];
     return (
-        <>
-            <style>{css}</style>
-            <section ref={plRef} className="wrap pl" id="planner" />
-            <section ref={alRef} className="wrap pl al" id="allocator" />
-            <section className="wrap pl lg" id="alloclog"><AllocLog /></section>
-            <div className="wrap">
-                <h1>Vacancy Forecast</h1>
-                <div className="controls">
-                    <div><label htmlFor="when_date">Date</label><input type="date" id="when_date" value={date} onChange={e => setDate(e.target.value)} /></div>
-                    <div><label htmlFor="when_time">Time</label><input type="time" id="when_time" value={time} onChange={e => setTime(e.target.value)} /></div>
-                    <div><label htmlFor="building">Building</label><select id="building" value={building} onChange={e => setBuilding(e.target.value)}>{options.map(v => <option key={v} value={v}>{v === 'ALL' ? 'ALL BUILDINGS' : v}</option>)}</select></div>
-                    <div><label htmlFor="inventory_mode">Room inventory</label><select id="inventory_mode" value={mode} onChange={e => setMode(e.target.value)}><option value="builder">From Rooms &amp; Buildings</option><option value="infer">Infer from slips</option><option value="manual">Manual list</option></select></div>
-                    <div><label htmlFor="inventory_text">Manual room list (comma or newline separated)</label><textarea id="inventory_text" placeholder={'e.g. 501, 502, 503\n510\n516'} disabled={mode !== 'manual'} style={{ opacity: mode === 'manual' ? 1 : 0.6 }} value={manual} onChange={e => setManual(e.target.value)} /></div>
-                    <div><button type="button" onClick={() => run()}>Run Forecast</button> <button type="button" onClick={() => void refreshDB()}>Refresh DB</button> <button type="button" onClick={() => window.print()}>Print</button></div>
-                </div>
-                <div className="summary">
-                    <div className="pill">Inventory rooms: <b>{sm?.total ?? 0}</b></div><div className="pill">Occupied rooms: <b>{sm?.occ ?? 0}</b></div><div className="pill">Vacant rooms: <b>{sm?.free ?? 0}</b></div>
-                    <div className="pill">Known occupied capacity (eff.): <b>{sm?.occCap ?? 0}</b></div><div className="pill">Known free capacity: <b>{sm?.freeCap ?? 0}</b></div><div className="pill">Under-assigned rooms: <b>{sm?.under ?? 0}</b></div>
-                    <div className="pill">Headcount now: <b>{sm?.head ?? 0}</b> <span className="muted">{sm ? `(G ${sm.sums.g} / L ${sm.sums.l} / C ${sm.sums.c} / I ${sm.sums.i})` : ''}</span></div>
-                </div>
-                <div className="two">
-                    <div><h3 style={{ margin: '8px 0 6px' }}>Occupied at selected time</h3>
-                        <table id="tblOcc"><thead><tr><th>Room</th><th>Group</th><th>Leader</th><th>Gender</th><th className="right">Cap (eff.)</th><th>Window</th><th>Building</th><th>SH No.</th></tr></thead>
-                            <tbody>{(result?.occRows ?? []).map((e, i) => <tr key={i}><td className="nowrap">{e.room}</td><td>{e.tour}</td><td>{e.leader}</td><td>{e.gender}{e.excl ? ' · Exclusive' : ''}</td><td className="right">{Number.isInteger(e.eff) ? e.eff : ''}</td><td>{e.win}</td><td>{e.bld}</td><td>{String(e.sh)}</td></tr>)}</tbody></table></div>
-                    <div><h3 style={{ margin: '8px 0 6px' }}>Vacant at selected time</h3>
-                        <table id="tblFree"><thead><tr><th>Room</th><th className="right">Cap (eff.)</th><th className="muted">Note</th></tr></thead>
-                            <tbody>{(result?.freeRows ?? []).map((e, i) => <tr key={i}><td className="nowrap">{e.room}</td><td className="right">{e.cap == null ? '' : e.cap}</td><td className="muted">{e.note}</td></tr>)}</tbody></table></div>
-                </div>
-                <div style={{ marginTop: 16 }}><h3 style={{ margin: '8px 0 6px' }}>Capacity deviations (Assigned vs Capacity)</h3>
-                    <table id="tblUnder"><thead><tr><th>Building</th><th>Room</th><th className="right">Assigned</th><th className="right">Capacity</th><th className="right">Δ (A−C)</th><th className="muted">Note</th></tr></thead>
-                        <tbody>{(result?.underRows ?? []).map((e, i) => <tr key={i}><td>{e.building}</td><td className="nowrap">{e.room}</td><td className="right">{e.asg}</td><td className="right">{e.cap}</td>
-                            <td className={`right ${e.delta < 0 ? 'delta-neg' : 'delta-pos'}`}>{e.delta > 0 ? `+${e.delta}` : e.delta}</td><td className="muted">{e.delta < 0 ? 'under-assigned' : 'over-assigned'}</td></tr>)}</tbody></table>
-                    <p className="muted" style={{ margin: '6px 0 0' }}>Snapshot at the selected date/time. Only rooms where assigned differs from capacity are listed.</p></div>
-                <p className="muted">{status || fmt(null)}</p>
-            </div>
-        </>
+        <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+            <style>{`.fc-legacy {\n${css}\n}`}</style>
+            <PageHeader view="forecast" title="Forecast" current={TABS.find(t => t[0] === tab)?.[1]} />
+            <Tabs value={tab} onValueChange={setTab}>
+                <TabsList variant="underline">{TABS.map(([k, l]) => <TabsTrigger key={k} value={k}>{l}</TabsTrigger>)}</TabsList>
+                <TabsContent value="vacancy" forceMount className="data-[state=inactive]:hidden"><VacancyTab /></TabsContent>
+                {/* all kept mounted while hidden (the results stay when switching tabs); the planner and allocator are drawn once into these hosts and the allocator talks to the planner */}
+                <TabsContent value="planner" forceMount className="fc-legacy data-[state=inactive]:hidden"><section ref={plRef} className="wrap pl" id="planner" /></TabsContent>
+                <TabsContent value="allocator" forceMount className="fc-legacy data-[state=inactive]:hidden">
+                    <section ref={alRef} className="wrap pl al" id="allocator" />
+                    <section className="wrap pl lg" id="alloclog"><AllocLog /></section>
+                </TabsContent>
+            </Tabs>
+        </div>
     );
 }
