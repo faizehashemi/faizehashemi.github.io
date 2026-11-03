@@ -13,7 +13,7 @@ export default defineConfig({
     define: { 'process.env.NODE_ENV': '"production"' },   // library mode does not replace it; React and Radix read it
     build: {
         outDir: '../pms/react',
-        emptyOutDir: true,
+        emptyOutDir: false,   // the previous build's page chunks stay online for a while (tabs opened before a deploy still load them); web/deploy.sh prunes old ones
         lib: { entry: path.resolve(import.meta.dirname, 'src/bridge.tsx'), formats: ['es'], fileName: () => 'bridge.js', cssFileName: 'style' },
         rollupOptions: { output: { chunkFileNames: 'chunks/[name]-[hash].js', assetFileNames: (info) => (info.names?.[0] || '').endsWith('.css') ? 'style.css' : 'assets/[name]-[hash][extname]' } },
         target: 'es2022',

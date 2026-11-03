@@ -60,11 +60,14 @@ export function sheet2(T: T, day: string, dest: Row, b: Row, from: string, wm?: 
     </section>`;
 }
 
-// Luggage sheet: A4 landscape, one per bus. The bus number small on top, the groups in a table of big bold black type, and the total.
+// Luggage sheet: A4 landscape, one per bus. The bus number and the day and date small on top, the groups in a table of big bold black type, and the total.
+const DAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+/** "2026-11-04T08:00" → "WEDNESDAY 04-11-2026 · 08:00" */
+const lugDate = (at: string) => { const d = String(at || ''); if (!/^\d{4}-\d{2}-\d{2}/.test(d)) return ''; const w = DAYS[new Date(`${d.slice(0, 10)}T12:00`).getDay()]; return `${w} ${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(0, 4)}${d.length >= 16 ? ` · ${d.slice(11, 16)}` : ''}`; };
 export function luggageSheet(T: T, b: Row) {
     const n = b.rows.length, size = n <= 3 ? 'l1' : n <= 6 ? 'l2' : n <= 10 ? 'l3' : 'l4';
     return `<section class="lug ${size}">
-      <div class="lug-no">${esc(T.vehicleWord(b.vehicle, b.vlabel))} No. ${esc(b.bus ?? '')}</div>
+      <div class="lug-head"><div class="lug-no">${esc(T.vehicleWord(b.vehicle, b.vlabel))} No. ${esc(b.bus ?? '')}</div><div class="lug-date">${esc(lugDate(b.at || b.rows[0]?.at))}</div></div>
       <table class="lug-tbl">
         <thead><tr><th>GROUP NAME</th><th>GROUP LEADER</th><th>SH NO.</th><th>PAX</th></tr></thead>
         <tbody>${b.rows.map((r: Row) => `<tr><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td></tr>`).join('')}</tbody>

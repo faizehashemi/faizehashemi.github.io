@@ -80,7 +80,9 @@ html.tq-print-lug .tq-sheets, html.tq-print-lug .tq-summary { display: none !imp
 html.tq-print-lug .tq-lugsheets { display: block; }
 .lug { page: luggage; display: flex; flex-direction: column; align-items: stretch; height: 190mm; color: #000; background: #fff; break-after: page; page-break-after: always; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
 .lug:last-child { break-after: auto; page-break-after: auto; }
-.lug-no { font: 700 16pt Arial, sans-serif; text-transform: uppercase; margin: 0 0 3mm; }
+.lug-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; margin: 0 0 3mm; }
+.lug-no { font: 700 16pt Arial, sans-serif; text-transform: uppercase; margin: 0; }
+.lug-date { font: 700 16pt Arial, sans-serif; text-transform: uppercase; white-space: nowrap; }
 .lug-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; flex: none; }
 .lug-tbl th, .lug-tbl td { border: 2.5px solid #000; padding: 2.5mm; text-align: center; vertical-align: middle; color: #000; font-weight: 900; text-transform: uppercase; word-break: break-word; }
 .lug-tbl th { font-size: 12pt; background: #fff; }

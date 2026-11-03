@@ -28,6 +28,12 @@ export default function PassportPage() {
         return all.sort((a, b) => String(b.checkin_date).localeCompare(String(a.checkin_date)));
     }, [q, slips.data, ums]);
     const go = () => { setMsg(''); setQ(sh); };
+    // a slip printed before but lost (printer jam, closed tab): print it again from the log — from the group's slip as it is now, or, when the
+    // slip is no longer here, from what the log kept
+    const again = (l: Row) => {
+        const slip = (slips.data ?? []).find(x => base(x.sh_no) === base(l.sh_no));
+        print(slip ?? { sh_no: l.sh_no, tour_name: l.tour, group_leader: l.leader, total: l.pax, building: l.building, rooms: { gents: String(l.rooms || '').split(',').map(r => ({ room_no: r.trim() })).filter(r => r.room_no) } });
+    };
     const log = useQuery({ queryKey: ['passport-log', siteId], queryFn: async () => ((await guard<any>(cloud.request('GET', `/api/passport-log?site=${siteId}`))).log ?? []) as Row[] });
     // the new tab opens first (from the click), then the slip is entered in the log
     const print = (s: Row) => {
@@ -71,7 +77,7 @@ export default function PassportPage() {
                 <h2 className="text-base font-bold text-primary">Passport slips issued <span className="text-sm font-normal text-muted-foreground">— {site.label}, newest first</span></h2>
                 {log.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : !(log.data ?? []).length ? <p className="text-sm text-muted-foreground">No passport slip has been printed yet.</p>
                     : <div className="max-h-[50vh] overflow-auto"><Table>
-                        <TableHeader><TableRow><TableHead>When</TableHead><TableHead>SH</TableHead><TableHead>Group · leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Building · rooms</TableHead><TableHead>Issued by</TableHead></TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>When</TableHead><TableHead>SH</TableHead><TableHead>Group · leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Building · rooms</TableHead><TableHead>Issued by</TableHead><TableHead /></TableRow></TableHeader>
                         <TableBody>{(log.data ?? []).map(l => (
                             <TableRow key={l.id}>
                                 <TableCell className="whitespace-nowrap">{new Date(l.at).toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</TableCell>
@@ -80,6 +86,7 @@ export default function PassportPage() {
                                 <TableCell className="text-right">{l.pax || '—'}</TableCell>
                                 <TableCell>{l.building || '—'}{l.rooms && <small className="block text-muted-foreground">{l.rooms}</small>}</TableCell>
                                 <TableCell>{l.desk}</TableCell>
+                                <TableCell><Button size="sm" variant="outline" title="Print this slip again (it is entered in the log again)" onClick={() => again(l)}><Printer className="size-3.5" />Print again</Button></TableCell>
                             </TableRow>))}</TableBody></Table></div>}
             </CardContent></Card>
         </div>

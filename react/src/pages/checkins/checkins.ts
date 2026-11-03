@@ -32,6 +32,9 @@ export function roomsFromSlip(r: Row): string[] {
     (r.rooms?.ladies || []).forEach((x: any) => bag.push(roomLabel(x, r)));
     return Array.from(new Set(bag.filter(Boolean))).sort(byRoom);
 }
+/** "1203 Excl · MOHAMMEDI" → room "1203" and the boxed tag "EXCL · MOHAMMEDI" (screen and print show the tag in a box beside the room number) */
+export const splitExcl = (label: string) => { const m = /^(.*?) Excl(?: · (.*))?$/.exec(label); return m ? { room: m[1], tag: `EXCL${m[2] ? ' · ' + m[2] : ''}` } : { room: label, tag: '' }; };
+const roomsHtml = (r: Row) => roomsFromSlip(r).map(l => { const x = splitExcl(l); return x.tag ? `${escH(x.room)} <span class="excl">${escH(x.tag)}</span>` : escH(x.room); }).join(', ') || '-';
 export function guests(r: Row) { if (r._dep) return r._dep.pax; const tot = num(r.total); if (tot) return tot; return num(r.gents) + num(r.ladies) + num(r.children ?? r.child) + num(r.infants ?? r.infant); }
 // Assigned guests: explicit numeric field -> per-room sum -> headcount total
 export function assignedCount(r: Row) {
@@ -162,7 +165,7 @@ export function printTableHtml(kind: 'in' | 'out', rows: Row[], parts: [string |
     const total = rows.reduce((s, r) => s + guests(r), 0);
     const rowHtml = (r: Row) => {
         const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
-        return `<tr><td>${escH(r.sh_no ?? '')}</td>${lug ? `<td>${escH(luggage(r) || '-')}</td>` : ''}<td><b>${escH(r.tour_name || '-')}</b><br><span class="gl">${escH(String(r.group_leader ?? '').trim() || '-')}</span></td><td>${escH((r.building || '').trim() || '-')}</td><td class="rooms">${escH(roomsFromSlip(r).join(', ') || '-')}</td><td><b>${guests(r)}</b></td><td>${escH(fmtDT(ci))}</td><td>${escH(fmtDT(co))}</td></tr>`;
+        return `<tr><td>${escH(r.sh_no ?? '')}</td>${lug ? `<td>${escH(luggage(r) || '-')}</td>` : ''}<td><b>${escH(r.tour_name || '-')}</b><br><span class="gl">${escH(String(r.group_leader ?? '').trim() || '-')}</span></td><td>${escH((r.building || '').trim() || '-')}</td><td class="rooms">${roomsHtml(r)}</td><td><b>${guests(r)}</b></td><td>${escH(fmtDT(ci))}</td><td>${escH(fmtDT(co))}</td></tr>`;
     };
     const thead = `<thead><tr><th>SH No</th>${lug ? '<th>First accommodation</th>' : ''}<th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th><th>Check-in</th><th>Check-out</th></tr></thead>`;
     const colgroup = lug ? '<colgroup><col style="width:8%"><col style="width:10%"><col style="width:22%"><col style="width:10%"><col style="width:20%"><col style="width:8%"><col style="width:11%"><col style="width:11%"></colgroup>' : '<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>';
@@ -184,6 +187,7 @@ thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
 td .gl { font-size: 10px; }
 td.rooms { font-size: 10px; }
+.excl { display: inline-block; border: 1px solid #000; border-radius: 2px; padding: 0 2px; font-size: .85em; font-weight: 700; white-space: nowrap; }
 .bar { position: sticky; top: 0; display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: #fffaf1; border-bottom: 1px solid #dcc7a4; font: 13px system-ui, sans-serif; }
 .bar button { font: inherit; padding: 5px 14px; border: 1px solid #d4af37; border-radius: 8px; background: #d4af37; color: #fff; font-weight: 700; cursor: pointer; }
 @media screen { body { background: #e9e6df; } .page { width: 277mm; margin: 10mm auto; padding: 10mm; background: #fff; box-shadow: 0 4px 16px rgba(0,0,0,.15); } }

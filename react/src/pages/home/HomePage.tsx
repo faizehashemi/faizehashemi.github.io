@@ -38,7 +38,7 @@ export default function HomePage() {
     const { href } = useNav();
     const desk = cloud.currentDesk();
     const rootRef = useRef<HTMLDivElement>(null), occRef = useRef<HTMLElement>(null), dcRef = useRef<HTMLElement>(null);
-    const [mods, setMods] = useState<{ cal: any; inh: any; grp: any; tr: any; occ: any; dc: any; meals: any; hijri: any } | null>(null);
+    const [mods, setMods] = useState<{ cal?: any; inh?: any; grp?: any; tr?: any; occ?: any; dc?: any; meals: any; hijri: any } | null>(null);   // meals + hijri first, the rest a moment later
     const [viewDay, setViewDay] = useState(ymd(new Date()));
     const [feWin, setFeWin] = useState<Row>(st.DEFAULTS.fe_windows);
     const [here, setHere] = useState<Row[]>([]), [all, setAll] = useState<Row[]>([]);
@@ -52,9 +52,13 @@ export default function HomePage() {
 
     useEffect(() => {
         void (async () => {
-            const [cal, inh, grp, tr, occ, dc, meals, hijri] = await Promise.all([loadApp('views/home/calendar.js'), loadApp('views/home/inhouse.js'), loadApp('views/home/groups.js'), loadApp('views/home/transport.js'),
-                loadApp('views/home/occupancy.js'), loadApp('views/home/daycount.js'), loadCore('meals'), loadCore('hijri')]);
-            setMods({ cal, inh, grp, tr, occ, dc, meals, hijri });
+            // the numbers need only meals + hijri: draw with those, then fetch the code of the dialogs and the chart panels (phones on mobile data
+            // waited 4–6 s for all eight files before any number showed)
+            const [meals, hijri] = await Promise.all([loadCore('meals'), loadCore('hijri')]);
+            setMods((m: any) => ({ ...(m || {}), meals, hijri }));
+            const [cal, inh, grp, tr, occ, dc] = await Promise.all([loadApp('views/home/calendar.js'), loadApp('views/home/inhouse.js'), loadApp('views/home/groups.js'), loadApp('views/home/transport.js'),
+                loadApp('views/home/occupancy.js'), loadApp('views/home/daycount.js')]);
+            setMods((m: any) => ({ ...(m || {}), cal, inh, grp, tr, occ, dc }));
         })();
         const reload = () => location.reload();
         window.addEventListener('pms:desk-changed', reload);
@@ -65,8 +69,11 @@ export default function HomePage() {
 
     // what the page needs from the server, asked at the same time: the settings, Rooms & Buildings (fresh) and the slips
     const loadAll = useCallback(async () => {
-        const [s, , h, a] = await Promise.all([guard<any>(st.loadSettings()).catch(() => null), guard(rooms.loadBuildings({ force: true })).catch(() => null), db.all() as Promise<Row[]>, guard<Row[]>(cloud.mirrorAll())]);
-        if (s) setFeWin((w: Row) => ({ ...w, ...(s.settings.fe_windows || {}) }));
+        // the numbers come from this browser's copy of the slips: shown at once. The Fakkul Ehraam windows (settings) and Rooms & Buildings come
+        // from the server afterwards — they only adjust what is already drawn
+        void guard<any>(st.loadSettings()).then(s => { if (s) setFeWin((w: Row) => ({ ...w, ...(s.settings.fe_windows || {}) })); }, () => { /* defaults */ });
+        void guard(rooms.loadBuildings({ force: true })).catch(() => null);
+        const [h, a] = await Promise.all([db.all() as Promise<Row[]>, guard<Row[]>(cloud.mirrorAll())]);
         setHere(h); setAll(a.filter(r => !r.deleted));
     }, []);   // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => { void loadAll().catch(e => console.warn('home numbers', e)); }, [loadAll, Math.floor(tick / 2)]);
@@ -102,17 +109,17 @@ export default function HomePage() {
 
     // the chart panels (old modules)
     useEffect(() => {
-        if (!mods || !occRef.current) return;
+        if (!mods?.occ || !occRef.current) return;
         void mods.occ.renderOccupancy({ guard, siteId, href }, occRef.current, here, viewDay).then(() => {
             const sub = occRef.current?.querySelector('.hm-head .hm-sub');
             if (sub) sub.textContent = `Share of each building's beds in use ${N?.isToday ? 'today' : new Date(`${viewDay}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}. Capacities come from Rooms & Buildings.`;
         });
     }, [mods, here, viewDay]);   // eslint-disable-line react-hooks/exhaustive-deps
-    useEffect(() => { if (mods && dcRef.current && all.length) mods.dc.renderDayCounts(dcRef.current, all); }, [mods, all]);
+    useEffect(() => { if (mods?.dc && dcRef.current && all.length) mods.dc.renderDayCounts(dcRef.current, all); }, [mods, all]);
 
     const mayOpenSlip = (s: string) => cloud.canOpen('slip', desk) && (desk?.role === 'admin' || desk?.site === s);
     const slipHref = (s: string) => (sh: string) => `#/${s}/slip?sh_no=${encodeURIComponent(sh)}`;
-    const list = (s: string, title: string, sub: string, items: Row[], paxLabel?: string) => mods?.grp.openGroupList({ title, sub, items, paxLabel, host: rootRef.current, canOpen: mayOpenSlip(s), slipHref: slipHref(s) });
+    const list = (s: string, title: string, sub: string, items: Row[], paxLabel?: string) => mods?.grp?.openGroupList({ title, sub, items, paxLabel, host: rootRef.current, canOpen: mayOpenSlip(s), slipHref: slipHref(s) });
     const CITY = siteId === 'medina' ? 'Madina' : 'Makkah';
     const now = new Date();
     const hour = now.getHours();
@@ -127,7 +134,8 @@ export default function HomePage() {
 
     async function openInHouse() {
         const slips = await guard<Row[]>(cloud.mirrorAll());
-        mods!.inh.openInHouse({ site: siteId, label: CITY, slips, canOpen: mayOpenSlip(siteId), host: rootRef.current, slipHref: slipHref(siteId) });
+        if (!mods?.inh) return;   // still downloading (a moment after the page opens)
+        mods.inh.openInHouse({ site: siteId, label: CITY, slips, canOpen: mayOpenSlip(siteId), host: rootRef.current, slipHref: slipHref(siteId) });
     }
     async function showSummary() {
         let { a, b } = sumRange;
@@ -154,7 +162,7 @@ export default function HomePage() {
             <div ref={rootRef} className={`hm${N.isToday ? '' : ' travel'}`}>
                 <header className="hm-hero">
                     <div className="hm-hello"><h1>{part}, {desk?.name || 'friend'}</h1><p className="hm-praise">{dayPick(PRAISE, desk?.name || '')}</p></div>
-                    <div className="hm-dates"><button type="button" className="hm-hijri" title="Open the calendar" onClick={() => void mods.cal.openCalendar({ host: rootRef.current, date: new Date() })}>{formatHijri(toHijri(now))}</button>
+                    <div className="hm-dates"><button type="button" className="hm-hijri" title="Open the calendar" onClick={() => void mods.cal?.openCalendar({ host: rootRef.current, date: new Date() })}>{formatHijri(toHijri(now))}</button>
                         <div className="hm-greg">{now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div></div>
                 </header>
 
@@ -208,7 +216,7 @@ export default function HomePage() {
                     <div className="hm-stats">{dests.map(d => {
                         const g = trGroups?.find(x => x.dest.id === d.id);
                         const first = g?.buses.length ? g.buses.reduce((a: Row, b: Row) => (a.at < b.at ? a : b)).at : null;
-                        return <button key={d.id} type="button" className={`hm-stat ${TILE_CLS[d.tosha] || 'tj'}`} onClick={() => g && mods.tr.openTransportList({ title: `Transport today · ${g.dest.title}`, sub: site.label, group: g, host: rootRef.current, dayHref: cloud.canOpen('transport', desk) ? href('transport') : '' })}>
+                        return <button key={d.id} type="button" className={`hm-stat ${TILE_CLS[d.tosha] || 'tj'}`} onClick={() => g && mods.tr?.openTransportList({ title: `Transport today · ${g.dest.title}`, sub: site.label, group: g, host: rootRef.current, dayHref: cloud.canOpen('transport', desk) ? href('transport') : '' })}>
                             <span className="hm-ico" aria-hidden="true">{d.icon}</span><b>{g ? g.pax : '—'}</b><span className="hm-lbl">{d.title}</span></button>;
                     })}</div>
                 </section>

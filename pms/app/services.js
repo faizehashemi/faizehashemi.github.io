@@ -133,7 +133,9 @@ export function startServices(shell) {
         const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
         idle(async () => {
             try {
-                if (navigator.connection?.saveData || document.querySelector('.ld-bar')) return;
+                // not on phones / slow connections: there the downloads competed with the page in use (Home took 4–6 s on the desks' phones, 2026-11)
+                const c = navigator.connection;
+                if (c?.saveData || c?.type === 'cellular' || /(^|-)(2g|3g)$/.test(c?.effectiveType || '') || window.matchMedia('(max-width: 900px)').matches || document.querySelector('.ld-bar')) return;
                 const desk = currentDesk();
                 const st = navStats();
                 const score = (id) => (st.n[id] || 0) + 3 * ((st.next[lastView] || {})[id] || 0);

@@ -7,7 +7,7 @@ export const LAYOUTS = [
     { id: 'landscape', label: 'A4 landscape' },
 ];
 
-export type SheetCard = { name: string; pax: number; sh: string; building: string; at: string; part: boolean; rooms: [string, number][] };
+export type SheetCard = { bus?: string; name: string; pax: number; sh: string; building: string; at: string; part: boolean; rooms: [string, number][] };
 
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
@@ -18,7 +18,7 @@ export function cardsSheet({ day, layout, site, cards }: { day: string; layout: 
         const given = c.rooms.reduce((n, [, x]) => n + x, 0);
         const roomRows = c.rooms.map(([room, n], i) => `<tr class="${i === 0 ? 'first' : ''}">
             <td class="n">${i === 0 ? gi + 1 : ''}</td>
-            <td class="g">${i === 0 ? `<b>${esc(c.name)}</b> · ${c.pax} pax${c.part ? '<br><small>these rooms only</small>' : ''}` : ''}</td>
+            <td class="g">${i === 0 ? `<b>${esc(c.name)}</b> · ${c.pax} pax${c.bus ? `<br><span class="bus">🚌 ${esc(c.bus)}</span>` : ''}${c.part ? '<br><small>these rooms only</small>' : ''}` : ''}</td>
             <td class="sh">${esc(c.sh)}</td>
             <td class="b">${i === 0 ? esc(c.building) : ''}</td>
             <td class="tm">${i === 0 ? esc(c.at) : ''}</td>
@@ -46,6 +46,7 @@ export function cardsSheet({ day, layout, site, cards }: { day: string; layout: 
         td.box { background: #fff; }
         tr.tot td { background: #f3f3f3; font-weight: 700; font-size: 9pt; }
         small { font-weight: 400; color: #444; }
+        .bus { display: inline-block; margin-top: .6mm; padding: 0 1.4mm; border: 1px solid #000; border-radius: 1mm; font-weight: 700; }
         @media screen { body { padding: 10mm; background: #eee; } .page { background: #fff; padding: 8mm; max-width: ${landscape ? 297 : 210}mm; margin: 0 auto; } }
     </style></head><body><div class="page">
         <h1>Room key cards — departure ${esc(day)}</h1>

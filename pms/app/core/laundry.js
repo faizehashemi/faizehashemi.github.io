@@ -175,8 +175,10 @@ export function printReceipt(b, info = '') {
         <body>${receiptHTML(b, info)}</body></html>`);
     d.close();
     setTimeout(() => {
-        f.contentWindow.focus();
-        f.contentWindow.print();
+        const w = f.contentWindow;
+        if (!w) return;   // a second receipt printed within the quarter second replaced this frame (it printed instead)
+        w.focus();
+        w.print();
         setTimeout(() => f.remove(), 60_000);
     }, 250);
 }

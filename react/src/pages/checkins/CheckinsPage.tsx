@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { useSlips } from '@/hooks/useSlips';
 import { usePrefs } from '@/hooks/usePrefs';
 import { useCore, useDb, useLoadCore, useNav, useSite } from '@/pms/PmsContext';
-import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, luggageAt, luggageIndex, num, parseDT, partSum, partsOf, plusOneDay, printTableHtml, roomsFromSlip, toCSV, ymd, type Row } from './checkins';
+import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, luggageAt, luggageIndex, num, parseDT, partSum, partsOf, plusOneDay, printTableHtml, roomsFromSlip, splitExcl, toCSV, ymd, type Row } from './checkins';
 
 // Check-ins & Check-outs (Front desk): filter by one day or a date/time range; the results are read-only and come from the shared PMS data. Each table has a
 // totals row, optional columns (Settings → Check-ins page), CSV, Print table, Print slips and GL copy; Check-ins also carry the Check in flag (a signal for the
@@ -133,7 +133,7 @@ export default function CheckinsPage() {
             case 'lug': return lug(r);
             case 'group': return <>{r.tour_name || ''}{isDelayed(r) && <Badge variant="outline" className="ml-1.5 text-warn" title={r.delayed.note || ''}>Delayed · {r._dep ? r._dep.status : (r.delayed.status || '')}{r._dep && !r._dep.last ? ' · part' : ''}</Badge>}</>;
             case 'leader': return String(r.group_leader ?? '').trim() || '-';
-            case 'building': return (r.building || '').trim(); case 'rooms': return roomsFromSlip(r).join(', ');
+            case 'building': return (r.building || '').trim(); case 'rooms': return roomsFromSlip(r).map((l, i) => { const x = splitExcl(l); return <span key={i} className="whitespace-nowrap">{i ? ', ' : ''}{x.room}{x.tag && <span className="ml-1 rounded border border-foreground px-1 text-[0.8em] font-bold" title="Exclusive room — this group has the whole room">{x.tag}</span>}</span>; });
             case 'as': return assignedCount(r); case 't': return guests(r); case 'g': return num(r.gents); case 'l': return num(r.ladies); case 'c': return num(r.children ?? r.child); case 'i': return num(r.infants ?? r.infant);
         }
         return '';

@@ -9,6 +9,10 @@ cd "$(dirname "$0")"
 
 # the React pages (pms/react/*); production keeps every page on the legacy version until a page is switched on in pms/app/config.js
 if [ -f ../react/package.json ]; then
+  # the build adds new chunk files next to the old ones (vite emptyOutDir off): a tab opened before this deploy still finds the page code it
+  # asks for. Chunks older than 2 days go; bridge.js / style.css keep their names and are simply replaced.
+  [ -d ../pms/react/chunks ] && find ../pms/react/chunks -type f -mtime +2 -delete || true
+  [ -d ../pms/react/assets ] && find ../pms/react/assets -type f -mtime +2 -delete || true
   (cd ../react && { [ -d node_modules ] || npm ci --silent; } && npm run build --silent)
 fi
 

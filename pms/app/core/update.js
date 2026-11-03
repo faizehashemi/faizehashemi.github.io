@@ -76,8 +76,15 @@ async function check() {
 /** The build this page runs (version.json "web"), once the first check has answered. */
 export const currentBuild = () => loaded;
 
+// a code file that would not load ("Failed to fetch dynamically imported module …") usually means a new build was deployed while this tab
+// was open: check for it at once instead of waiting for the next check (the bar above then reloads the page)
+const STALE = /dynamically imported module|Importing a module script failed|error loading dynamically imported|ChunkLoadError/i;
+export const isStaleCode = (err) => STALE.test(String((err && err.message) || err || ''));
+
 /** Start watching for new versions (call once at boot). */
 export function watchForUpdates() {
+    window.addEventListener('unhandledrejection', (e) => { if (isStaleCode(e.reason)) check(); });
+    window.addEventListener('error', (e) => { if (isStaleCode(e.message)) check(); });
     check();
     timer = setInterval(() => { if (document.visibilityState === 'visible') check(); }, CHECK_MS);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });

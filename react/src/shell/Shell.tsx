@@ -199,11 +199,25 @@ const failBox = (title: string, err: unknown) => (
         <b>Could not open “{title}”.</b><br />{String((err as Error)?.message || err)}
     </div>
 );
-class Failsafe extends Component<{ title: string; onError: () => void; children: ReactNode }, { err: unknown }> {
-    state = { err: null as unknown };
+// A page whose code file is gone — a new build was deployed while this tab was open (most "page could not open" reports, 2026-10/11) — or did
+// not download: load the new build once instead of showing the error. At most once a minute, so a real outage never loops.
+const STALE = /dynamically imported module|Importing a module script failed|error loading dynamically imported|ChunkLoadError|Failed to fetch/i;
+function reloadForNewBuild(err: unknown) {
+    if (!STALE.test(String((err as Error)?.message || err || ''))) return false;
+    try {
+        if (Date.now() - Number(sessionStorage.getItem('pms_stale_reload') || 0) < 60e3) return false;
+        sessionStorage.setItem('pms_stale_reload', String(Date.now()));
+    } catch { return false; }
+    location.reload();
+    return true;
+}
+const updating = <div style={{ maxWidth: 720, margin: '40px auto', padding: 16, font: '14px system-ui', textAlign: 'center' }}>Updating to the new version…</div>;
+
+class Failsafe extends Component<{ title: string; onError: () => void; children: ReactNode }, { err: unknown; reloading: boolean }> {
+    state = { err: null as unknown, reloading: false };
     static getDerivedStateFromError(err: unknown) { return { err }; }
-    componentDidCatch(err: unknown) { console.error(err); this.props.onError(); }
-    render() { return this.state.err ? failBox(this.props.title, this.state.err) : this.props.children; }
+    componentDidCatch(err: unknown) { console.error(err); if (reloadForNewBuild(err)) { this.setState({ reloading: true }); return; } this.props.onError(); }
+    render() { return this.state.reloading ? updating : this.state.err ? failBox(this.props.title, this.state.err) : this.props.children; }
 }
 
 // ---- pages that are not React yet: app/views/<id>/view.html + view.css + view.js (default export mount(ctx)) ----
@@ -242,6 +256,7 @@ function LegacyPage({ id, ctx, deps, onDone }: { id: string; ctx: PmsCtx; deps: 
                 onDone(true);
             } catch (e) {
                 console.error(e);
+                if (reloadForNewBuild(e)) return;
                 if (alive) { setErr(e); onDone(false); }
             }
         })();

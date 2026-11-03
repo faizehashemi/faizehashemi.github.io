@@ -36,6 +36,7 @@ export const normB = (b) => String(b == null ? '' : b).trim().toUpperCase();
 export const rowBuilding = (s, x) => String((x && x.building) || '').trim() || String((s && s.building) || '').trim();
 /** Does the slip have a room row in this building? (the slip's building, or an Exclusive row's own) */
 export const slipTouches = (s, building) => {
+    if (!s) return false;   // no slip (a list being redrawn): seen as "Cannot read properties of undefined (reading 'building')" on Check-ins
     const b = normB(building);
     if (normB(s.building) === b) return true;
     for (const side of ['gents', 'ladies']) for (const x of s.rooms?.[side] || []) if (x && x.building && normB(x.building) === b) return true;

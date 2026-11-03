@@ -29,7 +29,8 @@ type Slip = Record<string, any>;
 type Group = { slip: Slip; at: number; part: boolean; rooms: [string, number][]; pax: number };
 
 export default function KeyCardsPage() {
-    const { cloud, stay } = useCore();
+    const { cloud, stay, transport, ums } = useCore();
+    const T = transport as any;
     const guard = useGuard();
     const { site, siteId } = useSite();
     const { ask, dialog } = useConfirm();
@@ -64,6 +65,28 @@ export default function KeyCardsPage() {
         }
         return out.sort((a, b) => a.at - b.at || natural(a.slip.tour_name || '', b.slip.tour_name || '') || natural(a.slip.sh_no, b.slip.sh_no));
     }, [slips.data, day, stay]);
+
+    // the vehicle each group leaves in that day, from the Transport day list (by SH): "Bus 3 · MAKKAH", "Car 1 · JEDDAH AIRPORT" — several if it has more trips
+    const [buses, setBuses] = useState<Map<string, string>>(new Map());
+    useEffect(() => {
+        let alive = true;
+        void (async () => {
+            try {
+                const d: any = await guard(T.loadDay(siteId, day));
+                const info = T.resolve(d.rows || []) as Map<string, any>, by = new Map<string, Set<string>>();
+                for (const r of d.rows || []) {
+                    const i = info.get(r.key), sh = (ums as any).baseSh(r.ref);
+                    if (!sh || !i || i.bus == null) continue;
+                    const to = String(i.route || '').split('-').slice(1).join('-') || i.route || '';
+                    const label = `${i.vehicle === 'car' || i.vehicle === 'other' ? T.vehicleNo(i.bus, i.vehicle, i.vlabel) : `Bus ${i.bus}`}${r.part ? ` (${r.part})` : ''}${to ? ` · ${to}` : ''}`;
+                    (by.get(sh) ?? by.set(sh, new Set()).get(sh)!).add(label);
+                }
+                if (alive) setBuses(new Map([...by].map(([k, v]) => [k, [...v].join(', ')])));
+            } catch { if (alive) setBuses(new Map()); }
+        })();
+        return () => { alive = false; };
+    }, [day, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const busOf = (s: Slip) => buses.get((ums as any).baseSh(s.sh_no)) || '';
 
     const back = (g: Group, room: string) => Math.min(MAX, ret.get(key(g.slip.id, room)) || 0);
     const stats = (g: Group) => {
@@ -151,7 +174,7 @@ export default function KeyCardsPage() {
                     <Button disabled={!list.length} onClick={() => {
                         const w = window.open('', '_blank');
                         if (!w) { say('The browser blocked the print page — allow pop-ups for this site and try again.', true); return; }
-                        w.document.open(); w.document.write(cardsSheet({ day: dmy(day), layout, site: site.label, cards: list.map(g => ({ name: `${g.slip.tour_name || '—'}${g.slip.group_leader ? ` (${g.slip.group_leader})` : ''}`, pax: g.pax, sh: String(g.slip.sh_no || '—'), building: g.slip.building || '', at: hm(g.at), part: g.part, rooms: g.rooms })) })); w.document.close();
+                        w.document.open(); w.document.write(cardsSheet({ day: dmy(day), layout, site: site.label, cards: list.map(g => ({ bus: busOf(g.slip), name: `${g.slip.tour_name || '—'}${g.slip.group_leader ? ` (${g.slip.group_leader})` : ''}`, pax: g.pax, sh: String(g.slip.sh_no || '—'), building: g.slip.building || '', at: hm(g.at), part: g.part, rooms: g.rooms })) })); w.document.close();
                     }}><Printer className="size-4" />Print</Button>
                 </div>
             </header>
@@ -176,6 +199,7 @@ export default function KeyCardsPage() {
                             <div className="border-b bg-muted px-3 py-1 text-xs font-bold">Departure Date: {dmy(day)}</div>
                             <div className="px-3 py-2 font-bold">
                                 {s.tour_name || '—'}{s.group_leader ? ` (${s.group_leader})` : ''} {g.pax}pax
+                                {busOf(s) && <span className="mt-0.5 block w-fit rounded border border-foreground/40 bg-accent/40 px-1.5 text-sm">🚌 {busOf(s)}</span>}
                                 <small className="block text-xs font-normal text-muted-foreground">SH {s.sh_no || '—'} · {s.building || 'no building'} · leaves {hm(g.at)}{g.part ? ' · only these rooms leave today' : ''}</small>
                             </div>
                             <div className="grid gap-1 px-3 pb-2">
