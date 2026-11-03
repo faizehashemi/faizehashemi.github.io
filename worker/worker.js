@@ -1060,11 +1060,17 @@ const SETTINGS = {
             && Object.entries(v).every(([k, c]) => k.trim().length >= 1 && k.length <= 60 && !/[<>]/.test(k) && typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c)),
         msg: 'GL copy colours: up to 100 buildings, each a colour like #e8590c.',
     },
+    // Transport day: the most pax a bus may carry, per destination of the site ({ "mdziyarat": 45, "madina": 49 }); a destination not listed keeps 49
+    bus_limits: {
+        check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= 30
+            && Object.entries(v).every(([k, n]) => /^[a-z0-9_-]{1,30}$/.test(k) && Number.isInteger(n) && n >= 1 && n <= 120),
+        msg: 'Bus limits: a whole number of pax from 1 to 120 per destination.',
+    },
 };
 
 // Settings are global, and a site can have its own value for the SITE_SETTINGS keys, stored under "<site>/<key>". A login of a site gets its site's values
 // (its own where set, else the global ones); an owner admin gets the global ones, or those of the site it asks for (?site=).
-const SITE_SETTINGS = ['arrival_commute_hours', 'arrival_other_hours', 'departure_lead_hours', 'transfer_checkin_time', 'transfer_checkout_time', 'laundry_info', 'kg_sessions', 'fe_windows', 'delay_hold_days', 'sh_prefixes', 'gl_colors'];
+const SITE_SETTINGS = ['arrival_commute_hours', 'arrival_other_hours', 'departure_lead_hours', 'transfer_checkin_time', 'transfer_checkout_time', 'laundry_info', 'kg_sessions', 'fe_windows', 'delay_hold_days', 'sh_prefixes', 'gl_colors', 'bus_limits'];
 async function getSettings(env, me, siteArg) {
     const site = me.role === 'admin' ? (SITES[siteArg] ? siteArg : null) : me.site;
     const { results } = await env.DB.prepare(

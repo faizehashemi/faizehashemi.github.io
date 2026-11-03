@@ -74,7 +74,8 @@ export function checkinsOf(slips, fromDay, existingRows, day) {
 /**
  * Open the window. Resolves to the new trips (rows for the day, `manual: true`) or null when closed.
  */
-export function openCheckoutPlan({ day, siteId, slips, rows }) {
+export function openCheckoutPlan({ day, siteId, slips, rows, limits = {} }) {
+    const cap = (destId) => limits[destId] || BUS_LIMIT;   // the bus limit of a destination (Transport day: Settings bus_limits)
     const dests = destsFor(siteId);
     const canZiyarat = dests.some(d => d.id === 'mdziyarat');
     // what to plan from, and from which date (the desk can change both)
@@ -124,8 +125,8 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
                     <label>Gents leave at<input type="time" id="plGT" value="${esc(gTime)}"${gender ? '' : ' disabled'}></label>
                     <label>Ladies leave at<input type="time" id="plLT" value="${esc(lTime)}"${gender ? '' : ' disabled'}></label>
                   </div>
-                  <p class="tp-muted" id="plGenderNote"${gender ? '' : ' hidden'}>Every ticked group's gents go on gents buses and its ladies and children on ladies buses — as few buses as possible (at most ${BUS_LIMIT} each), a hotel's groups kept together where they can be. The times per group are not used.</p>` : ''}
-                <label class="tp-plan-share"${Z && gender ? ' hidden' : ''}><input type="checkbox" id="plShare"${Z ? ' checked' : ''}> Put groups going to the same place into one vehicle (at most ${BUS_LIMIT} pax) when they leave within <input type="number" id="plMin" min="5" max="240" value="30"> minutes of the first</label>` : ''}`;
+                  <p class="tp-muted" id="plGenderNote"${gender ? '' : ' hidden'}>Every ticked group's gents go on gents buses and its ladies and children on ladies buses — as few buses as possible (at most ${cap('mdziyarat')} each), a hotel's groups kept together where they can be. The times per group are not used.</p>` : ''}
+                <label class="tp-plan-share"${Z && gender ? ' hidden' : ''}><input type="checkbox" id="plShare"${Z ? ' checked' : ''}> Put groups going to the same place into one vehicle (at most each destination's bus limit) when they leave within <input type="number" id="plMin" min="5" max="240" value="30"> minutes of the first</label>` : ''}`;
             sum();
         };
         const picked = () => [...dlg.querySelectorAll('tr[data-i]')].map(tr => ({
@@ -183,7 +184,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
             if (zg.length) {
                 if (!/^\d{2}:\d{2}$/.test(gTime) || !/^\d{2}:\d{2}$/.test(lTime)) { dlg.querySelector('#plSum').textContent = 'Fill in both times.'; return; }
                 const packed = packZiyarat(zg.map(x => ({ ref: x.line.sh, operator: x.line.name, leader: x.line.leader, m: x.line.m, f: x.line.f, c: x.line.c, rooms: x.line.rooms, building: x.line.building })),
-                    { gAt: `${day}T${gTime}`, lAt: `${day}T${lTime}`, keyOf: (i) => `P${stamp}Z${i}`, limit: BUS_LIMIT });
+                    { gAt: `${day}T${gTime}`, lAt: `${day}T${lTime}`, keyOf: (i) => `P${stamp}Z${i}`, limit: cap('mdziyarat') });
                 trips.push(...packed.map(t => ({ ...t, remarks: `${from} · ${t.remarks}` })));
             }
             const mainOf = new Map();                     // dest → [{ main, at }]
@@ -192,7 +193,7 @@ export function openCheckoutPlan({ day, siteId, slips, rows }) {
                 const base = { key: `P${stamp}${i}`, ref: l.sh, operator: l.name, leader: l.leader, m: l.m, f: l.f, c: l.c, pax: l.pax, rooms: l.rooms,
                     dora: '', vch: '', transporter: '', adj: '', loc: '', at: `${day}T${x.time}`, manual: true, ...(l.building ? { building: l.building } : {}) };
                 const mins = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-                const host = share && (mainOf.get(dest.id) || []).find(h => mins(x.time) - mins(h.time) <= gap && h.pax + l.pax <= BUS_LIMIT);
+                const host = share && (mainOf.get(dest.id) || []).find(h => mins(x.time) - mins(h.time) <= gap && h.pax + l.pax <= cap(dest.id));
                 if (host) host.pax += l.pax;
                 if (host) trips.push({ ...base, route: '', at: host.trip.at, with: host.trip.key, remarks: `${from}, with SH ${host.trip.ref}` });
                 else {

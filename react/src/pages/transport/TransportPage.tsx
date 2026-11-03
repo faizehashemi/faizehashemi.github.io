@@ -64,6 +64,22 @@ export default function TransportPage() {
 
     const rows = doc.rows;
     const info = useMemo(() => T.resolve(rows) as Map<string, Row>, [rows]);   // eslint-disable-line react-hooks/exhaustive-deps
+    // the most pax a bus may carry, per destination (Settings key bus_limits of this site; 49 where not set). Admins change it from a destination's header.
+    const [limits, setLimits] = useState<Record<string, number>>({});
+    const canTune = desk?.role === 'admin' || desk?.role === 'siteadmin';
+    const destLimit = (destId: string | undefined) => (destId && limits[destId]) || T.BUS_LIMIT;
+    const limitOf = (r: Row, list: Row[] = rows) => destLimit(((list === rows ? info : T.resolve(list)) as Map<string, Row>).get(r.key)?.dest);
+    async function tuneLimit(destId: string, title: string) {
+        const ans = await promptAsk({ title: `Bus limit — ${title}`, body: `The most pax one bus may carry to ${title} (1–120). Desks cannot put more on a bus. Cars and trains have no limit.`, value: String(destLimit(destId)), type: 'number' });
+        if (ans === null) return;
+        const n = parseInt(String(ans), 10);
+        if (!Number.isInteger(n) || n < 1 || n > 120) { setMsg('Type a whole number from 1 to 120.', 'bad'); return; }
+        try {
+            const r: any = await guard((cloud as any).request('PUT', '/api/settings', { settings: { bus_limits: { ...limits, [destId]: n } }, site: siteId }));
+            setLimits(r.settings?.bus_limits || {});
+            setMsg(`${title}: a bus now carries at most ${n} pax.`);
+        } catch (e: any) { setMsg(e.message || 'Could not save the limit.', 'bad'); }
+    }
     const sign = useMemo(() => T.signage(rows, siteId) as Row[], [rows, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
     const fleet = (list: Row[]) => T.fleetText(list, '0 buses') as string;
     const past = useMemo(() => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }, [rows]);
@@ -94,6 +110,7 @@ export default function TransportPage() {
         void (async () => {
             const [ziyarat, signage] = await Promise.all([loadCore('ziyarat'), loadCore('signage-api')]);
             setLibs({ ziyarat, signage });
+            try { const r: any = await guard((cloud as any).request('GET', `/api/settings?site=${siteId}`)); setLimits(r.settings?.bus_limits || {}); } catch { /* 49 everywhere */ }
             try { setBuildings(rooms.buildingNames(await guard(rooms.loadBuildings()), siteId)); } catch { setBuildings(rooms.buildingNames([], siteId)); }
             await load();
             await loadWindow(signage);
@@ -175,6 +192,8 @@ export default function TransportPage() {
         const next: Row[] = T.assignBuses(rows.map(r => (r.key === row.key ? patch(r) : { ...r })), rows);
         // the cars (or this custom name) of this destination always run 1, 2, 3… in time order
         const inf = T.resolve(next) as Map<string, Row>, dest = inf.get(row.key)?.dest;
+        const moved = next.find(r => r.key === row.key);
+        if (moved && T.limited(moved) && T.vehiclePax(next, row.key) > destLimit(dest)) { setMsg(`${T.vehiclePax(next, row.key)} pax ride in this vehicle — a ${label || 'bus'} here carries at most ${destLimit(dest)}. Move some of the groups first.`, 'bad'); return; }
         if (to !== 'bus' && !T.isTrain(to, label)) next.filter(r => T.vehicleOf(r) === to && (to !== 'other' || String(r.vehicle_label).toUpperCase() === label.toUpperCase()) && !inf.get(r.key)!.parent && inf.get(r.key)!.dest === dest)
             .sort((a, b) => a.at.localeCompare(b.at)).forEach((r, i) => { r.bus = i + 1; r.bus_manual = false; });
         await save(next, `SH ${row.key} → ${to === 'other' ? label : to} ${next.find(r => r.key === row.key)?.bus ?? ''}`);
@@ -245,7 +264,7 @@ export default function TransportPage() {
         if (patch.pax === Number(row.pax) && (nums.length === 1 || ((patch as any).m === (row.m || 0) && (patch as any).f === (row.f || 0) && (patch as any).c === (row.c || 0)))) return;
         const next = rows.map(r => (r.key === row.key ? { ...r, ...patch, pax_manual: true } : r));
         const main = (T.resolve(next) as Map<string, Row>).get(row.key)?.parent || next.find(r => r.key === row.key);
-        if (main && T.limited(main) && T.vehiclePax(next, main.key) > T.BUS_LIMIT && patch.pax > Number(row.pax)) { setMsg(`That would put ${T.vehiclePax(next, main.key)} pax on one bus. A bus carries at most ${T.BUS_LIMIT}: put some of the groups on another bus first.`, 'bad'); return; }
+        if (main && T.limited(main) && T.vehiclePax(next, main.key) > limitOf(main) && patch.pax > Number(row.pax)) { setMsg(`That would put ${T.vehiclePax(next, main.key)} pax on one bus. A bus here carries at most ${limitOf(main)}: put some of the groups on another bus first.`, 'bad'); return; }
         await save(next, `pax of ${row.ref ? `SH ${row.ref}` : 'a vehicle'}: ${row.pax} → ${patch.pax}`);
     }
     async function deleteTrip(row: Row) {
@@ -304,9 +323,9 @@ export default function TransportPage() {
         const gBus = busOf(gKey ? rows.find(r => r.key === gKey) : undefined), lBus = busOf(gKey ? rows.find(r => r.key === `${gKey}-L`) : undefined);
         const own = { g: false, l: false };   // a part that does not fit gets a bus of its own (same route and time as its split bus)
         if (gBus && lBus) {
-            const load = (bus: Row, more: number) => ({ have: T.vehiclePax(rows, bus.key), more, over: T.limited(bus) && T.vehiclePax(rows, bus.key) + more > T.BUS_LIMIT });
+            const load = (bus: Row, more: number) => ({ have: T.vehiclePax(rows, bus.key), more, cap: limitOf(bus), over: T.limited(bus) && T.vehiclePax(rows, bus.key) + more > limitOf(bus) });
             const G = load(gBus, adds.reduce((s, a) => s + n(a.m), 0)), L = load(lBus, adds.reduce((s, a) => s + n(a.f) + n(a.c), 0));
-            const line = (x: typeof G, what: string) => `${what} bus: ${x.have} + ${x.more} = ${x.have + x.more} of ${T.BUS_LIMIT}`;
+            const line = (x: typeof G, what: string) => `${what} bus: ${x.have} + ${x.more} = ${x.have + x.more} of ${x.cap}`;
             if (G.over && L.over) { setMsg(`Neither part fits — ${line(G, 'gents')}, ${line(L, 'ladies')}. Put the group on another bus.`, 'bad'); return; }
             if (G.over || L.over) {
                 const fits = G.over ? 'ladies' : 'gents', not = G.over ? 'gents' : 'ladies';
@@ -319,9 +338,9 @@ export default function TransportPage() {
             }
         } else {
             const have = T.vehiclePax(rows, parent.key), more = adds.reduce((s, a) => s + (Number(a.pax) || 0), 0);
-            if (T.limited(parent) && have + more > T.BUS_LIMIT) {
+            if (T.limited(parent) && have + more > limitOf(parent)) {
                 const z = libs?.ziyarat.isZiyarat(siteId, parent.route) ? ' On Ziyarat the gents and ladies can ride apart: press ⚥ Split gents / ladies on this bus first, then add the group — each part is then counted on its own bus.' : ' Put the group on another bus.';
-                setMsg(`This bus has ${have} pax; adding ${more} more would pass the limit of ${T.BUS_LIMIT} per bus.${z}`, 'bad'); return;
+                setMsg(`This bus has ${have} pax; adding ${more} more would pass the limit of ${limitOf(parent)} per bus.${z}`, 'bad'); return;
             }
         }
         const fromSlips = adds.length;
@@ -371,7 +390,7 @@ export default function TransportPage() {
                 add = { ...add, ref: sh, pax: Math.max(0, parseInt(p, 10) || 0) };
             }
         }
-        if (f.veh === 'bus' && Number(add.pax) > T.BUS_LIMIT) { setMsg(`SH ${add.ref} has ${add.pax} pax — a bus carries at most ${T.BUS_LIMIT}. Add it as two buses (type the pax of each part), or use a car.`, 'bad'); return false; }
+        if (f.veh === 'bus' && Number(add.pax) > destLimit(destId)) { setMsg(`SH ${add.ref} has ${add.pax} pax — a bus to ${dest.title} carries at most ${destLimit(destId)}. Add it as two buses (type the pax of each part), or use a car.`, 'bad'); return false; }
         const Tr = cleanText(f.transporter).slice(0, 60), V = cleanText(f.vch).slice(0, 20);
         const trip: Row = { key: `M${Date.now().toString(36).toUpperCase()}`, dora: '', vch: V, transporter: Tr, at: `${day}T${f.time}`, route: dest.route, remarks: 'vehicle added by hand', adj: '', loc: '', ...add, manual: true, ...(Tr || V ? { transporter_manual: true } : {}), ...(f.veh === 'car' ? { vehicle: 'car' } : f.veh === 'train' ? { vehicle: 'other', vehicle_label: 'Train' } : {}) };
         // existing numbers stay; the new vehicle takes the next number of its destination
@@ -407,7 +426,7 @@ export default function TransportPage() {
         let slips: Row[];
         try { slips = await guard(db.all()); } catch { setMsg('Could not read the slips.', 'bad'); return; }
         const mod = await loadApp('views/transport/plan.js');
-        const trips: Row[] | null = await mod.openCheckoutPlan({ day, siteId, slips, rows });
+        const trips: Row[] | null = await mod.openCheckoutPlan({ day, siteId, slips, rows, limits });
         if (!trips?.length) return;
         const shs = [...new Set(trips.map(t => String(t.ref)))];   // a gender-wise Ziyarat group has a gents and a ladies trip
         await save(T.assignBuses([...rows.map(r => ({ ...r })), ...trips].sort((a, b) => a.at.localeCompare(b.at)), rows), `${trips[0].remarks.replace(/, with SH .*| · .*/, '')}: ${shs.length} group${shs.length === 1 ? '' : 's'} (SH ${shs.join(', ')})`);
@@ -489,6 +508,9 @@ export default function TransportPage() {
                 <div key={s.dest.id} className="grid gap-2">
                     <div className="flex flex-wrap items-center gap-2 border-b pb-1.5 font-bold"><span aria-hidden>{s.dest.icon}</span>{s.dest.label}{air && <span className="text-xs font-normal text-muted-foreground">by departure time</span>}
                         <small className="font-normal text-muted-foreground">{fleet(s.buses)} · {s.groups} groups · {s.pax} pax</small>
+                        {canTune && writable
+                            ? <Button size="sm" variant="outline" className="h-6 px-1.5 text-xs font-normal" title="The most pax one bus may carry on this route — change it" onClick={() => void tuneLimit(s.dest.id, s.dest.title)}>🚌 max {destLimit(s.dest.id)} / bus ✎</Button>
+                            : <small className="rounded border px-1.5 text-xs font-normal text-muted-foreground" title="The most pax one bus may carry on this route (an admin can change it)">🚌 max {destLimit(s.dest.id)} / bus</small>}
                         {air && s.buses.length > 1 && writable && <Button size="sm" variant="outline" className="ml-auto" title="Number this destination's vehicles 1, 2, 3… by departure time" onClick={() => void byTime(s.dest.id)}>🔢 Number by time</Button>}</div>
                     {body.length ? <div className="overflow-x-auto"><Table>
                         <TableHeader><TableRow><TableHead>Vehicle</TableHead><TableHead>Time</TableHead><TableHead>From</TableHead><TableHead>SH</TableHead><TableHead>Tour operator</TableHead><TableHead>Group leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Transporter</TableHead>{showRooms && <TableHead>Rooms</TableHead>}<TableHead>Remarks</TableHead>{writable && <TableHead />}</TableRow></TableHeader>
@@ -510,7 +532,7 @@ export default function TransportPage() {
                                 {timeCell(r)}{fromCell(r, i ? b : null)}{refCell(r)}{nameCell(r, 'operator')}{nameCell(r, 'leader')}{paxCell(r)}{trCell(r, !!i)}
                                 {showRooms && roomsCell(r)}
                                 <TableCell className="min-w-40">
-                                    {!i && <span className={cn('mr-1.5 rounded border px-1.5 py-0.5 text-xs font-bold', T.limited(r) && b.pax > T.BUS_LIMIT && 'border-destructive bg-destructive/10 text-destructive')} title={`Pax on this ${veh[b.vehicle].title.toLowerCase()}${T.limited(r) ? ` (a bus carries at most ${T.BUS_LIMIT})` : ''}`}>{b.pax}{T.limited(r) ? ` / ${T.BUS_LIMIT}` : ''}</span>}
+                                    {!i && <span className={cn('mr-1.5 rounded border px-1.5 py-0.5 text-xs font-bold', T.limited(r) && b.pax > destLimit(s.dest.id) && 'border-destructive bg-destructive/10 text-destructive')} title={`Pax on this ${veh[b.vehicle].title.toLowerCase()}${T.limited(r) ? ` (a bus carries at most ${destLimit(s.dest.id)})` : ''}`}>{b.pax}{T.limited(r) ? ` / ${destLimit(s.dest.id)}` : ''}</span>}
                                     {r.part && <Badge variant="outline" className="mr-1">{r.part === 'gents' ? 'GENTS' : 'LADIES'}</Badge>}{r.remarks}
                                     {!i && writable && <Button size="sm" variant="outline" className="ml-1.5 h-6 px-1.5 text-xs" title={`Add a group (SH) to this ${veh[b.vehicle].title.toLowerCase()}`} disabled={saving} onClick={() => void addSh(r)}>＋ SH</Button>}
                                     {!i && writable && libs?.ziyarat.isZiyarat(siteId, r.route) && <Button size="sm" variant="outline" className="ml-1.5 h-6 px-1.5 text-xs" title="Gents and ladies on their own Ziyarat trips" disabled={saving} onClick={() => void zsplit(String(r.key).replace(/-L$/, ''))}>{r.part ? '⚥ Gents / Ladies…' : '⚥ Split gents / ladies'}</Button>}</TableCell>
