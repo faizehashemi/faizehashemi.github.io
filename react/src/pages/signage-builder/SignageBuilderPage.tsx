@@ -19,6 +19,11 @@ type Row = Record<string, any>;
 const GRID = 10;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
+/** what a guide line is: "middle", "⅓", "edge" … of the screen, else an element's edge / middle at that position */
+const guideName = (at: number, size: number, axis: 'x' | 'y') => {
+    const r = at / size, names: [number, string][] = [[0, axis === 'x' ? 'left edge' : 'top edge'], [0.25, '¼'], [1 / 3, '⅓'], [0.5, 'middle'], [2 / 3, '⅔'], [0.75, '¾'], [1, axis === 'x' ? 'right edge' : 'bottom edge']];
+    return names.find(([v]) => Math.abs(v - r) < 1e-6)?.[1] ?? `${Math.round(at)} px · element`;
+};
 const ELEMENTS: [string, string, string?][] = [['title', '🅃 Title'], ['heading', '🏷️ Trip type heading'], ['text', '✏️ Text'], ['date', '📅 Date'], ['sdate', '📆 Short date'],
     ['rdate', '🗓️ Relative date', "The date(s) of the trips shown on the slide — not today's"], ['clock', '🕒 Clock'], ['image', '🖼️ Image'], ['table', '▦ Data table']];
 
@@ -64,7 +69,7 @@ export default function SignageBuilderPage() {
             try {
                 const [sg, ts] = await guard<any>(Promise.all([a.loadSignage(siteId), a.loadTripTypes(siteId)]));
                 setCfg(sg.config); setTemplates(sg.templates); setTypes(ts); setFade(sg.config.fade ?? 0.3);
-                openTemplate(sg.templates[0] ?? null, s);
+                openTemplate(sg.templates.find((t: Row) => !s.isPdf(t)) ?? null, s);
                 setOrder(slidesRows(sg.config, ts));
             } catch (e: any) { setStatus(e instanceof cloud.UserError ? e.message : 'Could not load the signage settings.', true); openTemplate(null, s); }
             if (!writable) setStatus('This login can look but not change the signage.');
@@ -125,6 +130,26 @@ export default function SignageBuilderPage() {
         return () => ro.disconnect();
     }, [S]);
 
+    // ---- alignment guides ----
+    // While moving or resizing, an edge or the middle of the element snaps (within GUIDE px) to: the screen's edges, middle, thirds and quarters,
+    // and the edges and middles of the other elements — a pink line shows each match. Shift = no snapping at all.
+    const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
+    function snapToGuides(id: string, x: number, y: number, w: number, hh: number, edges: { x: ('l' | 'c' | 'r')[]; y: ('t' | 'm' | 'b')[] }) {
+        const W = S.STAGE_W, H = S.STAGE_H, GUIDE = 8 / Math.max(0.25, scaleRef.current) ;   // about 8 screen pixels at any zoom
+        const others = curRef.current.data.elements.filter((o: Row) => o.id !== id);
+        const tx = [0, W / 4, W / 3, W / 2, (2 * W) / 3, (3 * W) / 4, W, ...others.flatMap((o: Row) => [o.x, o.x + o.w / 2, o.x + o.w])];
+        const ty = [0, H / 4, H / 3, H / 2, (2 * H) / 3, (3 * H) / 4, H, ...others.flatMap((o: Row) => [o.y, o.y + o.h / 2, o.y + o.h])];
+        const best = (cands: number[], targets: number[]) => {
+            let d = Infinity, at: number | null = null;
+            for (const c of cands) for (const t of targets) if (Math.abs(t - c) < Math.abs(d) && Math.abs(t - c) <= GUIDE) { d = t - c; at = t; }
+            return at === null ? null : { d, at };
+        };
+        const cx = { l: x, c: x + w / 2, r: x + w }, cy = { t: y, m: y + hh / 2, b: y + hh };
+        const bx = best(edges.x.map(k => cx[k]), tx), by = best(edges.y.map(k => cy[k]), ty);
+        const v = bx ? [bx.at] : [], h = by ? [by.at] : [];
+        return { dx: bx?.d ?? null, dy: by?.d ?? null, v, h };
+    }
+
     // ---- move / resize with the pointer ----
     function onPointerDown(ev: React.PointerEvent) {
         const handle = (ev.target as HTMLElement).closest<HTMLElement>('.sb-sel i');
@@ -144,16 +169,27 @@ export default function SignageBuilderPage() {
             if (!moved && Math.abs(dx) + Math.abs(dy) < 2) return;
             moved = true;
             const o = start.e;
-            if (!h) { work.x = clamp(snap(o.x + dx, free), -o.w + 40, S.STAGE_W - 40); work.y = clamp(snap(o.y + dy, free), -o.h + 40, S.STAGE_H - 40); }
-            else {
+            let shown = { v: [] as number[], h: [] as number[] };
+            if (!h) {
+                // a guide wins over the 10 px grid; without one the grid applies
+                const g = free ? null : snapToGuides(id, o.x + dx, o.y + dy, o.w, o.h, { x: ['l', 'c', 'r'], y: ['t', 'm', 'b'] });
+                work.x = clamp(g?.dx != null ? Math.round(o.x + dx + g.dx) : snap(o.x + dx, free), -o.w + 40, S.STAGE_W - 40);
+                work.y = clamp(g?.dy != null ? Math.round(o.y + dy + g.dy) : snap(o.y + dy, free), -o.h + 40, S.STAGE_H - 40);
+                if (g) shown = { v: g.dx != null ? g.v : [], h: g.dy != null ? g.h : [] };
+            } else {
                 let { x, y, w, h: hh } = o;
                 if (h.includes('e')) w = snap(o.w + dx, free);
                 if (h.includes('s')) hh = snap(o.h + dy, free);
                 if (h.includes('w')) { x = snap(o.x + dx, free); w = o.w + (o.x - x); }
                 if (h.includes('n')) { y = snap(o.y + dy, free); hh = o.h + (o.y - y); }
-                if (w >= 30) { work.x = x; work.w = w; }
-                if (hh >= 30) { work.y = y; work.h = hh; }
+                // the edge being dragged snaps to guides too
+                const g = free ? null : snapToGuides(id, x, y, w, hh, { x: h.includes('e') ? ['r'] : ['l'], y: h.includes('s') ? ['b'] : ['t'] });
+                if (g?.dx != null) { if (h.includes('e')) w += g.dx; else { x += g.dx; w -= g.dx; } shown.v = g.v; }
+                if (g?.dy != null) { if (h.includes('s')) hh += g.dy; else { y += g.dy; hh -= g.dy; } shown.h = g.h; }
+                if (w >= 30) { work.x = Math.round(x); work.w = Math.round(w); }
+                if (hh >= 30) { work.y = Math.round(y); work.h = Math.round(hh); }
             }
+            setGuides(shown);
             const n = stageRef.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
             if (n) Object.assign(n.style, { left: `${work.x}px`, top: `${work.y}px`, width: `${work.w}px`, height: `${work.h}px` });
             const ov = canvasRef.current?.querySelector<HTMLElement>('.sb-sel');
@@ -161,6 +197,7 @@ export default function SignageBuilderPage() {
         };
         const up = () => {
             removeEventListener('pointermove', move); removeEventListener('pointerup', up);
+            setGuides({ v: [], h: [] });
             if (!moved) return;
             undo.current.push(before); redo.current = []; lastKey.current = '';
             const data = clone(curRef.current.data); const t = data.elements.find((x: Row) => x.id === id); Object.assign(t, { x: work.x, y: work.y, w: work.w, h: work.h });
@@ -249,11 +286,40 @@ export default function SignageBuilderPage() {
         try { await guard(A.deleteTemplate(cur.id)); setTemplates(ts => ts.filter(t => t.id !== cur.id)); openTemplate(null); setStatus('Deleted.'); }
         catch (er: any) { setStatus(er.message || 'Could not delete.', true); }
     }
-    async function saveSlides() {
+    async function saveSlidesOf(list: Row[], done = 'Saved — the board uses it from its next slide.') {
         try {
-            const r = await guard<any>(A.saveSignageConfig(siteId, { slides: order.map(({ type, template, seconds }) => ({ type, template, seconds })), fade }, cfg.version));
-            setCfg(r.config); setTemplates(r.templates); setOrder(slidesRows(r.config, types)); setSlidesMsg('Saved — the board uses it from its next slide.');
+            const r = await guard<any>(A.saveSignageConfig(siteId, { slides: list.map(({ type, template, seconds }) => ({ type, template, seconds })), fade }, cfg.version));
+            setCfg(r.config); setTemplates(r.templates); setOrder(slidesRows(r.config, types)); setSlidesMsg(done);
         } catch (er: any) { setSlidesMsg(er instanceof cloud.UserError ? er.message : 'Could not save.'); }
+    }
+    const saveSlides = () => saveSlidesOf(order);
+
+    // ---- PDF slides: each page a picture (core/signage-pdf.js), kept as a template of kind 'pdf'; the slide row is { type: 'pdf:<id>', template: id, seconds a page } ----
+    const [pdfBusy, setPdfBusy] = useState('');
+    async function addPdf(file?: File) {
+        if (!file || !writable) return;
+        if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') { setSlidesMsg('Choose a PDF file.'); return; }
+        try {
+            setPdfBusy('Reading the PDF…');
+            const P = await loadCore('signage-pdf');
+            const pages: string[] = await P.pdfPages(file, (d: number, n: number) => setPdfBusy(`Drawing page ${d} of ${n}…`));
+            setPdfBusy('Saving…');
+            const name = file.name.replace(/\.pdf$/i, '').slice(0, 50) || 'PDF';
+            const t = await guard<any>(A.createTemplate(siteId, `📄 ${name}`, { kind: 'pdf', file: file.name.slice(0, 100), pages, fit: 'contain', bg: { color: '#000000' }, elements: [] }));
+            setTemplates(ts => [...ts, t]);
+            const next = [...order, { type: `pdf:${t.id}`, template: t.id, seconds: 10, trips: 0, last: '' }];
+            setOrder(next);
+            await saveSlidesOf(next, `PDF “${name}” added (${pages.length} pages, 10 s each) — move it up or down, change the seconds, and save again if you change anything.`);
+        } catch (er: any) { setSlidesMsg(er?.message || 'Could not read that PDF.'); }
+        finally { setPdfBusy(''); }
+    }
+    async function removePdf(s: Row) {
+        const t = pdfOf(s);
+        if (!(await confirmAsk({ title: `Remove the PDF slide${t ? ` “${t.name}”` : ''}?`, confirmLabel: 'Remove', body: 'Its pages leave the board and are deleted.' }))) return;
+        const next = order.filter(x => x.type !== s.type);
+        setOrder(next);
+        await saveSlidesOf(next, 'PDF slide removed.');
+        if (t) { try { await guard(A.deleteTemplate(t.id)); setTemplates(ts => ts.filter(x => x.id !== t.id)); } catch { /* the slide is gone; the template stays unused */ } }
     }
 
     if (!S || !A) return <div className="mx-auto max-w-[2400px] p-4 text-sm text-muted-foreground">Loading…</div>;
@@ -267,6 +333,21 @@ export default function SignageBuilderPage() {
     }, `${sel}.c${i}.${k}`);
     const tplLabel = (t: Row) => { const u = (cfg.slides || []).filter((s: Row) => String(s.template) === String(t.id)).map((s: Row) => S.travelTo(s.type)); return `${t.name}${u.length ? ` · shows ${u.join(', ')}` : ''}`; };
     const fadeLabel = (v: number) => (v ? `${v.toFixed(1)} s` : 'cut');
+    const designs = templates.filter(t => !S.isPdf(t)), pdfOf = (s: Row) => templates.find(t => S.isPdf(t) && String(t.id) === String(s.template));
+    const gone = (s: Row) => typeof s.template === 'number' && !templates.some(t => t.id === s.template);
+    const moveRow = (i: number, by: number) => { setOrder(o => { const n = [...o]; [n[i + by], n[i]] = [n[i], n[i + by]]; return n; }); setSlidesMsg('Not saved yet.'); };
+    const pdfRow = (s: Row, i: number) => {
+        const t = pdfOf(s);
+        return (
+            <tr key={s.type} className="border-b bg-accent/20">
+                <td className="whitespace-nowrap p-2"><Button size="icon" variant="outline" className="size-7" aria-label="Move up" disabled={dis || !i} onClick={() => moveRow(i, -1)}><ChevronUp className="size-4" /></Button> <Button size="icon" variant="outline" className="size-7" aria-label="Move down" disabled={dis || i === order.length - 1} onClick={() => moveRow(i, 1)}><ChevronDown className="size-4" /></Button></td>
+                <td className="p-2"><b>📄 {t?.name || 'PDF (deleted)'}</b><small className="block text-xs text-muted-foreground">PDF slide · {t ? `${(t.data.pages || []).length} pages, one after another` : 'its pages are gone — remove this row'}</small></td>
+                <td className="p-2">{t && <div className="flex items-center gap-1.5">{(t.data.pages || []).slice(0, 4).map((p: string, k: number) => <img key={k} src={p} alt={`Page ${k + 1}`} className="h-10 rounded border bg-white object-contain" />)}{(t.data.pages || []).length > 4 && <span className="text-xs text-muted-foreground">+{t.data.pages.length - 4}</span>}</div>}</td>
+                <td className="p-2"><div className="flex items-center gap-2"><Input type="number" min={3} max={600} className="h-9 w-24" aria-label="Seconds a page" disabled={dis} value={s.seconds} onChange={ev => { const v = clamp(Number(ev.target.value) || 10, 3, 600); setOrder(o => o.map((x, k) => k === i ? { ...x, seconds: v } : x)); setSlidesMsg('Not saved yet.'); }} /><span className="text-xs text-muted-foreground">s a page</span>
+                    {writable && <Button size="sm" variant="outline" className="text-destructive" onClick={() => void removePdf(s)}><Trash2 className="size-3.5" />Remove</Button>}</div></td>
+            </tr>
+        );
+    };
     const dis = !writable;
 
     return (
@@ -279,7 +360,7 @@ export default function SignageBuilderPage() {
             <Card className="flex-row flex-wrap items-end gap-3 p-3">
                 <div className="grid gap-1"><Label>Template</Label>
                     <select aria-label="Template" className="h-9 min-w-48 rounded-md border bg-background px-2 text-sm" value={cur.id ?? ''} onChange={async ev => { const t = templates.find(x => String(x.id) === ev.target.value); if (t && await discardOk()) openTemplate(t); }}>
-                        {!cur.id && <option value="">— new, not saved yet —</option>}{templates.map(t => <option key={t.id} value={t.id}>{tplLabel(t)}</option>)}</select></div>
+                        {!cur.id && <option value="">— new, not saved yet —</option>}{designs.map(t => <option key={t.id} value={t.id}>{tplLabel(t)}</option>)}</select></div>
                 <div className="grid min-w-48 flex-1 gap-1"><Label htmlFor="sbName">Name</Label><Input id="sbName" maxLength={60} placeholder="e.g. Madina big screen" disabled={dis} value={cur.name} onChange={ev => { const v = ev.target.value; setCur(c => ({ ...c, name: v })); setDirty(true); }} /></div>
                 <div className="flex flex-wrap gap-1.5">
                     <Button variant="outline" disabled={dis} onClick={async () => { if (await discardOk()) openTemplate(null, S, S.blankTemplate()); }}>＋ Blank</Button>
@@ -318,8 +399,10 @@ export default function SignageBuilderPage() {
                         <div ref={stageRef} className="sb-stage absolute left-0 top-0 origin-top-left [&>div]:cursor-move [&>div:hover]:outline-2 [&>div:hover]:-outline-offset-2 [&>div:hover]:outline-dashed [&>div:hover]:outline-blue-700/50" style={{ transform: `scale(${scale})` }} />
                         {e && <div className="sb-sel pointer-events-none absolute box-border border-2 border-blue-700" style={{ left: e.x * scale, top: e.y * scale, width: e.w * scale, height: e.h * scale }}>
                             {(['nw', 'ne', 'sw', 'se'] as const).map(h => <i key={h} data-h={h} className={cn('pointer-events-auto absolute size-3.5 rounded-sm border-2 border-blue-700 bg-white', h[0] === 'n' ? '-top-2' : '-bottom-2', h[1] === 'w' ? '-left-2' : '-right-2', h === 'nw' || h === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize')} />)}</div>}
+                        {guides.v.map(x => <div key={`v${x}`} aria-hidden className="pointer-events-none absolute top-0 h-full w-px bg-pink-600" style={{ left: x * scale }}><span className="absolute left-1 top-1 rounded bg-pink-600 px-1 text-[10px] text-white">{guideName(x, S.STAGE_W, 'x')}</span></div>)}
+                        {guides.h.map(y => <div key={`h${y}`} aria-hidden className="pointer-events-none absolute left-0 h-px w-full bg-pink-600" style={{ top: y * scale }}><span className="absolute left-1 top-1 rounded bg-pink-600 px-1 text-[10px] text-white">{guideName(y, S.STAGE_H, 'y')}</span></div>)}
                     </div>
-                    <p className="text-xs text-muted-foreground">1920 × 1080 screen. Drag to move, corners to resize (snaps to 10 px — hold Shift for free). Arrow keys nudge, Delete removes. Texts can hold <code>{'{type}'}</code> <code>{'{date}'}</code> <code>{'{sdate}'}</code> <code>{'{rdate}'}</code> <code>{'{time}'}</code> <code>{'{page}'}</code>/<code>{'{pages}'}</code> <code>{'{trips}'}</code> <code>{'{pax}'}</code>.</p>
+                    <p className="text-xs text-muted-foreground">1920 × 1080 screen. Drag to move, corners to resize — edges and middles snap to the screen's middle, thirds, quarters and edges and to the other elements (pink guide lines), otherwise to 10 px; hold Shift for free. Arrow keys nudge, Delete removes. Texts can hold <code>{'{type}'}</code> <code>{'{date}'}</code> <code>{'{sdate}'}</code> <code>{'{rdate}'}</code> <code>{'{time}'}</code> <code>{'{page}'}</code>/<code>{'{pages}'}</code> <code>{'{trips}'}</code> <code>{'{pax}'}</code>.</p>
                 </div>
 
                 <Card className="grid content-start gap-2 p-3 lg:col-span-2 xl:col-span-1 xl:max-h-[calc(100vh-140px)] xl:overflow-auto">
@@ -368,17 +451,22 @@ export default function SignageBuilderPage() {
                 <p className="text-sm text-muted-foreground">Every trip type found in the imported transport lists. The board shows them in this order, each slide for its seconds; a type with no trips in the window is skipped. Types on <b>Classic</b> (or on a template whose table has “share pages” ticked) share their pages. The window (which days and hours) is set on the Transport day page.</p>
                 {order.length ? <div className="overflow-x-auto"><table className="w-full text-sm">
                     <thead><tr className="border-b text-left"><th className="p-2">Order</th><th className="p-2">Trip type</th><th className="p-2">Template</th><th className="p-2">Seconds a slide</th></tr></thead>
-                    <tbody>{order.map((s, i) => (
+                    <tbody>{order.map((s, i) => String(s.type).startsWith('pdf:') ? pdfRow(s, i) : (
                         <tr key={s.type} className={cn('border-b', s.template === 'none' && 'opacity-70')}>
                             <td className="whitespace-nowrap p-2"><Button size="icon" variant="outline" className="size-7" aria-label="Move up" disabled={dis || !i} onClick={() => { setOrder(o => { const n = [...o]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); setSlidesMsg('Not saved yet.'); }}><ChevronUp className="size-4" /></Button> <Button size="icon" variant="outline" className="size-7" aria-label="Move down" disabled={dis || i === order.length - 1} onClick={() => { setOrder(o => { const n = [...o]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; return n; }); setSlidesMsg('Not saved yet.'); }}><ChevronDown className="size-4" /></Button></td>
                             <td className="p-2"><b>{S.travelTo(s.type)}</b><small className="block text-xs text-muted-foreground">{s.type} · {s.trips ? `${s.trips} trips, last ${s.last}` : 'no trips saved yet'}</small></td>
                             <td className="p-2"><select aria-label="Template" disabled={dis} className="h-9 rounded-md border bg-background px-2 text-sm" value={String(s.template)} onChange={ev => { const v = ev.target.value; setOrder(o => o.map((x, k) => k === i ? { ...x, template: v === 'none' || v === 'classic' ? v : Number(v) } : x)); setSlidesMsg('Not saved yet.'); }}>
-                                {[['none', '— not shown —'], ['classic', 'Classic (sigatulhaj layout)'], ...templates.map(t => [String(t.id), t.name])].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td>
+                                {[['none', '— not shown —'], ['classic', 'Classic (sigatulhaj layout)'], ...designs.map(t => [String(t.id), t.name]), ...(gone(s) ? [[String(s.template), '⚠ deleted template']] : [])].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                                {gone(s) && <small className="block text-xs text-destructive">Its template was deleted — the board shows these trips in the Classic layout. Pick a template.</small>}</td>
                             <td className="p-2"><Input type="number" min={3} max={600} className="h-9 w-24" disabled={dis} value={s.seconds} onChange={ev => { const v = clamp(Number(ev.target.value) || 15, 3, 600); setOrder(o => o.map((x, k) => k === i ? { ...x, seconds: v } : x)); setSlidesMsg('Not saved yet.'); }} /></td>
                         </tr>))}</tbody></table></div> : <p className="text-sm text-muted-foreground">No trip types yet — import a transport list first.</p>}
                 <div className="flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">Transition between slides <Slider className="w-40" min={0} max={3} step={0.1} value={[fade]} disabled={dis} onValueChange={v => { setFade(v[0]); setSlidesMsg('Not saved yet.'); }} /><output className="min-w-16 font-bold text-foreground">{fadeLabel(fade)}</output></label>
-                    {writable && <Button onClick={() => void saveSlides()}>Save slides</Button>}<span className="text-sm text-muted-foreground">{slidesMsg}</span></div>
+                    {writable && <Button onClick={() => void saveSlides()}>Save slides</Button>}
+                    {writable && <label className={cn('inline-flex cursor-pointer items-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-gold', pdfBusy && 'pointer-events-none opacity-60')}>📄 Add a PDF slide
+                        <input type="file" accept="application/pdf,.pdf" className="sr-only" onChange={ev => { const f = ev.target.files?.[0]; ev.target.value = ''; void addPdf(f); }} /></label>}
+                    <span className="text-sm text-muted-foreground">{pdfBusy || slidesMsg}</span></div>
+                <p className="text-xs text-muted-foreground">A PDF slide shows its pages one after another on the board, each for the seconds you set, in its place in this list (up to 40 pages; big PDFs are kept at a lower quality to fit).</p>
             </Card>
             {confirmDialog}
         </div>

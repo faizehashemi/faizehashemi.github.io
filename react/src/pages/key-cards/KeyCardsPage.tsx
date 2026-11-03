@@ -38,8 +38,8 @@ export default function KeyCardsPage() {
 
     const [day, setDay] = useState(ymd(new Date()));
     const [bld, setBld] = useState('all'), [find, setFind] = useState(''), [onlyOut, setOnlyOut] = useState(false);
-    const [layout, setLayout] = useState(() => { try { const v = localStorage.getItem('pms_kc_layout'); return LAYOUTS.some(l => l.id === v) ? v! : '3x3'; } catch { return '3x3'; } });
-    const pickLayout = (v: string) => { setLayout(v); try { localStorage.setItem('pms_kc_layout', v); } catch { /* not saved */ } };
+    const [layout, setLayout] = useState(() => { try { const v = localStorage.getItem('pms_kc_paper'); return LAYOUTS.some(l => l.id === v) ? v! : 'portrait'; } catch { return 'portrait'; } });
+    const pickLayout = (v: string) => { setLayout(v); try { localStorage.setItem('pms_kc_paper', v); } catch { /* not saved */ } };
     const [ret, setRet] = useState<Map<string, number>>(new Map());
     const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
     const pending = useRef(new Map<string, { slip_id: number; room_no: string; returned: number }>());
@@ -145,7 +145,7 @@ export default function KeyCardsPage() {
                             <SelectContent><SelectItem value="all">All buildings</SelectItem>{buildings.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
                     <div className="grid gap-1"><Label htmlFor="kcFind">Find</Label><Input id="kcFind" type="search" placeholder="Group, leader, SH, room" autoComplete="off" value={find} onChange={e => setFind(e.target.value)} /></div>
                     <div className="flex items-center gap-2 pb-2"><Checkbox id="kcOut" checked={onlyOut} onCheckedChange={v => setOnlyOut(v === true)} /><Label htmlFor="kcOut">Only cards still out</Label></div>
-                    <div className="grid gap-1"><Label htmlFor="kcPer">Cards per page</Label>
+                    <div className="grid gap-1"><Label htmlFor="kcPer">Paper</Label>
                         <Select value={layout} onValueChange={pickLayout}><SelectTrigger id="kcPer" className="min-w-44"><SelectValue /></SelectTrigger>
                             <SelectContent>{LAYOUTS.map(l => <SelectItem key={l.id} value={l.id}>{l.label}</SelectItem>)}</SelectContent></Select></div>
                     <Button disabled={!list.length} onClick={() => {

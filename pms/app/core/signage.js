@@ -10,6 +10,7 @@
 //     merge   — "Travel To" written once for the rows that share it on a page (as the Classic board)
 //     combine — all trip types using this template share its pages (as the Classic board); off = one run per type
 // Slides config (cloud, per site): { window, slides: [{ type: route, template: 'classic' | 'none' | id, seconds }] }
+//   a PDF slide is { type: 'pdf:<id>', template: <id of a PDF template>, seconds: per page } — its pages cycle in the slides' order
 
 import { resolve, vehicleNo, vehicleWord } from './transport.js';
 
@@ -97,6 +98,8 @@ export function tripsOf(data) {
 }
 
 const tableOf = (tpl) => tpl?.elements?.find(e => e.type === 'table') || null;
+/** A PDF slide's template: { kind: 'pdf', file, pages: [data:image…], fit, bg } — made by the builder from a PDF (core/signage-pdf.js) */
+export const isPdf = (t) => !!(t && t.data && t.data.kind === 'pdf');
 const byBoard = (a, b) => a.to.localeCompare(b.to) || a.r.at.localeCompare(b.r.at) || ((a.vehicle === 'car') - (b.vehicle === 'car')) || (a.bus ?? 1e9) - (b.bus ?? 1e9) || String(a.r.ref).localeCompare(String(b.r.ref));
 
 /**
@@ -107,10 +110,15 @@ const byBoard = (a, b) => a.to.localeCompare(b.to) || a.r.at.localeCompare(b.r.a
 export function buildSlides(trips, slidesCfg, templates, { classicRows = 5 } = {}) {
     const byId = new Map(templates.map(t => [Number(t.id), t]));
     const streams = new Map();
-    for (const s of slidesCfg) {
+    for (let s of slidesCfg) {
         if (s.template === 'none') continue;
+        // a slide whose template was deleted shows its trips in the Classic layout — it used to be dropped, and a board with only such
+        // trips sat on the empty cream "Umrah Transport Schedule" page (Medina, 2026-11-03: six trip types on a deleted template 9)
+        const missing = s.template !== 'classic' && !byId.get(Number(s.template));
+        if (missing) s = { ...s, template: 'classic' };
         const tpl = s.template === 'classic' ? null : byId.get(Number(s.template));
-        if (s.template !== 'classic' && !tpl) continue;
+        // a PDF slide (type "pdf:<id>"): its pages one after another, each for the slide's seconds — no trips needed
+        if (isPdf(tpl)) { if (!streams.has(`pdf:${tpl.id}`)) streams.set(`pdf:${tpl.id}`, { template: s.template, tpl, seconds: s.seconds, pdf: true, types: [], trips: [] }); continue; }
         const list = trips.filter(t => t.type === s.type);
         if (!list.length) continue;
         const shared = s.template === 'classic' || tableOf(tpl?.data)?.combine;
@@ -122,6 +130,12 @@ export function buildSlides(trips, slidesCfg, templates, { classicRows = 5 } = {
     }
     const slides = [];
     for (const st of streams.values()) {
+        if (st.pdf) {
+            const pages = (st.tpl.data.pages || []).filter(p => okImage(p));
+            pages.forEach((img, p) => slides.push({ template: st.template, seconds: st.seconds, types: [], label: st.tpl.name || 'PDF', trips: [], page: p + 1, pages: pages.length, count: 0, pax: 0,
+                tpl: { id: st.tpl.id, name: st.tpl.name, data: { bg: { color: okColor(st.tpl.data.bg?.color) || '#000000', image: img, fit: st.tpl.data.fit === 'cover' ? 'cover' : 'contain' }, elements: [] } } }));
+            continue;
+        }
         st.trips.sort(byBoard);
         const per = st.template === 'classic' ? classicRows : Math.max(1, Number(tableOf(st.tpl?.data)?.rows) || 0);
         const pages = tableOf(st.tpl?.data) || st.template === 'classic' ? Math.max(1, Math.ceil(st.trips.length / per)) : 1;

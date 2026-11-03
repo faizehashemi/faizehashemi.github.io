@@ -21,7 +21,24 @@
         #custom { position: fixed; inset: 0; overflow: hidden; }
         #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
         [hidden] { display: none !important; }
+        #sgDiag { position: fixed; right: 6px; bottom: 4px; z-index: 9; font: 11px/1.3 Arial, sans-serif; color: #8a6d00; opacity: .8; max-width: 60vw; text-align: right; }
     </style>
+    <script>
+        // Watchdog, in plain old JavaScript so it runs on any TV browser even when the board's own script cannot start (a too-old browser, a
+        // network that hangs at start-up): the board marks every slide it draws (window.__sgBeat); with no slide drawn for 2 minutes the page
+        // reloads itself. A small note in the corner says why, so a stuck TV can be read from across the room.
+        (function () {
+            var start = Date.now();
+            window.__sgBeat = 0;
+            window.__sgNote = function (t) { var d = document.getElementById('sgDiag'); if (d) d.textContent = t; };
+            window.addEventListener('error', function (e) { window.__sgNote('Board error: ' + (e && e.message || 'unknown') + ' — retrying'); });
+            setInterval(function () {
+                var last = window.__sgBeat || start;
+                if (Date.now() - last > 120000) location.reload();
+                else if (!window.__sgBeat && Date.now() - start > 30000) window.__sgNote('Waiting for the transport list…');
+            }, 10000);
+        })();
+    </script>
 </head>
 <body class="alert alert-warning">
     <div id="classic" class="container-fluid mt-1" style="font-family: 'Roboto'">
@@ -41,6 +58,8 @@
         </div>
     </div>
     <div id="custom" class="fade-box" hidden><div id="stage"></div></div>
+    <div id="sgDiag"></div>
+    <script nomodule>document.getElementById('sgDiag').textContent = 'This TV browser is too old to show the board — open it in an up-to-date browser (Chrome 90 or later).';</script>
     <script type="module">
         import { API_URL } from '../app/config.js';
         import { tripsOf, buildSlides, renderTemplate, tickClocks, STAGE_W, STAGE_H } from '../app/core/signage.js';
@@ -62,6 +81,7 @@
         </tr>`;
         const ROW = 'border border-warning border-bottom border-top-0 border-start-0 border-end-0';
 
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         let setup = { slides: [], templates: [], stamp: null };
         let slides = [], index = -1, current = null;
 
@@ -91,6 +111,7 @@
         addEventListener('resize', fitStage);
 
         function show(slide) {
+            window.__sgBeat = Date.now();   // the watchdog in <head>: the board is alive
             current = slide;
             const classic = !slide || slide.template === 'classic';
             $('classic').hidden = !classic;
@@ -98,16 +119,26 @@
             document.body.className = classic ? 'alert alert-warning' : 'custom';
             document.body.style.background = '';
             if (classic) { renderClassic(slide ? slide.trips : []); return; }
-            renderTemplate($('stage'), slide.tpl.data, slide);
-            document.body.style.background = $('stage').style.backgroundColor;
-            fitStage();
+            try {
+                renderTemplate($('stage'), slide.tpl.data, slide);
+                document.body.style.background = $('stage').style.backgroundColor;
+                fitStage();
+            } catch (e) {   // a template that cannot be drawn: its trips in the Classic layout, never a frozen screen
+                console.error(e); window.__sgNote(`Template “${slide.tpl?.name || slide.template}” could not be drawn — shown in the Classic layout`);
+                $('classic').hidden = false; $('custom').hidden = true; document.body.className = 'alert alert-warning'; renderClassic(slide.trips);
+            }
         }
 
         /* ---------------- data ---------------- */
+        // every request gives up after 20 s: a TV on a weak network must never wait forever for an answer
         async function getJson(path) {
-            const res = await fetch(`${api}${path}`, { cache: 'no-store' });
-            if (!res.ok) throw new Error(String(res.status));
-            return res.json();
+            const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+            const timer = setTimeout(() => ctl && ctl.abort(), 20000);
+            try {
+                const res = await Promise.race([fetch(`${api}${path}`, { cache: 'no-store', ...(ctl ? { signal: ctl.signal } : {}) }), sleep(21000).then(() => { throw new Error('timeout'); })]);
+                if (!res.ok) throw new Error(String(res.status));
+                return await res.json();
+            } finally { clearTimeout(timer); }
         }
         async function load() {
             const data = await getJson(`/api/public/signage?site=${site}`);
@@ -118,7 +149,6 @@
 
         // each slide stays its seconds. The latest data is fetched a few seconds before the change, so the change itself
         // is only the fade: out and in, each taking the Transition time set in the Signage Builder (0 = cut).
-        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         const boxes = () => [$('gridWrapper'), $('custom')];
         const fadeMs = () => Math.min(3, Math.max(0, Number(setup.fade ?? 0.3))) * 1000;
         const setFade = (ms) => boxes().forEach(b => { b.style.transition = `opacity ${ms}ms ease`; });
@@ -127,22 +157,28 @@
             let fresh = null;
             setTimeout(() => { fresh = load().catch(() => { /* keep showing the last list */ }); }, Math.max(0, ms - 2500));
             setTimeout(async () => {
-                const f = fadeMs();
-                setFade(f);
-                if (f) { boxes().forEach(b => { b.style.opacity = 0; }); await sleep(f); }
-                await Promise.race([fresh, sleep(2000)]); // normally finished long ago
-                index = slides.length ? (index + 1) % slides.length : -1;
-                show(slides[index] || null);
-                boxes().forEach(b => { b.style.opacity = 1; });
-                schedule();
+                // whatever goes wrong while changing slides, the next change is always scheduled (an error here once stopped the board for good)
+                try {
+                    const f = fadeMs();
+                    setFade(f);
+                    if (f) { boxes().forEach(b => { b.style.opacity = 0; }); await sleep(f); }
+                    await Promise.race([fresh, sleep(2000)]); // normally finished long ago
+                    index = slides.length ? (index + 1) % slides.length : -1;
+                    show(slides[index] || null);
+                    window.__sgNote('');
+                } catch (e) { console.error(e); window.__sgNote('Board error: ' + (e?.message || e) + ' — retrying'); }
+                finally { boxes().forEach(b => { b.style.opacity = 1; }); schedule(); }
             }, ms);
         }
 
-        try { await load(); } catch { }
-        index = slides.length ? 0 : -1;
-        show(slides[index] || null);
-        schedule();
-        setInterval(() => { if (current && current.template !== 'classic') tickClocks($('stage'), current); }, 1000);
+        // start: no top-level await (some TV browsers cannot run it); the first list is waited for at most 20 s, then the board runs anyway
+        (async () => {
+            try { await load(); } catch { window.__sgNote('Could not reach the PMS — retrying'); }
+            index = slides.length ? 0 : -1;
+            try { show(slides[index] || null); } catch (e) { console.error(e); }
+            schedule();
+        })();
+        setInterval(() => { try { if (current && current.template !== 'classic') tickClocks($('stage'), current); } catch { } }, 1000);
 
         // a new website build: reload (TVs stay open for weeks)
         let buildId = null;
