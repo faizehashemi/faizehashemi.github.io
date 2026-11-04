@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { useSlips } from '@/hooks/useSlips';
 import { useCore, useGuard, useLoadApp, useSite } from '@/pms/PmsContext';
+import { vacancyByDateHtml, vacancyByRoomHtml } from './vacancy';
 import { MAX_DAYS, computeOccupancy, num, pct, shift, sum, ymd, type BuildingIn, type BuildingOut } from './occupancy';
 
 // Occupancy details (Rooms): beds in use each night of a period — the whole site first (totals and averages), then each building (period averages,
@@ -63,7 +64,7 @@ export default function OccupancyPage() {
     const { rooms: roomsLib, stay } = useCore();
     const guard = useGuard();
     const loadApp = useLoadApp();
-    const { siteId } = useSite();
+    const { site, siteId } = useSite();
     const today = ymd(new Date());
     const [from, setFrom] = useState(today), [to, setTo] = useState(shift(today, 13)), [bld, setBld] = useState('all');
     const [printOpen, setPrintOpen] = useState(false), [printBld, setPrintBld] = useState('');
@@ -92,6 +93,15 @@ export default function OccupancyPage() {
         mod.printAllocation(slips.data ?? [], printBld, f, t);
     }
 
+    // vacancy reports: the period and building chosen above, in a tab of their own
+    function printVacancy(kind: 'date' | 'room') {
+        if (!slips.data || !buildings.length) { alert('No buildings in Rooms & Buildings for this site.'); return; }
+        const w = window.open('', '_blank');
+        if (!w) { alert('The browser blocked the print page — allow pop-ups for this site and try again.'); return; }
+        const m = computeOccupancy(slips.data, buildings, { from: from || today, to: to || from || today, only: bld === 'all' ? undefined : bld }, stay, roomsLib);
+        w.document.open(); w.document.write(kind === 'date' ? vacancyByDateHtml(m, site.label) : vacancyByRoomHtml(m, site.label)); w.document.close();
+    }
+
     return (
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header className="grid gap-3 print:hidden">
@@ -106,7 +116,9 @@ export default function OccupancyPage() {
                         <Select value={bld} onValueChange={setBld}><SelectTrigger id="ocBld" className="min-w-44"><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="all">All buildings</SelectItem>{buildings.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}</SelectContent></Select></div>
                     <div className="flex flex-wrap gap-1.5">{RANGES.map(([l, a, z]) => <Button key={l} variant="outline" size="sm" onClick={() => { setFrom(shift(today, a)); setTo(shift(today, z)); }}>{l}</Button>)}</div>
-                    <Button onClick={() => { if (!buildings.length) { alert('No buildings in Rooms & Buildings for this site.'); return; } setPrintBld(bld === 'all' ? '' : bld); setPrintOpen(true); }}><Printer className="size-4" />Print</Button>
+                    <Button onClick={() => { if (!buildings.length) { alert('No buildings in Rooms & Buildings for this site.'); return; } setPrintBld(bld === 'all' ? '' : bld); setPrintOpen(true); }}><Printer className="size-4" />Print occupancy</Button>
+                    <Button variant="outline" title="Each date in the period: which rooms are empty, with a total" disabled={!slips.data} onClick={() => printVacancy('date')}><Printer className="size-4" />Vacancy — date wise</Button>
+                    <Button variant="outline" title="Each room: on which dates of the period it is empty, with a total" disabled={!slips.data} onClick={() => printVacancy('room')}><Printer className="size-4" />Vacancy — room wise</Button>
                 </div>
             </header>
 
