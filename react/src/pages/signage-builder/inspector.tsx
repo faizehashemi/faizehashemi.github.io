@@ -26,8 +26,8 @@ export function Txt({ label, value, onChange, disabled }: { label: string; value
     return <label className="grid gap-1 text-xs font-semibold">{label}<Textarea className="min-h-16 text-sm font-normal" disabled={disabled} value={String(value ?? '')} onChange={ev => onChange(ev.target.value)} /></label>;
 }
 
-/** One table column: data, title, alignment, width %, with a grip to drag it to another place. */
-export function Col({ c, fields, onSet, onDelete, onDragStart, onDrop, disabled }: { c: Record<string, any>; fields: Record<string, string[]>; onSet: (k: string, v: unknown) => void; onDelete: () => void; onDragStart: () => void; onDrop: () => void; disabled?: boolean }) {
+/** One table column: data, title, alignment, width %, its own font, size, bold and text colour (empty = the table's), with a grip to drag it to another place. */
+export function Col({ c, fields, fonts, onSet, onDelete, onDragStart, onDrop, disabled }: { c: Record<string, any>; fields: Record<string, string[]>; fonts: [string, string][]; onSet: (k: string, v: unknown) => void; onDelete: () => void; onDragStart: () => void; onDrop: () => void; disabled?: boolean }) {
     const [over, setOver] = useState(false);
     const [title, setTitle] = useState(c.title ?? '');
     useEffect(() => setTitle(c.title ?? ''), [c.title]);
@@ -41,6 +41,12 @@ export function Col({ c, fields, onSet, onDelete, onDragStart, onDrop, disabled 
                 <Input className="h-8" aria-label="Title" placeholder="Title" disabled={disabled} value={title} onChange={ev => { setTitle(ev.target.value); onSet('title', ev.target.value); }} />
                 <select aria-label="Align" className="h-8 rounded-md border bg-background px-1 text-sm" disabled={disabled} value={c.align || 'center'} onChange={ev => onSet('align', ev.target.value)}><option value="left">Left</option><option value="center">Centre</option><option value="right">Right</option></select>
                 <Input className="h-8 px-1" type="number" min={0} max={100} aria-label="Width %" placeholder="w %" disabled={disabled} value={c.width ?? ''} onChange={ev => onSet('width', ev.target.value === '' ? null : Number(ev.target.value))} />
+            </div>
+            <div className="col-span-2 col-start-2 grid grid-cols-[minmax(0,1fr)_3.5rem_auto_auto] items-center gap-1">
+                <select aria-label="Column font" className="h-8 min-w-0 rounded-md border bg-background px-1 text-sm" disabled={disabled} value={c.font || ''} onChange={ev => onSet('font', ev.target.value)}><option value="">Table font</option>{fonts.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+                <Input className="h-8 px-1" type="number" min={8} max={120} aria-label="Column text size" placeholder="size" disabled={disabled} value={c.size ?? ''} onChange={ev => onSet('size', ev.target.value === '' ? null : Number(ev.target.value))} />
+                <label className="flex items-center gap-1 text-xs font-bold" title="Bold"><Checkbox checked={!!c.bold} disabled={disabled} onCheckedChange={v => onSet('bold', v === true)} />B</label>
+                <span className="flex items-center gap-1" title="Text colour of this column"><input type="color" aria-label="Column text colour" className="h-8 w-8 rounded border" disabled={disabled} value={hex(c.color || '#000000')} onChange={ev => onSet('color', ev.target.value)} />{c.color && <button type="button" className="text-xs text-muted-foreground" title="Back to the table's colour" aria-label="Clear column colour" disabled={disabled} onClick={() => onSet('color', '')}>✕</button>}</span>
             </div>
         </div>
     );

@@ -2,7 +2,7 @@
 // thals × multipliers). Moved unchanged from pms/app/views/mawaid/view.js; the counting itself is core/meals.js (shared with the Home page).
 export type Split = { g: number; l: number; c: number; i: number };
 export type MealRow = { building: string; bp: number; lp: number; dp: number; bt: number; lt: number; dt: number; b: Split; l: Split; d: Split };
-export type Stats = { rows: MealRow[]; totals: { tBP: number; tLP: number; tDP: number; tBT: number; tLT: number; tDT: number } };
+export type Stats = { rows: MealRow[]; totals: { tBP: number; tLP: number; tDP: number; tBT: number; tLT: number; tDT: number }; unassigned?: (MealRow & { thal: number }) | null };
 export type Show = { p: boolean; g: boolean; l: boolean; c: boolean; i: boolean };
 
 /** a unique, dark colour per building name */

@@ -199,7 +199,7 @@ export default function KeyCardsPage() {
                             <div className="border-b bg-muted px-3 py-1 text-xs font-bold">Departure Date: {dmy(day)}</div>
                             <div className="px-3 py-2 font-bold">
                                 {s.tour_name || '—'}{s.group_leader ? ` (${s.group_leader})` : ''} {g.pax}pax
-                                {busOf(s) && <span className="mt-0.5 block w-fit rounded border border-foreground/40 bg-accent/40 px-1.5 text-sm">🚌 {busOf(s)}</span>}
+                                {busOf(s) && <span className="my-1 inline-block max-w-full rounded border border-foreground/40 bg-accent/40 px-1.5 text-sm leading-snug">🚌 {busOf(s)}</span>}
                                 <small className="block text-xs font-normal text-muted-foreground">SH {s.sh_no || '—'} · {s.building || 'no building'} · leaves {hm(g.at)}{g.part ? ' · only these rooms leave today' : ''}</small>
                             </div>
                             <div className="grid gap-1 px-3 pb-2">
@@ -221,7 +221,7 @@ export default function KeyCardsPage() {
                                 })}
                             </div>
                             <div className="flex flex-wrap items-center gap-2 border-t bg-muted/40 px-3 py-2 text-sm">
-                                <span className={cn('font-semibold', complete ? 'text-ok' : st.got ? 'text-warn' : '')}>{st.got} / {st.issued} cards back{st.out ? ` · ${st.out} still out` : ' ✓'}</span>
+                                <span className={cn('whitespace-nowrap font-semibold', complete ? 'text-ok' : st.got ? 'text-warn' : '')}>{st.got} / {st.issued} cards back{st.out ? ` · ${st.out} still out` : ' ✓'}</span>
                                 <span className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-border print:hidden"><i className={cn('block h-full', complete ? 'bg-ok' : 'bg-gold')} style={{ width: `${st.issued ? Math.min(100, Math.round(st.got / st.issued * 100)) : 0}%` }} /></span>
                                 <Button variant="outline" size="sm" className="print:hidden" disabled={!writable || !st.out} onClick={() => g.rooms.forEach(([room, iss]) => setReturned(s.id, room, Math.max(iss, ret.get(key(s.id, room)) || 0)))}>All back</Button>
                                 <Button variant="outline" size="sm" className="print:hidden" disabled={!writable || !st.got} onClick={() => void clearGroup(g)}>Clear</Button>

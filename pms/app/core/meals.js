@@ -70,15 +70,18 @@ export function computeByBuilding(slips, dateStr, ranges, thal, incA, incC, incI
         });
     }
 
+    // guests whose slip has no building yet: counted apart (never in the building rows or the totals the kitchen counts use), so they are not lost
+    const none = { bp: 0, lp: 0, dp: 0, b: { g: 0, l: 0, c: 0, i: 0 }, l: { g: 0, l: 0, c: 0, i: 0 }, d: { g: 0, l: 0, c: 0, i: 0 } };
+
     for (const rec of slips) {
         const b = (rec.building || '').trim();
-        if (!b || !agg.has(b)) continue;
+        if (b ? !agg.has(b) : rec.deleted) continue;
 
         const ci = parseLocalDateTime(rec.checkin_date, rec.checkin_time);
         const co = isDelayed(rec) ? new Date(slipEnd(rec)) : parseLocalDateTime(rec.checkout_date, rec.checkout_time);
         if (!ci || !co) continue;
 
-        const a = agg.get(b);
+        const a = b ? agg.get(b) : none;
         const add = (key, R) => { // one meal: the guests here at its start
             const r = atMeal(rec, ci, R[0]);
             a[key + 'p'] += paxOf(r, incA, incC, incI);
@@ -124,7 +127,8 @@ export function computeByBuilding(slips, dateStr, ranges, thal, incA, incC, incI
             tLT: Math.ceil(tLP / thal),
             tDT: Math.ceil(tDP / thal)
         },
-        when: { B: bR, L: lR, D: dR }
+        when: { B: bR, L: lR, D: dR },
+        unassigned: none.bp + none.lp + none.dp ? { building: 'No building yet', ...none, bt: Math.ceil(none.bp / thal), lt: Math.ceil(none.lp / thal), dt: Math.ceil(none.dp / thal), thal } : null
     };
 }
 

@@ -25,6 +25,11 @@ function MealTable({ stats, show, tableRef, id }: { stats: Stats; show: Show; ta
         const sp = r[k.toLowerCase() as 'b' | 'l' | 'd'], pax = k === 'B' ? r.bp : k === 'L' ? r.lp : r.dp, th = k === 'B' ? r.bt : k === 'L' ? r.lt : r.dt;
         return [show.p && pax, th, show.g && sp.g, show.l && sp.l, show.c && sp.c, show.i && sp.i].map((v, i) => v === false ? null : <td key={`${k}${i}`} className={cn('border px-2 py-1.5 text-center', MEAL[k], sub[[show.p, true, show.g, show.l, show.c, show.i].slice(0, i + 1).filter(Boolean).length - 1] === 'Thals' && 'font-bold')}>{v}</td>);
     };
+    // guests whose slip has no building: under the Total, never inside it (the Cooking and Manda counts stay by building)
+    const u = stats.unassigned, t0 = stats.totals;
+    const plus = (k: 'b' | 'l' | 'd', a: MealRow['b']) => ({ g: a.g + u![k].g, l: a.l + u![k].l, c: a.c + u![k].c, i: a.i + u![k].i });
+    const split = (k: 'b' | 'l' | 'd') => plus(k, { g: sum(r => r[k].g), l: sum(r => r[k].l), c: sum(r => r[k].c), i: sum(r => r[k].i) });
+    const withNone: MealRow | null = u ? { building: 'Total with them', bp: t0.tBP + u.bp, lp: t0.tLP + u.lp, dp: t0.tDP + u.dp, bt: Math.ceil((t0.tBP + u.bp) / u.thal), lt: Math.ceil((t0.tLP + u.lp) / u.thal), dt: Math.ceil((t0.tDP + u.dp) / u.thal), b: split('b'), l: split('l'), d: split('d') } : null;
     const foot = (k: 'B' | 'L' | 'D') => {
         const t = stats.totals, key = k.toLowerCase() as 'b' | 'l' | 'd';
         const vals = [show.p && (k === 'B' ? t.tBP : k === 'L' ? t.tLP : t.tDP), k === 'B' ? t.tBT : k === 'L' ? t.tLT : t.tDT, show.g && sum(r => r[key].g), show.l && sum(r => r[key].l), show.c && sum(r => r[key].c), show.i && sum(r => r[key].i)];
@@ -37,7 +42,10 @@ function MealTable({ stats, show, tableRef, id }: { stats: Stats; show: Show; ta
                 <tr className="bg-[#f3e6ca]">{(['B', 'L', 'D'] as const).flatMap(k => sub.map(s => <th key={k + s} className={cn('border px-2 py-1.5 text-xs', MEAL[k])}>{s}</th>))}</tr>
             </thead>
             <tbody>{stats.rows.map(r => <tr key={r.building} style={{ color: colorOf(r.building) }}><td className="border px-2 py-1.5 text-left font-bold">{r.building}</td>{cells(r, 'B')}{cells(r, 'L')}{cells(r, 'D')}</tr>)}</tbody>
-            <tfoot><tr className="bg-[#fbf2dc] font-bold"><td className="border px-2 py-1.5">Total</td>{foot('B')}{foot('L')}{foot('D')}</tr></tfoot>
+            <tfoot><tr className="bg-[#fbf2dc] font-bold"><td className="border px-2 py-1.5">Total</td>{foot('B')}{foot('L')}{foot('D')}</tr>
+                {withNone && <>
+                    <tr className="text-destructive"><td className="border px-2 py-1.5 text-left font-bold" title="Slips in house at this meal that have no building yet — not in the rows or the Total above">No building yet</td>{cells(u!, 'B')}{cells(u!, 'L')}{cells(u!, 'D')}</tr>
+                    <tr className="bg-[#fbf2dc] font-bold"><td className="border px-2 py-1.5">Total with them</td>{cells(withNone, 'B')}{cells(withNone, 'L')}{cells(withNone, 'D')}</tr></>}</tfoot>
         </table></div>
     );
 }
@@ -68,7 +76,7 @@ export default function MawaidPage() {
         const ranges = { B: { start: t.bS || '04:00', end: t.bE || '09:30' }, L: { start: t.lS || '11:00', end: t.lE || '16:00' }, D: { start: t.dS || '18:00', end: t.dE || '23:00' } };
         const stats = meals.computeByBuilding(slips.data, date, ranges, thal, incA, incC, incI) as Stats | null;
         if (!stats) return { error: 'Check your start/end times; end must be after start for each meal.' };
-        return { main: meals.buildFirstMerged(stats, thal) as Stats, cook: buildCooking(stats, thal), manda: buildManda(stats, Number(multL) || 3, Number(multD) || 2.5) };
+        return { main: { ...meals.buildFirstMerged(stats, thal), unassigned: stats.unassigned } as Stats, cook: buildCooking(stats, thal), manda: buildManda(stats, Number(multL) || 3, Number(multD) || 2.5) };
     }, [meals, slips.data, date, t, thalSize, incA, incC, incI, multL, multD]);
 
     const exportCsv = () => {
