@@ -132,6 +132,14 @@ export function createDb(siteId) {
             await mirrorDelete(id);
         },
 
+        /** Put a deleted slip back (Data → Slip admin); the server refuses if a newer slip holds the same UMS stay. */
+        async restore(id) {
+            guard();
+            const { slip } = await send(() => request('POST', `/api/slips/${Number(id)}/restore`, {}));
+            await mirrorPut(slip);
+            return slip;
+        },
+
         async clear() {
             guard();
             const { deleted } = await send(() => request('POST', '/api/slips/clear', { site: siteId }));

@@ -3,7 +3,8 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { usePrompt } from '@/components/PromptDialog';
 import { useCore, useDb, useGuard, useLoadApp, useLoadCore, useNav, useParams, useSite } from '@/pms/PmsContext';
 import css from './slip.css?raw';
-import { bulkParse, buildCapacityMap, checkAvailability, cleanRoom, collectRows, emptyDelay, emptyForm, formData, formFrom, holdUntil, newRow, parseDT, shValue, type Availability, type Delay, type Form, type RoomRow } from './slip';
+import { ChangeRoom, type Choice } from './ChangeRoom';
+import { bulkParse, buildCapacityMap, checkAvailability, cleanRoom, collectRows, emptyDelay, emptyForm, formData, formFrom, holdUntil, moveRows, newRow, parseDT, shValue, undoMove, type Availability, type Delay, type Form, type RoomRow } from './slip';
 
 // Slip: the accommodation slip — SH, group, guests, stay, rooms (gents / ladies, each with beds, Exclusive and, for a delayed departure, its own check-out), notes,
 // From / To; Save a new slip, Edit a saved one, Check room availability, Fetch capacities, Pick rooms…, the version History and the Check-in flag. The same screen,
@@ -298,10 +299,28 @@ export default function SlipPage() {
             current: { gents: cur.gents.filter(here), ladies: cur.ladies.filter(here) },
             needs: { gents: form.gents, ladies: form.ladies, children: form.children, infants: form.infants },
             onApply: (g: Row[], l: Row[]) => {
-                const to = (a: Row[]) => (a.length ? a.map(r => newRow(r)) : [newRow()]);
+                // a row that keeps its room keeps the history of its room changes
+                const hist = (r: Row) => [...cur.gents, ...cur.ladies].find(x => x.moves && cleanRoom(x.room_no) === cleanRoom(r.room_no));
+                const to = (a: Row[]) => (a.length ? a.map(r => newRow(r.moves || !hist(r) ? r : { ...r, moves: hist(r)!.moves, building: hist(r)!.building })) : [newRow()]);
                 setGents(to([...g, ...cur.gents.filter(r => !here(r))])); setLadies(to([...l, ...cur.ladies.filter(r => !here(r))]));
             },
         });
+    }
+    // ---- change a room during the stay (ChangeRoom.tsx; core/stay.js row.moves) ----
+    const [moveRow, setMoveRow] = useState<RoomRow | null>(null);
+    function applyMove(c: Choice) {
+        const from = { room: cleanRoom(moveRow!.room_no), building: (moveRow!.building || '').trim() || form.building };
+        const to = { room: c.room, capacity: c.capacity, building: c.building };
+        setGents(rs => moveRows(rs, from, to, c.until, form.building)); setLadies(rs => moveRows(rs, from, to, c.until, form.building));
+        setMoveRow(null);
+        setStatus(`Room ${from.room} → ${c.room} from ${c.until.date.split('-').reverse().join('/')} ${c.until.time}. Press Edit to save it.`);
+    }
+    function takeBackMove(r: RoomRow) {
+        const last = r.moves![r.moves!.length - 1];
+        const same = (x: RoomRow) => cleanRoom(x.room_no) === cleanRoom(r.room_no) && JSON.stringify(x.moves?.[x.moves.length - 1]?.until) === JSON.stringify(last.until);
+        const back = (rs: RoomRow[]) => rs.map(x => (same(x) ? undoMove(x, form.building) : x));
+        setGents(back); setLadies(back);
+        setStatus(`Back to room ${last.room_no}. Press Edit to save it.`);
     }
     async function toggleCheckIn() {
         if (!rec) return;
@@ -326,7 +345,9 @@ export default function SlipPage() {
         : <input id={id} type="time" value={form[k]} onChange={set(k)} />);
     const rt = (g: 'gents' | 'ladies') => rowsOf(g).map(r => (
         <tr key={r.uid} className={`${r.exclusive ? 'excl ' : ''}${okFill.has(r.uid) ? 'okfill ' : ''}${conflicts.has(cleanRoom(r.room_no)) && cleanRoom(r.room_no) ? 'conflict' : ''}`} data-gl={r.gl ? '1' : undefined}>
-            <td><input type="text" value={r.room_no} onChange={e => patchRow(g, r.uid, { room_no: e.target.value })} />{r.gl && <span className="gl-badge" title="Group leader's room">GL</span>}</td>
+            <td><input type="text" value={r.room_no} onChange={e => patchRow(g, r.uid, { room_no: e.target.value })} />{r.gl && <span className="gl-badge" title="Group leader's room">GL</span>}
+                {r.moves?.map((m, i) => <small key={i} className="moved-note">was {m.room_no}{m.building ? ` (${m.building})` : ''} until {m.until.date.split('-').reverse().slice(0, 2).join('/')} {m.until.time}{i === r.moves!.length - 1 && <button type="button" className="linkish" title="Take this room change back" onClick={() => takeBackMove(r)}>undo</button>}</small>)}
+                {(r.building || '').trim() && !r.exclusive && <small className="moved-note">in {r.building}</small>}</td>
             <td><input type="number" min={0} step={1} inputMode="numeric" value={r.capacity} placeholder={r.capacity === '' && r.room_no ? 'unassigned' : ''} onChange={e => setCap(g, r.uid, e.target.value)} /></td>
             <td><input type="number" min={0} step={1} inputMode="numeric" placeholder="assigned" value={r.assigned} onChange={e => patchRow(g, r.uid, { assigned: e.target.value, dirty: true })} /></td>
             <td className="excl-cell">
@@ -341,7 +362,8 @@ export default function SlipPage() {
                 <select className="out-status" aria-label="Status" value={r.out_status} onChange={e => { const v = e.target.value; patchRow(g, r.uid, { out_status: v, ...(v === 'unknown' ? (() => { const h = holdUntil(shCfg.hold, form.checkout_time); return { out_date: h.date, out_time: h.time }; })() : {}) }); }}><option value="confirmed">confirmed</option><option value="tentative">tentative</option><option value="unknown">unknown</option></select>
                 <button type="button" className="row-btn out-split" title="Split this row: some of its beds leave at a different time" onClick={() => void splitRow(g, r)}>✂</button>
             </td>
-            <td><button className="row-btn" type="button" title="Delete row" onClick={() => setRowsOf(g)(rs => (rs.length > 1 ? rs.filter(x => x.uid !== r.uid) : [newRow()]))}>X</button></td>
+            <td>{currentId != null && cleanRoom(r.room_no) && !db.readonly && <button className="row-btn" type="button" title="Change room during the stay: from a date, without touching the days already spent in this room" onClick={() => setMoveRow(r)}>⇄</button>}
+                <button className="row-btn" type="button" title="Delete row" onClick={() => setRowsOf(g)(rs => (rs.length > 1 ? rs.filter(x => x.uid !== r.uid) : [newRow()]))}>X</button></td>
         </tr>));
     const tbl = (g: 'gents' | 'ladies', title: string) => (
         <table className="mini" id={g === 'gents' ? 'tblGents' : 'tblLadies'}><caption>{title}</caption>
@@ -355,6 +377,7 @@ export default function SlipPage() {
         <>
             <style>{css}</style>
             <div className="wrap" ref={rootRef}>
+                {moveRow && <ChangeRoom row={moveRow} form={form} gents={gents} ladies={ladies} mine={{ ...formData(form, gents, ladies, delay), id: currentId }} slips={dbCache.filter(x => x.id !== currentId)} buildings={buildings} names={names} stay={stay} rooms={R} onApply={applyMove} onClose={() => setMoveRow(null)} />}
                 {rec && <div className="slip-corner no-print">
                     <button type="button" title="This slip as an A5 picture to send to its group leader (Copy picture / Save JPEG)" onClick={() => void mods.sp.openGlCopies([rec], { title: `SH ${rec.sh_no}` })}>GL copy</button>
                     <button type="button" title="Print this slip (A5)" onClick={() => mods.sp.printSlips([rec], { title: `SH ${rec.sh_no}` })}>Print slip</button>

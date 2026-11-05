@@ -413,3 +413,5 @@ td:has(> #notes) { grid-column: 2 / -1; min-width: 0; }
 .wrap .slip-corner { display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 8px; }
 /* a loaded slip's SH: read only (New Slip frees it) */
 #sh_no.sh-locked { background: #f3efe6; color: #4a3b22; font-weight: 700; cursor: not-allowed; }
+.moved-note { display: block; font-size: 11px; line-height: 1.25; color: #3d3226; }
+.moved-note .linkish { margin-left: 6px; }

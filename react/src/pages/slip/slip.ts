@@ -7,7 +7,9 @@ type Slip = Record<string, any>;
 export type RoomRow = {
     uid: number; room_no: string; capacity: string; assigned: string; dirty: boolean; gl?: boolean; exclusive?: boolean; building?: string;
     out_date: string; out_time: string; out_status: string;
+    moves?: RoomMove[];   // the rooms this row was in before, oldest first (core/stay.js)
 };
+export type RoomMove = { room_no: string; capacity: number | string; building?: string; until: { date: string; time: string } };
 export type Form = {
     sh_no: string; tour_name: string; group_leader: string; building: string; gents: string; ladies: string; children: string; infants: string; total: string;
     checkin_date: string; checkin_time: string; checkout_date: string; checkout_time: string; from_place: string; to_place: string; notes: string;
@@ -22,7 +24,8 @@ export const newRow = (data: Slip = {}): RoomRow => {
     const hasAssigned = data.assigned != null && data.assigned !== '';
     return {
         uid: ++uidN, room_no: data.room_no || '', capacity, assigned: hasAssigned ? String(data.assigned) : capacity, dirty: hasAssigned,   // an explicit assigned value is respected and stops the auto-sync
-        ...(data.gl ? { gl: true } : {}), exclusive: !!data.exclusive, building: data.exclusive ? data.building || '' : '',
+        ...(data.gl ? { gl: true } : {}), exclusive: !!data.exclusive, building: data.exclusive || data.moves?.length ? data.building || '' : '',
+        ...(data.moves?.length ? { moves: data.moves } : {}),
         out_date: data.out?.date || '', out_time: data.out?.time || '', out_status: data.out_status || 'confirmed',
     };
 };
@@ -39,7 +42,9 @@ export function collectRows(rows: RoomRow[], delayOn: boolean, f: Form) {
         const room_no = r.room_no.trim(), capRaw = r.capacity.trim(), asgRaw = r.assigned.trim();
         if (room_no === '' && capRaw === '' && asgRaw === '') continue;
         const row: Slip = { room_no, capacity: /^\d+$/.test(capRaw) ? Number(capRaw) : '', assigned: /^\d+$/.test(asgRaw) ? Number(asgRaw) : '', ...(r.gl ? { gl: true } : {}) };
-        if (r.exclusive) { row.exclusive = true; const b = (r.building || '').trim(); if (b) row.building = b; }   // Exclusive: the whole room is kept; maybe in another building
+        if (r.exclusive) row.exclusive = true;   // Exclusive: the whole room is kept; maybe in another building
+        if (r.exclusive || r.moves?.length) { const b = (r.building || '').trim(); if (b) row.building = b; }   // a changed room may be in another building too
+        if (r.moves?.length) row.moves = r.moves;
         if (delayOn) { row.out = { date: r.out_date || f.checkout_date || '', time: r.out_time || f.checkout_time || '' }; row.out_status = r.out_status || 'confirmed'; }
         out.push(row);
     }
@@ -74,6 +79,23 @@ export function formFrom(data: Slip): { form: Form; delay: Delay; gents: RoomRow
         delay: { on: !!d, status: d?.status || 'tentative', note: d?.note || '', orig: d?.original_checkout || null },
         gents: (data.rooms?.gents || []).map((r: Slip) => newRow(r)), ladies: (data.rooms?.ladies || []).map((r: Slip) => newRow(r)),
     };
+}
+
+/** The rows of one room moved to another from `until` on: the room they leave goes into their history. */
+export function moveRows(rows: RoomRow[], from: { room: string; building: string }, to: { room: string; capacity: number | string; building: string }, until: { date: string; time: string }, slipBuilding: string): RoomRow[] {
+    return rows.map(r => {
+        if (cleanRoom(r.room_no) !== from.room || ((r.building || '').trim() || slipBuilding) !== from.building) return r;
+        const m: RoomMove = { room_no: from.room, capacity: r.capacity === '' ? '' : Number(r.capacity), ...(from.building !== slipBuilding ? { building: from.building } : {}), until };
+        return { ...r, room_no: to.room, capacity: String(to.capacity ?? ''), building: to.building === slipBuilding ? '' : to.building, moves: [...(r.moves || []), m] };
+    });
+}
+/** Take back the last change of a row: it returns to the room it came from. */
+export function undoMove(r: RoomRow, slipBuilding: string): RoomRow {
+    const m = r.moves?.[r.moves.length - 1];
+    if (!m) return r;
+    const moves = r.moves!.slice(0, -1);
+    const { moves: _m, ...rest } = r;
+    return { ...rest, room_no: m.room_no, capacity: String(m.capacity ?? ''), building: (m.building || '') === slipBuilding ? '' : m.building || '', ...(moves.length ? { moves } : {}) };
 }
 
 /** Capacity lookup (most recent per building|room) from the slips. */
@@ -116,8 +138,10 @@ export function checkAvailability(f: Form, gents: RoomRow[], ladies: RoomRow[], 
         const building = (r.building || '').trim() || bld;
         const beds = Number.isFinite(+r.assigned) ? +r.assigned : 0;
         const end = (r.out && parseDT(r.out.date, r.out.time)) || co;
-        if (end <= ci) { issues.push({ kind: 'badtime', room, out: r.out }); continue; }
-        own.push({ room, building, key: keyOf(building, room), side, start: +ci, end: +end, beds, excl: !!r.exclusive, cap_row: Number(r.capacity) || null });
+        // a room changed during the stay is only taken from the change on (the rooms before it are history, already lived in)
+        const lastMove = r.moves?.[r.moves.length - 1], from = (lastMove && parseDT(lastMove.until.date, lastMove.until.time)) || ci;
+        if (end <= from) { issues.push({ kind: 'badtime', room, out: r.out || { date: f.checkout_date, time: f.checkout_time } }); continue; }
+        own.push({ room, building, key: keyOf(building, room), side, start: +from, end: +end, beds, excl: !!r.exclusive, cap_row: Number(r.capacity) || null });
         // a gents room never takes ladies and a ladies room never takes gents (Rooms & Buildings → type); family / any take both
         const typ = roomType(building, room);
         if ((typ === 'gents' || typ === 'ladies') && typ !== side && !loadedRooms.has(roomKey(side, room, building))) issues.push({ kind: 'roomtype', room, side, type: typ, ...(normB(building) === normB(bld) ? {} : { building }) });

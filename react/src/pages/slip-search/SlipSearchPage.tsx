@@ -21,7 +21,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function RoomTable({ s, k, label }: { s: Slip; k: string; label: string }) {
     const { stay } = useCore();
     const delayed = stay.isDelayed(s);
-    const rows = stay.rowsOf(s).filter((r: any) => r.side === k);
+    const rows = stay.rowsOf(s).filter((r: any) => r.side === k && !r.past);   // the room they are in now; rooms left during the stay are history
     if (!rows.length) return null;
     return (
         <div className="grid gap-1.5">

@@ -6,7 +6,12 @@
 // slip. Rows without `out` end at the slip's check-out. Every page that asks "who is here when" uses these helpers,
 // so rooms, meals, counts and check-outs agree.
 //
-//   rowsOf(slip)        [{ side, room_no, beds, block, building, exclusive, start, end, status }]  (ms timestamps;
+// A room changed during the stay: the row always holds the room the guests are in NOW (so check-outs, key cards and prints are right), and
+// row.moves = [{ room_no, capacity, building?, until: { date, time } }] keeps the rooms it was in before, oldest first. rowsOf gives each earlier
+// room its own window (flag past: true, after all the current rows) and the current room starts at the last change, so a room is only
+// taken for the days the guests were really in it.
+//
+//   rowsOf(slip)        [{ side, room_no, beds, block, building, exclusive, start, end, status, past? }]  (ms timestamps;
 //                       beds = guests in the room (assigned, else capacity) — what pax counts use;
 //                       block = beds the room is kept for — what occupancy and availability use: an EXCLUSIVE row
 //                       (couple / single room) blocks the whole room capacity while only `beds` guests are in it;
@@ -46,14 +51,22 @@ export const slipTouches = (s, building) => {
 /** Room rows with their own windows. */
 export function rowsOf(s) {
     const start = slipStart(s), end0 = baseEnd(s);
-    const out = [];
+    const out = [], past = [];
     for (const side of ['gents', 'ladies']) for (const x of s.rooms?.[side] || []) {
         if (!String(x.room_no || '').trim()) continue;
         const own = isDelayed(s) && x.out ? parseDT(x.out.date, x.out.time) : null;
+        let from = start;
+        for (const m of Array.isArray(x.moves) ? x.moves : []) {
+            const until = m && m.until ? parseDT(m.until.date, m.until.time) : null;
+            if (!until || !String(m.room_no || '').trim()) continue;
+            past.push({ side, room_no: String(m.room_no).trim(), beds: rowBeds(x), block: x.exclusive ? Math.max(num(m.capacity), rowBeds(x)) : rowBeds(x), building: String(m.building || '').trim() || String((s && s.building) || '').trim(),
+                exclusive: !!x.exclusive, start: from, end: until, status: 'booked', row: x, past: true });
+            from = until;
+        }
         out.push({ side, room_no: String(x.room_no).trim(), beds: rowBeds(x), block: rowBlocks(x), building: rowBuilding(s, x), exclusive: !!x.exclusive,
-            start, end: own || end0, status: own ? (x.out_status || 'confirmed') : 'booked', row: x });
+            start: from, end: own || end0, status: own ? (x.out_status || 'confirmed') : 'booked', row: x });
     }
-    return out;
+    return [...out, ...past];
 }
 
 export function slipEnd(s) {
@@ -86,7 +99,7 @@ export function paxAt(s, t) {
 
 /** Partial check-outs: one entry per distinct end time. */
 export function departuresOf(s) {
-    const rows = rowsOf(s);
+    const rows = rowsOf(s).filter(r => !r.past);   // the rooms left during the stay are not check-outs
     if (!isDelayed(s) || !rows.length) {
         const at = slipEnd(s);
         return at ? [{ at, rooms: rows.map(r => ({ side: r.side, room_no: r.room_no, beds: r.beds, exclusive: r.exclusive, building: r.building })), beds: rows.reduce((n, r) => n + r.beds, 0), status: 'booked', last: true }] : [];
@@ -103,6 +116,29 @@ export function departuresOf(s) {
     const list = [...by.values()].sort((a, b) => a.at - b.at);
     if (list.length) list[list.length - 1].last = true;
     return list;
+}
+
+/**
+ * Every room of a building between from and to (ms): Map(normalised room → { peak, who }) — peak = the most beds taken at one moment by `slips`
+ * (an Exclusive row keeps the whole room; leaving comes before arriving at the same minute), who = [{ sh, id, tour, beds, start, end }].
+ */
+export function roomsUse(slips, building, from, to) {
+    const b = normB(building), by = new Map();
+    for (const s of slips) {
+        if (s.deleted) continue;
+        for (const w of rowsOf(s)) {
+            if (normB(w.building) !== b || w.block <= 0 || !w.start || !w.end || !(w.start < to && w.end > from)) continue;
+            const k = w.room_no.toUpperCase().replace(/\s+/g, '');
+            if (!by.has(k)) by.set(k, { peak: 0, who: [] });
+            by.get(k).who.push({ sh: s.sh_no, id: s.id, tour: s.tour_name || '', beds: w.block, start: w.start, end: w.end });
+        }
+    }
+    for (const u of by.values()) {
+        const ev = u.who.flatMap(w => [[Math.max(w.start, from), w.beds], [Math.min(w.end, to), -w.beds]]).sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+        let now = 0;
+        for (const [, d] of ev) { now += d; u.peak = Math.max(u.peak, now); }
+    }
+    return by;
 }
 
 /**

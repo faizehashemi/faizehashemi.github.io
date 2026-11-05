@@ -527,10 +527,13 @@ async function route(req, env) {
     if (p === '/api/slips/bulk' && m === 'POST') return bulk(req, env, me);
     if (p === '/api/slips/migrate' && m === 'POST') return migrate(req, env, me);
     if (p === '/api/slips/clear' && m === 'POST') return clearSite(req, env, me);
+    if (p === '/api/slips/deleted' && m === 'GET') return listDeleted(url, env, me);
     let mm = p.match(/^\/api\/slips\/(\d+)\/versions$/);
     if (mm && m === 'GET') return listSlipVersions(env, Number(mm[1]));
     mm = p.match(/^\/api\/slips\/(\d+)\/activate$/);
     if (mm && m === 'POST') return activateSlipVersion(req, env, me, Number(mm[1]));
+    mm = p.match(/^\/api\/slips\/(\d+)\/restore$/);
+    if (mm && m === 'POST') return restoreSlip(env, me, Number(mm[1]));
     mm = p.match(/^\/api\/slips\/(\d+)$/);
     if (mm && m === 'PUT') return updateSlip(req, env, me, Number(mm[1]));
     if (mm && m === 'DELETE') return deleteSlip(url, env, me, Number(mm[1]));
@@ -910,6 +913,35 @@ async function deleteSlip(url, env, me, id) {
     if (!res.meta.changes) throw new HttpError(409, 'Someone else changed this slip after you opened it. Reload and try again.');
     await auditStmt(env, me, 'delete', id, `SH ${row.sh_no}`).run();
     return json({ ok: true });
+}
+
+// Data → Slip admin: the deleted slips of a site, newest first (a deleted slip keeps its data; only its flag is set), and putting one back.
+async function listDeleted(url, env, me) {
+    const site = url.searchParams.get('site');
+    assertWrite(me, site);
+    const { results } = await env.DB.prepare(
+        `SELECT s.id, s.data, s.version, s.updated_at, COALESCE(d.name, x.name || ' (deleted)') AS by_name
+         FROM slips s LEFT JOIN desks d ON d.id = s.updated_by LEFT JOIN deleted_desks x ON x.id = s.updated_by
+         WHERE s.site = ? AND s.deleted = 1 ORDER BY s.updated_at DESC LIMIT 300`).bind(site).all();
+    return json({ slips: results.map(r => ({ ...JSON.parse(r.data), id: r.id, deleted_at: r.updated_at, deleted_by: r.by_name })) });
+}
+
+async function restoreSlip(env, me, id) {
+    const row = await getRow(env, id);
+    if (!row) throw new HttpError(404, 'This slip no longer exists.');
+    assertWrite(me, row.site);
+    if (!row.deleted) return json({ slip: rowToSlip(row) });   // another desk was first
+    // a UMS stay has one live slip: if the import made a new one after this was deleted, two would count the same guests
+    if (row.ums_key && await env.DB.prepare('SELECT 1 FROM slips WHERE ums_key = ? AND deleted = 0').bind(row.ums_key).first()) {
+        throw new HttpError(409, `SH ${row.sh_no} has a newer slip for the same UMS stay. Delete that one first if this one is the slip to keep.`);
+    }
+    const at = now();
+    const [res] = await env.DB.batch([env.DB.prepare(
+        `UPDATE slips SET deleted = 0, version = version + 1, seq = ${NEXT_SEQ}, updated_at = ?, updated_by = ? WHERE id = ? AND deleted = 1`
+    ).bind(at, me.id, id), verStmt(env, me, at, 'snapshot', 'snapshot', 'restored', true)]);
+    if (!res.meta.changes) throw new HttpError(409, 'Someone else changed this slip. Reload and try again.');
+    await auditStmt(env, me, 'restore', id, `SH ${row.sh_no}`).run();
+    return json({ slip: rowToSlip(await getRow(env, id)) });
 }
 
 // Many adds + updates for one site in one D1 batch (all or nothing). Used by the UMS import and

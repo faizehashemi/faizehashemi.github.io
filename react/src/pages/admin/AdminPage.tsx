@@ -9,9 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { usePrompt } from '@/components/PromptDialog';
-import { useDb, useGuard, useLoadApp, useSite } from '@/pms/PmsContext';
+import { useCore, useDb, useGuard, useLoadApp, useSite } from '@/pms/PmsContext';
 
-// Slip Admin — delete & backup: filter this site's slips, preview one, delete the ticked ones (or all), export / import JSON, print the list.
+// Slip Admin — delete & backup: filter this site's slips, preview one, delete the ticked ones (or all), export / import JSON, print the list, and put a deleted slip back.
 
 type Row = Record<string, any>;
 const fmt = (dt: unknown) => { const d = new Date(dt as string); return isNaN(+d) ? '' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(d); };
@@ -19,6 +19,7 @@ const roomList = (r: Row) => [...new Set([...(r.rooms?.gents || []), ...(r.rooms
 const when = (d?: string, t?: string) => (d ? fmt(new Date(`${d}T${t || '00:00'}`)) : '');
 
 export default function AdminPage() {
+    const { cloud, stay } = useCore();
     const db = useDb();
     const guard = useGuard();
     const loadApp = useLoadApp();
@@ -54,10 +55,29 @@ export default function AdminPage() {
         if (blocked()) return;
         const ids = [...sel];
         if (!ids.length) { setStatus('Select at least one slip to delete.'); return; }
-        if (!(await confirm({ title: `Delete ${ids.length} selected slip(s)?`, body: 'This cannot be undone.', confirmLabel: 'Delete' }))) return;
+        if (!(await confirm({ title: `Delete ${ids.length} selected slip(s)?`, body: 'They can be put back from Deleted slips below.', confirmLabel: 'Delete' }))) return;
         let ok = 0, fail = 0;
         for (const id of ids) { try { await db.remove(id); ok++; } catch { fail++; } }
         setSel(new Set()); await refresh(); setStatus(`Deleted ${ok} slip(s). ${fail ? fail + ' failed.' : ''}`);
+    }
+    // deleted slips: kept on the server; putting one back makes it count again everywhere (rooms, meals, transport)
+    const [gone, setGone] = useState<Row[] | null>(null);
+    const loadGone = async () => { try { setGone((await guard<any>((cloud as any).request('GET', `/api/slips/deleted?site=${siteId}`))).slips); } catch (e: any) { setStatus(e.message || 'Could not load the deleted slips.'); } };
+    // rooms of the slip that other stays took in the meantime
+    const takenRooms = (r: Row) => {
+        const out = new Set<string>();
+        for (const w of stay.rowsOf(r) as Row[]) {
+            if (!w.start || !w.end || w.block <= 0) continue;
+            const u = (stay as any).roomsUse(cache, w.building, w.start, w.end).get(String(w.room_no).toUpperCase().replace(/\s+/g, ''));
+            if (u?.who.length) out.add(`Room ${w.room_no}: ${[...new Set(u.who.map((x: Row) => `SH ${x.sh}`))].join(', ')}`);
+        }
+        return [...out];
+    };
+    async function restore(r: Row) {
+        if (blocked()) return;
+        const taken = takenRooms(r);
+        if (!(await confirm({ title: `Restore SH ${r.sh_no || r.id}?`, confirmLabel: 'Restore', body: [`${r.tour_name || '—'} · ${when(r.checkin_date, r.checkin_time)} → ${when(r.checkout_date, r.checkout_time)}`, 'It counts again in rooms, meals and every other page.', ...(taken.length ? ['', 'These rooms are also booked now — check beds and change rooms if needed:', ...taken] : [])].join('\n') }))) return;
+        try { await db.restore(r.id); await refresh(); await loadGone(); setStatus(`SH ${r.sh_no || r.id} restored.`); } catch (e: any) { setStatus(e.message || 'Could not restore the slip.'); }
     }
     async function delAll() {
         if (blocked()) return;
@@ -132,6 +152,18 @@ export default function AdminPage() {
                             <div className="mt-1"><b>Totals:</b> Total {r.total ?? ''} | Gents {r.gents ?? ''} | Ladies {r.ladies ?? ''} | Children {r.children ?? ''} | Infants {r.infants ?? ''}</div></div>; })()}</Card>
             </div>
             <p className="text-sm text-muted-foreground">{status || `${cache.length} ${site.label} slip(s).${db.readonly ? ' ' + db.readonlyReason : ''}`}</p>
+            <Card className="gap-2 p-3 print:hidden">
+                <div className="flex flex-wrap items-center gap-3"><h2 className="font-bold">Deleted slips</h2><Button variant="outline" size="sm" onClick={() => void loadGone()}>{gone ? 'Refresh' : 'Show deleted slips'}</Button>{gone && <span className="text-sm text-muted-foreground">{gone.length} deleted, newest first{gone.length === 300 ? ' (latest 300)' : ''}</span>}</div>
+                {gone && (gone.length ? <div className="max-h-[50vh] overflow-auto"><Table>
+                    <TableHeader><TableRow><TableHead>SH</TableHead><TableHead>Group · leader</TableHead><TableHead>Building · rooms</TableHead><TableHead>Stay</TableHead><TableHead>Deleted</TableHead><TableHead /></TableRow></TableHeader>
+                    <TableBody>{gone.map(r => <TableRow key={r.id}>
+                        <TableCell><b>{r.sh_no || `#${r.id}`}</b></TableCell><TableCell>{r.tour_name || '—'}<small className="block text-muted-foreground">{r.group_leader || '—'}</small></TableCell>
+                        <TableCell>{(r.building || '').trim() || '—'}<small className="block text-muted-foreground">{roomList(r).join(', ')}</small></TableCell>
+                        <TableCell className="whitespace-nowrap">{when(r.checkin_date, r.checkin_time)}<small className="block text-muted-foreground">{when(r.checkout_date, r.checkout_time)}</small></TableCell>
+                        <TableCell className="whitespace-nowrap">{fmt(r.deleted_at)}<small className="block text-muted-foreground">{r.deleted_by || ''}</small></TableCell>
+                        <TableCell><Button size="sm" variant="outline" disabled={!!db.readonly} onClick={() => void restore(r)}>Restore</Button></TableCell>
+                    </TableRow>)}</TableBody></Table></div> : <p className="text-sm text-muted-foreground">No deleted slips.</p>)}
+            </Card>
             {confirmDialog}{promptDialog}
         </div>
     );
