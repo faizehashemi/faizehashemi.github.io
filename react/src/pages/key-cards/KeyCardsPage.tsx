@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Minus, Plus, Printer } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -68,25 +68,29 @@ export default function KeyCardsPage() {
 
     // the vehicle each group leaves in that day, from the Transport day list (by SH): "Bus 3 · MAKKAH", "Car 1 · JEDDAH AIRPORT" — several if it has more trips
     const [buses, setBuses] = useState<Map<string, string>>(new Map());
+    const [busNos, setBusNos] = useState<Map<string, { word: string; nos: string[] }>>(new Map());   // for the printed sheet: BUS and its number(s)
     useEffect(() => {
         let alive = true;
         void (async () => {
             try {
                 const d: any = await guard(T.loadDay(siteId, day));
-                const info = T.resolve(d.rows || []) as Map<string, any>, by = new Map<string, Set<string>>();
+                const info = T.resolve(d.rows || []) as Map<string, any>, by = new Map<string, Set<string>>(), nos = new Map<string, { word: string; nos: string[] }>();
                 for (const r of d.rows || []) {
                     const i = info.get(r.key), sh = (ums as any).baseSh(r.ref);
                     if (!sh || !i || i.bus == null) continue;
                     const to = String(i.route || '').split('-').slice(1).join('-') || i.route || '';
                     const label = `${i.vehicle === 'car' || i.vehicle === 'other' ? T.vehicleNo(i.bus, i.vehicle, i.vlabel) : `Bus ${i.bus}`}${r.part ? ` (${r.part})` : ''}${to ? ` · ${to}` : ''}`;
                     (by.get(sh) ?? by.set(sh, new Set()).get(sh)!).add(label);
+                    const n = nos.get(sh) ?? nos.set(sh, { word: T.vehicleWord(i.vehicle, i.vlabel), nos: [] }).get(sh)!;
+                    if (!n.nos.includes(String(i.bus))) n.nos.push(String(i.bus));
                 }
-                if (alive) setBuses(new Map([...by].map(([k, v]) => [k, [...v].join(', ')])));
-            } catch { if (alive) setBuses(new Map()); }
+                if (alive) { setBuses(new Map([...by].map(([k, v]) => [k, [...v].join(', ')]))); setBusNos(nos); }
+            } catch { if (alive) { setBuses(new Map()); setBusNos(new Map()); } }
         })();
         return () => { alive = false; };
     }, [day, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
     const busOf = (s: Slip) => buses.get((ums as any).baseSh(s.sh_no)) || '';
+    const busNoOf = (s: Slip) => busNos.get((ums as any).baseSh(s.sh_no));
 
     const back = (g: Group, room: string) => Math.min(MAX, ret.get(key(g.slip.id, room)) || 0);
     const stats = (g: Group) => {
@@ -174,7 +178,10 @@ export default function KeyCardsPage() {
                     <Button disabled={!list.length} onClick={() => {
                         const w = window.open('', '_blank');
                         if (!w) { say('The browser blocked the print page — allow pop-ups for this site and try again.', true); return; }
-                        w.document.open(); w.document.write(cardsSheet({ day: dmy(day), layout, site: site.label, cards: list.map(g => ({ bus: busOf(g.slip), name: `${g.slip.tour_name || '—'}${g.slip.group_leader ? ` (${g.slip.group_leader})` : ''}`, pax: g.pax, sh: String(g.slip.sh_no || '—'), building: g.slip.building || '', at: hm(g.at), part: g.part, rooms: g.rooms })) })); w.document.close();
+                        w.document.open(); // the sheet runs in bus order, as the desks hand the cards out (a group with no bus yet last; its BUS box is left to write in)
+                        const first = (g: Group) => Number(busNoOf(g.slip)?.nos[0]) || 1e9;
+                        const cards = [...list].sort((a, b) => a.at - b.at || first(a) - first(b)).map(g => ({ group: g.slip.tour_name || '', leader: String(g.slip.group_leader || '').trim(), pax: g.pax, sh: String(g.slip.sh_no || '—'), part: g.part, rooms: g.rooms, busWord: busNoOf(g.slip)?.word || 'BUS', busNo: (busNoOf(g.slip)?.nos || []).join(', ') }));
+                        w.document.write(cardsSheet({ day: dmy(day).replace(/\//g, '-'), layout, site: site.label, cards })); w.document.close();
                     }}><Printer className="size-4" />Print</Button>
                 </div>
             </header>
@@ -207,16 +214,13 @@ export default function KeyCardsPage() {
                                     const n = back(g, room);
                                     const cls = n === 0 ? '' : n > iss ? 'bg-bad-soft' : n === iss ? 'bg-ok-soft' : 'bg-warn-soft';
                                     return (
-                                        <div key={room} className={cn('flex items-center gap-2 rounded-md border px-2 py-1', cls)}>
-                                            <div className="w-16 font-bold">{room}</div>
-                                            <div className="w-8 text-center text-sm text-muted-foreground" title="cards given">{iss}</div>
-                                            <div className="ml-auto flex items-center gap-1">
-                                                <Button variant="outline" size="icon" className="size-9 print:hidden" disabled={!writable || n <= 0} aria-label={`One card less in room ${room}`} onClick={() => setReturned(s.id, room, n - 1)}><Minus className="size-4" /></Button>
-                                                <b className="kc-ret-num w-7 text-center" title="cards back">{n}</b>
-                                                <span className="kc-ret-box hidden" aria-hidden="true" />
-                                                <Button variant="outline" size="icon" className="size-9 print:hidden" disabled={!writable || n >= MAX} aria-label={`One card more in room ${room}`} onClick={() => setReturned(s.id, room, n + 1)}><Plus className="size-4" /></Button>
-                                            </div>
-                                        </div>
+                                        <label key={room} className={cn('flex cursor-pointer items-center gap-2.5 rounded-md border px-2 py-1.5', cls, !writable && 'cursor-default')}>
+                                            {/* ticked = this room's cards are all back; a part count saved earlier stays visible as "n back" until the box is pressed */}
+                                            <Checkbox className="size-6" disabled={!writable} aria-label={`Cards of room ${room} back`} checked={n >= iss ? true : n > 0 ? 'indeterminate' : false} onCheckedChange={() => setReturned(s.id, room, n >= iss ? 0 : iss)} />
+                                            <span className="w-16 font-bold">{room}</span>
+                                            <span className="text-sm text-muted-foreground">{iss} card{iss === 1 ? '' : 's'}</span>
+                                            {n > 0 && n !== iss && <span className="ml-auto text-xs font-semibold">{n} back</span>}
+                                        </label>
                                     );
                                 })}
                             </div>
