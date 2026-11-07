@@ -8,7 +8,7 @@
 //   table { type:'table', x, y, w, h, rows, columns: [{ field, title, align, width, font, size, bold, color }], size, headSize, font, headFont,
 //           headBg, headColor, rowBg, altBg, color, altColor, line, lineW, merge, combine, radius, rowHeight }
 //     a column's font / size / bold / color override the table's for its data cells; headFont = the heading row's font; altColor = text of every 2nd row;
-//     lineW = thickness of the row lines in px (1 unless set)
+//     lineW = thickness of the row lines in px (1 unless set); colW / colLine = thickness and colour of the lines between columns (none unless set)
 //     merge   — "Travel To" written once for the rows that share it on a page (as the Classic board)
 //     combine — all trip types using this template share its pages (as the Classic board); off = one run per type
 // Slides config (cloud, per site): { window, slides: [{ type: route, template: 'classic' | 'none' | id, seconds }] }
@@ -225,12 +225,13 @@ function drawTable(e, slide) {
     Object.assign(t.style, { width: '100%', borderCollapse: 'separate', borderSpacing: '0', fontFamily: fontStack(e.font), fontSize: `${Number(e.size) || 24}px`, color: okColor(e.color) || '#000', tableLayout: 'auto' });
     const cols = (e.columns || []).filter(c => FIELDS[c.field]);
     const line = okColor(e.line) || '#ffc107', radius = `${Number(e.radius) || 0}px`;
+    const colW = Math.min(20, Math.max(0, Number(e.colW) || 0)), colBorder = (ci) => (colW && ci < cols.length - 1 ? { borderRight: `${colW}px solid ${okColor(e.colLine) || line}` } : {});
     const thead = t.createTHead().insertRow();
     cols.forEach((c, i) => {
         const th = document.createElement('th');
         th.textContent = c.title ?? FIELDS[c.field][0];
         Object.assign(th.style, { background: okColor(e.headBg) || '#f9bb00', color: okColor(e.headColor) || '#663300', fontWeight: '700', fontSize: `${Number(e.headSize) || Number(e.size) || 24}px`,
-            fontFamily: e.headFont ? fontStack(e.headFont) : '', padding: '0.4em 0.5em', textAlign: c.align || 'center', whiteSpace: 'nowrap', width: c.width ? `${c.width}%` : '' });
+            ...colBorder(i), fontFamily: e.headFont ? fontStack(e.headFont) : '', padding: '0.4em 0.5em', textAlign: c.align || 'center', whiteSpace: 'nowrap', width: c.width ? `${c.width}%` : '' });
         if (i === 0) th.style.borderRadius = `${radius} 0 0 ${radius}`;
         if (i === cols.length - 1) th.style.borderRadius = i === 0 ? radius : `0 ${radius} ${radius} 0`;
         thead.appendChild(th);
@@ -250,7 +251,7 @@ function drawTable(e, slide) {
             (Array.isArray(v) ? v : [v]).forEach((line1, li) => { if (li) td.appendChild(document.createElement('br')); td.appendChild(document.createTextNode(String(line1 ?? ''))); });
             Object.assign(td.style, { background: ci === mergeIdx ? (okColor(e.mergeBg) || '#f8f9fa') : bg, padding: '0.4em 0.5em', textAlign: c.align || 'center',
                 verticalAlign: c.field === 'date' ? 'top' : 'middle', borderBottom: `${Math.min(20, Math.max(0, Number(e.lineW ?? 1)))}px solid ${line}`,
-                ...(ri % 2 && okColor(e.altColor) ? { color: okColor(e.altColor) } : {}),
+                ...colBorder(ci), ...(ri % 2 && okColor(e.altColor) ? { color: okColor(e.altColor) } : {}),
                 ...(ci === mergeIdx ? { color: okColor(e.mergeColor) || '#0d6efd', fontWeight: '700' } : {}),
                 ...(c.font ? { fontFamily: fontStack(c.font) } : {}), ...(Number(c.size) ? { fontSize: `${Number(c.size)}px` } : {}),
                 ...(c.bold ? { fontWeight: '700' } : {}), ...(okColor(c.color) ? { color: okColor(c.color) } : {}),

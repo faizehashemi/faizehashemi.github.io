@@ -7,7 +7,7 @@ export const LAYOUTS = [
     { id: 'landscape', label: 'A4 landscape' },
 ];
 
-export type SheetCard = { group: string; leader: string; pax: number; sh: string; part: boolean; rooms: [string, number][]; busWord: string; busNo: string };
+export type SheetCard = { group: string; leader: string; phone?: string; transporter?: string; pax: number; sh: string; part: boolean; rooms: [string, number][]; busWord: string; busNo: string };
 
 const COLS = 8;
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -30,8 +30,9 @@ function block(c: SheetCard, day: string) {
     }).join('');
     return `<table class="kc"><colgroup>${'<col>'.repeat(COLS)}</colgroup><tbody>
         <tr class="top"><td colspan="4">Departure Date -</td><td colspan="4">${esc(day)}</td></tr>
-        <tr class="sh"><td colspan="2">SH NO.</td><td colspan="2">${esc(c.sh)}</td><td colspan="2">Group Leader</td><td colspan="2" class="ld">${esc(c.leader) || '-'}</td></tr>
+        <tr class="sh"><td colspan="2">SH NO.</td><td colspan="2">${esc(c.sh)}</td><td colspan="2">Group Leader</td><td colspan="2" class="ld">${esc(c.leader) || '-'}${c.phone ? `<br>${esc(c.phone)}` : ''}</td></tr>
         <tr class="gr"><td colspan="6">${esc(c.group) || '-'}${c.part ? ' <small>(these rooms only)</small>' : ''}</td><td colspan="2">${c.pax}</td></tr>
+        ${c.transporter ? `<tr class="tp"><td colspan="2">Transporter</td><td colspan="6">${esc(c.transporter)}</td></tr>` : ''}
         ${body}</tbody></table>`;
 }
 
@@ -45,6 +46,7 @@ export function cardsSheet({ day, layout, site, cards }: { day: string; layout: 
         .kc td { border: 1px solid #000; padding: .6mm 1mm; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
         tr.top td { background: #bfbfbf; font-size: 13pt; } tr.sh td { background: #d9d9d9; font-size: 13pt; } tr.sh td.ld { background: #f2f2f2; font-size: 11pt; }
         tr.gr td { background: #f2f2f2; font-size: 13pt; } small { font-size: 9pt; font-weight: 400; }
+        tr.tp td { background: #fff; font-size: 11pt; }
         tr.rn td { font-size: 17pt; } tr.rc td { font-size: 12pt; }
         td.gap { background: #fff; }
         tr.rn td.bw { background: #d9d9d9; font-size: 15pt; } tr.rc td.bn { background: #d9d9d9; font-size: 18pt; }

@@ -863,12 +863,23 @@ async function shKnown(env, sh) {
     return !!(await env.DB.prepare('SELECT 1 FROM slips WHERE upper(sh_no) = ? OR upper(sh_no) = ? LIMIT 1').bind(u, u.replace(/^S+(?=\d)/, '')).first());
 }
 
+// One group, one slip per stay: a second live slip with the same SH and the same check-in and check-out would count the same guests twice
+// (SH DP1009 stood twice on the Arrival sheet, 2026-11-05). Another stay of the same SH, on other dates, is fine.
+async function refuseSameStay(env, site, s, exceptId = 0) {
+    const sh = String(s.sh_no || '').trim().toUpperCase();
+    if (!sh || !s.checkin_date || !s.checkout_date) return;
+    const twin = await env.DB.prepare('SELECT id FROM slips WHERE site = ? AND deleted = 0 AND upper(trim(sh_no)) = ? AND checkin_date = ? AND checkout_date = ? AND id != ? LIMIT 1')
+        .bind(site, sh, s.checkin_date, s.checkout_date, exceptId).first();
+    if (twin) throw new HttpError(409, `SH ${s.sh_no} already has a slip for this stay (${s.checkin_date} to ${s.checkout_date}). Open that slip and edit it; a second one would count the same guests twice.`);
+}
+
 async function createSlip(req, env, me) {
     const { slip } = await body(req);
     const site = String(slip && slip.site || me.site);
     assertWrite(me, site);
     if (slip && typeof slip === 'object' && !(await shKnown(env, slip.sh_no))) slip.sh_no = await nextPmsSh(env, site);
     const s = prepareSlip(slip);
+    await refuseSameStay(env, site, s);
     const at = now();
     const [res] = await env.DB.batch([insertStmt(env, me, site, s, null, at), verStmt(env, me, at, 'create', 'edit', null)]);
     if (!res.meta.changes) throw new HttpError(409, 'This UMS stay already exists.');
@@ -891,6 +902,8 @@ async function updateSlip(req, env, me, id) {
     if (String(s.sh_no || '').trim().toUpperCase() !== String(row.sh_no || '').trim().toUpperCase() && me.role !== 'admin') {
         throw new HttpError(403, `The SH number of a saved slip cannot be changed (this slip is SH ${row.sh_no}). For another group press New Slip — a new slip gets its own number.`);
     }
+    // only when the stay's dates or SH change: a slip that already has a twin can still be edited or deleted
+    if (s.checkin_date !== row.checkin_date || s.checkout_date !== row.checkout_date || s.sh_no !== row.sh_no) await refuseSameStay(env, row.site, s, id);
     const at = now();
     const [res] = await env.DB.batch([updateStmt(env, me, id, Number(version), s, at), verStmt(env, me, at, 'edit', 'edit', SLIP_NOTES.has(note) ? note : null)]);
     if (!res.meta.changes) {
@@ -935,6 +948,7 @@ async function restoreSlip(env, me, id) {
     if (row.ums_key && await env.DB.prepare('SELECT 1 FROM slips WHERE ums_key = ? AND deleted = 0').bind(row.ums_key).first()) {
         throw new HttpError(409, `SH ${row.sh_no} has a newer slip for the same UMS stay. Delete that one first if this one is the slip to keep.`);
     }
+    await refuseSameStay(env, row.site, row, id);
     const at = now();
     const [res] = await env.DB.batch([env.DB.prepare(
         `UPDATE slips SET deleted = 0, version = version + 1, seq = ${NEXT_SEQ}, updated_at = ?, updated_by = ? WHERE id = ? AND deleted = 1`

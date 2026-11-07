@@ -48,7 +48,7 @@ export default function TransportPage() {
     const [showRooms, setShowRooms] = useState(() => { try { return localStorage.getItem('pms_tp_rooms') === '1'; } catch { return false; } });
     const pickRooms = (on: boolean) => { setShowRooms(on); try { localStorage.setItem('pms_tp_rooms', on ? '1' : '0'); } catch { /* not saved */ } };
     const [slipsAll, setSlipsAll] = useState<Row[]>([]);
-    useEffect(() => { if (showRooms) void guard<Row[]>(db.all()).then(a => setSlipsAll(a.filter(x => !x.deleted)), () => setSlipsAll([])); }, [showRooms]);   // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { void guard<Row[]>(db.all()).then(a => setSlipsAll(a.filter(x => !x.deleted)), () => setSlipsAll([])); }, [day]);   // eslint-disable-line react-hooks/exhaustive-deps
     const [msg, setMsgState] = useState<{ text: string; kind: 'ok' | 'bad' } | null>(null);
     const [saving, setSaving] = useState(false);
     const [loaded, setLoaded] = useState(false);
@@ -494,7 +494,13 @@ export default function TransportPage() {
         return <TableCell className="text-right">{writable ? <button type="button" className={cn(ghost, 'text-right', r.pax_manual && manualCls)} title="Change the pax" onClick={() => !saving && void editPax(r)}><span>{body}</span></button> : body}</TableCell>;
     };
     const delCell = (r: Row) => (writable ? <TableCell><Button variant="ghost" size="icon" className="size-8 text-destructive" title="Delete this trip" aria-label={`Delete SH ${r.ref}`} disabled={saving} onClick={() => void deleteTrip(r)}><Trash2 className="size-4" /></Button></TableCell> : null);
-    const refCell = (r: Row) => <TableCell><b>{r.ref || '—'}</b>{r.dora ? sub(`Dora ${r.dora}`) : null}</TableCell>;
+    const refCell = (r: Row, addTo?: Row) => <TableCell><b>{r.ref || '—'}</b>{r.dora ? sub(`Dora ${r.dora}`) : null}
+        {addTo && writable && <Button size="sm" variant="outline" className="mt-1 block h-6 px-1.5 text-xs" title={`Add a group (SH) to this ${T.vehicleOf(addTo)}`} disabled={saving} onClick={() => void addSh(addTo)}>＋ SH</Button>}</TableCell>;
+    // the group's departure flight from its slip (UMS list), in place of the remarks
+    const flightOf = (r: Row) => {
+        const sh = ums.baseSh(r.ref), d = sh ? slipsAll.find(x => ums.baseSh(x.sh_no) === sh && x.ums?.departure)?.ums.departure : null;
+        return d ? `${d.flight}${d.port ? ` · ${d.port}` : ''} · ${String(d.date).split('-').reverse().slice(0, 2).join('/')} ${d.time}` : '';
+    };
 
     function signageTables() {
         return sign.map(s => {
@@ -513,7 +519,7 @@ export default function TransportPage() {
                             : <small className="rounded border px-1.5 text-xs font-normal text-muted-foreground" title="The most pax one bus may carry on this route (an admin can change it)">🚌 max {destLimit(s.dest.id)} / bus</small>}
                         {air && s.buses.length > 1 && writable && <Button size="sm" variant="outline" className="ml-auto" title="Number this destination's vehicles 1, 2, 3… by departure time" onClick={() => void byTime(s.dest.id)}>🔢 Number by time</Button>}</div>
                     {body.length ? <div className="overflow-x-auto"><Table>
-                        <TableHeader><TableRow><TableHead>Vehicle</TableHead><TableHead>Time</TableHead><TableHead>From</TableHead><TableHead>SH</TableHead><TableHead>Tour operator</TableHead><TableHead>Group leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Transporter</TableHead>{showRooms && <TableHead>Rooms</TableHead>}<TableHead>Remarks</TableHead>{writable && <TableHead />}</TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>Vehicle</TableHead><TableHead>Time</TableHead><TableHead>From</TableHead><TableHead>SH</TableHead><TableHead>Tour operator</TableHead><TableHead>Group leader</TableHead><TableHead className="text-right">Pax</TableHead><TableHead>Transporter</TableHead>{showRooms && <TableHead>Rooms</TableHead>}<TableHead>Departure flight</TableHead>{writable && <TableHead />}</TableRow></TableHeader>
                         <TableBody>{body.map(({ r, b, i }) => (
                             <TableRow key={r.key} className={cn(i > 0 && 'bg-muted/40', r.at < past && 'opacity-55')}>
                                 <TableCell className="whitespace-nowrap">{i ? `↳ ${T.vehicleNo(b.bus, b.vehicle, b.vlabel)}` : writable
@@ -529,12 +535,11 @@ export default function TransportPage() {
                                     </span>
                                     : `${veh[b.vehicle].icon} ${T.vehicleNo(b.bus, b.vehicle, b.vlabel) || b.bus || '—'}`}
                                     {!i && writable && b.vehicle === 'other' && sub(b.vlabel)}</TableCell>
-                                {timeCell(r)}{fromCell(r, i ? b : null)}{refCell(r)}{nameCell(r, 'operator')}{nameCell(r, 'leader')}{paxCell(r)}{trCell(r, !!i)}
+                                {timeCell(r)}{fromCell(r, i ? b : null)}{refCell(r, b.rows[0])}{nameCell(r, 'operator')}{nameCell(r, 'leader')}{paxCell(r)}{trCell(r, !!i)}
                                 {showRooms && roomsCell(r)}
                                 <TableCell className="min-w-40">
                                     {!i && <span className={cn('mr-1.5 rounded border px-1.5 py-0.5 text-xs font-bold', T.limited(r) && b.pax > destLimit(s.dest.id) && 'border-destructive bg-destructive/10 text-destructive')} title={`Pax on this ${veh[b.vehicle].title.toLowerCase()}${T.limited(r) ? ` (a bus carries at most ${destLimit(s.dest.id)})` : ''}`}>{b.pax}{T.limited(r) ? ` / ${destLimit(s.dest.id)}` : ''}</span>}
-                                    {r.part && <Badge variant="outline" className="mr-1">{r.part === 'gents' ? 'GENTS' : 'LADIES'}</Badge>}{r.remarks}
-                                    {!i && writable && <Button size="sm" variant="outline" className="ml-1.5 h-6 px-1.5 text-xs" title={`Add a group (SH) to this ${veh[b.vehicle].title.toLowerCase()}`} disabled={saving} onClick={() => void addSh(r)}>＋ SH</Button>}
+                                    {r.part && <Badge variant="outline" className="mr-1">{r.part === 'gents' ? 'GENTS' : 'LADIES'}</Badge>}<span title={r.remarks ? `Remarks: ${r.remarks}` : undefined}>{flightOf(r) ? <>✈ {flightOf(r)}</> : <span className="text-muted-foreground">no flight on the slip</span>}</span>
                                     {!i && writable && libs?.ziyarat.isZiyarat(siteId, r.route) && <Button size="sm" variant="outline" className="ml-1.5 h-6 px-1.5 text-xs" title="Gents and ladies on their own Ziyarat trips" disabled={saving} onClick={() => void zsplit(String(r.key).replace(/-L$/, ''))}>{r.part ? '⚥ Gents / Ladies…' : '⚥ Split gents / ladies'}</Button>}</TableCell>
                                 {delCell(r)}
                             </TableRow>))}</TableBody></Table></div>

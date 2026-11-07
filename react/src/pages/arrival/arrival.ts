@@ -61,7 +61,9 @@ export function buildArrival({ day, hostId, slips, buses, hours, libs }: { day: 
                 time = T.time12(`${t.date}T${t.time}`); ord = Number(`${t.date.replace(/-/g, '')}${t.time.replace(':', '')}`);
             }
         } else if (s.checkin_time) time = T.time12(`${s.checkin_date}T${s.checkin_time}`);
-        rows.push({ key: `${kind}|${String(s.sh_no ?? '')}`, kind, bus: kind === 'air' ? 'AIRPORT' : '', time, ref: String(s.sh_no ?? ''), group: String(s.tour_name || ''), leader: String(s.group_leader || '').trim(),
+        // a second slip of one SH keeps its own key, so hiding or changing one row leaves the other alone (saved sheets keep their keys for the first)
+        const key0 = `${kind}|${String(s.sh_no ?? '')}`;
+        rows.push({ key: rows.some(x => x.key === key0) ? `${key0}|${s.id}` : key0, kind, bus: kind === 'air' ? 'AIRPORT' : '', time, ref: String(s.sh_no ?? ''), group: String(s.tour_name || ''), leader: String(s.group_leader || '').trim(),
             floor: mainFloor(s, floorOf), ...split(s), pax: slipPaxOf(s), order: [kind === 'air' ? 5 : 4, ord] });
     }
     return rows.sort((a, b) => a.order[0] - b.order[0] || a.order[1] - b.order[1] || natural(a.ref, b.ref));

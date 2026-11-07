@@ -68,20 +68,21 @@ export default function KeyCardsPage() {
 
     // the vehicle each group leaves in that day, from the Transport day list (by SH): "Bus 3 · MAKKAH", "Car 1 · JEDDAH AIRPORT" — several if it has more trips
     const [buses, setBuses] = useState<Map<string, string>>(new Map());
-    const [busNos, setBusNos] = useState<Map<string, { word: string; nos: string[] }>>(new Map());   // for the printed sheet: BUS and its number(s)
+    const [busNos, setBusNos] = useState<Map<string, { word: string; nos: string[]; transporter: string }>>(new Map());   // for the printed sheet: BUS and its number(s)
     useEffect(() => {
         let alive = true;
         void (async () => {
             try {
                 const d: any = await guard(T.loadDay(siteId, day));
-                const info = T.resolve(d.rows || []) as Map<string, any>, by = new Map<string, Set<string>>(), nos = new Map<string, { word: string; nos: string[] }>();
+                const info = T.resolve(d.rows || []) as Map<string, any>, by = new Map<string, Set<string>>(), nos = new Map<string, { word: string; nos: string[]; transporter: string }>();
                 for (const r of d.rows || []) {
                     const i = info.get(r.key), sh = (ums as any).baseSh(r.ref);
                     if (!sh || !i || i.bus == null) continue;
                     const to = String(i.route || '').split('-').slice(1).join('-') || i.route || '';
                     const label = `${i.vehicle === 'car' || i.vehicle === 'other' ? T.vehicleNo(i.bus, i.vehicle, i.vlabel) : `Bus ${i.bus}`}${r.part ? ` (${r.part})` : ''}${to ? ` · ${to}` : ''}`;
                     (by.get(sh) ?? by.set(sh, new Set()).get(sh)!).add(label);
-                    const n = nos.get(sh) ?? nos.set(sh, { word: T.vehicleWord(i.vehicle, i.vlabel), nos: [] }).get(sh)!;
+                    const n = nos.get(sh) ?? nos.set(sh, { word: T.vehicleWord(i.vehicle, i.vlabel), nos: [], transporter: '' }).get(sh)!;
+                    n.transporter = n.transporter || String(r.transporter || i.parent?.transporter || '').trim();   // name and number, as on the Transport day
                     if (!n.nos.includes(String(i.bus))) n.nos.push(String(i.bus));
                 }
                 if (alive) { setBuses(new Map([...by].map(([k, v]) => [k, [...v].join(', ')]))); setBusNos(nos); }
@@ -91,6 +92,8 @@ export default function KeyCardsPage() {
     }, [day, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
     const busOf = (s: Slip) => buses.get((ums as any).baseSh(s.sh_no)) || '';
     const busNoOf = (s: Slip) => busNos.get((ums as any).baseSh(s.sh_no));
+    const glPhone = (s: Slip) => String(s.ums?.glPhone || s.ums?.phone || '').trim();   // from the UMS list; a slip made by hand has none
+    const firstBus = (g: Group) => Number(busNoOf(g.slip)?.nos[0]) || 1e9;
 
     const back = (g: Group, room: string) => Math.min(MAX, ret.get(key(g.slip.id, room)) || 0);
     const stats = (g: Group) => {
@@ -141,7 +144,8 @@ export default function KeyCardsPage() {
     const buildings = useMemo(() => [...new Set(groups.map(g => g.slip.building || '').filter(Boolean))].sort(natural), [groups]);
     const list = groups.filter(g => (bld === 'all' || (g.slip.building || '') === bld)
         && (!find.trim() || [g.slip.tour_name, g.slip.group_leader, g.slip.sh_no, ...g.rooms.map(r => r[0])].some(x => String(x || '').toLowerCase().includes(find.trim().toLowerCase())))
-        && (!onlyOut || stats(g).out > 0));
+        && (!onlyOut || stats(g).out > 0))
+        .sort((a, b) => firstBus(a) - firstBus(b) || a.at - b.at);   // bus number order, on the page and on paper (a group with no bus yet last)
     const all = list.map(stats);
     const issued = all.reduce((n, x) => n + x.issued, 0), got = all.reduce((n, x) => n + x.got, 0), out = all.reduce((n, x) => n + x.out, 0);
     const done = all.filter(x => x.issued && !x.out).length;
@@ -178,9 +182,8 @@ export default function KeyCardsPage() {
                     <Button disabled={!list.length} onClick={() => {
                         const w = window.open('', '_blank');
                         if (!w) { say('The browser blocked the print page — allow pop-ups for this site and try again.', true); return; }
-                        w.document.open(); // the sheet runs in bus order, as the desks hand the cards out (a group with no bus yet last; its BUS box is left to write in)
-                        const first = (g: Group) => Number(busNoOf(g.slip)?.nos[0]) || 1e9;
-                        const cards = [...list].sort((a, b) => a.at - b.at || first(a) - first(b)).map(g => ({ group: g.slip.tour_name || '', leader: String(g.slip.group_leader || '').trim(), pax: g.pax, sh: String(g.slip.sh_no || '—'), part: g.part, rooms: g.rooms, busWord: busNoOf(g.slip)?.word || 'BUS', busNo: (busNoOf(g.slip)?.nos || []).join(', ') }));
+                        w.document.open();
+                        const cards = list.map(g => ({ group: g.slip.tour_name || '', leader: String(g.slip.group_leader || '').trim(), phone: glPhone(g.slip), transporter: busNoOf(g.slip)?.transporter || '', pax: g.pax, sh: String(g.slip.sh_no || '—'), part: g.part, rooms: g.rooms, busWord: busNoOf(g.slip)?.word || 'BUS', busNo: (busNoOf(g.slip)?.nos || []).join(', ') }));
                         w.document.write(cardsSheet({ day: dmy(day).replace(/\//g, '-'), layout, site: site.label, cards })); w.document.close();
                     }}><Printer className="size-4" />Print</Button>
                 </div>
@@ -207,6 +210,7 @@ export default function KeyCardsPage() {
                             <div className="px-3 py-2 font-bold">
                                 {s.tour_name || '—'}{s.group_leader ? ` (${s.group_leader})` : ''} {g.pax}pax
                                 {busOf(s) && <span className="my-1 inline-block max-w-full rounded border border-foreground/40 bg-accent/40 px-1.5 text-sm leading-snug">🚌 {busOf(s)}</span>}
+                                {(glPhone(s) || busNoOf(s)?.transporter) && <small className="block text-xs font-normal">{glPhone(s) && <>📞 GL {glPhone(s)}</>}{glPhone(s) && busNoOf(s)?.transporter ? ' · ' : ''}{busNoOf(s)?.transporter && <>Transporter: {busNoOf(s)!.transporter}</>}</small>}
                                 <small className="block text-xs font-normal text-muted-foreground">SH {s.sh_no || '—'} · {s.building || 'no building'} · leaves {hm(g.at)}{g.part ? ' · only these rooms leave today' : ''}</small>
                             </div>
                             <div className="grid gap-1 px-3 pb-2">

@@ -17,4 +17,11 @@ describe('key card sheet', () => {
         expect(html).toContain('<td class="bn">1</td>');
         expect(html).toContain('MAIMOON TRAVELS');
     });
+    it('adds the leader phone and the transporter when known', () => {
+        const c = { group: 'G', leader: 'L', phone: '0555', transporter: 'YUSUF BHAI - 0555502531', pax: 4, sh: '1', part: false, rooms: rooms(1), busWord: 'BUS', busNo: '1' };
+        const html = cardsSheet({ day: 'd', layout: 'portrait', site: 's', cards: [c] });
+        expect(html).toContain('L<br>0555');
+        expect(html).toContain('YUSUF BHAI - 0555502531');
+        expect(cardsSheet({ day: 'd', layout: 'portrait', site: 's', cards: [{ ...c, transporter: '' }] })).not.toContain('<tr class="tp">');
+    });
 });
