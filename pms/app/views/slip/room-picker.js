@@ -10,7 +10,7 @@
 // Group leader (on by default): the next room clicked becomes the group leader's room — 1 bed on the chosen side
 // (gents unless changed), counted inside that side's number. The row is saved with gl: true.
 
-import { findBuilding, normRoom, floorOf } from '../../core/rooms.js';
+import { findBuilding, normRoom, floorOf, handedAt } from '../../core/rooms.js';
 import { rowsOf, normB } from '../../core/stay.js';
 import { fmtDT } from '../../core/timefmt.js';
 
@@ -50,6 +50,7 @@ export function openRoomPicker(o) {
     const builder = findBuilding(o.buildings, bld);
     for (const r of builder?.rooms || []) {
         if (r.active === false) continue;
+        if (handedAt(r) !== null && handedAt(r) < +co) continue;   // handed back to the hotel before this stay ends
         rooms.set(normRoom(r.room_no), { room_no: r.room_no, cap: r.capacity, type: r.type || '', floor: r.floor || floorOf(r.room_no), known: 'builder' });
     }
     // With rooms in Rooms & Buildings, only its active rooms are offered (like the Grid page); a room this slip

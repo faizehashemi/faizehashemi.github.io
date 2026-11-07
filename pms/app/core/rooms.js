@@ -70,13 +70,20 @@ export function builderCapacity(list, building, room) {
     return r ? r.capacity : null;
 }
 
-/** Active rooms of a building from the builder (empty when the builder has no such building). */
-export function activeRooms(list, building) {
+// A room given back to the hotel (Rooms & Buildings → Hand over): room.handed = { at: 'YYYY-MM-DDTHH:MM', by }. It stays in the books up to that moment and is gone
+// from it on, so past nights keep their numbers.
+/** The moment a room was handed over (ms), or null */
+export const handedAt = (r) => { const t = r && r.handed && r.handed.at ? Date.parse(r.handed.at) : NaN; return Number.isNaN(t) ? null : t; };
+/** Can this room be used at moment t? (active and not handed over by then) */
+export const inService = (r, t = Date.now()) => r.active !== false && !(handedAt(r) !== null && handedAt(r) <= t);
+
+/** Rooms of a building in service at a moment, now unless told (empty when the builder has no such building). */
+export function activeRooms(list, building, at = Date.now()) {
     const b = findBuilding(list, building);
-    return b ? b.rooms.filter(r => r.active !== false) : [];
+    return b ? b.rooms.filter(r => inService(r, at)) : [];
 }
 
-export const totalBeds = (b) => (b.rooms || []).filter(r => r.active !== false).reduce((n, r) => n + (Number(r.capacity) || 0), 0);
+export const totalBeds = (b, at = Date.now()) => (b.rooms || []).filter(r => inService(r, at)).reduce((n, r) => n + (Number(r.capacity) || 0), 0);
 
 /* ------------------------------- builder writes ------------------------------- */
 

@@ -8,6 +8,8 @@ const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&a
 const dLabel = (d: string) => new Date(`${d}T12:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 const wLabel = (d: string) => new Date(`${d}T12:00`).toLocaleDateString('en-GB', { weekday: 'short' });
 const counted = (r: RoomOut) => !r.off && r.cap > 0;
+const night = (d: string) => new Date(`${d}T22:00`).getTime();
+const emptyOn = (r: RoomOut, d: string, i: number) => !r.used[i] && !(r.until && night(d) >= r.until);   // a room handed back is gone, not empty
 
 export type DateRow = { day: string; blds: { name: string; rooms: string[]; beds: number }[]; rooms: number; beds: number };
 export type RoomRow = { building: string; room: string; cap: number; days: string[] };
@@ -15,7 +17,7 @@ export type RoomRow = { building: string; room: string; cap: number; days: strin
 export function vacancyByDate(m: Model): DateRow[] {
     return m.days.map((day, i) => {
         const blds = m.blds.map(b => {
-            const free = b.rooms.filter(r => counted(r) && !r.used[i]);
+            const free = b.rooms.filter(r => counted(r) && emptyOn(r, day, i));
             return { name: b.name, rooms: free.map(r => r.no), beds: free.reduce((n, r) => n + r.cap, 0) };
         });
         return { day, blds, rooms: blds.reduce((n, b) => n + b.rooms.length, 0), beds: blds.reduce((n, b) => n + b.beds, 0) };
@@ -23,7 +25,7 @@ export function vacancyByDate(m: Model): DateRow[] {
 }
 
 export function vacancyByRoom(m: Model): RoomRow[] {
-    return m.blds.flatMap(b => b.rooms.filter(counted).map(r => ({ building: b.name, room: r.no, cap: r.cap, days: m.days.filter((_, i) => !r.used[i]) })).filter(r => r.days.length));
+    return m.blds.flatMap(b => b.rooms.filter(counted).map(r => ({ building: b.name, room: r.no, cap: r.cap, days: m.days.filter((d, i) => emptyOn(r, d, i)) })).filter(r => r.days.length));
 }
 
 /** consecutive dates as ranges: ["…-03", "…-04", "…-05", "…-09"] → "03 Nov – 05 Nov, 09 Nov" */

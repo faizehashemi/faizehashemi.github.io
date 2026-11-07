@@ -11,7 +11,7 @@
 //   Order     biggest groups first, so they find whole rooms.
 //   Apply     writes building + rooms onto the ticked slips (complete allocations are ticked).
 
-import { findBuilding, normRoom, floorOf } from '../../core/rooms.js';
+import { findBuilding, normRoom, floorOf, inService } from '../../core/rooms.js';
 import { recordApply } from './alloclog.js';
 import { rowsOf, normB } from '../../core/stay.js';
 
@@ -61,7 +61,7 @@ export function mountAllocator({ ctx, host, planner }) {
         };
         // a room already holding the other side during the stay is not shared (no gents and ladies of different groups together)
         const otherSide = (b, room, ci, co, side) => (book.get(key(b, room)) || []).some(e => e.start < co && e.end > ci && e.side && e.side !== side);
-        const roomsOf = (b) => (findBuilding(buildingsAll, b)?.rooms || []).filter(r => r.active !== false && num(r.capacity) > 0);
+        const roomsOf = (b) => (findBuilding(buildingsAll, b)?.rooms || []).filter(r => inService(r) && num(r.capacity) > 0);
         const freeBeds = (b, ci, co) => roomsOf(b).reduce((n, r) => n + Math.max(0, num(r.capacity) - peak(b, r.room_no, ci, co)), 0);
         // building load at its busiest moment of the stay (for the planner's target caps)
         const load = (b, ci, co) => {

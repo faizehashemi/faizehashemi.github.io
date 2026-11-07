@@ -38,7 +38,7 @@ export function ChangeRoom({ row, form, gents, ladies, mine, slips, buildings, n
         const others = [...slips, { ...mine, rooms: { gents: (mine.rooms?.gents || []).filter((x: Row) => !(cleanRoom(x.room_no) === room)), ladies: (mine.rooms?.ladies || []).filter((x: Row) => !(cleanRoom(x.room_no) === room)) } }];
         const use = stay.roomsUse(others, bld, +when, +end) as Map<string, { peak: number; who: Row[] }>;
         const sides = new Set(moving.map(m => m.side));
-        return (rooms.activeRooms(buildings, bld) as Row[]).filter(r => !(bld === here && cleanRoom(r.room_no) === room)).map(r => {
+        return (rooms.activeRooms(buildings, bld, +end) as Row[]).filter(r => !(bld === here && cleanRoom(r.room_no) === room)).map(r => {
             const cap = Number(r.capacity) || 0, u = use.get(rooms.normRoom(r.room_no)) || { peak: 0, who: [] }, free = Math.max(0, cap - u.peak);
             const wrong = (r.type === 'gents' || r.type === 'ladies') && [...sides].some(s => s !== r.type);
             const first = u.who[0];

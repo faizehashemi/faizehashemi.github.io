@@ -48,7 +48,7 @@ function RoomsPanel({ name, days, load }: { name: string; days: string[]; load: 
                             <tr key={r.key} className={cn(r.off && 'opacity-70')}>
                                 <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{r.no}{r.off && <small className="block text-[10px] font-medium text-muted-foreground">not in Rooms &amp; Buildings</small>}</th>
                                 <td className="border p-1.5 text-center">{r.cap || '—'}</td>
-                                {r.used.map((u, i) => <td key={i} className={cn('border p-1.5 text-center', u > r.cap && 'bg-bad-soft')} title={`Room ${r.no} ${dayLbl(days[i])}: ${u} of ${r.cap} beds`}><Dots used={u} cap={r.cap} /></td>)}
+                                {r.used.map((u, i) => r.until && new Date(`${days[i]}T22:00`).getTime() >= r.until ? <td key={i} className="border bg-muted p-1.5 text-center text-muted-foreground" title="Handed back to the hotel">—</td> : <td key={i} className={cn('border p-1.5 text-center', u > r.cap && 'bg-bad-soft')} title={`Room ${r.no} ${dayLbl(days[i])}: ${u} of ${r.cap} beds`}><Dots used={u} cap={r.cap} /></td>)}
                                 <td style={r.cap ? heat(avg) : undefined} className="border border-l-2 border-gold p-1.5 text-center">{r.cap ? `${avg}%` : '—'}</td>
                             </tr>
                         );
@@ -72,7 +72,7 @@ export default function OccupancyPage() {
 
     const slips = useSlips();
     const builders = useQuery({ queryKey: ['buildings-force', siteId], queryFn: async () => roomsLib.buildingsOfSite(await guard(roomsLib.loadBuildings({ force: true })), siteId) });
-    const buildings = useMemo<BuildingIn[]>(() => (builders.data ?? []).map((b: any) => ({ name: b.name, rooms: b.rooms.filter((r: any) => r.active !== false && num(r.capacity) > 0) })).filter((b: BuildingIn) => b.rooms.length), [builders.data]);
+    const buildings = useMemo<BuildingIn[]>(() => (builders.data ?? []).map((b: any) => ({ name: b.name, rooms: b.rooms.filter((r: any) => r.active !== false && num(r.capacity) > 0).map((r: any) => ({ ...r, until: roomsLib.handedAt(r) ?? undefined })) })).filter((b: BuildingIn) => b.rooms.length), [builders.data]);
 
     const M = useMemo(() => slips.data && builders.data ? computeOccupancy(slips.data, buildings, { from: from || today, to: to || from || today, only: bld === 'all' ? undefined : bld, perRoom: false }, stay, roomsLib) : null, [slips.data, buildings, from, to, bld, stay, roomsLib, builders.data]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -125,13 +125,13 @@ export default function OccupancyPage() {
             {!M && <p className="text-sm text-muted-foreground">Loading…</p>}
             {M && (() => {
                 const { days, blds, total } = M, D = days.length;
-                const usedN = sum(total.used), capN = total.cap * D;
-                const nightPct = total.used.map(u => pct(u, total.cap));
+                const usedN = sum(total.used), capN = sum(total.capN);
+                const nightPct = total.used.map((u, i) => pct(u, total.capN[i]));
                 const peakI = nightPct.indexOf(Math.max(...nightPct)), lowI = nightPct.indexOf(Math.min(...nightPct));
                 const emptyAvg = Math.round((capN - usedN) / D);
                 const unroomedAvg = Math.round(sum(total.unroomed) / D);
                 const roomsAll = blds.flatMap(b => b.rooms.filter(r => !r.off));
-                const emptyRoomsAvg = Math.round(sum(days.map((_, i) => roomsAll.length - total.roomsUsed[i])) / D);
+                const emptyRoomsAvg = Math.round(sum(days.map((d, i) => roomsAll.filter(r => !r.until || new Date(`${d}T22:00`).getTime() < r.until).length - total.roomsUsed[i])) / D);
                 const kpis: [string, React.ReactNode, string, string?][] = [
                     ['Average occupancy', `${pct(usedN, capN)}%`, `${dayLbl(days[0])} → ${dayLbl(days[D - 1])} · ${D} night${D === 1 ? '' : 's'}`, 'big'],
                     ['Beds', total.cap, `${roomsAll.length} rooms · ${blds.length} building${blds.length === 1 ? '' : 's'}`],
@@ -149,11 +149,11 @@ export default function OccupancyPage() {
                         <th className="border-l-2 border-gold bg-secondary p-1.5">Avg</th>
                     </tr>
                 );
-                const nightRow = (name: string, cap: number, used: number[], unroomed: number[], total?: boolean) => (
+                const nightRow = (name: string, caps: number[], used: number[], unroomed: number[], total?: boolean) => (
                     <tr key={name} className={cn(total && 'border-b-2 border-gold')}>
-                        <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{name}<small className="block text-[10px] font-medium text-muted-foreground">{cap} beds</small></th>
-                        {used.map((u, i) => { const p = pct(u, cap); return <td key={i} style={heat(p)} className="border p-1.5 text-center" title={`${name} ${dayLbl(days[i])}: ${u} of ${cap} beds${unroomed[i] ? ` · ${unroomed[i]} guests without rooms` : ''}`}>{p}%{unroomed[i] ? <sup className="font-extrabold text-warn">+</sup> : null}</td>; })}
-                        <td style={heat(pct(sum(used), cap * D))} className="border border-l-2 border-gold p-1.5 text-center">{pct(sum(used), cap * D)}%</td>
+                        <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{name}<small className="block text-[10px] font-medium text-muted-foreground">{Math.max(...caps)} beds</small></th>
+                        {used.map((u, i) => { const cap = caps[i], p = pct(u, cap); return <td key={i} style={heat(p)} className="border p-1.5 text-center" title={`${name} ${dayLbl(days[i])}: ${u} of ${cap} beds${unroomed[i] ? ` · ${unroomed[i]} guests without rooms` : ''}`}>{p}%{unroomed[i] ? <sup className="font-extrabold text-warn">+</sup> : null}</td>; })}
+                        <td style={heat(pct(sum(used), sum(caps)))} className="border border-l-2 border-gold p-1.5 text-center">{pct(sum(used), sum(caps))}%</td>
                     </tr>
                 );
                 return <>
@@ -168,7 +168,7 @@ export default function OccupancyPage() {
                     <Card><CardHeader><CardTitle className="text-base">Buildings — period averages <span className="ml-1 text-xs font-normal text-muted-foreground">average and busiest night per building over the period</span></CardTitle></CardHeader>
                         <CardContent className="grid gap-3">
                             {blds.length ? blds.map(b => {
-                                const p = b.used.map(u => pct(u, b.cap)), avg = pct(sum(b.used), b.cap * D), pk = Math.max(...p), pkI = p.indexOf(pk);
+                                const p = b.used.map((u, i) => pct(u, b.capN[i])), avg = pct(sum(b.used), sum(b.capN)), pk = Math.max(...p), pkI = p.indexOf(pk);
                                 return (
                                     <div key={b.name} className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center sm:gap-3">
                                         <b>{b.name}</b>
@@ -184,8 +184,8 @@ export default function OccupancyPage() {
                     <Card className="gap-0 py-0"><CardHeader className="border-b py-3"><CardTitle className="text-base">Night by night <span className="ml-1 text-xs font-normal text-muted-foreground">% of beds in use · hover a cell for beds · the first row is all buildings, the last column the average</span></CardTitle></CardHeader>
                         <CardContent className="overflow-x-auto p-0">
                             <table className="w-max min-w-full text-xs"><thead>{head}</thead><tbody>
-                                {blds.length > 1 && nightRow('All buildings', total.cap, total.used, total.unroomed, true)}
-                                {blds.map(b => nightRow(b.name, b.cap, b.used, b.unroomed))}
+                                {blds.length > 1 && nightRow('All buildings', total.capN, total.used, total.unroomed, true)}
+                                {blds.map(b => nightRow(b.name, b.capN, b.used, b.unroomed))}
                             </tbody></table>
                             {sum(total.unroomed) > 0 && <p className="p-3 text-xs text-muted-foreground"><sup>+</sup> some guests that night have a building but no rooms yet (hover for how many) — they are not in the %.</p>}
                         </CardContent></Card>
@@ -194,7 +194,7 @@ export default function OccupancyPage() {
                         <CardContent className="grid gap-2">
                             {blds.map(b => (
                                 <details key={b.name} className="rounded-lg border" onToggle={e => { const o = (e.currentTarget as HTMLDetailsElement).open; setOpened(s => { const n = new Set(s); if (o) n.add(b.name); else n.delete(b.name); return n; }); }}>
-                                    <summary className="cursor-pointer p-2.5 text-sm"><b>{b.name}</b> · {b.rooms.length} rooms · {b.cap} beds · <b>{pct(sum(b.used), b.cap * D)}%</b> average</summary>
+                                    <summary className="cursor-pointer p-2.5 text-sm"><b>{b.name}</b> · {b.rooms.length} rooms · {b.cap} beds · <b>{pct(sum(b.used), sum(b.capN))}%</b> average</summary>
                                     {opened.has(b.name) && <RoomsPanel name={b.name} days={days} load={loadRooms} />}
                                 </details>
                             ))}

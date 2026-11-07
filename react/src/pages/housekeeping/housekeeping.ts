@@ -37,7 +37,7 @@ export function computeHousekeeping(slips: Record<string, any>[], buildings: Bui
     }
     const rows: HkRow[] = [];
     for (const b of buildings.filter(x => !only || x.name === only)) {
-        for (const r of b.rooms.filter(x => x.active !== false)) {
+        for (const r of b.rooms.filter((x: any) => x.active !== false && !(x.handed?.at && Date.parse(x.handed.at) <= from))) {
             const list = win.get(`${b.name}|${rooms.normRoom(r.room_no)}`) || [];
             const outs = list.filter(w => w.end >= from && w.end < to);
             const ins = list.filter(w => w.start >= from && w.start < to);

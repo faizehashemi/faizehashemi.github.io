@@ -17,11 +17,11 @@ export const natural = (a: unknown, b: unknown) => String(a).localeCompare(Strin
 export const pct = (u: number, c: number) => c ? Math.round(100 * u / c) : 0;
 export const sum = (a: number[]) => a.reduce((n, v) => n + v, 0);
 
-export type RoomIn = { room_no: string; floor?: string; capacity: number };
+export type RoomIn = { room_no: string; floor?: string; capacity: number; until?: number };   // until: handed back to the hotel at this moment (ms)
 export type BuildingIn = { name: string; rooms: RoomIn[] };
-export type RoomOut = { no: string; key: string; floor: string; cap: number; used: number[]; off?: boolean };
-export type BuildingOut = { name: string; rooms: RoomOut[]; byKey: Map<string, RoomOut>; cap: number; used: number[]; unroomed: number[]; extra: Map<string, RoomOut> };
-export type Model = { days: string[]; blds: BuildingOut[]; total: { cap: number; used: number[]; unroomed: number[]; roomsUsed: number[] }; cut: boolean };
+export type RoomOut = { no: string; key: string; floor: string; cap: number; used: number[]; off?: boolean; until?: number };
+export type BuildingOut = { name: string; rooms: RoomOut[]; byKey: Map<string, RoomOut>; cap: number; capN: number[]; used: number[]; unroomed: number[]; extra: Map<string, RoomOut> };
+export type Model = { days: string[]; blds: BuildingOut[]; total: { cap: number; capN: number[]; used: number[]; unroomed: number[]; roomsUsed: number[] }; cut: boolean };
 
 export function computeOccupancy(slips: Record<string, any>[], buildings: BuildingIn[], opts: { from: string; to: string; only?: string; perRoom?: boolean }, stay: Stay, rooms: Rooms): Model {
     // perRoom false: only the building totals (cheap); the bed-by-bed numbers of a building are worked out when it is opened (see OccupancyPage)
@@ -32,9 +32,10 @@ export function computeOccupancy(slips: Record<string, any>[], buildings: Buildi
     for (let d = from; d <= to && days.length < MAX_DAYS; d = shift(d, 1)) days.push(d);
     const nights = days.map(d => parseDT(d, '22:00')!);
     const blds: BuildingOut[] = buildings.filter(b => !opts.only || b.name === opts.only).map(b => {
-        const rs: RoomOut[] = b.rooms.map(r => ({ no: String(r.room_no).trim(), key: rooms.normRoom(r.room_no), floor: String(r.floor || '').trim() || rooms.floorOf(r.room_no), cap: num(r.capacity), used: perRoom ? days.map(() => 0) : [] }))
+        // a room handed back counts for the nights before it (capN = the beds of each night) and not at all once the whole period is after it
+        const rs: RoomOut[] = b.rooms.filter(r => !r.until || r.until > nights[0]).map(r => ({ ...(r.until ? { until: r.until } : {}), no: String(r.room_no).trim(), key: rooms.normRoom(r.room_no), floor: String(r.floor || '').trim() || rooms.floorOf(r.room_no), cap: num(r.capacity), used: perRoom ? days.map(() => 0) : [] }))
             .sort((x, y) => natural(x.floor, y.floor) || natural(x.no, y.no));
-        return { name: b.name, rooms: rs, byKey: new Map(rs.map(r => [r.key, r])), cap: rs.reduce((n, r) => n + r.cap, 0), used: days.map(() => 0), unroomed: days.map(() => 0), extra: new Map() };
+        return { name: b.name, rooms: rs, byKey: new Map(rs.map(r => [r.key, r])), cap: rs.reduce((n, r) => n + r.cap, 0), capN: nights.map(t => rs.reduce((n, r) => n + (!r.until || t < r.until ? r.cap : 0), 0)), used: days.map(() => 0), unroomed: days.map(() => 0), extra: new Map() };
     });
     const byName = new Map(blds.map(b => [b.name, b]));
     const roomsUsed = days.map(() => new Set<string>());                                // distinct rooms in use each night
@@ -63,10 +64,10 @@ export function computeOccupancy(slips: Record<string, any>[], buildings: Buildi
                 room = b.extra.get(k) || { no: w.room_no, key: k, floor: rooms.floorOf(w.room_no), cap: 0, used: days.map(() => 0), off: true };
                 b.extra.set(k, room);
             }
-            nights.forEach((t, i) => { if (w.start! <= t && t < w.end!) { if (perRoom) room!.used[i] += w.block; if (!room!.off) { b.used[i] += w.block; roomsUsed[i].add(`${b.name}|${room!.key}`); } } });
+            nights.forEach((t, i) => { if (w.start! <= t && t < w.end!) { if (room!.until && t >= room!.until) { b.unroomed[i] += w.block; return; } if (perRoom) room!.used[i] += w.block; if (!room!.off) { b.used[i] += w.block; roomsUsed[i].add(`${b.name}|${room!.key}`); } } });
         }
     }
     for (const b of blds) b.rooms.push(...[...b.extra.values()].sort((x, y) => natural(x.no, y.no)));
-    const total = { cap: blds.reduce((n, b) => n + b.cap, 0), used: days.map((_, i) => blds.reduce((n, b) => n + b.used[i], 0)), unroomed: days.map((_, i) => blds.reduce((n, b) => n + b.unroomed[i], 0)), roomsUsed: roomsUsed.map(x => x.size) };
+    const total = { cap: blds.reduce((n, b) => n + b.cap, 0), capN: days.map((_, i) => blds.reduce((n, b) => n + b.capN[i], 0)), used: days.map((_, i) => blds.reduce((n, b) => n + b.used[i], 0)), unroomed: days.map((_, i) => blds.reduce((n, b) => n + b.unroomed[i], 0)), roomsUsed: roomsUsed.map(x => x.size) };
     return { days, blds, total, cut: days.length === MAX_DAYS && days[days.length - 1] < to };
 }

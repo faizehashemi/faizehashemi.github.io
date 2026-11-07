@@ -1188,7 +1188,9 @@ function prepareBuilding(b) {
         const capacity = Number(r.capacity);
         if (!Number.isInteger(capacity) || capacity < 0 || capacity > 50) throw new HttpError(400, `Room ${room_no}: capacity must be a whole number 0–50.`);
         const type = ROOM_TYPES.includes(r.type) ? r.type : '';
-        return { room_no, floor: text(r.floor, 10), capacity, type, notes: text(r.notes, 200), active: r.active !== false };
+        // handed back to the hotel: from this moment the room is out of use (core/rooms.js inService); the record stays for past nights
+        const handed = r.handed && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(r.handed.at)) ? { handed: { at: r.handed.at, by: text(r.handed.by, 40) } } : {};
+        return { room_no, floor: text(r.floor, 10), capacity, type, notes: text(r.notes, 200), active: r.active !== false, ...handed };
     });
     const data = JSON.stringify({ rooms, notes: text(b.notes, 500) });
     if (data.length > MAX_BUILDING_BYTES) throw new HttpError(413, 'Building too large.');

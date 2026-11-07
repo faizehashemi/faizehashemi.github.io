@@ -42,7 +42,7 @@ export function buildMatrix(slips: Slip[], builders: any[], building: string, wh
     // the building's rooms: Rooms & Buildings first, slips only where the builder knows nothing
     const builder: any[] = rooms.findBuilding(builders, b)?.rooms || [];
     const roomMap = new Map<string, { floor: string; offList: boolean }>();
-    for (const r of builder) { const k = normRoom(r.room_no); if (k && r.active !== false) roomMap.set(k, { floor: String(r.floor || '').trim() || parseRoomToken(k).floor, offList: false }); }
+    for (const r of builder) { const k = normRoom(r.room_no); if (k && r.active !== false && !(r.handed?.at && Date.parse(r.handed.at) <= +when)) roomMap.set(k, { floor: String(r.floor || '').trim() || parseRoomToken(k).floor, offList: false }); }
     const useBuilder = roomMap.size > 0;
     for (const r of slips) {
         if (!stay.slipTouches(r, b)) continue;

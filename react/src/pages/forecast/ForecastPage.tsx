@@ -53,7 +53,7 @@ function VacancyTab() {
         if (problem) return;
         setBusy(true);
         setTimeout(() => {   // let the button show "Working…" first
-            try { setRes({ ...vacancy({ slips: slips!, buildings: picked, from: f, to: t, libs: { rowsOf: S.rowsOf, normB: S.normB, activeRooms: (b: string) => R.activeRooms(blds, b) } }), from: f, to: t, buildings: picked }); setFilter('all'); setMsg(''); }
+            try { setRes({ ...vacancy({ slips: slips!, buildings: picked, from: f, to: t, libs: { rowsOf: S.rowsOf, normB: S.normB, activeRooms: (b: string) => R.activeRooms(blds, b, t) } }), from: f, to: t, buildings: picked }); setFilter('all'); setMsg(''); }
             catch (e: any) { setMsg('The forecast failed: ' + (e?.message || e)); }
             finally { setBusy(false); }
         }, 0);

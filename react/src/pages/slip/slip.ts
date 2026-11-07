@@ -142,6 +142,9 @@ export function checkAvailability(f: Form, gents: RoomRow[], ladies: RoomRow[], 
         const lastMove = r.moves?.[r.moves.length - 1], from = (lastMove && parseDT(lastMove.until.date, lastMove.until.time)) || ci;
         if (end <= from) { issues.push({ kind: 'badtime', room, out: r.out || { date: f.checkout_date, time: f.checkout_time } }); continue; }
         own.push({ room, building, key: keyOf(building, room), side, start: +from, end: +end, beds, excl: !!r.exclusive, cap_row: Number(r.capacity) || null });
+        // a room handed back to the hotel cannot be given a stay that runs past that moment (a slip already in it can still be edited, to move it out)
+        const handed = R.findBuilding(B, building)?.rooms?.find((x: Slip) => R.normRoom(x.room_no) === R.normRoom(room))?.handed;
+        if (handed?.at && +end > Date.parse(handed.at) && !loadedRooms.has(roomKey(side, room, building))) issues.push({ kind: 'text', text: `Room ${room} was handed back to the hotel on ${handed.at.replace('T', ' at ')}.`, help: ['Choose another room, or take the hand-over back in Rooms & Buildings if it was a mistake.'] });
         // a gents room never takes ladies and a ladies room never takes gents (Rooms & Buildings → type); family / any take both
         const typ = roomType(building, room);
         if ((typ === 'gents' || typ === 'ladies') && typ !== side && !loadedRooms.has(roomKey(side, room, building))) issues.push({ kind: 'roomtype', room, side, type: typ, ...(normB(building) === normB(bld) ? {} : { building }) });

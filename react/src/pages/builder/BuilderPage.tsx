@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { KeyRound, Plus, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { handoverForm } from './handover';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,14 +18,14 @@ import { useCore, useDb, useGuard, useSite } from '@/pms/PmsContext';
 // reads capacities from here (core/rooms.js). Unsaved edits are kept as a draft per building until saved or discarded.
 
 type Row = Record<string, any>;
-type Room = { room_no: string; floor: string; capacity: number; type: string; notes: string; active: boolean };
+type Room = { room_no: string; floor: string; capacity: number; type: string; notes: string; active: boolean; handed?: { at: string; by: string } };
 const TYPES = ['', 'gents', 'ladies', 'family'];
 const natural = (a: unknown, b: unknown) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 const sel = 'h-9 rounded-md border bg-background px-2 text-sm';
 
 export default function BuilderPage() {
-    const { cloud, rooms: R } = useCore();
+    const { cloud, rooms: R, stay } = useCore();
     const r = R as any;
     const db = useDb();
     const guard = useGuard();
@@ -132,6 +134,53 @@ export default function BuilderPage() {
         upd(d => { for (const i of selected) fn(d.rooms[i]); }); setMsg(`${what} for ${selected.size} room(s) — not saved yet.`);
     };
     const [selCap, setSelCap] = useState('');
+    // ---- hand rooms back to the hotel: out of use from that moment everywhere (core/rooms.js inService), saved at once, and the signed form printed ----
+    const [hand, setHand] = useState<{ date: string; time: string } | null>(null);
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const picked = () => [...selected].map(i => (cur!.rooms as Room[])[i]).filter(Boolean);
+    function openHand() {
+        const list = picked().filter(x => !x.handed);
+        if (!list.length) { setMsg('Tick the rooms to hand over first.'); return; }
+        if (isDirty(key!)) { setMsg('Save or discard your changes first: a hand-over is saved straight away.'); return; }
+        const n = new Date();
+        setHand({ date: `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`, time: `${pad2(n.getHours())}:${pad2(n.getMinutes())}` });
+    }
+    async function saveRooms(change: (x: Room) => void, nos: Set<string>, done: string) {
+        const d = JSON.parse(JSON.stringify(cur));
+        (d.rooms as Room[]).forEach(x => { if (nos.has(x.room_no)) change(x); });
+        setBusy(true);
+        try { const b = await guard<any>(r.saveBuilding(d)); setDrafts(ds => { const n = { ...ds }; delete n[key!]; return n; }); await load(keyOf(b)); setSelected(new Set()); setMsg(done); return true; }
+        catch (e: any) { setMsg(e instanceof cloud.UserError ? e.message : 'Could not save: ' + (e.message || e)); return false; }
+        finally { setBusy(false); }
+    }
+    const printForm = (at: string, rooms: string[]) => { const w = window.open('', '_blank'); if (!w) { setMsg('The browser blocked the form: allow pop-ups for this site.'); return; } w.document.open(); w.document.write(handoverForm({ building: cur!.name, at, rooms })); w.document.close(); };
+    async function doHand() {
+        const at = `${hand!.date}T${hand!.time}`, t = Date.parse(at);
+        if (!hand!.date || !hand!.time || Number.isNaN(t)) { setMsg('Choose the date and time.'); return; }
+        const list = picked().filter(x => !x.handed), nos = new Set(list.map(x => x.room_no)), keys = new Set(list.map(x => r.normRoom(x.room_no)));
+        // guests still booked in these rooms after that moment
+        const held = new Map<string, Set<string>>();
+        for (const s of (await db.all()) as Row[]) {
+            if (s.deleted) continue;
+            for (const w of stay.rowsOf(s) as Row[]) if (stay.normB(w.building) === stay.normB(cur!.name) && keys.has(r.normRoom(w.room_no)) && w.end > t) (held.get(w.room_no) ?? held.set(w.room_no, new Set()).get(w.room_no)!).add(`SH ${s.sh_no}`);
+        }
+        if (held.size && !(await confirm({ title: 'These rooms still have stays after that moment', confirmLabel: 'Hand over anyway', body: [...[...held].map(([n, w]) => `Room ${n}: ${[...w].join(', ')}`), '', 'Change their rooms on the slip, or they keep pointing at a room the hotel has back.'].join('\n') }))) return;
+        setHand(null);
+        const by = String(cloud.currentDesk()?.name || '');
+        if (await saveRooms(x => { x.handed = { at, by }; }, nos, `${list.length} room(s) handed over: out of use from ${at.replace('T', ' ')}.`)) printForm(at, list.map(x => x.room_no).sort(natural));
+    }
+    async function takeBack() {
+        const list = picked().filter(x => x.handed);
+        if (!list.length) { setMsg('Tick rooms that were handed over.'); return; }
+        if (isDirty(key!)) { setMsg('Save or discard your changes first.'); return; }
+        if (!(await confirm({ title: `Take back ${list.length} room(s)?`, confirmLabel: 'Take back', body: 'They return to use, as if never handed over. Use this for a mistake, or if the hotel gives them back.' }))) return;
+        await saveRooms(x => { delete x.handed; }, new Set(list.map(x => x.room_no)), `${list.length} room(s) back in use.`);
+    }
+    function reprint() {
+        const list = picked().filter(x => x.handed);
+        if (!list.length) { setMsg('Tick rooms that were handed over.'); return; }
+        printForm(list[0].handed!.at, list.filter(x => x.handed!.at === list[0].handed!.at).map(x => x.room_no).sort(natural));
+    }
     async function slipsUsing(name: string) { return ((await db.all()) as Row[]).filter(x => String(x.building || '').trim().toUpperCase() === name).length; }
     async function saveIt() {
         const d = cur!;
@@ -229,18 +278,20 @@ export default function BuilderPage() {
                             <Button variant="outline" size="sm" disabled={off} onClick={() => { const v = Number(selCap); if (!Number.isInteger(v) || v < 0 || v > 50) { setMsg('Enter beds 0–50.'); return; } forSelected(x => { x.capacity = v; }, `Beds set to ${v}`); }}>Set beds</Button>
                             <Button variant="outline" size="sm" disabled={off} onClick={() => forSelected(x => { x.active = true; }, 'Marked active')}>Active</Button>
                             <Button variant="outline" size="sm" disabled={off} onClick={() => forSelected(x => { x.active = false; }, 'Marked inactive')}>Inactive</Button>
+                            <Button size="sm" disabled={off || busy} title="Give the ticked rooms back to the hotel: out of use from that moment" onClick={openHand}><KeyRound className="size-4" />Hand over</Button>
+                            {picked().some(x => x.handed) && <><Button variant="outline" size="sm" disabled={off || busy} onClick={() => void takeBack()}>Take back</Button><Button variant="outline" size="sm" onClick={reprint}>Print form</Button></>}
                             <Button variant="outline" size="sm" className="text-destructive" disabled={off} onClick={async () => { if (!selected.size) { setMsg('Tick the rooms first.'); return; } if (!(await confirm({ title: `Remove ${selected.size} room(s) from ${cur.name}?`, confirmLabel: 'Remove' }))) return; const s = selected; upd(d => { d.rooms = d.rooms.filter((_: Room, i: number) => !s.has(i)); }); setSelected(new Set()); }}>Delete</Button></div>
 
                         <div className="overflow-x-auto"><table className="w-full text-sm">
                             <thead><tr className="border-b text-left"><th className="w-9 p-1"><Checkbox aria-label="Select all shown" checked={visible.length > 0 && visible.every(i => selected.has(i))} onCheckedChange={v => setSelected(s => { const n = new Set(s); visible.forEach(i => (v === true ? n.add(i) : n.delete(i))); return n; })} /></th><th className="p-1">Room</th><th className="p-1">Floor</th><th className="p-1">Beds</th><th className="p-1">Type</th><th className="p-1">Notes</th><th className="p-1">Active</th><th /></tr></thead>
                             <tbody>{visible.length ? visible.map(i => { const x = cur.rooms[i] as Room; const changed = original(key) && before.get(r.normRoom(x.room_no)) !== JSON.stringify(x);
-                                return <tr key={i} className={cn('border-b', x.active === false && 'opacity-55', changed && 'bg-accent/50', bad.has(i) && 'bg-destructive/15')}>
+                                return <tr key={i} className={cn('border-b', (x.active === false || x.handed) && 'opacity-55', changed && 'bg-accent/50', bad.has(i) && 'bg-destructive/15')}>
                                     <td className="p-1"><Checkbox aria-label={`Select room ${x.room_no}`} checked={selected.has(i)} onCheckedChange={v => setSelected(s => { const n = new Set(s); if (v === true) n.add(i); else n.delete(i); return n; })} /></td>
                                     <td className="p-1"><Input className="h-8 w-28" maxLength={12} aria-label="Room number" disabled={off} value={x.room_no} onChange={e => setRoom(i, 'room_no', e.target.value.trim())} /></td>
                                     <td className="p-1"><Input className="h-8 w-20" maxLength={10} placeholder={r.floorOf(x.room_no)} aria-label="Floor" disabled={off} value={x.floor} onChange={e => setRoom(i, 'floor', e.target.value)} /></td>
                                     <td className="p-1"><Input type="number" min={0} max={50} className="h-8 w-20" aria-label="Beds" disabled={off} value={x.capacity} onChange={e => setRoom(i, 'capacity', e.target.value === '' ? 0 : Math.max(0, Math.min(50, Math.round(Number(e.target.value)) || 0)))} /></td>
                                     <td className="p-1"><select className={cn(sel, 'h-8')} aria-label="Type" disabled={off} value={x.type || ''} onChange={e => setRoom(i, 'type', e.target.value)}>{TYPES.map(t => <option key={t} value={t}>{t || 'any'}</option>)}</select></td>
-                                    <td className="p-1"><Input className="h-8 min-w-40" maxLength={200} aria-label="Notes" disabled={off} value={x.notes} onChange={e => setRoom(i, 'notes', e.target.value)} /></td>
+                                    <td className="p-1"><Input className="h-8 min-w-40" maxLength={200} aria-label="Notes" disabled={off} value={x.notes} onChange={e => setRoom(i, 'notes', e.target.value)} />{x.handed && <small className="mt-0.5 block whitespace-nowrap text-xs font-semibold text-destructive">🔑 Handed over {x.handed.at.split('T')[0].split('-').reverse().join('/')} {x.handed.at.split('T')[1]}{x.handed.by ? ` · ${x.handed.by}` : ''}</small>}</td>
                                     <td className="p-1"><Checkbox aria-label="Active" disabled={off} checked={x.active !== false} onCheckedChange={v => setRoom(i, 'active', v === true)} /></td>
                                     <td className="p-1"><Button size="icon" variant="ghost" className="size-7" title="Remove room" aria-label="Remove room" disabled={off} onClick={() => { upd(d => { d.rooms.splice(i, 1); }); setSelected(new Set()); }}><X className="size-4" /></Button></td></tr>; })
                                 : <tr><td colSpan={8} className="p-2 text-muted-foreground">{cur.rooms.length ? 'No room matches the filter.' : 'No rooms yet — use “Add rooms”.'}</td></tr>}</tbody></table></div>
@@ -257,6 +308,14 @@ export default function BuilderPage() {
                     </Card>)}
             </div>
             {confirmDialog}{promptDialog}
+            <Dialog open={!!hand} onOpenChange={o => { if (!o) setHand(null); }}>
+                <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-sm">
+                    <DialogHeader><DialogTitle>Hand over to the hotel</DialogTitle></DialogHeader>
+                    <p className="text-sm text-muted-foreground">{cur?.name}: {hand ? picked().filter(x => !x.handed).map(x => x.room_no).join(', ') : ''}. From this moment they are out of use everywhere; nights before it stay in the numbers. The form prints next, for signing.</p>
+                    {hand && <div className="grid grid-cols-2 gap-2"><div className="grid gap-1"><Label htmlFor="hoD">Date</Label><Input id="hoD" type="date" value={hand.date} onChange={e => setHand(h => ({ ...h!, date: e.target.value }))} /></div><div className="grid gap-1"><Label htmlFor="hoT">Time</Label><Input id="hoT" type="time" value={hand.time} onChange={e => setHand(h => ({ ...h!, time: e.target.value }))} /></div></div>}
+                    <DialogFooter className="gap-2"><Button variant="outline" onClick={() => setHand(null)}>Cancel</Button><Button disabled={busy} onClick={() => void doHand()}><KeyRound className="size-4" />Hand over</Button></DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
