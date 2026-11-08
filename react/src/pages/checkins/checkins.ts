@@ -158,18 +158,21 @@ export function toCSV(kind: 'in' | 'out', parts: [string | null, Row[]][], opts:
 
 /* ===== Print table: A4 landscape, 1 cm margins, in a tab of its own ===== */
 const escH = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]!));
-export function printTableHtml(kind: 'in' | 'out', rows: Row[], parts: [string | null, Row[]][], siteLabel: string, rangeLabel: string, luggage: (r: Row) => string = () => '') {
+export function printTableHtml(kind: 'in' | 'out', rows: Row[], parts: [string | null, Row[]][], siteLabel: string, rangeLabel: string, luggage: (r: Row) => string = () => '', glci = false) {
     const lug = rows.some(r => luggage(r));   // the First accommodation column only when a group in the table has luggage elsewhere
-    const n = lug ? 8 : 7;
+    const n = (lug ? 8 : 7) + (glci ? 4 : 0);
+    // G L C I (ticked by the Print table button): gents, ladies, children, infants after Total Pax, with a totals row under each table
+    const glciTd = (r: Row) => glci ? [r.gents, r.ladies, r.children ?? r.child, r.infants ?? r.infant].map(v => `<td>${num(v)}</td>`).join('') : '';
     const title = `${kind === 'in' ? 'Check-ins' : 'Check-outs'} · ${siteLabel}`;
     const total = rows.reduce((s, r) => s + guests(r), 0);
     const rowHtml = (r: Row) => {
         const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
-        return `<tr><td>${escH(r.sh_no ?? '')}</td>${lug ? `<td>${escH(luggage(r) || '-')}</td>` : ''}<td><b>${escH(r.tour_name || '-')}</b><br><span class="gl">${escH(String(r.group_leader ?? '').trim() || '-')}</span></td><td>${escH((r.building || '').trim() || '-')}</td><td class="rooms">${roomsHtml(r)}</td><td><b>${guests(r)}</b></td><td>${escH(fmtDT(ci))}</td><td>${escH(fmtDT(co))}</td></tr>`;
+        return `<tr><td>${escH(r.sh_no ?? '')}</td>${lug ? `<td>${escH(luggage(r) || '-')}</td>` : ''}<td><b>${escH(r.tour_name || '-')}</b><br><span class="gl">${escH(String(r.group_leader ?? '').trim() || '-')}</span></td><td>${escH((r.building || '').trim() || '-')}</td><td class="rooms">${roomsHtml(r)}</td><td><b>${guests(r)}</b></td>${glciTd(r)}<td>${escH(fmtDT(ci))}</td><td>${escH(fmtDT(co))}</td></tr>`;
     };
-    const thead = `<thead><tr><th>SH No</th>${lug ? '<th>First accommodation</th>' : ''}<th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th><th>Check-in</th><th>Check-out</th></tr></thead>`;
-    const colgroup = lug ? '<colgroup><col style="width:8%"><col style="width:10%"><col style="width:22%"><col style="width:10%"><col style="width:20%"><col style="width:8%"><col style="width:11%"><col style="width:11%"></colgroup>' : '<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>';
-    const tables = parts.map(([t, list]) => (t ? `<h2>${escH(t)} <small>${escH(partSum(list))}</small></h2>` : '') + `<table>${colgroup}${thead}<tbody>${list.length ? list.map(rowHtml).join('') : '<tr><td colspan="${n}">None in this range.</td></tr>'}</tbody></table>`).join('');
+    const thead = `<thead><tr><th>SH No</th>${lug ? '<th>First accommodation</th>' : ''}<th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th>${glci ? '<th>G</th><th>L</th><th>C</th><th>I</th>' : ''}<th>Check-in</th><th>Check-out</th></tr></thead>`;
+    const colgroup = glci ? `<colgroup><col style="width:7%">${lug ? '<col style="width:9%">' : ''}<col style="width:${lug ? 18 : 22}%"><col style="width:9%"><col style="width:${lug ? 17 : 22}%"><col style="width:6%">${'<col style="width:4%">'.repeat(4)}<col style="width:9%"><col style="width:9%"></colgroup>` : lug ? '<colgroup><col style="width:8%"><col style="width:10%"><col style="width:22%"><col style="width:10%"><col style="width:20%"><col style="width:8%"><col style="width:11%"><col style="width:11%"></colgroup>' : '<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>';
+    const totRow = (list: Row[]) => { const c = countsOf(list); return `<tfoot><tr class="tot"><td colspan="${lug ? 5 : 4}">Total · ${c.n} group${c.n === 1 ? '' : 's'}</td><td>${c.t}</td><td>${c.g}</td><td>${c.l}</td><td>${c.c}</td><td>${c.i}</td><td colspan="2"></td></tr></tfoot>`; };
+    const tables = parts.map(([t, list]) => (t ? `<h2>${escH(t)} <small>${escH(partSum(list))}</small></h2>` : '') + `<table>${colgroup}${thead}<tbody>${list.length ? list.map(rowHtml).join('') : `<tr><td colspan="${n}">None in this range.</td></tr>`}</tbody>${glci && list.length ? totRow(list) : ''}</table>`).join('');
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>${escH(title)}</title>
 <style>
@@ -187,6 +190,7 @@ thead { display: table-header-group; }
 tr { break-inside: avoid; page-break-inside: avoid; }
 td .gl { font-size: 10px; }
 td.rooms { font-size: 10px; }
+tr.tot td { background: #e8e8e8; font-weight: 700; border-top: 2px solid #000; }
 .excl { display: inline-block; border: 1px solid #000; border-radius: 2px; padding: 0 2px; font-size: .85em; font-weight: 700; white-space: nowrap; }
 .bar { position: sticky; top: 0; display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: #fffaf1; border-bottom: 1px solid #dcc7a4; font: 13px system-ui, sans-serif; }
 .bar button { font: inherit; padding: 5px 14px; border: 1px solid #d4af37; border-radius: 8px; background: #d4af37; color: #fff; font-weight: 700; cursor: pointer; }

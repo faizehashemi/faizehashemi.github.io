@@ -44,6 +44,7 @@ export default function CheckinsPage() {
     const [mode, setMode] = useState('both');
     const [bldFilter, setBldFilter] = useState('all'), [sortBy, setSortBy] = useState('time');   // Building: only that building's groups; Sort: by time (default) or by building
     const [split, setSplit] = useState(!!prefs.checkinsSplit);
+    const [glci, setGlci] = useState(false);   // Print table: add G L C I columns with totals (off each time the page opens)
     const [showLug, setShowLug] = useState(() => { try { return localStorage.getItem('pms_checkins_lug_col') === '1'; } catch { return false; } });   // hidden unless ticked: only one desk looks at it, once a day
     const [showFl, setShowFl] = useState(() => { try { return localStorage.getItem('pms_checkins_flight_col') === '1'; } catch { return false; } });
     const [range, setRange] = useState({ df, dt, tf, tt });
@@ -110,7 +111,7 @@ export default function CheckinsPage() {
         if (!rows.length) { alert('No rows to print in this table.'); return; }
         const w = window.open('', '_blank');
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print table again.'); return; }
-        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel, showLug ? lug : () => '')); w.document.close();
+        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel, showLug ? lug : () => '', glci)); w.document.close();
     }
 
     const checkLink = (code: string, o: any) => {
@@ -192,6 +193,7 @@ export default function CheckinsPage() {
                     <div className="flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{rows.length} slips • {rows.reduce((s, r) => s + guests(r), 0)} guests</span>
                         <Button size="sm" variant="outline" onClick={() => csv(kind)}><Download className="size-3.5" />Export CSV</Button>
                         <Button size="sm" variant="outline" onClick={() => printTable(kind)}><Printer className="size-3.5" />Print table</Button>
+                        <label className="flex items-center gap-1.5 text-sm" title="Print table adds Gents, Ladies, Children and Infants columns, with totals"><input type="checkbox" checked={glci} onChange={e => setGlci(e.target.checked)} />G L C I</label>
                         <label className="flex items-center gap-1.5 text-sm" title="Exclusive rooms show only 'Excl' unless this is ticked (table, printed table and printed slips)"><input type="checkbox" checked={exclB} onChange={e => pickExclB(e.target.checked)} />show building on Excl rooms</label>
                         {may.print && libs && <>
                             <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(rows, { title: `check-${kind}s ${rangeLabel}` })}>Print slips</Button>
