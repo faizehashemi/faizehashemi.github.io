@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Notice screen</title>
+    <link rel="icon" type="image/png" href="../assets/icons/icon-192.png">
+    <!--
+      A notice screen for a TV hung on its side (no login): https://pms.raajsoftware.com/<site>/signage1 and /signage2 (this same file under both names).
+      Plays the slides set in Transport → Signage Builder → Screen 1 / Screen 2: the Important Notice poster, pictures, videos, PDF and PowerPoint pages,
+      each on its own schedule (Saudi time). Drawn upright on a 1080 × 1920 stage and turned as set there (Turn the picture), so the TV itself stays landscape.
+      Options: ?rotate=0 | 90 | -90 | 180 (try another turn without saving it)
+    -->
+    <style>
+        html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+        #stage { position: absolute; width: 1080px; height: 1920px; transform-origin: 50% 50%; overflow: hidden; background: #000; }
+        .layer { position: absolute; inset: 0; opacity: 0; transition-property: opacity; transition-timing-function: ease; }
+        .layer.on { opacity: 1; }
+        .layer > img.full, .layer > video.full { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #sgDiag { position: fixed; right: 6px; bottom: 4px; z-index: 9; font: 11px/1.3 Arial, sans-serif; color: #c9a227; opacity: .8; max-width: 60vw; text-align: right; }
+    </style>
+    <script>
+        // Watchdog in plain old JavaScript (runs even when the page's own script cannot start): no slide shown for 3 minutes → reload.
+        (function () {
+            var start = Date.now();
+            window.__sgBeat = 0;
+            window.__sgNote = function (t) { var d = document.getElementById('sgDiag'); if (d) d.textContent = t; };
+            window.addEventListener('error', function (e) { window.__sgNote('Screen error: ' + (e && e.message || 'unknown') + ' — retrying'); });
+            setInterval(function () { if (Date.now() - (window.__sgBeat || start) > 180000) location.reload(); }, 15000);
+        })();
+    </script>
+</head>
+<body>
+    <div id="stage"><div class="layer" id="L0"></div><div class="layer" id="L1"></div></div>
+    <div id="sgDiag"></div>
+    <script nomodule>document.getElementById('sgDiag').textContent = 'This TV browser is too old for the screen — open it in an up-to-date browser (Chrome 90 or later).';</script>
+    <script type="module">
+        import { API_URL } from '../app/config.js';
+        import { defaultScreen, noticeHtml, fitNotice, playing, mediaUrl, stageTransform } from '../app/core/screen.js';
+
+        const q = new URLSearchParams(location.search);
+        const parts = location.pathname.split('/').filter(Boolean);
+        const site = parts.find(s => s === 'makkah' || s === 'medina') || 'makkah';
+        const n = Number((location.pathname.match(/signage(\d)/) || [])[1]) === 2 ? 2 : 1;
+        const api = (() => { try { return localStorage.getItem('pms_api_url') || API_URL; } catch { return API_URL; } })().replace(/\/+$/, '');
+        const assets = new URL('../assets/', location.href).href;
+        const url = (id) => String(id).startsWith('asset:') ? assets + String(id).slice(6) : mediaUrl(api, id);
+        const stage = document.getElementById('stage'), layers = [document.getElementById('L0'), document.getElementById('L1')];
+        const note = (t) => window.__sgNote(t);
+        document.title = `Notice screen ${n} · ${site}`;
+
+        let cfg = defaultScreen(n), stamp = null, skew = 0, front = 0, timer = 0, idx = -1, page = 0, shownKey = '';
+        const now = () => Date.now() + skew;
+
+        function place() {
+            const r = q.has('rotate') ? Number(q.get('rotate')) : Number(cfg.rotate ?? 90);
+            const t = stageTransform(r, innerWidth, innerHeight);
+            stage.style.left = t.left + 'px'; stage.style.top = t.top + 'px'; stage.style.transform = t.transform;
+        }
+        addEventListener('resize', place);
+
+        async function load() {
+            try {
+                const res = await fetch(`${api}/api/public/signage/screen?site=${site}&screen=${n}&t=${Math.floor(Date.now() / 30000)}`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const d = await res.json();
+                skew = d.now ? d.now - Date.now() : 0;
+                if (d.stamp !== stamp) { stamp = d.stamp; cfg = d.config || defaultScreen(n); shownKey = ''; place(); }
+                note('');
+            } catch (e) { note('Could not reach the PMS — showing the last slides (' + (e.message || e) + ')'); }
+        }
+
+        // what one step shows: a slide, and for a PDF / PowerPoint slide one of its pages
+        function build(s, p) {
+            const box = document.createElement('div');
+            const bg = s.bg || '#000';
+            const fit = s.fit === 'cover' ? 'cover' : 'contain';
+            if (s.kind === 'notice') { box.innerHTML = noticeHtml(s.notice || {}, url); return { el: box, ms: (s.seconds || 30) * 1000, fit: true }; }
+            if (s.kind === 'video') {
+                const v = document.createElement('video');
+                v.className = 'full'; v.muted = true; v.autoplay = true; v.playsInline = true; v.src = url(s.media[0]); v.style.objectFit = fit; v.style.background = bg;
+                return { el: v, video: v, ms: 0 };
+            }
+            const img = document.createElement('img');
+            img.className = 'full'; img.src = url(s.media[p] || s.media[0]); img.style.objectFit = fit; img.style.background = bg;
+            return { el: img, ms: (s.seconds || 10) * 1000 };
+        }
+
+        function next() {
+            clearTimeout(timer);
+            const list = playing(cfg, now());
+            if (!list.length) { layers.forEach(l => { l.className = 'layer'; l.innerHTML = ''; }); window.__sgBeat = Date.now(); timer = setTimeout(next, 10000); return; }
+            // the same slide again: a PDF / PowerPoint moves to its next page, else the next slide in the list
+            const cur = list[idx] && list[idx].id === shownKey.split('#')[0] ? idx : -1;
+            if (cur >= 0 && list[cur].kind === 'pages' && page + 1 < list[cur].media.length) page++;
+            else { idx = (cur + 1) % list.length; page = 0; }
+            const s = list[idx], key = `${s.id}#${page}`;
+            window.__sgBeat = Date.now();
+            // a single slide that is already on stays as it is (no flicker), only its timer runs again
+            if (key === shownKey && list.length === 1 && s.kind !== 'pages') { timer = setTimeout(async () => { await load(); next(); }, Math.max(10000, (s.seconds || 30) * 1000)); return; }
+            shownKey = key;
+            const step = build(s, page), back = layers[1 - front];
+            const fade = Math.max(0, Number(cfg.fade ?? 0.6));
+            back.innerHTML = ''; back.appendChild(step.el.tagName === 'DIV' ? step.el : step.el);
+            back.style.transitionDuration = layers[front].style.transitionDuration = fade + 's';
+            if (step.fit) fitNotice(back);
+            back.classList.add('on'); layers[front].classList.remove('on');
+            const old = layers[front]; front = 1 - front;
+            setTimeout(() => { if (!old.classList.contains('on')) { old.querySelectorAll('video').forEach(v => { v.pause(); v.removeAttribute('src'); v.load(); }); old.innerHTML = ''; } }, fade * 1000 + 200);
+            const after = () => { load().finally(next); };
+            if (step.video) {
+                let done = false; const end = () => { if (!done) { done = true; clearTimeout(timer); after(); } };
+                step.video.addEventListener('ended', end);
+                step.video.addEventListener('error', () => { note('A video could not play — skipped'); timer = setTimeout(end, 3000); });
+                step.video.play().catch(() => { });
+                timer = setTimeout(end, 15 * 60 * 1000);   // a video that never ends: at most 15 minutes
+            } else timer = setTimeout(after, step.ms);
+            // the next pictures start loading now
+            for (const x of list) if (x.kind === 'image' || x.kind === 'pages') (x.media || []).slice(0, 3).forEach(id => { const i = new Image(); i.src = url(id); });
+        }
+
+        place();
+        await load();
+        next();
+    </script>
+</body>
+</html>

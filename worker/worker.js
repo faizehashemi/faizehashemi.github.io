@@ -499,6 +499,8 @@ async function route(req, env) {
     // no login: the TV boards — the same answer is kept at the edge for 30 s, so many screens cost one database read
     if (p === '/api/public/signage' && m === 'GET') return edgeCached(req, 30, () => publicSignage(url, env));
     if (p === '/api/public/signage/setup' && m === 'GET') return edgeCached(req, 30, () => publicSignageSetup(url, env));
+    if (p === '/api/public/signage/screen' && m === 'GET') return edgeCached(req, 30, () => publicScreen(url, env));
+    { const mm = p.match(/^\/api\/public\/signage\/media\/([a-z0-9]{8,32})$/); if (mm && (m === 'GET' || m === 'HEAD')) return getMedia(req, env, mm[1]); }
     if (p === '/api/public/chat-notify' && m === 'POST') return chatNotify(req, env); // no login: guest chatbot
     { const mj = p.match(/^\/api\/ai\/jobs\/(\d+)\/report$/); if (mj && m === 'POST') return aiJobReport(req, env, mj[1]); } // GitHub workflow, shared secret
 
@@ -566,6 +568,12 @@ async function route(req, env) {
     if (p === '/api/transport/types' && m === 'GET') return transportTypes(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage' && m === 'GET') return getSignage(env, transportSite(url.searchParams.get('site'), me));
     if (p === '/api/signage/config' && m === 'PUT') return putSignageConfig(req, env, me);
+    if (p === '/api/signage/screen' && m === 'GET') return json(await screenConfig(env, transportSite(url.searchParams.get('site'), me), screenNo(url)));
+    if (p === '/api/signage/screen' && m === 'PUT') return putScreen(req, env, me);
+    if (p === '/api/signage/media' && m === 'POST') return startMedia(url, env, me);
+    { const mp = p.match(/^\/api\/signage\/media\/([a-z0-9]{8,32})(?:\/(\d+))?$/);
+      if (mp && mp[2] !== undefined && m === 'PUT') return putMediaPart(req, env, me, mp[1], Number(mp[2]));
+      if (mp && mp[2] === undefined && m === 'DELETE') return deleteMedia(env, me, mp[1]); }
     if (p === '/api/signage/templates' && m === 'POST') return saveTemplate(req, env, me, 0);
     { const st = p.match(/^\/api\/signage\/templates\/(\d+)$/);
       if (st && m === 'PUT') return saveTemplate(req, env, me, Number(st[1]));
@@ -2389,6 +2397,122 @@ async function publicSignageSetup(url, env) {
         templates = results.map(r => ({ id: r.id, name: r.name, data: JSON.parse(r.data) }));
     }
     return publicJson({ site, slides: boardSlides(cfg, site), fade: cfg.fade ?? SIGNAGE_FADE, templates, stamp: await signageStamp(env, site, cfg) });
+}
+
+/* ---------------------- notice screens /<site>/signage1 and /signage2 (core/screen.js) ---------------------- */
+// Config in signage_config under "<site>:signageN" — { rotate, fade, slides } (see core/screen.js). Never saved: the page shows the defaults in core/screen.js.
+// Media (pictures, videos, PDF / PowerPoint pages) in the SIGNAGE_MEDIA KV store: m:<id> = { site, name, type, size, parts, chunk, at }, p:<id>:<n> = bytes —
+// a file goes up in parts of MEDIA_CHUNK (a request body is limited) and comes back whole or as a byte range (video players ask for ranges).
+const SCREENS = [1, 2];
+const MEDIA_CHUNK = 20 * 1024 * 1024, MEDIA_MAX = 150 * 1024 * 1024;
+const MEDIA_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
+const screenNo = (url) => { const n = Number(url.searchParams.get('screen')); if (!SCREENS.includes(n)) throw new HttpError(400, 'Screen 1 or 2.'); return n; };
+const screenKey = (site, n) => `${site}:signage${n}`;
+const mediaKv = (env) => { if (!env.SIGNAGE_MEDIA) throw new HttpError(503, 'The signage file store is not set up on the server yet.'); return env.SIGNAGE_MEDIA; };
+
+async function screenConfig(env, site, n) {
+    const row = await env.DB.prepare('SELECT c.data, c.version, c.updated_at, d.name AS updated_by FROM signage_config c LEFT JOIN desks d ON d.id = c.updated_by WHERE c.site = ?').bind(screenKey(site, n)).first();
+    return row ? { site, screen: n, config: JSON.parse(row.data), version: row.version, updated_at: row.updated_at, updated_by: row.updated_by } : { site, screen: n, config: null, version: 0 };
+}
+// the content of a screen: plain values only, no markup characters, bounded
+function cleanScreenValue(v, depth = 0) {
+    if (depth > 8) return null;
+    if (typeof v === 'string') return v.replace(/[<>]/g, '').slice(0, 4000);
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    if (typeof v === 'boolean' || v === null) return v;
+    if (Array.isArray(v)) return v.slice(0, 200).map(x => cleanScreenValue(x, depth + 1));
+    if (v && typeof v === 'object') { const o = {}; for (const [k, x] of Object.entries(v).slice(0, 60)) o[String(k).slice(0, 40)] = cleanScreenValue(x, depth + 1); return o; }
+    return null;
+}
+const mediaIdsOf = (cfg) => new Set(JSON.stringify(cfg || {}).match(/"[a-z0-9]{12}"/g)?.map(s => s.slice(1, -1)) || []);
+async function putScreen(req, env, me) {
+    const b = await body(req);
+    assertWrite(me, b.site);
+    const n = Number(b.screen);
+    if (!SCREENS.includes(n)) throw new HttpError(400, 'Screen 1 or 2.');
+    const c = b.config;
+    if (!c || typeof c !== 'object' || !Array.isArray(c.slides)) throw new HttpError(400, 'Slides missing.');
+    if (c.slides.length > 100) throw new HttpError(400, 'At most 100 slides on a screen.');
+    const config = cleanScreenValue({ rotate: [0, 90, -90, 180].includes(Number(c.rotate)) ? Number(c.rotate) : 90, fade: Math.min(3, Math.max(0, Number(c.fade) || 0)), slides: c.slides });
+    const data = JSON.stringify(config);
+    if (data.length > 400 * 1024) throw new HttpError(413, 'Too much text on this screen.');
+    const before = await screenConfig(env, b.site, n), v = Number(b.version) || 0;
+    const write = v === 0
+        ? env.DB.prepare('INSERT OR IGNORE INTO signage_config (site, data, version, updated_at, updated_by) VALUES (?, ?, 1, ?, ?)').bind(screenKey(b.site, n), data, now(), me.id)
+        : env.DB.prepare('UPDATE signage_config SET data = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE site = ? AND version = ?').bind(data, now(), me.id, screenKey(b.site, n), v);
+    const [res] = await env.DB.batch([write]);
+    if (!res.meta.changes) throw new HttpError(409, `Screen ${n} was changed by another desk meanwhile. Reload and try again.`);
+    await auditStmt(env, me, 'signage-screen', null, `${b.site} screen ${n}: ${config.slides.length} slide(s)`).run();
+    // files no slide of either screen uses any more go from the store
+    if (env.SIGNAGE_MEDIA && before.config) {
+        const other = await screenConfig(env, b.site, n === 1 ? 2 : 1), keep = new Set([...mediaIdsOf(config), ...mediaIdsOf(other.config)]);
+        for (const id of mediaIdsOf(before.config)) if (!keep.has(id)) await dropMedia(env, id);
+    }
+    return json(await screenConfig(env, b.site, n));
+}
+async function publicScreen(url, env) {
+    const site = publicSite(url), n = screenNo(url), s = await screenConfig(env, site, n);
+    return publicJson({ site, screen: n, config: s.config, stamp: `${s.version}|${s.updated_at || ''}`, now: Date.now() });
+}
+async function startMedia(url, env, me) {
+    const site = url.searchParams.get('site');
+    assertWrite(me, site);
+    const kv = mediaKv(env), type = String(url.searchParams.get('type') || ''), size = Number(url.searchParams.get('size'));
+    if (!MEDIA_TYPES.includes(type)) throw new HttpError(400, 'Pictures (PNG, JPEG, WebP, GIF) and videos (MP4, WebM) only.');
+    if (!(size > 0) || size > MEDIA_MAX) throw new HttpError(413, `A file can be at most ${MEDIA_MAX / 1048576} MB.`);
+    const id = randomHex(6), parts = Math.ceil(size / MEDIA_CHUNK);
+    await kv.put(`m:${id}`, JSON.stringify({ site, name: text(url.searchParams.get('name'), 120), type, size, parts, chunk: MEDIA_CHUNK, at: now(), by: me.name, done: 0 }));
+    return json({ id, parts, chunk: MEDIA_CHUNK });
+}
+async function putMediaPart(req, env, me, id, n) {
+    const kv = mediaKv(env), meta = await kv.get(`m:${id}`, 'json');
+    if (!meta) throw new HttpError(404, 'No such file.');
+    assertWrite(me, meta.site);
+    if (!(n >= 0 && n < meta.parts)) throw new HttpError(400, 'No such part.');
+    const buf = await req.arrayBuffer(), want = n === meta.parts - 1 ? meta.size - n * meta.chunk : meta.chunk;
+    if (buf.byteLength !== want) throw new HttpError(400, `Part ${n + 1}: ${buf.byteLength} bytes, ${want} expected.`);
+    await kv.put(`p:${id}:${n}`, buf);
+    if (n === meta.parts - 1) await kv.put(`m:${id}`, JSON.stringify({ ...meta, done: 1 }));
+    return json({ ok: true });
+}
+async function dropMedia(env, id) {
+    const kv = env.SIGNAGE_MEDIA, meta = await kv.get(`m:${id}`, 'json');
+    if (!meta) return;
+    for (let i = 0; i < meta.parts; i++) await kv.delete(`p:${id}:${i}`);
+    await kv.delete(`m:${id}`);
+}
+async function deleteMedia(env, me, id) {
+    const meta = await mediaKv(env).get(`m:${id}`, 'json');
+    if (meta) { assertWrite(me, meta.site); await dropMedia(env, id); }
+    return json({ ok: true });
+}
+// Public (no login): a file of the screens, whole or a byte range; it never changes under its id, so browsers and TVs keep it
+async function getMedia(req, env, id) {
+    const kv = mediaKv(env), meta = await kv.get(`m:${id}`, { type: 'json', cacheTtl: 3600 });
+    const head = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=31536000, immutable', 'Accept-Ranges': 'bytes', 'Content-Type': meta ? meta.type : 'text/plain' };
+    if (!meta || !meta.done) return new Response('Not found', { status: 404, headers: { ...head, 'Cache-Control': 'no-store' } });
+    let a = 0, z = meta.size - 1, status = 200;
+    const rg = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('Range') || '');
+    if (rg && (rg[1] || rg[2])) {
+        if (rg[1]) { a = Number(rg[1]); if (rg[2]) z = Math.min(z, Number(rg[2])); } else a = Math.max(0, meta.size - Number(rg[2]));
+        if (a > z || a >= meta.size) return new Response(null, { status: 416, headers: { ...head, 'Content-Range': `bytes */${meta.size}` } });
+        status = 206;
+    }
+    const headers = { ...head, 'Content-Length': String(z - a + 1), ...(status === 206 ? { 'Content-Range': `bytes ${a}-${z}/${meta.size}` } : {}) };
+    if (req.method === 'HEAD') return new Response(null, { status, headers });
+    let part = Math.floor(a / meta.chunk);
+    const last = Math.floor(z / meta.chunk);
+    const stream = new ReadableStream({
+        async pull(ctl) {
+            if (part > last) { ctl.close(); return; }
+            const buf = await kv.get(`p:${id}:${part}`, { type: 'arrayBuffer', cacheTtl: 86400 });
+            if (!buf) { ctl.error(new Error('missing part')); return; }
+            const base = part * meta.chunk, s = Math.max(0, a - base), e = Math.min(buf.byteLength, z - base + 1);
+            ctl.enqueue(new Uint8Array(buf, s, e - s));
+            part++;
+        },
+    });
+    return new Response(stream, { status, headers });
 }
 
 // Tosha (travel refreshments) choices per site and day — Mawaid → Tosha summary: Madina preparation time and meal,

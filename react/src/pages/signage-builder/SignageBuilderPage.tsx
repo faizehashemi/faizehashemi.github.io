@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useCore, useGuard, useLoadCore, useNav, useSite } from '@/pms/PmsContext';
 import { Chk, Col, Num, Sel, Txt, readImage } from './inspector';
+import { ScreensPanel } from './ScreensPanel';
 
 // Signage Builder (Transport): design templates for the public board /<site>/signage on a 1920×1080 screen — drag elements from the palette (title, texts, date,
 // clock, image, data table), move and resize them, pick and order the table's columns, set colours and a background image — save as templates in the cloud, and
@@ -53,6 +54,7 @@ export default function SignageBuilderPage() {
     const [order, setOrder] = useState<Row[]>([]);
     const [fade, setFade] = useState(0.3);
     const [slidesMsg, setSlidesMsg] = useState('');
+    const [area, setArea] = useState<'board' | 1 | 2>('board');   // the transport board, or notice screen 1 / 2 (ScreensPanel)
     const undo = useRef<string[]>([]), redo = useRef<string[]>([]), lastKey = useRef(''), lastAt = useRef(0);
     const curRef = useRef(cur); curRef.current = cur;
     const selRef = useRef(sel); selRef.current = sel;
@@ -357,6 +359,13 @@ export default function SignageBuilderPage() {
                 <div className="flex gap-2"><Button asChild variant="outline"><a href={href('transport')}>🚌 Transport day</a></Button><Button asChild><a href={`${siteId}/signage`} target="_blank" rel="noopener">📺 Open the board ↗</a></Button></div>
             </header>
 
+            <nav className="flex flex-wrap gap-1 border-b" aria-label="Screens">
+                {([['board', '🚌 Transport board'], [1, '📺 Screen 1 (/signage1)'], [2, '📺 Screen 2 (/signage2)']] as const).map(([k, t]) => (
+                    <button key={k} type="button" className={cn('-mb-px rounded-t-md border border-transparent px-3 py-1.5 text-sm font-semibold', area === k ? 'border-border border-b-background bg-background text-primary' : 'text-muted-foreground hover:text-foreground')}
+                        onClick={async () => { if (area === 'board' && k !== 'board' && !(await discardOk())) return; setSel(null); setArea(k); }}>{t}</button>
+                ))}
+            </nav>
+            {area !== 'board' ? <ScreensPanel key={area} n={area} /> : <>
             <Card className="flex-row flex-wrap items-end gap-3 p-3">
                 <div className="grid gap-1"><Label>Template</Label>
                     <select aria-label="Template" className="h-9 min-w-48 rounded-md border bg-background px-2 text-sm" value={cur.id ?? ''} onChange={async ev => { const t = templates.find(x => String(x.id) === ev.target.value); if (t && await discardOk()) openTemplate(t); }}>
@@ -468,6 +477,7 @@ export default function SignageBuilderPage() {
                     <span className="text-sm text-muted-foreground">{pdfBusy || slidesMsg}</span></div>
                 <p className="text-xs text-muted-foreground">A PDF slide shows its pages one after another on the board, each for the seconds you set, in its place in this list (up to 40 pages; big PDFs are kept at a lower quality to fit).</p>
             </Card>
+            </>}
             {confirmDialog}
         </div>
     );
