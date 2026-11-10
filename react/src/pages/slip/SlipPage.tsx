@@ -373,14 +373,23 @@ export default function SlipPage() {
             <tbody id={`${g}-tbody`}>{rt(g)}</tbody>
             <tfoot><tr><td colSpan={3}><button className="row-btn" type="button" onClick={() => setRowsOf(g)(rs => [...rs, newRow()])}>Add Row</button></td></tr></tfoot></table>);
     const loaded = currentId != null;
+    // Madina: the slip and GL copy say how the group leaves — its Transport day trip on the check-out day when there is one (core/travel-mode.js)
+    const leaving = async (r: Row) => {
+        if (r.site !== 'medina' || !r.checkout_date) return r;
+        try {
+            const [T, M] = await Promise.all([loadCore('transport'), loadCore('travel-mode')]);
+            const t = ((await T.loadDay(r.site, r.checkout_date)).rows || []).find((x: Row) => ums.baseSh(x.ref) === ums.baseSh(r.sh_no));
+            return t ? { ...r, _leave: M.tripMode(t) } : r;
+        } catch { return r; }
+    };
     return (
         <>
             <style>{css}</style>
             <div className="wrap" ref={rootRef}>
                 {moveRow && <ChangeRoom row={moveRow} form={form} gents={gents} ladies={ladies} mine={{ ...formData(form, gents, ladies, delay), id: currentId }} slips={dbCache.filter(x => x.id !== currentId)} buildings={buildings} names={names} stay={stay} rooms={R} onApply={applyMove} onClose={() => setMoveRow(null)} />}
                 {rec && <div className="slip-corner no-print">
-                    <button type="button" title="This slip as an A5 picture to send to its group leader (Copy picture / Save JPEG)" onClick={() => void mods.sp.openGlCopies([rec], { title: `SH ${rec.sh_no}` })}>GL copy</button>
-                    <button type="button" title="Print this slip (A5)" onClick={() => mods.sp.printSlips([rec], { title: `SH ${rec.sh_no}` })}>Print slip</button>
+                    <button type="button" title="This slip as an A5 picture to send to its group leader (Copy picture / Save JPEG)" onClick={() => void leaving(rec).then(x => mods.sp.openGlCopies([x], { title: `SH ${rec.sh_no}` }))}>GL copy</button>
+                    <button type="button" title="Print this slip (A5)" onClick={() => void leaving(rec).then(x => mods.sp.printSlips([x], { title: `SH ${rec.sh_no}` }))}>Print slip</button>
                     <button type="button" title="The A4 itinerary letter of this slip" onClick={() => mods.sp.printItineraries([rec], dbCache, { title: `SH ${rec.sh_no}` })}>Print itinerary</button>
                 </div>}
                 <table className="grid kv"><tbody>

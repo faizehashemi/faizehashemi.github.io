@@ -35,8 +35,8 @@ export default function CheckinsPage() {
     const slips = useSlips(120_000);
     const [exclB, setExclB] = useState(() => { try { return localStorage.getItem('pms_excl_building') === '1'; } catch { return false; } });
     const pickExclB = (v: boolean) => { try { localStorage.setItem('pms_excl_building', v ? '1' : '0'); } catch { /* not saved */ } setExclB(v); };
-    const [libs, setLibs] = useState<{ flights: any; slipPrint: any; colsMod: any } | null>(null);
-    useEffect(() => { void Promise.all([loadCore('flights'), loadCore('slip-print'), loadCore('checkins-cols')]).then(([flights, slipPrint, colsMod]) => setLibs({ flights, slipPrint, colsMod })); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+    const [libs, setLibs] = useState<{ flights: any; slipPrint: any; colsMod: any; mode: any; transport: any } | null>(null);
+    useEffect(() => { void Promise.all([loadCore('flights'), loadCore('slip-print'), loadCore('checkins-cols'), loadCore('travel-mode'), loadCore('transport')]).then(([flights, slipPrint, colsMod, mode, transport]) => setLibs({ flights, slipPrint, colsMod, mode, transport })); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
     const today = ymd(new Date());
     const [df, setDf] = useState(today), [dt, setDt] = useState(plusOneDay(today)), [tf, setTf] = useState('03:00'), [tt, setTt] = useState('03:00');
@@ -46,6 +46,9 @@ export default function CheckinsPage() {
     const [split, setSplit] = useState(!!prefs.checkinsSplit);
     const [glci, setGlci] = useState(false);   // Print table: add G L C I columns with totals (off each time the page opens)
     const [showLug, setShowLug] = useState(() => { try { return localStorage.getItem('pms_checkins_lug_col') === '1'; } catch { return false; } });   // hidden unless ticked: only one desk looks at it, once a day
+    // Madina: a last column on Check-ins with each group's check-out and how it leaves (Transport day, else the slip / UMS — core/travel-mode.js)
+    const [showOut, setShowOut] = useState(() => { try { return localStorage.getItem('pms_checkins_out_col') === '1'; } catch { return false; } });
+    const [trips, setTrips] = useState<Map<string, any>>(new Map());
     const [showFl, setShowFl] = useState(() => { try { return localStorage.getItem('pms_checkins_flight_col') === '1'; } catch { return false; } });
     const [range, setRange] = useState({ df, dt, tf, tt });
     const [other, setOther] = useState<any[]>([]);
@@ -73,6 +76,23 @@ export default function CheckinsPage() {
         return { ins: pick(win.ins, r => `${r.checkin_date}${r.checkin_time}`), outs: pick(win.outs, r => `${r.checkout_date}${r.checkout_time}`) };
     }, [win, bldFilter, sortBy]);
     const leg = (r: Row) => legOf(r, siteId, other, ums.baseSh);
+    const outCol = siteId === 'medina' && showOut;
+    // the Transport day trips of the check-out days of the check-ins shown: SH → trip (the day's list of this site)
+    const outDays = useMemo(() => [...new Set(win.ins.map(r => String(r.checkout_date || '')).filter(Boolean))].sort().slice(0, 40).join(','), [win]);
+    useEffect(() => {
+        if (!outCol || !libs || !outDays) return;
+        let off = false;
+        void Promise.all(outDays.split(',').map(d => libs.transport.loadDay(siteId, d).then((x: any) => x.rows || [], () => []))).then(lists => {
+            if (off) return;
+            const m = new Map<string, any>();
+            for (const t of lists.flat()) { const k = ums.baseSh(t.ref); if (k && !m.has(`${t.day}|${k}`)) m.set(`${t.day}|${k}`, t); }
+            setTrips(m);
+        });
+        return () => { off = true; };
+    }, [outCol, libs, outDays, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const withLeave = (rows: Row[]) => siteId === 'medina' ? rows.map(r => { const t = tripOf(r); return t ? { ...r, _leave: libs?.mode.tripMode(t) } : r; }) : rows;
+    const tripOf = (r: Row) => trips.get(`${r.checkout_date}|${ums.baseSh(r.sh_no)}`);
+    const leaveOf = (r: Row) => (libs ? libs.mode.leaveMode(r, tripOf(r)) : { mode: '', src: '' });
     const KNOWN: string[] = libs ? libs.colsMod.CHECKINS_COLS.map((c: any) => c[0]) : [];
     const hiddenCols = (kind: 'in' | 'out') => [...((prefs[kind === 'in' ? 'checkinsHideIn' : 'checkinsHideOut'] || []) as string[]).filter(id => KNOWN.includes(id)), ...(showLug ? [] : ['lug'])];
     const flightOf = (r: Row, key: 'checkin' | 'checkout'): any => {
@@ -145,13 +165,14 @@ export default function CheckinsPage() {
         const rows = rowsOf(kind), hidden = hiddenCols(kind);
         const cols = COLS.filter(c => !hidden.includes(c.id));
         const showOther = !hidden.includes('other'), showSlip = !hidden.includes('slip') && may.slip;
-        const n = 1 + (showFl ? 1 : 0) + cols.length + (showOther ? 1 : 0) + (showSlip ? 1 : 0) + (kind === 'in' ? 1 : 0);
+        const lastOut = kind === 'in' && outCol;
+        const n = 1 + (showFl ? 1 : 0) + cols.length + (showOther ? 1 : 0) + (showSlip ? 1 : 0) + (kind === 'in' ? 1 : 0) + (lastOut ? 1 : 0);
         const head = (
-            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}</TableRow>
+            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}{lastOut && <TableHead className="whitespace-nowrap">Check-out &amp; transport</TableHead>}</TableRow>
         );
         const tot = (list: Row[], label: string, cls: string) => {
             const k = countsOf(list), v: Record<string, number> = { as: k.as, t: k.t, g: k.g, l: k.l, c: k.c, i: k.i };
-            return <TableRow className={cls}><TableCell className="font-bold">{label}</TableCell>{showFl && <TableCell />}{cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right', 'font-bold')}>{c.id === 'group' ? `${k.n} slip${k.n === 1 ? '' : 's'}` : v[c.id] ?? ''}</TableCell>)}{showOther && <TableCell />}{showSlip && <TableCell />}{kind === 'in' && <TableCell />}</TableRow>;
+            return <TableRow className={cls}><TableCell className="font-bold">{label}</TableCell>{showFl && <TableCell />}{cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right', 'font-bold')}>{c.id === 'group' ? `${k.n} slip${k.n === 1 ? '' : 's'}` : v[c.id] ?? ''}</TableCell>)}{showOther && <TableCell />}{showSlip && <TableCell />}{kind === 'in' && <TableCell />}{lastOut && <TableCell />}</TableRow>;
         };
         return (
             <Table>
@@ -175,7 +196,9 @@ export default function CheckinsPage() {
                                     {kind === 'in' && <TableCell className="whitespace-nowrap">{checkin.isCheckedIn(r)
                                         ? <><span className="rounded-full bg-ok-soft px-2 py-0.5 text-xs font-bold text-ok">✓ Checked in</span>{!db.readonly && <button type="button" disabled={busy === String(r.id)} className="ml-1 text-xs text-muted-foreground underline" title="Undo: the group has not checked in" onClick={() => void toggle(r, false)}>Undo</button>}</>
                                         : db.readonly ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs">—</span> : <Button size="sm" variant="outline" disabled={busy === String(r.id)} onClick={() => void toggle(r, true)}>Check in</Button>}</TableCell>}
-                                </TableRow>
+                                
+                                    {lastOut && (() => { const t = tripOf(r), lm = leaveOf(r); return <TableCell className="whitespace-nowrap">{fmtDT(co)}<span className="block text-xs">{lm.mode ? <b>{lm.mode}</b> : <span className="text-muted-foreground">mode not known</span>}{t ? <span className="text-muted-foreground"> · {libs?.transport.travelTo ? libs.transport.travelTo(t.route) : String(t.route || '').split('-').slice(1).join('-')}{t.at ? ` ${String(t.at).slice(11, 16)}` : ''}{t.bus != null && t.bus !== '' ? ` · ${libs?.transport.vehicleNo(t.bus, t.vehicle, t.vehicle_label)}` : ''}</span> : lm.src && <span className="text-muted-foreground"> · {lm.src === 'ums' ? 'UMS' : 'slip'}</span>}</span></TableCell>; })()}
+</TableRow>
                             );
                         })}
                         {title && list.length > 0 && tot(list, 'Subtotal', 'bg-muted/60')}
@@ -196,9 +219,9 @@ export default function CheckinsPage() {
                         <label className="flex items-center gap-1.5 text-sm" title="Print table adds Gents, Ladies, Children and Infants columns, with totals"><input type="checkbox" checked={glci} onChange={e => setGlci(e.target.checked)} />G L C I</label>
                         <label className="flex items-center gap-1.5 text-sm" title="Exclusive rooms show only 'Excl' unless this is ticked (table, printed table and printed slips)"><input type="checkbox" checked={exclB} onChange={e => pickExclB(e.target.checked)} />show building on Excl rooms</label>
                         {may.print && libs && <>
-                            <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(rows, { title: `check-${kind}s ${rangeLabel}` })}>Print slips</Button>
+                            <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(withLeave(rows), { title: `check-${kind}s ${rangeLabel}` })}>Print slips</Button>
                             <Button size="sm" title="The A4 itinerary letter of every slip in this table" onClick={() => libs.slipPrint.printItineraries(rows, slips.data ?? [], { title: `check-${kind}s ${rangeLabel}` })}>Print itinerary</Button>
-                            <Button size="sm" title="Each slip as an A5 picture to send to its group leader" onClick={() => libs.slipPrint.openGlCopies(rows, { title: `check-${kind}s ${rangeLabel}` })}>GL copy</Button></>}
+                            <Button size="sm" title="Each slip as an A5 picture to send to its group leader" onClick={() => libs.slipPrint.openGlCopies(withLeave(rows), { title: `check-${kind}s ${rangeLabel}` })}>GL copy</Button></>}
                     </div></CardHeader>
                 <CardContent className="overflow-x-auto p-0">{renderTable(kind)}</CardContent>
             </Card>
@@ -226,6 +249,7 @@ export default function CheckinsPage() {
                         <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger id="sortby" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="time">Time</SelectItem><SelectItem value="building">Building, then time</SelectItem></SelectContent></Select></div>
                     <div className="grid gap-1.5 text-sm"><Label>View</Label>
                         <label className="flex items-center gap-2" title="Check-ins: from the airport / from the other city · Check-outs: to the airport / to the other city"><Checkbox checked={split} onCheckedChange={v => setSplit(v === true)} />Split by from / to</label>
+                        {siteId === 'medina' && <label className="flex items-center gap-2" title="A last column on Check-ins: each group's check-out and how it leaves (Transport day, else the slip or UMS)"><Checkbox checked={showOut} onCheckedChange={v => { setShowOut(v === true); try { localStorage.setItem('pms_checkins_out_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />Check-out &amp; transport</label>}
                         <label className="flex items-center gap-2" title="Check 1 (Trip.com) and Check 2 (FlightAware) links for each group's flight"><Checkbox checked={showFl} onCheckedChange={v => { setShowFl(v === true); try { localStorage.setItem('pms_checkins_flight_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />Flight status</label>
                         <label className="flex items-center gap-2" title="Show where each S-prefixed group's first stay (and its luggage) was"><Checkbox checked={showLug} onCheckedChange={v => { setShowLug(v === true); try { localStorage.setItem('pms_checkins_lug_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />First accommodation</label></div>
                 </div>

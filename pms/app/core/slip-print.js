@@ -6,6 +6,7 @@
 // The Print page keeps its own stylesheet; other pages get SLIP_CSS (scoped to .pms-slips).
 
 import { tripOf, itineraryHTML, ITINERARY_CSS, fitItineraries } from './itinerary.js';
+import { arriveMode, leaveMode } from './travel-mode.js';
 import { loadScript } from './lib.js';
 import { loadSettings, DEFAULTS } from './settings.js';
 import { getPrefs } from './prefs.js';
@@ -94,6 +95,7 @@ export function slipHTML(rec, rows) {
         <tr><th>CHECK OUT</th><td>${ymdToDMY(rec.checkout_date || '')}</td><td>${hhmmToHMS(rec.checkout_time || '')}</td><td></td></tr>
         <tr><th>BUILDING</th><td colspan="3">${esc(rec.building)}</td></tr>
         ${getPrefs().slipFromTo ? `<tr><th>FROM</th><td>${esc(rec.from_place || '-')}</td><th>TO</th><td>${esc(rec.to_place || '-')}</td></tr>` : ''}   <!-- only with Settings → Slip page → From / To -->
+        ${rec.site === 'medina' ? `<tr><th>MODE</th><td>${esc(arriveMode(rec).mode || '-')}</td><th>MODE</th><td>${esc(rec._leave || leaveMode(rec).mode || '-')}</td></tr>` : ''}   <!-- Madina: how the group came and leaves (core/travel-mode.js) -->
         <tr><th>SH NO.</th><td>${esc(rec.sh_no)}</td><th>TOTAL</th><td>${esc(rec.total)}</td></tr>
         <tr><th>GENTS</th><td>${esc(rec.gents)}</td><th>LADIES</th><td>${esc(rec.ladies)}</td></tr>
         <tr><th>CHILDREN</th><td>${esc(rec.children)}</td><th>INFANTS</th><td>${esc(rec.infants)}</td></tr>
