@@ -39,6 +39,8 @@ describe('Building Hisaab: inactive rooms', () => {
         expect(h.rooms.map(r => [r.no, !!r.off])).toEqual([['20', false], ['103', true], ['110', false]]);
         expect(h.rooms[1].cells).toEqual(['yes', 'off']);
         expect([h.occ, h.vac, h.payable]).toEqual([1, 4, 100]);
+        // the charge set for every room covers it too
+        expect(computeHisaab([{ rows: [{ building: 'TAIBA', room_no: '103', start: T('2026-11-10', '14:00'), end: T('2026-11-11', '10:00') }] }], b, T('2026-11-10'), T('2026-11-12'), stay, rooms, { '*': 80 }).payable).toBe(80);
     });
 });
 

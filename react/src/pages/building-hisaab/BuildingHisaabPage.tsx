@@ -49,7 +49,8 @@ export default function BuildingHisaabPage() {
     function setForAll() {
         const v = Number(all);
         if (!(v >= 0) || all === '') { setMsg({ t: 'Enter the charge per day first.', bad: true }); return; }
-        setRates(x => { const n = { ...x }; for (const rm of H?.rooms ?? []) n[rm.no] = v; return n; });
+        setRates(() => ({ '*': v }));   // every room, also those not in the chart yet; a room's own charge typed afterwards wins
+        setMsg({ t: `SAR ${v} per day for every room.` });
     }
     function print() {
         if (!H) return;
@@ -85,7 +86,7 @@ export default function BuildingHisaabPage() {
                     {kpi('Occupancy', `${pct(H.occ, nights)}%`)}
                     {kpi('Vacancy', `${pct(H.vac, nights)}%`)}
                 </div>
-                {(H.noRate > 0 || H.cut) && <p className="text-sm text-warn">{H.noRate > 0 && `${H.noRate} room(s) have no charge set (counted as 0). `}{H.cut && `Only the first ${MAX_NIGHTS} days are shown.`}</p>}
+                {(H.noRate > 0 || H.cut) && <p className="text-sm text-warn">{H.noRate > 0 && `${H.noRate} room(s) have no charge set (counted as 0): ${H.rooms.filter(x => !x.rate).map(x => x.no).slice(0, 12).join(', ')}${H.noRate > 12 ? '…' : ''}. `}{H.cut && `Only the first ${MAX_NIGHTS} days are shown.`}</p>}
 
                 <Card className="flex-row flex-wrap items-end gap-2 p-3">
                     <div className="grid gap-1"><Label htmlFor="hbAll">Charge per day for every room (SAR)</Label><Input id="hbAll" type="number" min={0} step="any" className="h-9 w-36" value={all} onChange={e => setAll(e.target.value)} /></div>
@@ -104,9 +105,9 @@ export default function BuildingHisaabPage() {
                             {H.rooms.map(rm => (
                                 <tr key={rm.no} className="border-b">
                                     <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{rm.no}{rm.off && <small className="block text-[10px] font-normal text-warn" title="Inactive in Rooms & Buildings, but a slip used it in this period">inactive</small>}</th>
-                                    <td className="p-1"><Input aria-label={`Charge for room ${rm.no}`} type="number" min={0} step="any" className="h-7 w-24 text-right" value={rates[rm.no] ?? ''} onChange={e => setRates(x => ({ ...x, [rm.no]: Number(e.target.value) || 0 }))} /></td>
+                                    <td className="p-1"><Input aria-label={`Charge for room ${rm.no}`} type="number" min={0} step="any" className="h-7 w-24 text-right" value={rates[rm.no] ?? rates['*'] ?? ''} onChange={e => setRates(x => ({ ...x, [rm.no]: Number(e.target.value) || 0 }))} /></td>
                                     {rm.cells.map((c, i) => <td key={i} className={cn('border-l p-1 text-center font-bold', c === 'yes' ? 'text-good' : c === 'no' ? 'text-destructive' : 'bg-muted text-muted-foreground')} title={`${rm.no} · ${dShort(H.days[i])}: ${c === 'yes' ? 'occupied' : c === 'no' ? 'vacant' : c === 'off' ? 'inactive room, not used' : 'handed back to the hotel'}`}>{MARK[c]}</td>)}
-                                    <td className="border-l-2 border-gold p-1.5 text-center">{rm.occ}</td><td className="p-1.5 text-right">{money(rm.amount)}</td>
+                                    <td className="border-l-2 border-gold p-1.5 text-center">{rm.occ}</td><td className={cn('p-1.5 text-right', !rm.rate && rm.occ > 0 && 'font-bold text-warn')} title={!rm.rate && rm.occ > 0 ? 'No charge set for this room' : undefined}>{!rm.rate && rm.occ > 0 ? 'no charge' : money(rm.amount)}</td>
                                 </tr>
                             ))}
                         </tbody>

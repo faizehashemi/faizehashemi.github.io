@@ -46,7 +46,7 @@ export function computeHisaab(slips: Row[], building: Row, from: number, to: num
     const shown = list.filter((r: Row) => r.active !== false || used.get(rooms.normRoom(r.room_no))!.some(Boolean));
     const out: HRoom[] = shown.map((r: Row) => {
         const no = String(r.room_no).trim(), key = rooms.normRoom(no), u = used.get(key)!, off = r.active === false;
-        const rate = Number(rates[no]) || 0;
+        const rate = Number(rates[no] ?? rates['*']) || 0;   // '*' = the charge set for every room: also rooms that show up later (an inactive room a slip used)
         if (!rate) noRate++;
         const gone = rooms.handedAt ? rooms.handedAt(r) : null;
         const cells: Cell[] = nights.map((n, i) => (gone !== null && gone <= n.a ? 'gone' : u[i] ? 'yes' : off ? 'off' : 'no'));
