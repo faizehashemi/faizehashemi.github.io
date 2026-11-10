@@ -1,15 +1,15 @@
 // Accounts → Building Hisaab: what is payable to a building for a period — each room's charge per day × the days it was occupied. The period is cut into
 // 24-hour days from its From time (From 10 Nov 12:00 → 10 Nov 12:00–11 Nov 12:00, …; a shorter last piece is a day too). A room is occupied on a day when any
 // slip has a stay in it at any moment of those 24 hours — once is enough, so no hour or minute counting (a stay before a room change counts in the room it was
-// in; a stay ending exactly when the day begins does not). The charges are kept in this browser only (localStorage), per site and building.
+// in; a stay ending exactly when the day begins does not). One charge per room per day for the whole building, typed for each calculation (not kept).
 // Inactive rooms (Rooms & Buildings) come in only when a slip used them in the period: their occupied days count, the others are "off" (neither occupied
 // nor vacant). A room handed back to the hotel stops counting from that moment ("—", neither occupied nor vacant).
 
 type Row = Record<string, any>;
 export type Cell = 'yes' | 'no' | 'gone' | 'off';
-export type HRoom = { no: string; off?: boolean; rate: number; cells: Cell[]; occ: number; vac: number; amount: number };
+export type HRoom = { no: string; off?: boolean; cells: Cell[]; occ: number; vac: number; amount: number };
 export type HDay = { day: string; occ: number; vac: number; amount: number };
-export type Hisaab = { building: string; from: number; to: number; days: string[]; rooms: HRoom[]; perDay: HDay[]; occ: number; vac: number; payable: number; noRate: number; cut: boolean };
+export type Hisaab = { building: string; from: number; to: number; rate: number; days: string[]; rooms: HRoom[]; perDay: HDay[]; occ: number; vac: number; payable: number; cut: boolean };
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -27,12 +27,15 @@ export function daysOf(from: number, to: number) {
     return out;
 }
 
-export function computeHisaab(slips: Row[], building: Row, from: number, to: number, stay: any, rooms: any, rates: Record<string, number> = {}): Hisaab {
+/** The statement of a building for a period at `rate` SAR per room per day; onProgress(done, total) while the slips are read (the page shows it) */
+export async function computeHisaab(slips: Row[], building: Row, from: number, to: number, stay: any, rooms: any, rate: number, onProgress: (done: number, total: number) => void = () => { }): Promise<Hisaab> {
     const all = daysOf(from, to), cut = all.length > MAX_NIGHTS, nights = all.slice(0, MAX_NIGHTS);
     const list = (building.rooms || []).filter((r: Row) => String(r.room_no || '').trim()).sort((a: Row, b: Row) => natural(String(a.room_no).trim(), String(b.room_no).trim()));
     const used = new Map<string, boolean[]>(list.map((r: Row) => [rooms.normRoom(r.room_no), nights.map(() => false)]));
     const bn = stay.normB(building.name);
-    for (const s of slips) {
+    for (let k = 0; k < slips.length; k++) {
+        const s = slips[k];
+        if (k % 250 === 0) { onProgress(k, slips.length); await new Promise(r => setTimeout(r, 0)); }   // let the page draw the progress
         if (s.deleted) continue;
         for (const w of stay.rowsOf(s) as Row[]) {
             if (stay.normB(w.building) !== bn || !w.start || !w.end) continue;
@@ -41,21 +44,19 @@ export function computeHisaab(slips: Row[], building: Row, from: number, to: num
         }
     }
     const perDay: HDay[] = nights.map(n => ({ day: n.day, occ: 0, vac: 0, amount: 0 }));
-    let noRate = 0;
     // an inactive room stays out unless a slip used it in the period
     const shown = list.filter((r: Row) => r.active !== false || used.get(rooms.normRoom(r.room_no))!.some(Boolean));
     const out: HRoom[] = shown.map((r: Row) => {
         const no = String(r.room_no).trim(), key = rooms.normRoom(no), u = used.get(key)!, off = r.active === false;
-        const rate = Number(rates[no] ?? rates['*']) || 0;   // '*' = the charge set for every room: also rooms that show up later (an inactive room a slip used)
-        if (!rate) noRate++;
         const gone = rooms.handedAt ? rooms.handedAt(r) : null;
         const cells: Cell[] = nights.map((n, i) => (gone !== null && gone <= n.a ? 'gone' : u[i] ? 'yes' : off ? 'off' : 'no'));
         const occ = cells.filter(c => c === 'yes').length, vac = cells.filter(c => c === 'no').length;
         cells.forEach((c, i) => { if (c === 'yes') { perDay[i].occ++; perDay[i].amount += rate; } else if (c === 'no') perDay[i].vac++; });
-        return { no, ...(off ? { off } : {}), rate, cells, occ, vac, amount: occ * rate };
+        return { no, ...(off ? { off } : {}), cells, occ, vac, amount: occ * rate };
     });
     const occ = out.reduce((n, r) => n + r.occ, 0), vac = out.reduce((n, r) => n + r.vac, 0);
-    return { building: building.name, from, to, days: nights.map(n => n.day), rooms: out, perDay, occ, vac, payable: out.reduce((n, r) => n + r.amount, 0), noRate, cut };
+    onProgress(slips.length, slips.length);
+    return { building: building.name, from, to, rate, days: nights.map(n => n.day), rooms: out, perDay, occ, vac, payable: out.reduce((n, r) => n + r.amount, 0), cut };
 }
 
 export const money = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -69,17 +70,16 @@ const MARK: Record<Cell, string> = { yes: '✓', no: '✗', gone: '—', off: '�
 /** The printable statement: page 1 the summary and the day-wise totals, then the full room × date chart (in blocks of dates that fit the page) */
 export function hisaabHtml(h: Hisaab, site: string, by: string) {
     const nights = h.occ + h.vac, BLOCK = 16;
-    const rates = [...new Set(h.rooms.map(r => r.rate))].sort((a, b) => a - b);
-    const rateText = rates.length === 1 ? `SAR ${money(rates[0])} per room per day` : `SAR ${money(rates[0])} – ${money(rates[rates.length - 1])} per room per day (see each room)`;
+    const rateText = `SAR ${money(h.rate)} per room per day`;
     const kpi = (label: string, value: string, sub = '') => `<div class="kpi"><span>${esc(label)}</span><b>${esc(value)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
     const dayRows = h.perDay.map(d => `<tr><td>${esc(wd(d.day))} ${esc(dShort(d.day))}</td><td class="n">${d.occ}</td><td class="n">${d.vac}</td><td class="n">${pct(d.occ, d.occ + d.vac)}%</td><td class="r">${money(d.amount)}</td></tr>`).join('');
     const blocks: string[] = [];
     for (let s = 0; s < h.days.length; s += BLOCK) {
         const ds = h.days.slice(s, s + BLOCK), idx = ds.map((_, i) => s + i), last = s + BLOCK >= h.days.length;
-        const head = `<tr><th class="rm">Room</th><th class="n">Rate</th>${ds.map(d => `<th class="d">${esc(wd(d))}<br>${esc(dShort(d))}</th>`).join('')}${last ? '<th class="n">Days</th><th class="r">Amount</th>' : ''}</tr>`;
-        const body = h.rooms.map(r => `<tr><td class="rm">${esc(r.no)}${r.off ? '<small class="off">inactive</small>' : ''}</td><td class="n">${money(r.rate)}</td>${idx.map(i => `<td class="d ${r.cells[i]}">${MARK[r.cells[i]]}</td>`).join('')}${last ? `<td class="n">${r.occ}</td><td class="r">${money(r.amount)}</td>` : ''}</tr>`).join('');
-        const foot = `<tr class="tot"><td class="rm">Occupied</td><td></td>${idx.map(i => `<td class="d">${h.perDay[i].occ}</td>`).join('')}${last ? `<td class="n">${h.occ}</td><td class="r">${money(h.payable)}</td>` : ''}</tr>
-            <tr class="tot"><td class="rm">Vacant</td><td></td>${idx.map(i => `<td class="d">${h.perDay[i].vac}</td>`).join('')}${last ? `<td class="n">${h.vac}</td><td></td>` : ''}</tr>`;
+        const head = `<tr><th class="rm">Room</th>${ds.map(d => `<th class="d">${esc(wd(d))}<br>${esc(dShort(d))}</th>`).join('')}${last ? '<th class="n">Days</th><th class="r">Amount</th>' : ''}</tr>`;
+        const body = h.rooms.map(r => `<tr><td class="rm">${esc(r.no)}${r.off ? '<small class="off">inactive</small>' : ''}</td>${idx.map(i => `<td class="d ${r.cells[i]}">${MARK[r.cells[i]]}</td>`).join('')}${last ? `<td class="n">${r.occ}</td><td class="r">${money(r.amount)}</td>` : ''}</tr>`).join('');
+        const foot = `<tr class="tot"><td class="rm">Occupied</td>${idx.map(i => `<td class="d">${h.perDay[i].occ}</td>`).join('')}${last ? `<td class="n">${h.occ}</td><td class="r">${money(h.payable)}</td>` : ''}</tr>
+            <tr class="tot"><td class="rm">Vacant</td>${idx.map(i => `<td class="d">${h.perDay[i].vac}</td>`).join('')}${last ? `<td class="n">${h.vac}</td><td></td>` : ''}</tr>`;
         blocks.push(`<h2>Room chart ${h.days.length > BLOCK ? `· ${esc(dShort(ds[0]))} – ${esc(dShort(ds[ds.length - 1]))}` : ''}</h2><table class="grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`);
     }
     return `<!doctype html><html><head><meta charset="utf-8"><title>Building Hisaab ${esc(h.building)} ${esc(h.days[0] || '')}</title><style>
@@ -113,7 +113,7 @@ export function hisaabHtml(h: Hisaab, site: string, by: string) {
     <div class="bar"><button type="button" onclick="window.print()">Print / Save as PDF</button><span>A4 landscape — page 1 is the summary, then the room chart</span></div>
     <div class="page">
         <header class="top"><div><h1>Building Hisaab — ${esc(h.building)}</h1><div>${esc(site)}</div></div><div class="who">Prepared ${esc(when(Date.now()))}${by ? `<br>by ${esc(by)}` : ''}</div></header>
-        <div class="meta"><div><b>Period:</b> ${esc(when(h.from))} → ${esc(when(h.to))}</div><div><b>Days:</b> ${h.days.length} (24 hours each from ${esc(new Date(h.from).toTimeString().slice(0, 5))})${h.cut ? ' — first 120 only' : ''}</div><div><b>Rooms:</b> ${h.rooms.length}</div><div><b>Charge:</b> ${esc(rateText)}</div><div><b>Room-days:</b> ${nights}</div>${h.noRate ? `<div><b>No charge set:</b> ${h.noRate} room(s)</div>` : ''}</div>
+        <div class="meta"><div><b>Period:</b> ${esc(when(h.from))} → ${esc(when(h.to))}</div><div><b>Days:</b> ${h.days.length} (24 hours each from ${esc(new Date(h.from).toTimeString().slice(0, 5))})${h.cut ? ' — first 120 only' : ''}</div><div><b>Rooms:</b> ${h.rooms.length}</div><div><b>Charge:</b> ${esc(rateText)}</div><div><b>Room-days:</b> ${nights}</div></div>
         <div class="kpis">${kpi('Total payable', `SAR ${money(h.payable)}`, 'occupied room-days × charge').replace('class="kpi"', 'class="kpi main"')}${kpi('Room-days occupied', String(h.occ), `${pct(h.occ, nights)}%`)}${kpi('Room-days vacant', String(h.vac), `${pct(h.vac, nights)}%`)}${kpi('Occupancy', `${pct(h.occ, nights)}%`)}${kpi('Vacancy', `${pct(h.vac, nights)}%`)}</div>
         <h2>Day by day</h2>
         <table class="days"><thead><tr><th>Day</th><th class="n">Rooms occupied</th><th class="n">Rooms vacant</th><th class="n">Occupancy</th><th class="r">Payable (SAR)</th></tr></thead>
