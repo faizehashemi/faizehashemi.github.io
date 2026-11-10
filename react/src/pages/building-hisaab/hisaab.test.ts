@@ -23,12 +23,22 @@ describe('Building Hisaab', () => {
     it('charges the occupied nights of each room at its rate', () => {
         const slips = [{ rows: [{ building: 'taiba', room_no: '101', start: T('2026-11-10', '14:00'), end: T('2026-11-11', '10:00') }] }, { deleted: true, rows: [{ building: 'TAIBA', room_no: '102', start: 0, end: 9e15 }] }];
         const h = computeHisaab(slips, B, T('2026-11-10'), T('2026-11-13'), stay, rooms, { '101': 300, '102': 250 });
-        expect(h.rooms.map(r => r.no)).toEqual(['101', '102', '104']);   // inactive left out
+        expect(h.rooms.map(r => r.no)).toEqual(['101', '102', '104']);   // inactive and unused: left out
         expect(h.rooms[0].cells).toEqual(['yes', 'no', 'no']);
         expect(h.rooms[2].cells).toEqual(['no', 'gone', 'gone']);      // handed back on the 11th at 10:00, before that day began (12:00)
         expect([h.occ, h.vac, h.payable, h.noRate]).toEqual([1, 6, 300, 1]);
         expect(h.perDay.map(d => d.occ)).toEqual([1, 0, 0]);
         expect(hisaabHtml(h, 'Madina', 'x')).toContain('SAR 300');
+    });
+});
+
+describe('Building Hisaab: inactive rooms', () => {
+    it('come in, in number order, when a slip used them — only their occupied days count', () => {
+        const b = { name: 'TAIBA', rooms: [{ room_no: '110' }, { room_no: '103', active: false }, { room_no: '20' }] };
+        const h = computeHisaab([{ rows: [{ building: 'TAIBA', room_no: '103', start: T('2026-11-10', '14:00'), end: T('2026-11-11', '10:00') }] }], b, T('2026-11-10'), T('2026-11-12'), stay, rooms, { '103': 100 });
+        expect(h.rooms.map(r => [r.no, !!r.off])).toEqual([['20', false], ['103', true], ['110', false]]);
+        expect(h.rooms[1].cells).toEqual(['yes', 'off']);
+        expect([h.occ, h.vac, h.payable]).toEqual([1, 4, 100]);
     });
 });
 

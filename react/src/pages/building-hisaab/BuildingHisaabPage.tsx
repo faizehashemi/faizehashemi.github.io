@@ -14,7 +14,7 @@ import { MAX_NIGHTS, computeHisaab, hisaabHtml, money, pct, ymd } from './hisaab
 // from its From time (core of the counting: hisaab.ts), and the room × day chart of occupied (✓) / vacant (✗) from the slips — with the payable, room-nights occupied and vacant, and a printable statement.
 
 type Row = Record<string, any>;
-const MARK = { yes: '✓', no: '✗', gone: '—' } as const;
+const MARK = { yes: '✓', no: '✗', gone: '—', off: '·' } as const;
 const dShort = (d: string) => new Date(`${d}T12:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 const wd = (d: string) => new Date(`${d}T12:00`).toLocaleDateString('en-GB', { weekday: 'short' });
 const RKEY = (site: string, b: string) => `pms_hisaab_rates:${site}:${b}`;
@@ -103,9 +103,9 @@ export default function BuildingHisaabPage() {
                         <tbody>
                             {H.rooms.map(rm => (
                                 <tr key={rm.no} className="border-b">
-                                    <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{rm.no}</th>
+                                    <th className="sticky left-0 z-10 bg-card p-1.5 text-left">{rm.no}{rm.off && <small className="block text-[10px] font-normal text-warn" title="Inactive in Rooms & Buildings, but a slip used it in this period">inactive</small>}</th>
                                     <td className="p-1"><Input aria-label={`Charge for room ${rm.no}`} type="number" min={0} step="any" className="h-7 w-24 text-right" value={rates[rm.no] ?? ''} onChange={e => setRates(x => ({ ...x, [rm.no]: Number(e.target.value) || 0 }))} /></td>
-                                    {rm.cells.map((c, i) => <td key={i} className={cn('border-l p-1 text-center font-bold', c === 'yes' ? 'text-good' : c === 'no' ? 'text-destructive' : 'bg-muted text-muted-foreground')} title={`${rm.no} · ${dShort(H.days[i])}: ${c === 'yes' ? 'occupied' : c === 'no' ? 'vacant' : 'handed back to the hotel'}`}>{MARK[c]}</td>)}
+                                    {rm.cells.map((c, i) => <td key={i} className={cn('border-l p-1 text-center font-bold', c === 'yes' ? 'text-good' : c === 'no' ? 'text-destructive' : 'bg-muted text-muted-foreground')} title={`${rm.no} · ${dShort(H.days[i])}: ${c === 'yes' ? 'occupied' : c === 'no' ? 'vacant' : c === 'off' ? 'inactive room, not used' : 'handed back to the hotel'}`}>{MARK[c]}</td>)}
                                     <td className="border-l-2 border-gold p-1.5 text-center">{rm.occ}</td><td className="p-1.5 text-right">{money(rm.amount)}</td>
                                 </tr>
                             ))}
