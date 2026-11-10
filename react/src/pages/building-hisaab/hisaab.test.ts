@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { arriveMode, leaveMode, legMode } from '@core/travel-mode.js';
-import { computeHisaab, hisaabHtml, nightsOf } from './hisaab';
+import { computeHisaab, daysOf, hisaabHtml } from './hisaab';
 
 const T = (d: string, hm = '12:00') => Date.parse(`${d}T${hm}`);
 const stay = { normB: (b: string) => String(b).toUpperCase(), rowsOf: (s: any) => s.rows };
@@ -8,17 +8,24 @@ const rooms = { normRoom: (r: string) => String(r), handedAt: (r: any) => (r.han
 const B = { name: 'TAIBA', rooms: [{ room_no: '101' }, { room_no: '102' }, { room_no: '103', active: false }, { room_no: '104', handed: { at: '2026-11-11T10:00' } }] };
 
 describe('Building Hisaab', () => {
-    it('counts a night at the time chosen', () => {
-        expect(nightsOf(T('2026-11-10'), T('2026-11-12')).map(n => n.day)).toEqual(['2026-11-10', '2026-11-11']);
-        expect(nightsOf(T('2026-11-10', '23:00'), T('2026-11-12')).map(n => n.day)).toEqual(['2026-11-11']);
-        expect(nightsOf(T('2026-11-10'), T('2026-11-12'), '02:00').map(n => n.day)).toEqual(['2026-11-11', '2026-11-12']);
+    it('cuts the period into 24-hour days from its From time', () => {
+        expect(daysOf(T('2026-11-10'), T('2026-11-12')).map(n => n.day)).toEqual(['2026-11-10', '2026-11-11']);
+        const d = daysOf(T('2026-11-10', '23:00'), T('2026-11-12', '06:00'));
+        expect(d.map(n => n.day)).toEqual(['2026-11-10', '2026-11-11']);
+        expect(d[1].b).toBe(T('2026-11-12', '06:00'));   // a shorter last day ends with the period
+    });
+    it('a room is occupied on a day when a stay touches it at any time, once is enough', () => {
+        const h = computeHisaab([{ rows: [{ building: 'TAIBA', room_no: '101', start: T('2026-11-10', '14:00'), end: T('2026-11-11', '10:00') }, { building: 'TAIBA', room_no: '102', start: T('2026-11-11', '11:00'), end: T('2026-11-11', '12:00') }] }],
+            B, T('2026-11-10'), T('2026-11-12'), stay, rooms, {});
+        expect(h.rooms[0].cells).toEqual(['yes', 'no']);   // 14:00 → next 10:00 lies inside the first day only
+        expect(h.rooms[1].cells).toEqual(['yes', 'no']);   // an hour on the 11th before 12:00 is still the first day; ending at 12:00 sharp does not touch the second
     });
     it('charges the occupied nights of each room at its rate', () => {
         const slips = [{ rows: [{ building: 'taiba', room_no: '101', start: T('2026-11-10', '14:00'), end: T('2026-11-11', '10:00') }] }, { deleted: true, rows: [{ building: 'TAIBA', room_no: '102', start: 0, end: 9e15 }] }];
         const h = computeHisaab(slips, B, T('2026-11-10'), T('2026-11-13'), stay, rooms, { '101': 300, '102': 250 });
         expect(h.rooms.map(r => r.no)).toEqual(['101', '102', '104']);   // inactive left out
         expect(h.rooms[0].cells).toEqual(['yes', 'no', 'no']);
-        expect(h.rooms[2].cells).toEqual(['no', 'gone', 'gone']);      // handed back on the 11th
+        expect(h.rooms[2].cells).toEqual(['no', 'gone', 'gone']);      // handed back on the 11th at 10:00, before that day began (12:00)
         expect([h.occ, h.vac, h.payable, h.noRate]).toEqual([1, 6, 300, 1]);
         expect(h.perDay.map(d => d.occ)).toEqual([1, 0, 0]);
         expect(hisaabHtml(h, 'Madina', 'x')).toContain('SAR 300');

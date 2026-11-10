@@ -1,30 +1,33 @@
-// Accounts → Building Hisaab: what is payable to a building for a period — each room's charge per night × the nights it was occupied. A night is counted at a
-// time the user sets (22:00 unless changed): a room is occupied that night when any slip has a stay in it at that moment (a stay before a room change counts
-// in the room it was in). The charges are kept in this browser only (localStorage), per site and building.
+// Accounts → Building Hisaab: what is payable to a building for a period — each room's charge per day × the days it was occupied. The period is cut into
+// 24-hour days from its From time (From 10 Nov 12:00 → 10 Nov 12:00–11 Nov 12:00, …; a shorter last piece is a day too). A room is occupied on a day when any
+// slip has a stay in it at any moment of those 24 hours — once is enough, so no hour or minute counting (a stay before a room change counts in the room it was
+// in; a stay ending exactly when the day begins does not). The charges are kept in this browser only (localStorage), per site and building.
 // Only rooms in use: inactive rooms are left out, a room handed back to the hotel stops counting from that moment ("—", neither occupied nor vacant).
 
 type Row = Record<string, any>;
 export type Cell = 'yes' | 'no' | 'gone';
 export type HRoom = { no: string; rate: number; cells: Cell[]; occ: number; vac: number; amount: number };
 export type HDay = { day: string; occ: number; vac: number; amount: number };
-export type Hisaab = { building: string; from: number; to: number; at: string; days: string[]; rooms: HRoom[]; perDay: HDay[]; occ: number; vac: number; payable: number; noRate: number; cut: boolean };
+export type Hisaab = { building: string; from: number; to: number; days: string[]; rooms: HRoom[]; perDay: HDay[]; occ: number; vac: number; payable: number; noRate: number; cut: boolean };
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 export const MAX_NIGHTS = 120;
 
-/** The nights inside [from, to]: each date whose counting moment (at = 'HH:MM') falls in the period */
-export function nightsOf(from: number, to: number, at = '22:00') {
-    const out: { day: string; t: number }[] = [];
-    const [hh, mm] = at.split(':').map(Number);
-    const d = new Date(from); d.setHours(hh || 0, mm || 0, 0, 0);
-    for (; +d <= to && out.length < MAX_NIGHTS + 1; d.setDate(d.getDate() + 1)) if (+d >= from) out.push({ day: ymd(d), t: +d });
+/** The 24-hour days of [from, to): { day (the date it begins), a, b } — the last one ends at `to` */
+export function daysOf(from: number, to: number) {
+    const out: { day: string; a: number; b: number }[] = [];
+    const d = new Date(from);
+    while (+d < to && out.length < MAX_NIGHTS + 1) {
+        const a = +d; d.setDate(d.getDate() + 1);   // the same clock time next day (24 h)
+        out.push({ day: ymd(new Date(a)), a, b: Math.min(+d, to) });
+    }
     return out;
 }
 
-export function computeHisaab(slips: Row[], building: Row, from: number, to: number, stay: any, rooms: any, rates: Record<string, number> = {}, at = '22:00'): Hisaab {
-    const all = nightsOf(from, to, at), cut = all.length > MAX_NIGHTS, nights = all.slice(0, MAX_NIGHTS);
+export function computeHisaab(slips: Row[], building: Row, from: number, to: number, stay: any, rooms: any, rates: Record<string, number> = {}): Hisaab {
+    const all = daysOf(from, to), cut = all.length > MAX_NIGHTS, nights = all.slice(0, MAX_NIGHTS);
     const list = (building.rooms || []).filter((r: Row) => r.active !== false && String(r.room_no || '').trim()).sort((a: Row, b: Row) => natural(String(a.room_no), String(b.room_no)));
     const used = new Map<string, boolean[]>(list.map((r: Row) => [rooms.normRoom(r.room_no), nights.map(() => false)]));
     const bn = stay.normB(building.name);
@@ -33,7 +36,7 @@ export function computeHisaab(slips: Row[], building: Row, from: number, to: num
         for (const w of stay.rowsOf(s) as Row[]) {
             if (stay.normB(w.building) !== bn || !w.start || !w.end) continue;
             const u = used.get(rooms.normRoom(w.room_no));
-            if (u) nights.forEach((n, i) => { if (w.start <= n.t && n.t < w.end) u[i] = true; });
+            if (u) nights.forEach((n, i) => { if (!u[i] && w.start < n.b && w.end > n.a) u[i] = true; });   // in the room at any moment of the day
         }
     }
     const perDay: HDay[] = nights.map(n => ({ day: n.day, occ: 0, vac: 0, amount: 0 }));
@@ -43,13 +46,13 @@ export function computeHisaab(slips: Row[], building: Row, from: number, to: num
         const rate = Number(rates[no]) || 0;
         if (!rate) noRate++;
         const gone = rooms.handedAt ? rooms.handedAt(r) : null;
-        const cells: Cell[] = nights.map((n, i) => (gone !== null && gone <= n.t ? 'gone' : u[i] ? 'yes' : 'no'));
+        const cells: Cell[] = nights.map((n, i) => (gone !== null && gone <= n.a ? 'gone' : u[i] ? 'yes' : 'no'));
         const occ = cells.filter(c => c === 'yes').length, vac = cells.filter(c => c === 'no').length;
         cells.forEach((c, i) => { if (c === 'yes') { perDay[i].occ++; perDay[i].amount += rate; } else if (c === 'no') perDay[i].vac++; });
         return { no, rate, cells, occ, vac, amount: occ * rate };
     });
     const occ = out.reduce((n, r) => n + r.occ, 0), vac = out.reduce((n, r) => n + r.vac, 0);
-    return { building: building.name, from, to, at, days: nights.map(n => n.day), rooms: out, perDay, occ, vac, payable: out.reduce((n, r) => n + r.amount, 0), noRate, cut };
+    return { building: building.name, from, to, days: nights.map(n => n.day), rooms: out, perDay, occ, vac, payable: out.reduce((n, r) => n + r.amount, 0), noRate, cut };
 }
 
 export const money = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -64,13 +67,13 @@ const MARK: Record<Cell, string> = { yes: '✓', no: '✗', gone: '—' };
 export function hisaabHtml(h: Hisaab, site: string, by: string) {
     const nights = h.occ + h.vac, BLOCK = 16;
     const rates = [...new Set(h.rooms.map(r => r.rate))].sort((a, b) => a - b);
-    const rateText = rates.length === 1 ? `SAR ${money(rates[0])} per room per night` : `SAR ${money(rates[0])} – ${money(rates[rates.length - 1])} per room per night (see each room)`;
+    const rateText = rates.length === 1 ? `SAR ${money(rates[0])} per room per day` : `SAR ${money(rates[0])} – ${money(rates[rates.length - 1])} per room per day (see each room)`;
     const kpi = (label: string, value: string, sub = '') => `<div class="kpi"><span>${esc(label)}</span><b>${esc(value)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
     const dayRows = h.perDay.map(d => `<tr><td>${esc(wd(d.day))} ${esc(dShort(d.day))}</td><td class="n">${d.occ}</td><td class="n">${d.vac}</td><td class="n">${pct(d.occ, d.occ + d.vac)}%</td><td class="r">${money(d.amount)}</td></tr>`).join('');
     const blocks: string[] = [];
     for (let s = 0; s < h.days.length; s += BLOCK) {
         const ds = h.days.slice(s, s + BLOCK), idx = ds.map((_, i) => s + i), last = s + BLOCK >= h.days.length;
-        const head = `<tr><th class="rm">Room</th><th class="n">Rate</th>${ds.map(d => `<th class="d">${esc(wd(d))}<br>${esc(dShort(d))}</th>`).join('')}${last ? '<th class="n">Nights</th><th class="r">Amount</th>' : ''}</tr>`;
+        const head = `<tr><th class="rm">Room</th><th class="n">Rate</th>${ds.map(d => `<th class="d">${esc(wd(d))}<br>${esc(dShort(d))}</th>`).join('')}${last ? '<th class="n">Days</th><th class="r">Amount</th>' : ''}</tr>`;
         const body = h.rooms.map(r => `<tr><td class="rm">${esc(r.no)}</td><td class="n">${money(r.rate)}</td>${idx.map(i => `<td class="d ${r.cells[i]}">${MARK[r.cells[i]]}</td>`).join('')}${last ? `<td class="n">${r.occ}</td><td class="r">${money(r.amount)}</td>` : ''}</tr>`).join('');
         const foot = `<tr class="tot"><td class="rm">Occupied</td><td></td>${idx.map(i => `<td class="d">${h.perDay[i].occ}</td>`).join('')}${last ? `<td class="n">${h.occ}</td><td class="r">${money(h.payable)}</td>` : ''}</tr>
             <tr class="tot"><td class="rm">Vacant</td><td></td>${idx.map(i => `<td class="d">${h.perDay[i].vac}</td>`).join('')}${last ? `<td class="n">${h.vac}</td><td></td>` : ''}</tr>`;
@@ -107,12 +110,12 @@ export function hisaabHtml(h: Hisaab, site: string, by: string) {
     <div class="bar"><button type="button" onclick="window.print()">Print / Save as PDF</button><span>A4 landscape — page 1 is the summary, then the room chart</span></div>
     <div class="page">
         <header class="top"><div><h1>Building Hisaab — ${esc(h.building)}</h1><div>${esc(site)}</div></div><div class="who">Prepared ${esc(when(Date.now()))}${by ? `<br>by ${esc(by)}` : ''}</div></header>
-        <div class="meta"><div><b>Period:</b> ${esc(when(h.from))} → ${esc(when(h.to))}</div><div><b>Nights:</b> ${h.days.length} (each counted at ${esc(h.at)})${h.cut ? ' — first 120 only' : ''}</div><div><b>Rooms:</b> ${h.rooms.length}</div><div><b>Charge:</b> ${esc(rateText)}</div><div><b>Room-nights:</b> ${nights}</div>${h.noRate ? `<div><b>No charge set:</b> ${h.noRate} room(s)</div>` : ''}</div>
-        <div class="kpis">${kpi('Total payable', `SAR ${money(h.payable)}`, 'occupied room-nights × charge').replace('class="kpi"', 'class="kpi main"')}${kpi('Room-nights occupied', String(h.occ), `${pct(h.occ, nights)}%`)}${kpi('Room-nights vacant', String(h.vac), `${pct(h.vac, nights)}%`)}${kpi('Occupancy', `${pct(h.occ, nights)}%`)}${kpi('Vacancy', `${pct(h.vac, nights)}%`)}</div>
+        <div class="meta"><div><b>Period:</b> ${esc(when(h.from))} → ${esc(when(h.to))}</div><div><b>Days:</b> ${h.days.length} (24 hours each from ${esc(new Date(h.from).toTimeString().slice(0, 5))})${h.cut ? ' — first 120 only' : ''}</div><div><b>Rooms:</b> ${h.rooms.length}</div><div><b>Charge:</b> ${esc(rateText)}</div><div><b>Room-days:</b> ${nights}</div>${h.noRate ? `<div><b>No charge set:</b> ${h.noRate} room(s)</div>` : ''}</div>
+        <div class="kpis">${kpi('Total payable', `SAR ${money(h.payable)}`, 'occupied room-days × charge').replace('class="kpi"', 'class="kpi main"')}${kpi('Room-days occupied', String(h.occ), `${pct(h.occ, nights)}%`)}${kpi('Room-days vacant', String(h.vac), `${pct(h.vac, nights)}%`)}${kpi('Occupancy', `${pct(h.occ, nights)}%`)}${kpi('Vacancy', `${pct(h.vac, nights)}%`)}</div>
         <h2>Day by day</h2>
-        <table class="days"><thead><tr><th>Night</th><th class="n">Rooms occupied</th><th class="n">Rooms vacant</th><th class="n">Occupancy</th><th class="r">Payable (SAR)</th></tr></thead>
+        <table class="days"><thead><tr><th>Day</th><th class="n">Rooms occupied</th><th class="n">Rooms vacant</th><th class="n">Occupancy</th><th class="r">Payable (SAR)</th></tr></thead>
             <tbody>${dayRows}</tbody><tfoot><tr class="tot"><td>Total</td><td class="n">${h.occ}</td><td class="n">${h.vac}</td><td class="n">${pct(h.occ, nights)}%</td><td class="r">${money(h.payable)}</td></tr></tfoot></table>
-        <p class="note">✓ occupied · ✗ vacant · — handed back to the hotel (not counted). A room is occupied on a night when a guest stay covers ${esc(h.at)} that night, from the slips of the PMS.</p>
+        <p class="note">✓ occupied · ✗ vacant · — handed back to the hotel (not counted). A room is occupied on a day when a guest stay is in it at any time of those 24 hours, from the slips of the PMS.</p>
         <div class="sign"><div>Prepared by</div><div>Checked / received by (${esc(h.building)})</div></div>
         ${blocks.map(b => `<section class="page2">${b}</section>`).join('')}
     </div><script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script></body></html>`;

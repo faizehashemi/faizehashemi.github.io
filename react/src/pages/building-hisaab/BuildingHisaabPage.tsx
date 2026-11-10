@@ -10,8 +10,8 @@ import { useSlips } from '@/hooks/useSlips';
 import { useCore, useGuard, useSite } from '@/pms/PmsContext';
 import { MAX_NIGHTS, computeHisaab, hisaabHtml, money, pct, ymd } from './hisaab';
 
-// Accounts → Building Hisaab: each room's charge per night (kept in this browser only), a period from a date and time to a date and time, the time a night is
-// counted at, and the room × night chart of occupied (✓) / vacant (✗) from the slips — with the payable, room-nights occupied and vacant, and a printable statement.
+// Accounts → Building Hisaab: each room's charge per day (kept in this browser only), a period from a date and time to a date and time cut into 24-hour days
+// from its From time (core of the counting: hisaab.ts), and the room × day chart of occupied (✓) / vacant (✗) from the slips — with the payable, room-nights occupied and vacant, and a printable statement.
 
 type Row = Record<string, any>;
 const MARK = { yes: '✓', no: '✗', gone: '—' } as const;
@@ -31,8 +31,7 @@ export default function BuildingHisaabPage() {
     const builders = useQuery({ queryKey: ['buildings-force', siteId], queryFn: async () => r.buildingsOfSite(await guard(r.loadBuildings({ force: true })), siteId) as Row[] });
     const [bld, setBld] = useState('');
     const [p, setP] = useState({ fd: plus(today, -6), ft: '12:00', td: today, tt: '12:00' });
-    const [rates, setRatesRaw] = useState<Record<string, number>>({});   // room → SAR per night, this browser (localStorage)
-    const [at, setAt] = useState(() => { try { return localStorage.getItem('pms_hisaab_at') || '22:00'; } catch { return '22:00'; } });
+    const [rates, setRatesRaw] = useState<Record<string, number>>({});   // room → SAR per day, this browser (localStorage)
     const [all, setAll] = useState('');
     const [msg, setMsg] = useState<{ t: string; bad?: boolean }>({ t: '' });
 
@@ -42,15 +41,14 @@ export default function BuildingHisaabPage() {
     useEffect(() => { setRatesRaw(bld ? readRates(siteId, bld) : {}); }, [bld, siteId]);
     // every change is kept at once (no Save): the charges never leave this computer
     const setRates = (f: (x: Record<string, number>) => Record<string, number>) => setRatesRaw(x => { const n = f(x); try { localStorage.setItem(RKEY(siteId, bld), JSON.stringify(n)); } catch { } return n; });
-    useEffect(() => { try { localStorage.setItem('pms_hisaab_at', at); } catch { } }, [at]);
     const from = Date.parse(`${p.fd}T${p.ft}`), to = Date.parse(`${p.td}T${p.tt}`);
     const bad = !p.fd || !p.td || Number.isNaN(from) || Number.isNaN(to) ? 'Choose both dates.' : to <= from ? 'The end must be after the beginning.' : '';
-    const H = useMemo(() => (b && slips.data && !bad ? computeHisaab(slips.data, b, from, to, stay, R, rates, at || '22:00') : null), [b, slips.data, from, to, rates, bad, at]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const H = useMemo(() => (b && slips.data && !bad ? computeHisaab(slips.data, b, from, to, stay, R, rates) : null), [b, slips.data, from, to, rates, bad]);   // eslint-disable-line react-hooks/exhaustive-deps
     const nights = H ? H.occ + H.vac : 0;
 
     function setForAll() {
         const v = Number(all);
-        if (!(v >= 0) || all === '') { setMsg({ t: 'Enter the charge per night first.', bad: true }); return; }
+        if (!(v >= 0) || all === '') { setMsg({ t: 'Enter the charge per day first.', bad: true }); return; }
         setRates(x => { const n = { ...x }; for (const rm of H?.rooms ?? []) n[rm.no] = v; return n; });
     }
     function print() {
@@ -67,14 +65,13 @@ export default function BuildingHisaabPage() {
     return (
         <div className="mx-auto grid max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
             <header><h1 className="text-2xl font-bold text-primary">Building Hisaab — {site.label}</h1>
-                <p className="text-sm text-muted-foreground">Set each room's charge per night, choose the period: the chart shows each night (counted at the time you choose, 22:00 unless changed) whether the room was occupied (✓) or vacant (✗), and the payable is occupied nights × charge.</p></header>
+                <p className="text-sm text-muted-foreground">Set each room's charge per day and choose the period. It is cut into 24-hour days from the From time; a room is occupied (✓) on a day if a guest was in it at any time of those 24 hours, else vacant (✗). Payable = occupied days × charge.</p></header>
 
             <Card className="flex-row flex-wrap items-end gap-3 p-3">
                 <div className="grid gap-1"><Label htmlFor="hbB">Building</Label>
                     <select id="hbB" className="h-9 min-w-40 rounded-md border bg-background px-2 text-sm" value={bld} onChange={e => setBld(e.target.value)}>{list.map(x => <option key={x.name}>{x.name}</option>)}</select></div>
                 <div className="grid gap-1"><Label htmlFor="hbFd">From</Label><div className="flex gap-1"><Input id="hbFd" type="date" className="h-9 w-40" value={p.fd} onChange={e => setP({ ...p, fd: e.target.value })} /><Input aria-label="From time" type="time" className="h-9 w-28" value={p.ft} onChange={e => setP({ ...p, ft: e.target.value })} /></div></div>
                 <div className="grid gap-1"><Label htmlFor="hbTd">To</Label><div className="flex gap-1"><Input id="hbTd" type="date" className="h-9 w-40" value={p.td} onChange={e => setP({ ...p, td: e.target.value })} /><Input aria-label="To time" type="time" className="h-9 w-28" value={p.tt} onChange={e => setP({ ...p, tt: e.target.value })} /></div></div>
-                <div className="grid gap-1"><Label htmlFor="hbAt">Count each night at</Label><Input id="hbAt" type="time" className="h-9 w-28" value={at} onChange={e => setAt(e.target.value)} title="A room is occupied on a night when a stay covers this time" /></div>
                 <Button variant="outline" disabled={!H} onClick={print}><Printer className="size-4" />Print statement</Button>
                 <span className={cn('text-sm', bad || msg.bad ? 'text-destructive' : 'text-muted-foreground')} role="status">{bad || msg.t}</span>
             </Card>
@@ -82,16 +79,16 @@ export default function BuildingHisaabPage() {
             {!list.length && builders.isSuccess && <Card className="p-4 text-sm">No buildings are set up for {site.label} in Rooms &amp; Buildings.</Card>}
             {H && <>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                    {kpi('Total payable', `SAR ${money(H.payable)}`, `${H.days.length} nights · ${H.rooms.length} rooms`, true)}
-                    {kpi('Room-nights occupied', String(H.occ), `${pct(H.occ, nights)}%`)}
-                    {kpi('Room-nights vacant', String(H.vac), `${pct(H.vac, nights)}%`)}
+                    {kpi('Total payable', `SAR ${money(H.payable)}`, `${H.days.length} days · ${H.rooms.length} rooms`, true)}
+                    {kpi('Room-days occupied', String(H.occ), `${pct(H.occ, nights)}%`)}
+                    {kpi('Room-days vacant', String(H.vac), `${pct(H.vac, nights)}%`)}
                     {kpi('Occupancy', `${pct(H.occ, nights)}%`)}
                     {kpi('Vacancy', `${pct(H.vac, nights)}%`)}
                 </div>
-                {(H.noRate > 0 || H.cut) && <p className="text-sm text-warn">{H.noRate > 0 && `${H.noRate} room(s) have no charge set (counted as 0). `}{H.cut && `Only the first ${MAX_NIGHTS} nights are shown.`}</p>}
+                {(H.noRate > 0 || H.cut) && <p className="text-sm text-warn">{H.noRate > 0 && `${H.noRate} room(s) have no charge set (counted as 0). `}{H.cut && `Only the first ${MAX_NIGHTS} days are shown.`}</p>}
 
                 <Card className="flex-row flex-wrap items-end gap-2 p-3">
-                    <div className="grid gap-1"><Label htmlFor="hbAll">Charge per night for every room (SAR)</Label><Input id="hbAll" type="number" min={0} step="any" className="h-9 w-36" value={all} onChange={e => setAll(e.target.value)} /></div>
+                    <div className="grid gap-1"><Label htmlFor="hbAll">Charge per day for every room (SAR)</Label><Input id="hbAll" type="number" min={0} step="any" className="h-9 w-36" value={all} onChange={e => setAll(e.target.value)} /></div>
                     <Button variant="outline" onClick={setForAll}>Set for all rooms</Button>
                     <span className="text-xs text-muted-foreground">Or type a charge on any room below. Charges are kept on this computer only (this browser), for each building — they are not sent to the server.</span>
                 </Card>
@@ -99,9 +96,9 @@ export default function BuildingHisaabPage() {
                 <Card className="overflow-auto p-0">
                     <table className="w-max min-w-full border-collapse text-sm">
                         <thead className="sticky top-0 z-10 bg-secondary">
-                            <tr><th className="sticky left-0 z-20 bg-secondary p-1.5 text-left">Room</th><th className="p-1.5">SAR / night</th>
+                            <tr><th className="sticky left-0 z-20 bg-secondary p-1.5 text-left">Room</th><th className="p-1.5">SAR / day</th>
                                 {H.days.map(d => <th key={d} className="p-1 text-center leading-tight"><span className="block text-[10px] font-medium text-muted-foreground">{wd(d)}</span>{dShort(d)}</th>)}
-                                <th className="border-l-2 border-gold p-1.5">Nights</th><th className="p-1.5 text-right">Amount</th></tr>
+                                <th className="border-l-2 border-gold p-1.5">Days</th><th className="p-1.5 text-right">Amount</th></tr>
                         </thead>
                         <tbody>
                             {H.rooms.map(rm => (
