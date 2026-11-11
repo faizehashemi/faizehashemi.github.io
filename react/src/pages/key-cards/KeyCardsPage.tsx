@@ -69,30 +69,34 @@ export default function KeyCardsPage() {
     }, [slips.data, day, stay]);
 
     // the vehicle each group leaves in that day, from the Transport day list (by SH): "Bus 3 · MAKKAH", "Car 1 · JEDDAH AIRPORT" — several if it has more trips
-    const [buses, setBuses] = useState<Map<string, string>>(new Map());
+    // Madina: a group that rides on another group's bus (Transport day "with") has no route of its own and takes the bus's (often MADINA-MAKKAH) even when
+    // it goes to an airport — so there each group's destination is its slip's To (Makkah / Madina Airport / Jeddah Airport), the bus route only when the slip has none
+    const [buses, setBuses] = useState<Map<string, { veh: string; to: string }[]>>(new Map());
     const [busNos, setBusNos] = useState<Map<string, { word: string; nos: string[]; transporter: string }>>(new Map());   // for the printed sheet: BUS and its number(s)
     useEffect(() => {
         let alive = true;
         void (async () => {
             try {
                 const d: any = await guard(T.loadDay(siteId, day));
-                const info = T.resolve(d.rows || []) as Map<string, any>, by = new Map<string, Set<string>>(), nos = new Map<string, { word: string; nos: string[]; transporter: string }>();
+                const info = T.resolve(d.rows || []) as Map<string, any>, by = new Map<string, { veh: string; to: string }[]>(), nos = new Map<string, { word: string; nos: string[]; transporter: string }>();
                 for (const r of d.rows || []) {
                     const i = info.get(r.key), sh = (ums as any).baseSh(r.ref);
                     if (!sh || !i || i.bus == null) continue;
                     const to = String(i.route || '').split('-').slice(1).join('-') || i.route || '';
-                    const label = `${i.vehicle === 'car' || i.vehicle === 'other' ? T.vehicleNo(i.bus, i.vehicle, i.vlabel) : `Bus ${i.bus}`}${r.part ? ` (${r.part})` : ''}${to ? ` · ${to}` : ''}`;
-                    (by.get(sh) ?? by.set(sh, new Set()).get(sh)!).add(label);
+                    const veh = `${i.vehicle === 'car' || i.vehicle === 'other' ? T.vehicleNo(i.bus, i.vehicle, i.vlabel) : `Bus ${i.bus}`}${r.part ? ` (${r.part})` : ''}`;
+                    const l = by.get(sh) ?? by.set(sh, []).get(sh)!;
+                    if (!l.some(x => x.veh === veh && x.to === to)) l.push({ veh, to });
                     const n = nos.get(sh) ?? nos.set(sh, { word: T.vehicleWord(i.vehicle, i.vlabel), nos: [], transporter: '' }).get(sh)!;
                     n.transporter = n.transporter || String(r.transporter || i.parent?.transporter || '').trim();   // name and number, as on the Transport day
                     if (!n.nos.includes(String(i.bus))) n.nos.push(String(i.bus));
                 }
-                if (alive) { setBuses(new Map([...by].map(([k, v]) => [k, [...v].join(', ')]))); setBusNos(nos); }
+                if (alive) { setBuses(by); setBusNos(nos); }
             } catch { if (alive) { setBuses(new Map()); setBusNos(new Map()); } }
         })();
         return () => { alive = false; };
     }, [day, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
-    const busOf = (s: Slip) => buses.get((ums as any).baseSh(s.sh_no)) || '';
+    const destOf = (s: Slip, route: string) => (siteId === 'medina' && !/ZIYARAT/i.test(route) && String(s.to_place || '').trim() ? String(s.to_place).trim().toUpperCase() : route);   // a Ziyarat bus keeps its own route
+    const busOf = (s: Slip) => (buses.get((ums as any).baseSh(s.sh_no)) || []).map(x => { const to = destOf(s, x.to); return `${x.veh}${to ? ` · ${to}` : ''}`; }).filter((v, i, a) => a.indexOf(v) === i).join(', ');
     const busNoOf = (s: Slip) => busNos.get((ums as any).baseSh(s.sh_no));
     const glPhone = (s: Slip) => String(s.ums?.glPhone || s.ums?.phone || '').trim();   // from the UMS list; a slip made by hand has none
     const firstBus = (g: Group) => Number(busNoOf(g.slip)?.nos[0]) || 1e9;

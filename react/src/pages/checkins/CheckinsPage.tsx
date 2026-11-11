@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Download, Printer } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,8 +48,7 @@ export default function CheckinsPage() {
     const [split, setSplit] = useState(!!prefs.checkinsSplit);
     const [glci, setGlci] = useState(false);   // Print table: add G L C I columns with totals (off each time the page opens)
     const [showLug, setShowLug] = useState(() => { try { return localStorage.getItem('pms_checkins_lug_col') === '1'; } catch { return false; } });   // hidden unless ticked: only one desk looks at it, once a day
-    // Madina: a last column on Check-ins with each group's check-out and how it leaves (Transport day, else the slip / UMS — core/travel-mode.js)
-    const [showOut, setShowOut] = useState(() => { try { return localStorage.getItem('pms_checkins_out_col') === '1'; } catch { return false; } });
+    // Madina: a column on Check-ins after Group with each group's check-out and how it leaves (Transport day, else the slip / UMS — core/travel-mode.js); always shown
     const [trips, setTrips] = useState<Map<string, any>>(new Map());
     const [showFl, setShowFl] = useState(() => { try { return localStorage.getItem('pms_checkins_flight_col') === '1'; } catch { return false; } });
     const [range, setRange] = useState({ df, dt, tf, tt });
@@ -78,7 +77,7 @@ export default function CheckinsPage() {
         return { ins: pick(win.ins, r => `${r.checkin_date}${r.checkin_time}`), outs: pick(win.outs, r => `${r.checkout_date}${r.checkout_time}`) };
     }, [win, bldFilter, sortBy]);
     const leg = (r: Row) => legOf(r, siteId, other, ums.baseSh);
-    const outCol = siteId === 'medina' && showOut;
+    const outCol = siteId === 'medina';
     // the Transport day trips of the check-out days of the check-ins shown: SH → trip (the day's list of this site)
     const outDays = useMemo(() => [...new Set(win.ins.map(r => String(r.checkout_date || '')).filter(Boolean))].sort().slice(0, 40).join(','), [win]);
     useEffect(() => {
@@ -87,7 +86,13 @@ export default function CheckinsPage() {
         void Promise.all(outDays.split(',').map(d => libs.transport.loadDay(siteId, d).then((x: any) => x.rows || [], () => []))).then(lists => {
             if (off) return;
             const m = new Map<string, any>();
-            for (const t of lists.flat()) { const k = ums.baseSh(t.ref); if (k && !m.has(`${t.day}|${k}`)) m.set(`${t.day}|${k}`, t); }
+            for (const list of lists) {
+                const info = libs.transport.resolve(list) as Map<string, any>;
+                for (const t of list) {
+                    const k = ums.baseSh(t.ref), i = info.get(t.key) || {};
+                    if (k && !m.has(`${t.day}|${k}`)) m.set(`${t.day}|${k}`, { ...t, route: i.route || t.route, bus: i.bus ?? t.bus, vehicle: i.vehicle || t.vehicle, vehicle_label: i.vlabel || t.vehicle_label });
+                }
+            }
             setTrips(m);
         });
         return () => { off = true; };
@@ -168,13 +173,17 @@ export default function CheckinsPage() {
         const cols = colsFor(siteId).filter(c => !hidden.includes(c.id));
         const showOther = !hidden.includes('other'), showSlip = !hidden.includes('slip') && may.slip;
         const lastOut = kind === 'in' && outCol;
+        // Madina check-ins: the Check-out & transport column sits right after Group (before Group Leader); with Group hidden, where it would be
+        const outAt = !lastOut ? -1 : (() => { const g = cols.findIndex(c => c.id === 'group'); if (g >= 0) return g + 1; const l = cols.findIndex(c => c.id === 'leader'); return l >= 0 ? l : 0; })();
+        const outCell = (r: Row, co: Date | null) => (() => { const t = tripOf(r), lm = leaveOf(r); return <TableCell className="whitespace-nowrap">{fmtDT(co)}<span className="block text-xs">{lm.mode ? <b>{lm.mode}</b> : <span className="text-muted-foreground">mode not known</span>}{t ? <span className="text-muted-foreground"> · {(!/ZIYARAT/i.test(String(t.route || '')) && String(r.to_place || '').trim()) ? String(r.to_place).trim().toUpperCase() : String(t.route || '').split('-').slice(1).join('-')}{t.at ? ` ${String(t.at).slice(11, 16)}` : ''}{t.bus != null && t.bus !== '' ? ` · ${libs?.transport.vehicleNo(t.bus, t.vehicle, t.vehicle_label)}` : ''}</span> : lm.src && <span className="text-muted-foreground"> · {lm.src === 'ums' ? 'UMS' : 'slip'}</span>}</span></TableCell>; })();
+        const withOut = (cells: React.ReactNode[], out: React.ReactNode) => (outAt < 0 ? cells : [...cells.slice(0, outAt), out, ...cells.slice(outAt)]);
         const n = 1 + (showFl ? 1 : 0) + cols.length + (showOther ? 1 : 0) + (showSlip ? 1 : 0) + (kind === 'in' ? 1 : 0) + (lastOut ? 1 : 0);
         const head = (
-            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}{lastOut && <TableHead className="whitespace-nowrap">Check-out &amp; transport</TableHead>}</TableRow>
+            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{withOut(cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>), <TableHead key="out" className="whitespace-nowrap">Check-out &amp; transport</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}</TableRow>
         );
         const tot = (list: Row[], label: string, cls: string) => {
             const k = countsOf(list), v: Record<string, number> = { as: k.as, t: k.t, g: k.g, l: k.l, c: k.c, i: k.i };
-            return <TableRow className={cls}><TableCell className="font-bold">{label}</TableCell>{showFl && <TableCell />}{cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right', 'font-bold')}>{c.id === 'group' ? `${k.n} slip${k.n === 1 ? '' : 's'}` : v[c.id] ?? ''}</TableCell>)}{showOther && <TableCell />}{showSlip && <TableCell />}{kind === 'in' && <TableCell />}{lastOut && <TableCell />}</TableRow>;
+            return <TableRow className={cls}><TableCell className="font-bold">{label}</TableCell>{showFl && <TableCell />}{withOut(cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right', 'font-bold')}>{c.id === 'group' ? `${k.n} slip${k.n === 1 ? '' : 's'}` : v[c.id] ?? ''}</TableCell>), <TableCell key="out" />)}{showOther && <TableCell />}{showSlip && <TableCell />}{kind === 'in' && <TableCell />}</TableRow>;
         };
         return (
             <Table>
@@ -192,14 +201,14 @@ export default function CheckinsPage() {
                                 <TableRow key={`${r.id}-${i}`}>
                                     <TableCell className="whitespace-nowrap">{fmtDT(kind === 'in' ? ci : co)}</TableCell>
                                     {showFl && <TableCell>{flightCell(r, key)}</TableCell>}
-                                    {cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right')}>{val(r, c.id)}</TableCell>)}
+                                    {withOut(cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right')}>{val(r, c.id)}</TableCell>), <Fragment key="out">{outCell(r, co)}</Fragment>)}
                                     {showOther && <TableCell className="whitespace-nowrap">{fmtDT(kind === 'in' ? co : ci)}</TableCell>}
                                     {showSlip && <TableCell>{sh ? <a className="rounded border border-gold bg-accent px-2 py-0.5 text-xs font-bold text-primary" href={href('slip', { sh_no: sh })} target="_blank" rel="noopener">Open</a> : <span className="text-muted-foreground" title="No SH number">Open</span>}</TableCell>}
                                     {kind === 'in' && <TableCell className="whitespace-nowrap">{checkin.isCheckedIn(r)
                                         ? <><span className="rounded-full bg-ok-soft px-2 py-0.5 text-xs font-bold text-ok">✓ Checked in</span>{!db.readonly && <button type="button" disabled={busy === String(r.id)} className="ml-1 text-xs text-muted-foreground underline" title="Undo: the group has not checked in" onClick={() => void toggle(r, false)}>Undo</button>}</>
                                         : db.readonly ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs">—</span> : <Button size="sm" variant="outline" disabled={busy === String(r.id)} onClick={() => void toggle(r, true)}>Check in</Button>}</TableCell>}
                                 
-                                    {lastOut && (() => { const t = tripOf(r), lm = leaveOf(r); return <TableCell className="whitespace-nowrap">{fmtDT(co)}<span className="block text-xs">{lm.mode ? <b>{lm.mode}</b> : <span className="text-muted-foreground">mode not known</span>}{t ? <span className="text-muted-foreground"> · {libs?.transport.travelTo ? libs.transport.travelTo(t.route) : String(t.route || '').split('-').slice(1).join('-')}{t.at ? ` ${String(t.at).slice(11, 16)}` : ''}{t.bus != null && t.bus !== '' ? ` · ${libs?.transport.vehicleNo(t.bus, t.vehicle, t.vehicle_label)}` : ''}</span> : lm.src && <span className="text-muted-foreground"> · {lm.src === 'ums' ? 'UMS' : 'slip'}</span>}</span></TableCell>; })()}
+                                    
 </TableRow>
                             );
                         })}
@@ -251,7 +260,7 @@ export default function CheckinsPage() {
                         <Select value={sortBy} onValueChange={setSortBy}><SelectTrigger id="sortby" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="time">Time</SelectItem><SelectItem value="building">Building, then time</SelectItem></SelectContent></Select></div>
                     <div className="grid gap-1.5 text-sm"><Label>View</Label>
                         <label className="flex items-center gap-2" title="Check-ins: from the airport / from the other city · Check-outs: to the airport / to the other city"><Checkbox checked={split} onCheckedChange={v => setSplit(v === true)} />Split by from / to</label>
-                        {siteId === 'medina' && <label className="flex items-center gap-2" title="A last column on Check-ins: each group's check-out and how it leaves (Transport day, else the slip or UMS)"><Checkbox checked={showOut} onCheckedChange={v => { setShowOut(v === true); try { localStorage.setItem('pms_checkins_out_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />Check-out &amp; transport</label>}
+                        
                         <label className="flex items-center gap-2" title="Check 1 (Trip.com) and Check 2 (FlightAware) links for each group's flight"><Checkbox checked={showFl} onCheckedChange={v => { setShowFl(v === true); try { localStorage.setItem('pms_checkins_flight_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />Flight status</label>
                         <label className="flex items-center gap-2" title="Show where each S-prefixed group's first stay (and its luggage) was"><Checkbox checked={showLug} onCheckedChange={v => { setShowLug(v === true); try { localStorage.setItem('pms_checkins_lug_col', v === true ? '1' : '0'); } catch { /* ignore */ } }} />First accommodation</label></div>
                 </div>
