@@ -60,7 +60,7 @@ export function KgSummary({ day, onClose }: { day: string; onClose: () => void }
 
     return (
         <Dialog open onOpenChange={o => { if (!o) onClose(); }}>
-            <DialogContent className="max-h-[92vh] max-w-[calc(100%-1rem)] overflow-auto sm:max-w-3xl">
+            <DialogContent className="flex max-h-[min(92vh,92dvh)] max-w-[calc(100%-1rem)] flex-col gap-3 overflow-hidden p-4 sm:max-w-3xl sm:p-6">
                 <DialogHeader><DialogTitle>Export summary — {day.split('-').reverse().join('/')}</DialogTitle></DialogHeader>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button size="sm" disabled={!chosen.length} onClick={pdf}>PDF</Button>
@@ -71,7 +71,7 @@ export function KgSummary({ day, onClose }: { day: string; onClose: () => void }
                 </div>
                 {!secs && !msg && <p className="text-sm text-muted-foreground">Reading the slips and the Transport day…</p>}
                 {secs && <div className="flex flex-wrap gap-3 text-sm">{secs.map(s => <label key={s.id} className="flex items-center gap-1.5"><input type="checkbox" checked={!off.has(s.id)} onChange={e => setOff(o => { const n = new Set(o); if (e.target.checked) n.delete(s.id); else n.add(s.id); return n; })} />{s.title} ({s.items.length})</label>)}</div>}
-                <div ref={box} className="grid gap-1 [&_table.kgs]:text-sm [&_table.kgs_td]:border [&_table.kgs_th]:border [&_table.kgs_th]:bg-secondary [&_table.kgs_th]:text-left [&_table.kgs_td]:px-2 [&_table.kgs_th]:px-2 [&_table.kgs_td]:py-1 [&_table.kgs_th]:py-1">
+                <div ref={box} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [&_table.kgs]:text-sm [&_table.kgs_td]:border [&_table.kgs_th]:border [&_table.kgs_th]:bg-secondary [&_table.kgs_th]:text-left [&_table.kgs_td]:px-2 [&_table.kgs_th]:px-2 [&_table.kgs_td]:py-1 [&_table.kgs_th]:py-1">
                     {(secs || []).map(s => <div key={s.id} className={off.has(s.id) ? 'hidden' : ''} title={s.items.map(groupName).join(', ')}
                         dangerouslySetInnerHTML={{ __html: sectionTable(s).replace('<table class="kgs"', `<table class="kgs" data-id="${s.id}"`) }} />)}
                 </div>
