@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { useCore, useGuard, useSite } from '@/pms/PmsContext';
+import { KgSummary } from './KgSummary';
 import { LOCATIONS, LS_FE1_BOOKMARK, LS_LOG, LS_PEOPLE, buildMessage, computeStats, drawHistogram, excelDoc, headerText, natural, nextBus, shortDate, sorter, whenTxt, ymd, type KgState, type LogEntry, type SortKey, type Tick } from './kg';
 
 // KG — Fakkul Ehraam & Atraaf roster. The name list, FE1 bookmark and saved assignments are in the cloud, one roster per site (GET /api/kg, POST /api/kg/op,
@@ -46,6 +47,7 @@ export default function KgPage() {
     const [profileOf, setProfileOf] = useState('');
     const [tab, setTab] = useState('msg');
     const canvas = useRef<HTMLCanvasElement>(null);
+    const [summaryOpen, setSummaryOpen] = useState(false);   // Makkah: Export summary (KgSummary)
     const [oldList, setOldList] = useState<{ people: string[]; log: any[]; mark: string } | null>(null);
 
     useEffect(() => { void guard(settings.loadSettings()).then((s: any) => setSessions(s.settings.kg_sessions || settings.DEFAULTS.kg_sessions)).catch(() => { }); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -204,6 +206,7 @@ export default function KgPage() {
                     <div className="grid gap-1"><Label htmlFor="sessionTitle">Event</Label>
                         <Select value={session} onValueChange={setSession}><SelectTrigger id="sessionTitle" className="min-w-56"><SelectValue /></SelectTrigger><SelectContent>{sessions.map((s, i) => <SelectItem key={i} value={sessionLabel(s)}>{sessionLabel(s)}</SelectItem>)}</SelectContent></Select></div>
                     <div className="grid gap-1"><Label htmlFor="sessionDate">Date</Label><Input id="sessionDate" type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
+                    {siteId === 'makkah' && <Button className="self-end" variant="outline" title="Atraaf, Wada Sabaq, Raate Haram and Kaale Fajare Haram lists for this date — PDF, Word, Excel or a picture" onClick={() => setSummaryOpen(true)}>Export summary</Button>}
                 </div>
             </header>
 
@@ -307,6 +310,7 @@ export default function KgPage() {
                 </CardContent></Card>
             </div>
             {dialog}
+            {summaryOpen && <KgSummary day={date} onClose={() => setSummaryOpen(false)} />}
         </div>
     );
 }
