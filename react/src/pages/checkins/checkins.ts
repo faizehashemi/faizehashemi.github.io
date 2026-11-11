@@ -105,6 +105,10 @@ export const countsOf = (list: Row[]) => ({
     g: list.reduce((s, r) => s + num(r.gents), 0), l: list.reduce((s, r) => s + num(r.ladies), 0),
     c: list.reduce((s, r) => s + num(r.children ?? r.child), 0), i: list.reduce((s, r) => s + num(r.infants ?? r.infant), 0),
 });
+// The pax columns in the order the site's desks read them: Madina puts Children before Ladies (As. T G C L I); Makkah keeps As. T G L C I
+export const paxOrder = (site: string) => (site === 'medina' ? ['as', 't', 'g', 'c', 'l', 'i'] : ['as', 't', 'g', 'l', 'c', 'i']);
+const paxVal = (r: Row, id: string) => (id === 'as' ? assignedCount(r) : id === 't' ? guests(r) : id === 'g' ? num(r.gents) : id === 'l' ? num(r.ladies) : id === 'c' ? num(r.children ?? r.child) : num(r.infants ?? r.infant));
+const PAX_HEAD: Record<string, string> = { as: 'As.', t: 'T', g: 'G', l: 'L', c: 'C', i: 'I' };
 export const partSum = (list: Row[]) => `${list.length} slip${list.length === 1 ? '' : 's'} · ${list.reduce((s, r) => s + guests(r), 0)} guests`;
 
 /* ===== First accommodation (where the luggage is) ===== */
@@ -131,13 +135,14 @@ export function luggageAt(idx: Map<string, Slip[]>, sh: unknown) {
 
 /* ===== CSV ===== */
 export const COL_IDS = ['time', 'fl', 'sh', 'lug', 'group', 'leader', 'building', 'rooms', 'as', 't', 'g', 'l', 'c', 'i', 'other'] as const;
-export function toCSV(kind: 'in' | 'out', parts: [string | null, Row[]][], opts: { flights: boolean; hidden: string[]; flightText: (r: Row) => string; luggage: (r: Row) => string }) {
+export function toCSV(kind: 'in' | 'out', parts: [string | null, Row[]][], opts: { flights: boolean; hidden: string[]; flightText: (r: Row) => string; luggage: (r: Row) => string; pax?: string[] }) {
+    const pax = opts.pax || paxOrder('');
     const head = kind === 'in'
-        ? ['Check-in', ...(opts.flights ? ['Flight'] : []), 'SH No', 'First accommodation', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-out']
-        : ['Check-out', ...(opts.flights ? ['Flight'] : []), 'SH No', 'First accommodation', 'Group', 'Group Leader', 'Building', 'Rooms', 'As.', 'T', 'G', 'L', 'C', 'I', 'Check-in'];
+        ? ['Check-in', ...(opts.flights ? ['Flight'] : []), 'SH No', 'First accommodation', 'Group', 'Group Leader', 'Building', 'Rooms', ...pax.map(id => PAX_HEAD[id]), 'Check-out']
+        : ['Check-out', ...(opts.flights ? ['Flight'] : []), 'SH No', 'First accommodation', 'Group', 'Group Leader', 'Building', 'Rooms', ...pax.map(id => PAX_HEAD[id]), 'Check-in'];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     // the same columns as the table on screen (Settings → Check-ins page)
-    const ids = ['time', ...(opts.flights ? ['fl'] : []), 'sh', 'lug', 'group', 'leader', 'building', 'rooms', 'as', 't', 'g', 'l', 'c', 'i', 'other'];
+    const ids = ['time', ...(opts.flights ? ['fl'] : []), 'sh', 'lug', 'group', 'leader', 'building', 'rooms', ...pax, 'other'];
     const keep = (i: number) => !opts.hidden.includes(ids[i]);
     const lines: string[] = [];
     for (const [title, list] of parts) {
@@ -145,34 +150,37 @@ export function toCSV(kind: 'in' | 'out', parts: [string | null, Row[]][], opts:
         lines.push(head.filter((_, i) => keep(i)).join(','));
         for (const r of list) {
             const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
-            const mid = [r.sh_no || '', opts.luggage(r), r.tour_name || '', String(r.group_leader ?? '').trim() || '-', (r.building || '').trim(), roomsFromSlip(r).join(' '), assignedCount(r), guests(r), num(r.gents), num(r.ladies), num(r.children ?? r.child), num(r.infants ?? r.infant)];
+            const mid = [r.sh_no || '', opts.luggage(r), r.tour_name || '', String(r.group_leader ?? '').trim() || '-', (r.building || '').trim(), roomsFromSlip(r).join(' '), ...pax.map(id => paxVal(r, id))];
             const fl = opts.flights ? [opts.flightText(r)] : [];
             const row = kind === 'in' ? [fmtDT(ci), ...fl, ...mid, fmtDT(co)] : [fmtDT(co), ...fl, ...mid, fmtDT(ci)];
             lines.push(row.filter((_, i) => keep(i)).map(esc).join(','));
         }
         const k = countsOf(list), fl = opts.flights ? [''] : [];
-        lines.push(['Total', ...fl, '', '', `${k.n} slips`, '', '', '', k.as, k.t, k.g, k.l, k.c, k.i, ''].filter((_, i) => keep(i)).map(esc).join(','));
+        lines.push(['Total', ...fl, '', '', `${k.n} slips`, '', '', '', ...pax.map(id => k[id as keyof typeof k]), ''].filter((_, i) => keep(i)).map(esc).join(','));
     }
     return lines.join('\r\n');
 }
 
 /* ===== Print table: A4 landscape, 1 cm margins, in a tab of its own ===== */
 const escH = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]!));
-export function printTableHtml(kind: 'in' | 'out', rows: Row[], parts: [string | null, Row[]][], siteLabel: string, rangeLabel: string, luggage: (r: Row) => string = () => '', glci = false) {
+export function printTableHtml(kind: 'in' | 'out', rows: Row[], parts: [string | null, Row[]][], siteLabel: string, rangeLabel: string, luggage: (r: Row) => string = () => '', glci = false, paxCols?: string[]) {
     const lug = rows.some(r => luggage(r));   // the First accommodation column only when a group in the table has luggage elsewhere
-    const n = (lug ? 8 : 7) + (glci ? 4 : 0);
-    // G L C I (ticked by the Print table button): gents, ladies, children, infants after Total Pax, with a totals row under each table
-    const glciTd = (r: Row) => glci ? [r.gents, r.ladies, r.children ?? r.child, r.infants ?? r.infant].map(v => `<td>${num(v)}</td>`).join('') : '';
+    // the pax columns: Total Pax, plus G L C I when ticked (Makkah), or the site's own list (Madina: As. T G C L I, always) — a totals row under each table when more than Total Pax
+    const pax = paxCols && paxCols.length ? paxCols : glci ? ['t', 'g', 'l', 'c', 'i'] : ['t'];
+    const many = pax.length > 1;
+    const n = (lug ? 7 : 6) + pax.length;
+    const paxTd = (r: Row) => pax.map(id => id === 't' ? `<td><b>${guests(r)}</b></td>` : `<td>${paxVal(r, id)}</td>`).join('');
     const title = `${kind === 'in' ? 'Check-ins' : 'Check-outs'} · ${siteLabel}`;
     const total = rows.reduce((s, r) => s + guests(r), 0);
     const rowHtml = (r: Row) => {
         const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time);
-        return `<tr><td>${escH(r.sh_no ?? '')}</td>${lug ? `<td>${escH(luggage(r) || '-')}</td>` : ''}<td><b>${escH(r.tour_name || '-')}</b><br><span class="gl">${escH(String(r.group_leader ?? '').trim() || '-')}</span></td><td>${escH((r.building || '').trim() || '-')}</td><td class="rooms">${roomsHtml(r)}</td><td><b>${guests(r)}</b></td>${glciTd(r)}<td>${escH(fmtDT(ci))}</td><td>${escH(fmtDT(co))}</td></tr>`;
+        return `<tr><td>${escH(r.sh_no ?? '')}</td>${lug ? `<td>${escH(luggage(r) || '-')}</td>` : ''}<td><b>${escH(r.tour_name || '-')}</b><br><span class="gl">${escH(String(r.group_leader ?? '').trim() || '-')}</span></td><td>${escH((r.building || '').trim() || '-')}</td><td class="rooms">${roomsHtml(r)}</td>${paxTd(r)}<td>${escH(fmtDT(ci))}</td><td>${escH(fmtDT(co))}</td></tr>`;
     };
-    const thead = `<thead><tr><th>SH No</th>${lug ? '<th>First accommodation</th>' : ''}<th>Group / Group Leader</th><th>Building</th><th>Rooms</th><th>Total Pax</th>${glci ? '<th>G</th><th>L</th><th>C</th><th>I</th>' : ''}<th>Check-in</th><th>Check-out</th></tr></thead>`;
-    const colgroup = glci ? `<colgroup><col style="width:7%">${lug ? '<col style="width:9%">' : ''}<col style="width:${lug ? 18 : 22}%"><col style="width:9%"><col style="width:${lug ? 17 : 22}%"><col style="width:6%">${'<col style="width:4%">'.repeat(4)}<col style="width:9%"><col style="width:9%"></colgroup>` : lug ? '<colgroup><col style="width:8%"><col style="width:10%"><col style="width:22%"><col style="width:10%"><col style="width:20%"><col style="width:8%"><col style="width:11%"><col style="width:11%"></colgroup>' : '<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>';
-    const totRow = (list: Row[]) => { const c = countsOf(list); return `<tfoot><tr class="tot"><td colspan="${lug ? 5 : 4}">Total · ${c.n} group${c.n === 1 ? '' : 's'}</td><td>${c.t}</td><td>${c.g}</td><td>${c.l}</td><td>${c.c}</td><td>${c.i}</td><td colspan="2"></td></tr></tfoot>`; };
-    const tables = parts.map(([t, list]) => (t ? `<h2>${escH(t)} <small>${escH(partSum(list))}</small></h2>` : '') + `<table>${colgroup}${thead}<tbody>${list.length ? list.map(rowHtml).join('') : `<tr><td colspan="${n}">None in this range.</td></tr>`}</tbody>${glci && list.length ? totRow(list) : ''}</table>`).join('');
+    const thead = `<thead><tr><th>SH No</th>${lug ? '<th>First accommodation</th>' : ''}<th>Group / Group Leader</th><th>Building</th><th>Rooms</th>${pax.map(id => `<th>${id === 't' ? 'Total Pax' : PAX_HEAD[id]}</th>`).join('')}<th>Check-in</th><th>Check-out</th></tr></thead>`;
+    const extra = pax.filter(id => id !== 't').length;   // 4% each; Rooms gives up the room past G L C I
+    const colgroup = many ? `<colgroup><col style="width:7%">${lug ? '<col style="width:9%">' : ''}<col style="width:${lug ? 18 : 22}%"><col style="width:9%"><col style="width:${(lug ? 17 : 22) - 4 * (extra - 4)}%">${pax.map(id => `<col style="width:${id === 't' ? 6 : 4}%">`).join('')}<col style="width:9%"><col style="width:9%"></colgroup>` : lug ? '<colgroup><col style="width:8%"><col style="width:10%"><col style="width:22%"><col style="width:10%"><col style="width:20%"><col style="width:8%"><col style="width:11%"><col style="width:11%"></colgroup>' : '<colgroup><col style="width:8%"><col style="width:25%"><col style="width:10%"><col style="width:25%"><col style="width:8%"><col style="width:12%"><col style="width:12%"></colgroup>';
+    const totRow = (list: Row[]) => { const c = countsOf(list); return `<tfoot><tr class="tot"><td colspan="${lug ? 5 : 4}">Total · ${c.n} group${c.n === 1 ? '' : 's'}</td>${pax.map(id => `<td>${c[id as keyof typeof c]}</td>`).join('')}<td colspan="2"></td></tr></tfoot>`; };
+    const tables = parts.map(([t, list]) => (t ? `<h2>${escH(t)} <small>${escH(partSum(list))}</small></h2>` : '') + `<table>${colgroup}${thead}<tbody>${list.length ? list.map(rowHtml).join('') : `<tr><td colspan="${n}">None in this range.</td></tr>`}</tbody>${many && list.length ? totRow(list) : ''}</table>`).join('');
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>${escH(title)}</title>
 <style>

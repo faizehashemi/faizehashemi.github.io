@@ -12,15 +12,17 @@ import { cn } from '@/lib/utils';
 import { useSlips } from '@/hooks/useSlips';
 import { usePrefs } from '@/hooks/usePrefs';
 import { useCore, useDb, useLoadCore, useNav, useSite } from '@/pms/PmsContext';
-import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, luggageAt, luggageIndex, num, parseDT, partSum, partsOf, plusOneDay, printTableHtml, roomsFromSlip, splitExcl, toCSV, ymd, type Row } from './checkins';
+import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, luggageAt, luggageIndex, num, parseDT, partSum, partsOf, paxOrder, plusOneDay, printTableHtml, roomsFromSlip, splitExcl, toCSV, ymd, type Row } from './checkins';
 
 // Check-ins & Check-outs (Front desk): filter by one day or a date/time range; the results are read-only and come from the shared PMS data. Each table has a
 // totals row, optional columns (Settings → Check-ins page), CSV, Print table, Print slips and GL copy; Check-ins also carry the Check in flag (a signal for the
 // other desks, nothing else depends on it). The window is today 03:00 → tomorrow 03:00 by default. The live flight status panel stays switched off.
 
-const COLS: { id: string; label: string; right?: boolean }[] = [
+const PAX_LABEL: Record<string, string> = { as: 'As.', t: 'T', g: 'G', l: 'L', c: 'C', i: 'I' };
+// Madina's pax columns read As. T G C L I (paxOrder) — on screen, in the CSV and on the Print table
+const colsFor = (site: string): { id: string; label: string; right?: boolean }[] => [
     { id: 'sh', label: 'SH No' }, { id: 'lug', label: 'First accommodation' }, { id: 'group', label: 'Group' }, { id: 'leader', label: 'Group Leader' }, { id: 'building', label: 'Building' }, { id: 'rooms', label: 'Rooms' },
-    { id: 'as', label: 'As.', right: true }, { id: 't', label: 'T', right: true }, { id: 'g', label: 'G', right: true }, { id: 'l', label: 'L', right: true }, { id: 'c', label: 'C', right: true }, { id: 'i', label: 'I', right: true },
+    ...paxOrder(site).map(id => ({ id, label: PAX_LABEL[id], right: true })),
 ];
 const dayShift = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
 const isDelayed = (r: Row) => !!(r.delayed && r.delayed.on);
@@ -121,7 +123,7 @@ export default function CheckinsPage() {
     const rowsOf = (kind: 'in' | 'out') => (kind === 'in' ? shown.ins : shown.outs);
 
     function csv(kind: 'in' | 'out') {
-        const text = toCSV(kind, parts(rowsOf(kind), kind === 'in' ? 'checkin' : 'checkout'), { flights: showFl, hidden: hiddenCols(kind), flightText: r => flightText(r, kind === 'in' ? 'checkin' : 'checkout'), luggage: showLug ? lug : () => '' });
+        const text = toCSV(kind, parts(rowsOf(kind), kind === 'in' ? 'checkin' : 'checkout'), { flights: showFl, hidden: hiddenCols(kind), flightText: r => flightText(r, kind === 'in' ? 'checkin' : 'checkout'), luggage: showLug ? lug : () => '', pax: paxOrder(siteId) });
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
         a.download = `${kind === 'in' ? 'checkins' : 'checkouts'}_${range.df}_${range.dt}${split ? '_split' : ''}.csv`;
         document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
@@ -131,7 +133,7 @@ export default function CheckinsPage() {
         if (!rows.length) { alert('No rows to print in this table.'); return; }
         const w = window.open('', '_blank');
         if (!w) { alert('The browser blocked the new tab. Allow pop-ups for this site, then press Print table again.'); return; }
-        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel, showLug ? lug : () => '', glci)); w.document.close();
+        w.document.open(); w.document.write(printTableHtml(kind, rows, parts(rows, kind === 'in' ? 'checkin' : 'checkout'), site.label, rangeLabel, showLug ? lug : () => '', glci, siteId === 'medina' ? paxOrder(siteId).filter(id => id === 't' || !hiddenCols(kind).includes(id)) : undefined)); w.document.close();
     }
 
     const checkLink = (code: string, o: any) => {
@@ -163,7 +165,7 @@ export default function CheckinsPage() {
     function renderTable(kind: 'in' | 'out') {
         const key = kind === 'in' ? 'checkin' : 'checkout';
         const rows = rowsOf(kind), hidden = hiddenCols(kind);
-        const cols = COLS.filter(c => !hidden.includes(c.id));
+        const cols = colsFor(siteId).filter(c => !hidden.includes(c.id));
         const showOther = !hidden.includes('other'), showSlip = !hidden.includes('slip') && may.slip;
         const lastOut = kind === 'in' && outCol;
         const n = 1 + (showFl ? 1 : 0) + cols.length + (showOther ? 1 : 0) + (showSlip ? 1 : 0) + (kind === 'in' ? 1 : 0) + (lastOut ? 1 : 0);
@@ -216,7 +218,7 @@ export default function CheckinsPage() {
                     <div className="flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{rows.length} slips • {rows.reduce((s, r) => s + guests(r), 0)} guests</span>
                         <Button size="sm" variant="outline" onClick={() => csv(kind)}><Download className="size-3.5" />Export CSV</Button>
                         <Button size="sm" variant="outline" onClick={() => printTable(kind)}><Printer className="size-3.5" />Print table</Button>
-                        <label className="flex items-center gap-1.5 text-sm" title="Print table adds Gents, Ladies, Children and Infants columns, with totals"><input type="checkbox" checked={glci} onChange={e => setGlci(e.target.checked)} />G L C I</label>
+                        {siteId !== 'medina' && <label className="flex items-center gap-1.5 text-sm" title="Print table adds Gents, Ladies, Children and Infants columns, with totals"><input type="checkbox" checked={glci} onChange={e => setGlci(e.target.checked)} />G L C I</label>}
                         <label className="flex items-center gap-1.5 text-sm" title="Exclusive rooms show only 'Excl' unless this is ticked (table, printed table and printed slips)"><input type="checkbox" checked={exclB} onChange={e => pickExclB(e.target.checked)} />show building on Excl rooms</label>
                         {may.print && libs && <>
                             <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(withLeave(rows), { title: `check-${kind}s ${rangeLabel}` })}>Print slips</Button>
