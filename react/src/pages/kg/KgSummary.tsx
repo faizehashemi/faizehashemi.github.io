@@ -27,11 +27,12 @@ export function KgSummary({ day, onClose }: { day: string; onClose: () => void }
         let alive = true;
         void (async () => {
             try {
-                const [d, s] = await Promise.all([guard<any>(T.loadDay(siteId, day)).catch(() => ({ rows: [] })), guard<any>((settings as any).loadSettings()).catch(() => null)]);
-                const rows = d?.rows || [], info = T.resolve(rows) as Map<string, any>;
-                const trips = rows.map((r: Row) => ({ ...r, route: info.get(r.key)?.route || r.route }));
+                const next = (() => { const x = new Date(`${day}T12:00`); x.setDate(x.getDate() + 1); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; })();
+                const [d, dn, s] = await Promise.all([guard<any>(T.loadDay(siteId, day)).catch(() => ({ rows: [] })), guard<any>(T.loadDay(siteId, next)).catch(() => ({ rows: [] })), guard<any>((settings as any).loadSettings()).catch(() => null)]);
+                // a group riding on another group's bus carries that bus's route
+                const resolved = (rows: Row[]) => { const info = T.resolve(rows) as Map<string, any>; return rows.map((r: Row) => ({ ...r, route: info.get(r.key)?.route || r.route })); };
                 const win = { ...(settings as any).DEFAULTS.fe_windows, ...(s?.settings?.fe_windows || {}) };
-                if (alive) setSecs(kgSummary(slips.data as Row[], trips, day, win, (ums as any).baseSh));
+                if (alive) setSecs(kgSummary(slips.data as Row[], resolved(d?.rows || []), day, win, (ums as any).baseSh, resolved(dn?.rows || [])));
             } catch (e: any) { if (alive) setMsg('Could not build the summary: ' + (e.message || e)); }
         })();
         return () => { alive = false; };

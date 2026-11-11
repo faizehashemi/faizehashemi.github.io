@@ -1,6 +1,6 @@
 // KG page → Export summary (Makkah): the day's four lists for the duty desk, each group with its name, leader, total pax and "(Second Umrah)" where its SH has the S.
 //   Aaje Dupehre Atraaf   the groups on today's MAKKAH-MAKKAH ATRAAF trips (Transport day); none planned → yesterday's check-ins
-//   Aaje Dupehre Wada Sabaq   today's departures from Makkah to Madina, and to the airport for groups whose first arrival was Madina or that never go to
+//   Aaje Dupehre Wada Sabaq   (given the day before departure, after lunch) tomorrow's departures from Makkah to Madina, and to the airport for groups whose first arrival was Madina or that never go to
 //                         Madina (Makkah only) — a group that came to Makkah first and then went to Madina had its Wada Sabaq before that trip — and the groups in both lists (timings clash)
 //   Aaje Raate Haram      check-ins today from the morning cut-off to the night cut-off (Setup → Fakkul Ehraam windows: split → night_to)
 //   Kaale Fajare Haram    check-ins from tonight's cut-off to tomorrow's morning cut-off (night_to today → split tomorrow)
@@ -25,7 +25,7 @@ const bySecondThenTime = (k: 'checkin' | 'checkout') => (a: Row, b: Row) => Numb
  * @param slips  this site's slips · @param trips  today's Transport day rows, resolved (a group riding on another's bus carries that bus's route)
  * @param baseSh UMS SH without the S (core/ums.js baseSh)
  */
-export function kgSummary(slips: Row[], trips: Row[], day: string, win: Windows, baseSh: (s: unknown) => string): Section[] {
+export function kgSummary(slips: Row[], trips: Row[], day: string, win: Windows, baseSh: (s: unknown) => string, nextTrips: Row[] = []): Section[] {
     const live = slips.filter(s => !s.deleted);
     // the slip of a trip: same SH, and the stay that is on that day (a group's second Makkah stay is S…)
     const slipOf = (ref: unknown) => {
@@ -42,8 +42,8 @@ export function kgSummary(slips: Row[], trips: Row[], day: string, win: Windows,
         ? { id: 'atraaf', title: 'Aaje Dupehre Atraaf', note: 'Atraaf trips on the Transport day', items: uniq(atraafTrips.map(fromTrip)) }
         : { id: 'atraaf', title: 'Aaje Dupehre Atraaf', note: `No Atraaf trip on the Transport day — yesterday's arrivals (${plus(day, -1).split('-').reverse().join('/')})`, items: uniq(live.filter(s => s.checkin_date === plus(day, -1)).sort(bySecondThenTime('checkin')).map(item)) };
 
-    // 2. Wada Sabaq: where each group leaving today goes — its Transport day trip, else the slip's To, else (UMS) the last stay goes to the airport
-    const tripOf = (s: Row) => trips.find(t => baseSh(t.ref) === baseSh(s.sh_no) && !/ATRAAF|ZIYARAT/i.test(String(t.route || '')));
+    // 2. Wada Sabaq is given the day before departure: the groups leaving tomorrow, and where each goes — its Transport day trip (tomorrow's list), else the slip's To
+    const tripOf = (s: Row) => nextTrips.find(t => baseSh(t.ref) === baseSh(s.sh_no) && !/ATRAAF|ZIYARAT/i.test(String(t.route || '')));
     const destOf = (s: Row): 'madina' | 'airport' | '' => {
         const r = String(tripOf(s)?.route || '').toUpperCase();
         if (/AIRPORT/.test(r)) return 'airport';
@@ -53,10 +53,10 @@ export function kgSummary(slips: Row[], trips: Row[], day: string, win: Windows,
         if (/MADINA|MEDINA/.test(to)) return 'madina';
         return '';
     };
-    const leaving = live.filter(s => s.checkout_date === day);
+    const leaving = live.filter(s => s.checkout_date === plus(day, 1));
     const madinaFirst = (s: Row) => String(s.ums?.firstArrival || '').toUpperCase() === 'MADINA', makkahOnly = (s: Row) => String(s.ums?.itinerary || '').toUpperCase() === 'MAKKAH';
     const wada = leaving.filter(s => { const d = destOf(s); return d === 'madina' || (d === 'airport' && (madinaFirst(s) || makkahOnly(s))); }).sort(bySecondThenTime('checkout'));
-    const wadaSec: Section = { id: 'wada', title: 'Aaje Dupehre Wada Sabaq', note: 'Leaving Makkah today for Madina, or for the airport when their first arrival was Madina or the group is Makkah only', items: uniq(wada.map(item)) };
+    const wadaSec: Section = { id: 'wada', title: 'Aaje Dupehre Wada Sabaq', note: `Leaving Makkah tomorrow (${plus(day, 1).split('-').reverse().join('/')}) for Madina, or for the airport when their first arrival was Madina or the group is Makkah only`, items: uniq(wada.map(item)) };
     const inWada = new Set(wadaSec.items.map(x => baseSh(x.sh)));
     const clash: Section = { id: 'clash', title: 'Atraaf and Wada Sabaq clash', note: 'In both lists today — the timings clash', items: atraaf.items.filter(x => inWada.has(baseSh(x.sh))) };
 

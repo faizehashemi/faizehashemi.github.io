@@ -7,19 +7,19 @@ const slip = (sh: string | number, o: Record<string, any>) => ({ sh_no: sh, tour
 const ids = (s: any) => s.items.map((x: any) => x.sh);
 
 describe('KG summary', () => {
-    const day = '2026-11-12';
+    const day = '2026-11-12', next = '2026-11-13';   // Wada Sabaq is the day before departure
     const slips = [
         slip(100, { checkin_date: '2026-11-11', checkin_time: '15:00' }),                                     // yesterday's arrival
-        slip(101, { checkout_date: day, to_place: 'Medina' }),                                                // to Madina → Wada Sabaq
-        slip(102, { checkout_date: day, to_place: 'Jeddah Airport', ums: { firstArrival: 'MADINA' } }),     // airport, came to Madina first → yes
-        slip(103, { checkout_date: day, to_place: 'Jeddah Airport', ums: { firstArrival: 'MAKKAH' } }),     // airport, Makkah first → had it already
-        slip(110, { checkout_date: day, to_place: 'Jeddah Airport', ums: { firstArrival: 'MAKKAH', itinerary: 'MAKKAH' } }),   // Makkah only → yes
+        slip(101, { checkout_date: next, to_place: 'Medina' }),                                                // to Madina → Wada Sabaq
+        slip(102, { checkout_date: next, to_place: 'Jeddah Airport', ums: { firstArrival: 'MADINA' } }),     // airport, came to Madina first → yes
+        slip(103, { checkout_date: next, to_place: 'Jeddah Airport', ums: { firstArrival: 'MAKKAH' } }),     // airport, Makkah first → had it already
+        slip(110, { checkout_date: next, to_place: 'Jeddah Airport', ums: { firstArrival: 'MAKKAH', itinerary: 'MAKKAH' } }),   // Makkah only → yes
         slip(104, { checkin_date: day, checkin_time: '10:00' }),                                              // Raate Haram
         slip('S105', { checkin_date: day, checkin_time: '18:00' }),                                           // Raate Haram, second umrah → first
         slip(106, { checkin_date: day, checkin_time: '22:00' }),                                              // Kaale Fajare
         slip(107, { checkin_date: '2026-11-13', checkin_time: '05:00' }),                                     // Kaale Fajare
         slip(108, { checkin_date: '2026-11-13', checkin_time: '08:00' }),                                     // too late
-        slip(109, { checkout_date: day, deleted: true, to_place: 'Medina' }),
+        slip(109, { checkout_date: next, deleted: true, to_place: 'Medina' }),
     ];
     it('falls back to yesterday\'s arrivals when no Atraaf is planned', () => {
         const [atraaf] = kgSummary(slips, [], day, W, baseSh);
@@ -32,8 +32,12 @@ describe('KG summary', () => {
         expect(ids(s[1])).toEqual(['101', '102', '110']);
         expect(ids(s[2])).toEqual(['101']);   // clash
     });
+    it("Wada Sabaq lists tomorrow's departures, not today's", () => {
+        const s = kgSummary([slip(201, { checkout_date: day, to_place: 'Medina' }), slip(202, { checkout_date: next, to_place: 'Jeddah Airport', ums: { firstArrival: 'MADINA' } })], [], day, W, baseSh, [{ ref: '202', route: 'MAKKAH-JEDDAH AIRPORT' }]);
+        expect(ids(s[1])).toEqual(['202']);
+    });
     it('Wada Sabaq follows the Transport day destination first', () => {
-        const s = kgSummary(slips, [{ ref: '103', route: 'MAKKAH-MADINA' }], day, W, baseSh);
+        const s = kgSummary(slips, [], day, W, baseSh, [{ ref: '103', route: 'MAKKAH-MADINA' }]);
         expect(ids(s[1])).toContain('103');
     });
     it('splits the Haram check-ins at the cut-offs, second umrah first', () => {
