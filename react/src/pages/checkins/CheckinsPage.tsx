@@ -90,6 +90,7 @@ export default function CheckinsPage() {
                 const info = libs.transport.resolve(list) as Map<string, any>;
                 for (const t of list) {
                     const k = ums.baseSh(t.ref), i = info.get(t.key) || {};
+                    if (/ZIYARAT/i.test(String(i.route || t.route || ''))) continue;   // a Ziyarat outing is not how the group leaves
                     if (k && !m.has(`${t.day}|${k}`)) m.set(`${t.day}|${k}`, { ...t, route: i.route || t.route, bus: i.bus ?? t.bus, vehicle: i.vehicle || t.vehicle, vehicle_label: i.vlabel || t.vehicle_label });
                 }
             }
@@ -97,6 +98,38 @@ export default function CheckinsPage() {
         });
         return () => { off = true; };
     }, [outCol, libs, outDays, siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
+    // Madina check-ins: how each group came — its Makkah Transport day trip to Madina (that day or the day before), else the slip's From / UMS arrival
+    const [arrTrips, setArrTrips] = useState<Map<string, any>>(new Map());
+    const dayBefore = (d: string) => { const [y, m, dd] = d.split('-').map(Number); return ymd(new Date(y, m - 1, dd - 1)); };
+    const inDays = useMemo(() => [...new Set(win.ins.flatMap(r => { const d = String(r.checkin_date || ''); return d ? [d, dayBefore(d)] : []; }))].sort().slice(0, 40).join(','), [win]);
+    useEffect(() => {
+        if (!outCol || !libs || !inDays) return;
+        let off = false;
+        void Promise.all(inDays.split(',').map(d => libs.transport.loadDay('makkah', d).then((x: any) => x.rows || [], () => []))).then(lists => {
+            if (off) return;
+            const m = new Map<string, any>();
+            for (const list of lists) {
+                const info = libs.transport.resolve(list) as Map<string, any>;
+                for (const t of list) {
+                    const i = info.get(t.key) || {}, route = String(i.route || t.route || '');
+                    if (!/MADINA|MEDINA/i.test(route.split('-').slice(1).join('-')) || /AIRPORT|ZIYARAT/i.test(route)) continue;   // Makkah → Madina only
+                    const k = ums.baseSh(t.ref);
+                    if (k && !m.has(`${t.day}|${k}`)) m.set(`${t.day}|${k}`, { ...t, route, bus: i.bus ?? t.bus, vehicle: i.vehicle || t.vehicle, vehicle_label: i.vlabel || t.vehicle_label });
+                }
+            }
+            setArrTrips(m);
+        });
+        return () => { off = true; };
+    }, [outCol, libs, inDays]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const arrTripOf = (r: Row) => { const k = ums.baseSh(r.sh_no), d = String(r.checkin_date || ''); return arrTrips.get(`${d}|${k}`) || arrTrips.get(`${dayBefore(d)}|${k}`); };
+    const arriveOf = (r: Row): { mode: string; detail: string } => {
+        if (!libs) return { mode: '', detail: '' };
+        const t = arrTripOf(r);
+        if (t) return { mode: libs.mode.tripMode(t), detail: `from Makkah${t.at ? ` ${String(t.at).slice(11, 16)}` : ''}${t.bus != null && t.bus !== '' ? ` · ${libs.transport.vehicleNo(t.bus, t.vehicle, t.vehicle_label)}` : ''}` };
+        const a = libs.mode.arriveMode(r), leg = r.ums?.arrival;
+        const flight = a.mode === 'By flight' && leg?.flight && !/^(CAR|BUS|TRAIN)\b/i.test(leg.flight) ? String(leg.flight).replace(/\s*-\s*$/, '') : '';
+        return { mode: a.mode, detail: flight || (a.src ? (a.src === 'ums' ? 'UMS' : 'slip') : '') };
+    };
     const withLeave = (rows: Row[]) => siteId === 'medina' ? rows.map(r => { const t = tripOf(r); return t ? { ...r, _leave: libs?.mode.tripMode(t) } : r; }) : rows;
     const tripOf = (r: Row) => trips.get(`${r.checkout_date}|${ums.baseSh(r.sh_no)}`);
     const leaveOf = (r: Row) => (libs ? libs.mode.leaveMode(r, tripOf(r)) : { mode: '', src: '' });
@@ -199,7 +232,7 @@ export default function CheckinsPage() {
                             const ci = parseDT(r.checkin_date, r.checkin_time), co = parseDT(r.checkout_date, r.checkout_time), sh = String(r.sh_no || '').trim();
                             return (
                                 <TableRow key={`${r.id}-${i}`}>
-                                    <TableCell className="whitespace-nowrap">{fmtDT(kind === 'in' ? ci : co)}</TableCell>
+                                    <TableCell className="whitespace-nowrap">{fmtDT(kind === 'in' ? ci : co)}{kind === 'in' && outCol && (() => { const a = arriveOf(r); return <span className="block text-xs">{a.mode ? <b>{a.mode}</b> : <span className="text-muted-foreground">mode not known</span>}{a.detail && <span className="text-muted-foreground"> · {a.detail}</span>}</span>; })()}</TableCell>
                                     {showFl && <TableCell>{flightCell(r, key)}</TableCell>}
                                     {withOut(cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right')}>{val(r, c.id)}</TableCell>), <Fragment key="out">{outCell(r, co)}</Fragment>)}
                                     {showOther && <TableCell className="whitespace-nowrap">{fmtDT(kind === 'in' ? co : ci)}</TableCell>}
