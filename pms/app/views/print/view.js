@@ -1,5 +1,5 @@
 // Ported from pms/print_slip_a5.html. Page logic is kept as it was; storage goes through ctx.db (app/core/db.js).
-import { slipHTML, glColors, glColor, printSlips, printItineraries, showExclBuilding, setShowExclBuilding } from '../../core/slip-print.js';
+import { slipHTML, fitSlips, glColors, glColor, printSlips, printItineraries, showExclBuilding, setShowExclBuilding } from '../../core/slip-print.js';
 
 export default async function mount(ctx) {
 const { db } = ctx;
@@ -29,10 +29,11 @@ const { db } = ctx;
                 block.className = 'sheet';
                 block.setAttribute('data-sh', rec.sh_no ?? '');
                 // two copies per sheet
-                block.insertAdjacentHTML('beforeend', slipHTML(rec, rows));
-                block.insertAdjacentHTML('beforeend', slipHTML(rec, rows));
+                block.insertAdjacentHTML('beforeend', slipHTML(rec, rows, { admin: true }));
+                block.insertAdjacentHTML('beforeend', slipHTML(rec, rows, { admin: true }));
                 area.appendChild(block);
             }
+            fitSlips(area);   // each copy inside its half of the A5 page
         }
 
         /* Populate dropdown */

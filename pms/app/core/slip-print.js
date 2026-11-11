@@ -62,7 +62,14 @@ export const showExclBuilding = () => { try { return localStorage.getItem(EXCL_B
 export const setShowExclBuilding = (on) => { try { localStorage.setItem(EXCL_BLD_KEY, on ? '1' : '0'); } catch { } };
 
 /** One copy of the slip. */
-export function slipHTML(rec, rows) {
+// Printed slips (not the GL copy) end with a checkout box for the desk — stamp or sign — and the note that the slip is needed later
+const ADMIN_BOX = `<table class="grid pair slip-adm" style="margin-top:2mm"><tbody><tr><th style="line-height:1.15">CHECKOUT<small style="display:block;font-size:7.5px;font-weight:700;letter-spacing:.3px">ADMIN USE ONLY</small></th>
+      <td style="height:13mm;vertical-align:bottom!important;font-size:8px!important;color:#666">Stamp / Sign</td></tr></tbody></table>`;
+const SLIP_NOTE = `<div class="slip-req" style="margin-top:1.5mm;border:1px dashed #111;border-left:3px solid #111;padding:1mm 1.8mm;font-size:9px;line-height:1.25;text-align:left">
+      <b>Note:</b> This slip is required during Hisaab / Passport collection / Key card submission and Checkout.</div>`;
+
+/** One copy of the slip; opts.admin = the printed slip (checkout box for the desk) */
+export function slipHTML(rec, rows, opts = {}) {
     const gents = (rec.rooms?.gents || []).slice(0, rows);
     const ladies = (rec.rooms?.ladies || []).slice(0, rows);
     const fillRows = (arr) => {
@@ -107,6 +114,7 @@ export function slipHTML(rec, rows) {
       <table class="mini"><caption>LADIES</caption><thead><tr><th>Room No</th><th>Assigned Beds</th></tr></thead><tbody>${fillRows(ladies)}</tbody></table>
     </div>
     ${noteHTML}
+    ${opts.admin ? ADMIN_BOX : ''}${SLIP_NOTE}
   </div>`;
 }
 
@@ -202,7 +210,7 @@ export function printSlips(recs, opts = {}) {
     const withIt = Array.isArray(opts.itinerary);
     const sheets = recs.map(rec => {
         const rows = rowsFor(rec);
-        const pair = `<div class="sheet">${slipHTML(rec, rows)}${slipHTML(rec, rows)}</div>`;
+        const pair = `<div class="sheet">${slipHTML(rec, rows, { admin: true })}${slipHTML(rec, rows, { admin: true })}</div>`;
         return withIt ? `<div class="pg slip-pg">${pair}</div><div class="pg">${itineraryHTML(tripOf(rec, opts.itinerary))}</div>` : pair;
     }).join('');
     w.document.open();
@@ -240,12 +248,28 @@ ${sheets}
 <script>
 window.addEventListener('load', function () {
   (${fitItineraries.toString()})(document);   // shrink each letter until it fits its A4 page
+  (${fitSlips.toString()})(document);         // and each slip until it fits its half of the A5 page
   var go = function () { window.focus(); window.print(); };
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { setTimeout(go, 200); }); else setTimeout(go, 300);
 });
 </script>
 </body></html>`);
     w.document.close();
+}
+
+/**
+ * A slip copy stays inside its half of the A5 page (136 mm tall inside the margins): a slip with many rooms, notes and the checkout box is drawn
+ * smaller until it fits. Self-contained, so the print window can carry its source.
+ */
+export function fitSlips(root) {
+    var H = 136 * 96 / 25.4;   // mm → CSS px
+    root.querySelectorAll('.sheet > .slip').forEach(function (s) {
+        var z = 1;
+        s.parentElement.style.alignItems = 'flex-start';   // measure each copy at its own height, not stretched to its neighbour
+        s.style.zoom = z;
+        // a smaller slip lays out a little differently: step down until it fits
+        while (z > 0.6 && s.getBoundingClientRect().height > H) { z = Math.round((z - 0.02) * 100) / 100; s.style.zoom = z; }
+    });
 }
 
 /* --------------------------------- GL copies --------------------------------- */

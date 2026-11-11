@@ -127,25 +127,25 @@ export const ITINERARY_CSS = `
 .itin .pax span { display: block; font-size: 8.5pt; color: #8a7a5c; text-transform: uppercase; letter-spacing: .08em; }
 .itin .pax b { font-size: 14pt; color: #2b2217; }
 .itin .pax div.tot b { color: #7a5a10; }
-.itin .rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
-.itin .rooms.one { grid-template-columns: 1fr; }
-.itin .rg { background: #fffdf7; border: 1px solid #ecdfb8; border-radius: 3mm; padding: 2.4mm 3.5mm; }
-.itin .rg h3 { margin: 0 0 2mm; font-size: 8.5pt; letter-spacing: .1em; text-transform: uppercase; color: #8a7a5c; font-weight: 700; }
-.itin .rg h3 b { color: #7a5a10; margin-left: 1.5mm; }
-.itin .rc { display: flex; flex-wrap: wrap; gap: 1.8mm; }
-.itin .rm { display: inline-flex; align-items: baseline; gap: 1.5mm; background: #fbf4e0; border-radius: 2mm; padding: .9mm 2.2mm; }
-.itin .rm b { font-size: 11pt; color: #1f1a12; font-weight: 800; }
-.itin .rm span { font-size: 8.5pt; color: #7a6a4a; }
-.itin .rm i { font-style: normal; font-size: 7.5pt; color: #7a5a10; font-weight: 700; letter-spacing: .06em; }
+.itin .kb { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+.itin .kc { background: #fff; border: 1px solid #e6d6a8; border-top: 1.6mm solid var(--c, #d4af37); border-radius: 2.5mm; padding: 2.6mm 3.4mm 3mm; box-shadow: 0 .6mm 1.4mm rgba(80, 60, 10, .12); break-inside: avoid; }
+.itin .kc .tag { display: inline-block; font-size: 7.5pt; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--c, #7a5a10); background: #fbf4e0; border-radius: 1.5mm; padding: .5mm 1.8mm; }
+.itin .kc h3 { margin: 1.6mm 0 1mm; font-size: 12pt; color: #2b2217; font-weight: 800; }
+.itin .kc p { margin: 0; font-size: 10pt; color: #3d3226; line-height: 1.4; }
+.itin .kc p b { color: #1f1a12; }
 .itin .foot { margin-top: auto; padding-top: 3mm; border-top: 1px solid #ecdfb8; font-size: 9pt; color: #5c503a; line-height: 1.5; text-align: center; }
 .itin .foot b { color: #2b2217; }
 `;
 
-// "Rooms": a soft card per side with a chip per room — the room number and how many pax are in it
-function roomsBlock(rooms) {
-    const side = (title, list) => list.length ? `<div class="rg"><h3>${title}<b>${list.length} room${list.length === 1 ? '' : 's'}</b></h3><div class="rc">${list.map(x => `<div class="rm"><b>${esc(x.room)}</b>${x.excl ? '<i>EXCL</i>' : ''}${x.n ? `<span>${x.n} pax</span>` : ''}</div>`).join('')}</div></div>` : '';
-    const g = side('Gents', rooms?.gents || []), l = side('Ladies', rooms?.ladies || []);
-    return g || l ? `<h2>Rooms</h2><div class="rooms${g && l ? '' : ' one'}">${g}${l}</div>` : '';
+// "Instructions": kanban cards — Wifi, Regular Sabaq, Mawaid (the notice screens in the lobby have the details)
+function instructions(site) {
+    const card = (c, icon, tag, title, text) => `<div class="kc" style="--c:${c}"><span class="tag">${icon} ${tag}</span><h3>${title}</h3><p>${text}</p></div>`;
+    const wifi = site === 'makkah' ? 'Select <b>“MH”</b> · Username <b>1448</b> · Password <b>m5253</b>' : 'The network and password are on the notice screens in the lobby.';
+    return `<h2>Instructions</h2><div class="kb">
+    ${card('#5f73d8', '📶', 'Connect', 'Wifi', wifi)}
+    ${card('#3a8f6b', '📖', 'Daily', 'Regular Sabaq', '<b>10 AM</b>, from the day after arrival.')}
+    ${card('#c27a1a', '🍽️', 'Meals', 'Mawaid timings', 'Breakfast, lunch and dinner — see the notice screens (signage) for the timings and the floor.')}
+  </div>`;
 }
 
 /** One A4 letter (a `.itin` block; put ITINERARY_CSS on the page). */
@@ -169,8 +169,8 @@ export function itineraryHTML(trip) {
   </div>
   <h2>Pax</h2>
   <div class="pax"><div><span>Gents</span><b>${p.gents}</b></div><div><span>Ladies</span><b>${p.ladies}</b></div><div><span>Children</span><b>${p.children}</b></div><div><span>Infants</span><b>${p.infants}</b></div><div class="tot"><span>Total</span><b>${p.total}</b></div></div>
-  ${roomsBlock(trip.rooms)}
-  <div class="foot">${trip.hasMakkah ? 'Makkah Atraaf Ziyarat and Sabaq time will be informed later.<br>' : ''}<b>Please complete your checkout / Lawazim formalities at least 24 hours before your checkout date &amp; time.</b><br>Lawazim to be paid in Saudi Arabian Riyals only (cash or credit card).</div>
+  ${instructions(trip.site)}
+  <div class="foot">${trip.hasMakkah ? 'Makkah Atraaf Ziyarat time will be informed later.<br>' : ''}<b>Please complete your checkout / Lawazim formalities at least 24 hours before your checkout date &amp; time.</b><br>Lawazim to be paid in Saudi Arabian Riyals only (cash or credit card).</div>
 </div></section>`;
 }
 
