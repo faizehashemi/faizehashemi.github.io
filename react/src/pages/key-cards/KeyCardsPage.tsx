@@ -17,6 +17,7 @@ import { cardsSheet, LAYOUTS } from './sheet';
 // Groups and rooms come from the slips (core/stay.js departuresOf — a delayed group leaves room by room, so only the rooms leaving that day
 // show); only the returned count is saved (GET / PUT /api/key-cards), per slip, room and day, shared by every desk of the site.
 // Taps are saved after half a second, together.
+// Makkah keeps the first layout (the desks' sheet: rooms eight to a line, cards given under each room, − / + for the cards back); Madina has a tick box per room.
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -35,6 +36,7 @@ export default function KeyCardsPage() {
     const { site, siteId } = useSite();
     const { ask, dialog } = useConfirm();
     const writable = cloud.canWrite(siteId);
+    const classic = siteId === 'makkah';
     const slips = useSlips(30_000);
 
     const [day, setDay] = useState(ymd(new Date()));
@@ -201,19 +203,38 @@ export default function KeyCardsPage() {
                 ))}
             </section>
 
-            <section className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3 print:grid-cols-2 print:gap-2">
+            <section className={cn('grid items-start gap-3 print:grid-cols-2 print:gap-2', classic ? 'grid-cols-[repeat(auto-fill,minmax(min(100%,560px),1fr))]' : 'sm:grid-cols-2 xl:grid-cols-3')}>
                 {list.length ? list.map(g => {
                     const s = g.slip, st = stats(g), complete = st.out === 0 && st.issued > 0;
                     return (
                         <article key={`${s.id}-${g.at}`} className={cn('break-inside-avoid overflow-hidden rounded border-[1.5px] border-foreground bg-white', complete && 'border-ok shadow-[0_0_0_2px_rgba(31,111,67,.25)] print:shadow-none')}>
-                            <div className="border-b bg-muted px-3 py-1 text-xs font-bold">Departure Date: {dmy(day)}</div>
-                            <div className="px-3 py-2 font-bold">
+                            <div className={cn('border-b bg-muted px-3 py-1 text-xs font-bold', classic && 'border-b-[1.5px] border-foreground bg-white py-1.5 text-center text-[15px] font-extrabold')}>Departure Date: {dmy(day)}</div>
+                            <div className={cn('px-3 py-2 font-bold', classic && 'border-b-[1.5px] border-foreground py-1.5 text-center text-[15px]')}>
                                 {s.tour_name || '—'}{s.group_leader ? ` (${s.group_leader})` : ''} {g.pax}pax
                                 {busOf(s) && <span className="my-1 inline-block max-w-full rounded border border-foreground/40 bg-accent/40 px-1.5 text-sm leading-snug">🚌 {busOf(s)}</span>}
                                 {(glPhone(s) || busNoOf(s)?.transporter) && <small className="block text-xs font-normal">{glPhone(s) && <>📞 GL {glPhone(s)}</>}{glPhone(s) && busNoOf(s)?.transporter ? ' · ' : ''}{busNoOf(s)?.transporter && <>Transporter: {busNoOf(s)!.transporter}</>}</small>}
                                 <small className="block text-xs font-normal text-muted-foreground">SH {s.sh_no || '—'} · {s.building || 'no building'} · leaves {hm(g.at)}{g.part ? ' · only these rooms leave today' : ''}</small>
                             </div>
-                            <div className="grid gap-1 px-3 pb-2">
+                            {classic ? (
+                                <div className="grid grid-cols-4 sm:grid-cols-8">
+                                    {g.rooms.map(([room, iss]) => {
+                                        const n = back(g, room);
+                                        const cls = n === 0 ? '' : n > iss ? 'bg-bad-soft' : n === iss ? 'bg-ok-soft' : 'bg-warn-soft';
+                                        const tone = n === 0 ? '' : n > iss ? 'text-destructive' : n === iss ? 'text-ok' : 'text-warn';
+                                        return (
+                                            <div key={room} className={cn('min-w-0 border-b border-r border-[#c9bda3] px-0.5 pb-1.5 pt-1 text-center', cls)}>
+                                                <div className="text-base font-extrabold">{room}</div>
+                                                <div className="mt-0.5 border-t border-[#c9bda3] pt-0.5 text-base" title="cards given">{iss}</div>
+                                                <div className="mt-1 flex items-center justify-center gap-0.5">
+                                                    <button type="button" className="h-[26px] w-6 rounded-md border bg-white p-0 text-[15px] font-extrabold leading-none text-[#7a5410] disabled:opacity-40" disabled={!writable || n <= 0} aria-label={`One card less in room ${room}`} onClick={() => setReturned(s.id, room, n - 1)}>−</button>
+                                                    <b className={cn('min-w-[22px] text-[15px] tabular-nums', tone)} title="cards back">{n}</b>
+                                                    <button type="button" className="h-[26px] w-6 rounded-md border bg-white p-0 text-[15px] font-extrabold leading-none text-[#7a5410] disabled:opacity-40" disabled={!writable || n >= MAX} aria-label={`One card more in room ${room}`} onClick={() => setReturned(s.id, room, n + 1)}>+</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : <div className="grid gap-1 px-3 pb-2">
                                 {g.rooms.map(([room, iss]) => {
                                     const n = back(g, room);
                                     const cls = n === 0 ? '' : n > iss ? 'bg-bad-soft' : n === iss ? 'bg-ok-soft' : 'bg-warn-soft';
@@ -227,7 +248,7 @@ export default function KeyCardsPage() {
                                         </label>
                                     );
                                 })}
-                            </div>
+                            </div>}
                             <div className="flex flex-wrap items-center gap-2 border-t bg-muted/40 px-3 py-2 text-sm">
                                 <span className={cn('whitespace-nowrap font-semibold', complete ? 'text-ok' : st.got ? 'text-warn' : '')}>{st.got} / {st.issued} cards back{st.out ? ` · ${st.out} still out` : ' ✓'}</span>
                                 <span className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-border print:hidden"><i className={cn('block h-full', complete ? 'bg-ok' : 'bg-gold')} style={{ width: `${st.issued ? Math.min(100, Math.round(st.got / st.issued * 100)) : 0}%` }} /></span>
