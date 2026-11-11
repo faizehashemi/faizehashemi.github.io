@@ -13,6 +13,7 @@ describe('KG summary', () => {
         slip(101, { checkout_date: day, to_place: 'Medina' }),                                                // to Madina → Wada Sabaq
         slip(102, { checkout_date: day, to_place: 'Jeddah Airport', ums: { firstArrival: 'MADINA' } }),     // airport, came to Madina first → yes
         slip(103, { checkout_date: day, to_place: 'Jeddah Airport', ums: { firstArrival: 'MAKKAH' } }),     // airport, Makkah first → had it already
+        slip(110, { checkout_date: day, to_place: 'Jeddah Airport', ums: { firstArrival: 'MAKKAH', itinerary: 'MAKKAH' } }),   // Makkah only → yes
         slip(104, { checkin_date: day, checkin_time: '10:00' }),                                              // Raate Haram
         slip('S105', { checkin_date: day, checkin_time: '18:00' }),                                           // Raate Haram, second umrah → first
         slip(106, { checkin_date: day, checkin_time: '22:00' }),                                              // Kaale Fajare
@@ -28,7 +29,7 @@ describe('KG summary', () => {
     it('takes the Atraaf trips, and shows who is also in Wada Sabaq', () => {
         const s = kgSummary(slips, [{ ref: '101', route: 'MAKKAH-MAKKAH ATRAAF' }, { ref: '104', route: 'MAKKAH-MAKKAH ATRAAF' }], day, W, baseSh);
         expect(ids(s[0])).toEqual(['101', '104']);
-        expect(ids(s[1])).toEqual(['101', '102']);
+        expect(ids(s[1])).toEqual(['101', '102', '110']);
         expect(ids(s[2])).toEqual(['101']);   // clash
     });
     it('Wada Sabaq follows the Transport day destination first', () => {

@@ -1,7 +1,7 @@
 // KG page → Export summary (Makkah): the day's four lists for the duty desk, each group with its name, leader, total pax and "(Second Umrah)" where its SH has the S.
 //   Aaje Dupehre Atraaf   the groups on today's MAKKAH-MAKKAH ATRAAF trips (Transport day); none planned → yesterday's check-ins
-//   Aaje Dupehre Wada Sabaq   today's departures from Makkah to Madina, and to the airport for groups whose first arrival was Madina
-//                         (a group that came to Makkah first had its Wada Sabaq before its Makkah → Madina trip) — and the groups in both lists (timings clash)
+//   Aaje Dupehre Wada Sabaq   today's departures from Makkah to Madina, and to the airport for groups whose first arrival was Madina or that never go to
+//                         Madina (Makkah only) — a group that came to Makkah first and then went to Madina had its Wada Sabaq before that trip — and the groups in both lists (timings clash)
 //   Aaje Raate Haram      check-ins today from the morning cut-off to the night cut-off (Setup → Fakkul Ehraam windows: split → night_to)
 //   Kaale Fajare Haram    check-ins from tonight's cut-off to tomorrow's morning cut-off (night_to today → split tomorrow)
 // Second Umrah groups come first in the Haram lists.
@@ -54,8 +54,9 @@ export function kgSummary(slips: Row[], trips: Row[], day: string, win: Windows,
         return '';
     };
     const leaving = live.filter(s => s.checkout_date === day);
-    const wada = leaving.filter(s => { const d = destOf(s); return d === 'madina' || (d === 'airport' && String(s.ums?.firstArrival || '').toUpperCase() === 'MADINA'); }).sort(bySecondThenTime('checkout'));
-    const wadaSec: Section = { id: 'wada', title: 'Aaje Dupehre Wada Sabaq', note: 'Leaving Makkah today for Madina, or for the airport when their first arrival was Madina', items: uniq(wada.map(item)) };
+    const madinaFirst = (s: Row) => String(s.ums?.firstArrival || '').toUpperCase() === 'MADINA', makkahOnly = (s: Row) => String(s.ums?.itinerary || '').toUpperCase() === 'MAKKAH';
+    const wada = leaving.filter(s => { const d = destOf(s); return d === 'madina' || (d === 'airport' && (madinaFirst(s) || makkahOnly(s))); }).sort(bySecondThenTime('checkout'));
+    const wadaSec: Section = { id: 'wada', title: 'Aaje Dupehre Wada Sabaq', note: 'Leaving Makkah today for Madina, or for the airport when their first arrival was Madina or the group is Makkah only', items: uniq(wada.map(item)) };
     const inWada = new Set(wadaSec.items.map(x => baseSh(x.sh)));
     const clash: Section = { id: 'clash', title: 'Atraaf and Wada Sabaq clash', note: 'In both lists today — the timings clash', items: atraaf.items.filter(x => inWada.has(baseSh(x.sh))) };
 
