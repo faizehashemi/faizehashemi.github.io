@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useCore, useDb, useGuard, useLoadCore, useNav, useSite } from '@/pms/PmsContext';
+import { ImportUndo } from './ImportUndo';
 
 // UMS Import: load a Group List export (file or Chrome extension), review the changes for this site, apply. The reading, planning, import lock and the
 // extension link are the shared core (core/ums.js, core/ums-auto.js) — this page only shows them.
@@ -18,6 +19,8 @@ const stayText = (r: Row) => `${dmy(r.checkin_date)} ${r.checkin_time || ''} →
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 const Muted = ({ children }: { children: React.ReactNode }) => <span className="text-xs text-muted-foreground">{children}</span>;
 const Pill = ({ children, tone }: { children: React.ReactNode; tone?: 'ok' | 'bad' | 'warn' }) => <Badge variant={tone === 'bad' ? 'destructive' : 'outline'} className={cn(tone === 'ok' && 'border-ok text-ok', tone === 'warn' && 'border-warn text-warn')}>{children}</Badge>;
+// Makkah: a group UMS now says will not travel to Madina, whose Madina dates were proper before — they are kept (core/ums.js complianceGroup)
+const Compliance = () => <Badge variant="outline" className="ml-1 border-warn text-warn" title="UMS now says Will Not Travel To Madina; the Madina dates of the earlier import are kept and only the departure follows UMS">COMPLIANCE</Badge>;
 const Note = ({ children }: { children: React.ReactNode }) => <span className="block text-xs text-warn">⚠ {children}</span>;
 
 export default function UmsPage() {
@@ -36,6 +39,7 @@ export default function UmsPage() {
     const [status, setStatus] = useState(''), [placesStatus, setPlacesStatus] = useState('');
     const [busy, setBusy] = useState(false), [over, setOver] = useState(false);
     const [, tick] = useState(0);
+    const [undoTick, setUndoTick] = useState(0);   // the Undo / Redo list reads again after an import
     const file = useRef<HTMLInputElement>(null);
     const u = ums as any;
 
@@ -44,6 +48,8 @@ export default function UmsPage() {
     const [bst, setBst] = useState<Row>({ running: false, paired: false });
     const [bcfg, setBcfg] = useState({ url: 'http://127.0.0.1:8787', token: '', everyMin: 0 });
     const [bmsg, setBmsg] = useState(''), [bbusy, setBbusy] = useState('');
+    const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const [gl, setGl] = useState({ from: today, to: today, filter: '' });   // what "Fetch Group List now" asks the UMS for
     const refreshBridge = async (m = br) => { if (m) { try { setBst(await m.status()); } catch (e: any) { setBst({ running: false, paired: false, error: e.message }); } } };
     useEffect(() => {
         let alive = true; let mod: any = null; let t: any = null;
@@ -62,7 +68,7 @@ export default function UmsPage() {
         try {
             const onTick = (st: Row | null) => { const n = bridgeNote(st); if (n) setBmsg(n); void refreshBridge(); };
             if (what === 'login') { await br.login({ onTick }); setBmsg('Logged in to UMS.'); }
-            else { const f = await br.fetchGroupList({}, { onTick }); await load({ ...f }); setBmsg(`Fetched from UMS · ${new Date().toLocaleTimeString()}`); }
+            else { const f = await br.fetchGroupList({ from: gl.from, to: gl.to || gl.from, ...(gl.filter ? { filter: gl.filter } : {}) }, { onTick }); await load({ ...f }); setBmsg(`Fetched from UMS · ${new Date().toLocaleTimeString()}`); }
         } catch (e: any) { setBmsg(e.code === 'CAPTCHA_TIMEOUT' ? 'Nobody logged in within the time allowed — try again.' : e.message || 'Failed.'); }
         finally { setBbusy(''); void refreshBridge(); }
     }
@@ -130,6 +136,7 @@ export default function UmsPage() {
             if (res.error) throw new Error(res.error);
             const r = res.summary;
             await load(loaded);   // show the (now empty) remaining diff
+            setUndoTick(n => n + 1);
             setStatus(`Done: ${r.created} new, ${r.updated} updated${r.relinked ? `, ${r.relinked} linked` : ''}. Every desk sees it now.`);
         } catch (e: any) { setStatus('Import failed: ' + (e.message || e)); } finally { setBusy(false); }
     }
@@ -154,6 +161,13 @@ export default function UmsPage() {
                     <label className="flex items-center gap-1.5 text-sm">every
                         <select className="h-8 rounded-md border bg-background px-1" value={bcfg.everyMin} onChange={e => { const v = Number(e.target.value); setBcfg(c => ({ ...c, everyMin: v })); br?.setConfig({ everyMin: v }); br?.startAutoFetch((r: Row) => { if (r.file) { void load({ ...r.file }); setBmsg(`Fetched from UMS · ${new Date().toLocaleTimeString()}`); } else if (r.error) setBmsg(`Automatic fetch failed: ${r.error.message}`); }); }}>
                             <option value={0}>— (not automatic)</option>{[15, 30, 60].map(m => <option key={m} value={m}>{m} min</option>)}</select> while this page is open</label>
+                </div>
+                <div className="flex flex-wrap items-end gap-2 text-sm">
+                    <label className="grid gap-1 text-xs">From<Input type="date" className="w-40" value={gl.from} onChange={e => setGl(g => ({ ...g, from: e.target.value, to: g.to < e.target.value ? e.target.value : g.to }))} /></label>
+                    <label className="grid gap-1 text-xs">Upto<Input type="date" className="w-40" value={gl.to} min={gl.from} onChange={e => setGl(g => ({ ...g, to: e.target.value }))} /></label>
+                    <label className="grid gap-1 text-xs">UMS list<select className="h-9 rounded-md border bg-background px-2 text-sm" value={gl.filter} onChange={e => setGl(g => ({ ...g, filter: e.target.value }))}>
+                        {(br?.GROUP_FILTERS || [['', 'No filter (None of These)']]).map(([v, l]: [string, string]) => <option key={v} value={v}>{l}</option>)}</select></label>
+                    <span className="pb-2 text-xs text-muted-foreground">for “Fetch Group List now” (the timer fetches today)</span>
                 </div>
                 {bmsg && <p className="text-sm">{bmsg}</p>}
                 <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Connection</summary>
@@ -181,6 +195,7 @@ export default function UmsPage() {
             {parsed && <Card><CardHeader><CardTitle className="text-base">2 · File check</CardTitle></CardHeader><CardContent className="grid gap-2">
                 <div className="flex flex-wrap gap-2"><Pill>{loaded?.fileName || 'file'} {loaded?.fetchedAt ? '· fetched ' + when(loaded.fetchedAt) : ''}</Pill><Pill tone={parsed.fatal ? 'bad' : 'ok'}>{parsed.rowCount} group rows</Pill>
                     {parsed.errors.length > 0 && <Pill tone="bad">{parsed.errors.length} unreadable</Pill>}{prev && <Pill>last import: {prev.rows} rows · {when(prev.at)}</Pill>}
+                    {(plan?.compliance ?? 0) > 0 && <Pill tone="warn">{plan!.compliance} compliance group(s): Madina dates kept</Pill>}
                     {plan && sum && <><Pill>{sum.groups} groups stay in {site.label} ({sum.stays} stays)</Pill><Pill>{plan.otherSiteStays} stays elsewhere — not imported here</Pill></>}</div>
                 {parsed.fatal && <p className="text-sm text-destructive">{parsed.fatal}</p>}
                 {issues.length > 0 && <details className="text-sm"><summary className="cursor-pointer">{issues.length} note(s) about the file</summary><ul className="ml-5 list-disc">{issues.map((w, i) => <li key={i}>{w}</li>)}</ul></details>}
@@ -191,14 +206,14 @@ export default function UmsPage() {
                 {tab === 'held' && <p className="text-sm">UMS changed the dates of these slips, but a room would then hold more guests than its beds. <b>The dates were not changed.</b> Sort the room out (move one group to another room, or correct the stay); the next import applies the UMS dates by itself.</p>}
                 {tab === 'missing' && <p className="text-sm">{missRange ? <>Slips in the PMS checking in <b>{dmy(missRange.from)} – {dmy(missRange.to)}</b> (the dates this file covers) that the file does not have — the SH may have been <b>cancelled or postponed</b> in UMS. Keep, edit or delete each. Kept slips are not listed again.</> : 'This file has no stays for this site.'}</p>}
                 <Table>
-                    {tab === 'create' ? <>{th('SH', 'Group', 'Leader', 'Stay', 'Pax (G/L/C/I)', 'Itinerary', 'Country')}<TableBody>{rows.length ? rows.map(({ rec }) => <TableRow key={rec.sh_no + rec.ums.seg}><TableCell>{rec.sh_no}</TableCell><TableCell>{rec.tour_name}{rec.ums.family && <Pill>family</Pill>}</TableCell><TableCell>{rec.group_leader}</TableCell><TableCell>{stayText(rec)}</TableCell><TableCell>{pax(rec)}</TableCell><TableCell>{rec.ums.itinerary} #{rec.ums.seg}</TableCell><TableCell>{rec.ums.country}</TableCell></TableRow>) : empty(7)}</TableBody></>
+                    {tab === 'create' ? <>{th('SH', 'Group', 'Leader', 'Stay', 'Pax (G/L/C/I)', 'Itinerary', 'Country')}<TableBody>{rows.length ? rows.map(({ rec }) => <TableRow key={rec.sh_no + rec.ums.seg}><TableCell>{rec.sh_no}{rec.ums?.compliance && <Compliance />}</TableCell><TableCell>{rec.tour_name}{rec.ums.family && <Pill>family</Pill>}</TableCell><TableCell>{rec.group_leader}</TableCell><TableCell>{stayText(rec)}</TableCell><TableCell>{pax(rec)}</TableCell><TableCell>{rec.ums.itinerary} #{rec.ums.seg}</TableCell><TableCell>{rec.ums.country}</TableCell></TableRow>) : empty(7)}</TableBody></>
                         : tab === 'held' ? <>{th('SH', 'Group', 'Stay now', 'UMS wants', 'Why it was held', '')}<TableBody>{rows.length ? rows.map((h, i) => <TableRow key={i}><TableCell>{h.slip.sh_no}</TableCell><TableCell>{h.slip.tour_name}</TableCell><TableCell>{stayText(h.slip)}</TableCell><TableCell>{u.wantedText(h.slip, h)}</TableCell><TableCell><Note>{u.heldText(h)}</Note></TableCell><TableCell>{slipLink(h.slip.sh_no, 'Open slip')}</TableCell></TableRow>) : empty(6)}</TableBody></>
                         : tab === 'kept' ? <>{th('SH', 'Group', 'Stay', 'Kept (yours → UMS says)')}<TableBody>{rows.length ? rows.map(({ slip, kept }) => <TableRow key={slip.id}><TableCell>{slip.sh_no}</TableCell><TableCell>{slip.tour_name}</TableCell><TableCell>{stayText(slip)}</TableCell><TableCell>{Object.entries(kept as Record<string, Row>).map(([f, k]) => <span key={f} className="block"><b>{f}</b>: {String(k.yours)} <Muted>(UMS: {String(k.ums)}{k.delayed ? ' — kept: delayed departure' : ''})</Muted></span>)}</TableCell></TableRow>) : empty(4)}</TableBody></>
                         : tab === 'missing' ? <>{th('SH', 'Group', 'Stay', 'Building · rooms', 'From', 'Action')}<TableBody>{rows.length ? rows.map(item => { const s = item.slip; const rms = ['gents', 'ladies'].flatMap(k => (s.rooms?.[k] || []).map((x: Row) => String(x.room_no || '').trim()).filter(Boolean));
                             return <TableRow key={s.id}><TableCell>{s.sh_no}</TableCell><TableCell>{s.tour_name}<br /><Muted>{String(s.group_leader || '').trim() || '-'}</Muted></TableCell><TableCell>{stayText(s)}</TableCell><TableCell>{s.building || '—'}{rms.length > 0 && <><br /><Muted>{rms.join(', ')}</Muted></>}</TableCell>
                                 <TableCell>{item.why === 'ums' ? `UMS, last imported ${when(s.ums?.importedAt)}` : 'made in the PMS'}</TableCell>
                                 <TableCell className="space-x-1">{!db.readonly && <><Button size="sm" variant="outline" onClick={() => void missAct(item, 'keep')}>Keep</Button>{slipLink(s.sh_no, 'Edit')} <Button size="sm" variant="outline" className="text-destructive" onClick={() => void missAct(item, 'delete')}>Delete</Button></>}</TableCell></TableRow>; }) : empty(6)}</TableBody></>
-                        : <>{th('SH', 'Group', 'Building', 'Stay (new)', 'Changes')}<TableBody>{rows.length ? rows.map(x => <TableRow key={x.key + x.rec.sh_no}><TableCell>{x.rec.sh_no}</TableCell><TableCell>{x.rec.tour_name}</TableCell><TableCell>{x.rec.building || '—'}</TableCell><TableCell>{stayText(x.rec)}</TableCell>
+                        : <>{th('SH', 'Group', 'Building', 'Stay (new)', 'Changes')}<TableBody>{rows.length ? rows.map(x => <TableRow key={x.key + x.rec.sh_no}><TableCell>{x.rec.sh_no}{x.rec.ums?.compliance && <Compliance />}</TableCell><TableCell>{x.rec.tour_name}</TableCell><TableCell>{x.rec.building || '—'}</TableCell><TableCell>{stayText(x.rec)}</TableCell>
                             <TableCell>{Object.entries(x.changes as Record<string, Row>).map(([f, c]) => <span key={f} className="block"><b>{f}</b>: <span className="text-muted-foreground line-through">{String(c.from)}</span> → {String(c.to)}</span>)}{!Object.keys(x.changes).length && <Muted>linked to UMS stay {x.key}</Muted>}{x.notes.map((n: string, i: number) => <Note key={i}>{n}</Note>)}</TableCell></TableRow>) : empty(5)}</TableBody></>}
                 </Table>
                 <div className="flex flex-wrap items-center gap-3"><Button disabled={db.readonly || nothing || busy} onClick={() => void apply()}>{nothing ? 'Nothing to apply' : `Apply: ${sum.created} new, ${sum.updated} updated${sum.relinked ? `, ${sum.relinked} linked` : ''}`}</Button>
@@ -208,6 +223,8 @@ export default function UmsPage() {
             <Card><CardHeader><CardTitle className="text-base">From / To on existing slips</CardTitle>
                 <p className="text-sm text-muted-foreground">Fills the <b>From</b> and <b>To</b> of every slip of {site.label} that came from UMS, using the arrival, departure and itinerary stored with it. Places already set by hand are kept. Every change is saved as a new slip version.</p></CardHeader>
                 <CardContent className="flex flex-wrap items-center gap-3"><Button variant="outline" disabled={db.readonly || busy} onClick={() => void fillPlaces()}>Fill From / To on all slips</Button><span className="text-sm text-muted-foreground">{placesStatus}</span></CardContent></Card>
+
+            <ImportUndo refresh={undoTick} onDone={() => { if (loaded) void load(loaded); }} />
 
             <Card><CardHeader><CardTitle className="text-base">History</CardTitle></CardHeader><CardContent><Table>
                 {th('When', 'How', 'Result', 'Rows', 'New', 'Updated', 'Attention', 'Not in export', 'Note')}

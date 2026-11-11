@@ -16,6 +16,7 @@ import { canWrite } from './cloud.js';
 import { umsConfig } from './settings.js';
 import { track } from './analytics.js';
 import { parseUms, planImport, applyPlan, summarize, hashText, writeLog, lastApplied, setLastApplied } from './ums.js';
+import { recordImport } from './ums-undo.js';
 
 const AUTO_KEY = 'pms_ums_auto';
 
@@ -68,6 +69,7 @@ export async function runImport({ siteId, html, fileName, via, fetchedAt, planOv
         }
         const sum = summarize(plan);
         if (res && res.skipped) sum.created -= res.skipped; // stays another desk had just imported
+        await recordImport(siteId, plan, { via, fileName: base.fileName, fetchedAt: base.fetchedAt, rows: parsed.rowCount, sum });   // for Undo / Redo (Import history)
         setLastApplied(siteId, { hash, rows: parsed.rowCount, at: base.at, fetchedAt: base.fetchedAt });
         writeLog(siteId, { ...base, result: 'applied', ...sum, errors: parsed.errors.length, warnings: parsed.warnings.length + plan.warnings.length });
         track('ums_import', { site: siteId, via, rows: parsed.rowCount, created: sum.created, updated: sum.updated, attention: sum.attention });

@@ -294,7 +294,39 @@ function umsMeta(g, stay, now) {
             ? (g.depFromMadina ? 'MADINA' : 'MADINA→MAKKAH')
             : (g.depFromMadina ? 'MAKKAH→MADINA' : 'MAKKAH→MADINA→MAKKAH')),
         status: g.status, importedAt: now,
+        // the Madina legs as UMS gave them — a later "Will Not Travel To Madina" keeps them (compliance, planImport)
+        madinaDate: g.madinaDate || null, makkahDate: g.makkahDate || null, depFromMadina: !!g.depFromMadina,
+        ...(g.compliance ? { compliance: true } : {}),
     };
+}
+
+/**
+ * Makkah: a group whose Madina dates were proper in an earlier import but now read "Will Not Travel To Madina" keeps them —
+ * its Makkah legs stay as they were and only the last one follows the new DEPARTURE. Its slips are tagged compliance (ums.compliance).
+ * The earlier dates come from what the last import stored on the slips (ums.madinaDate / makkahDate), or — for slips imported before
+ * that was stored — from the legs themselves: the first Makkah stay ends on the Madina date, the second begins on the Madina → Makkah date.
+ * Returns the group with those dates put back, or null when it never had them (a Makkah-only group from the start).
+ */
+export function complianceGroup(g, existing, siteId) {
+    if (siteId !== 'makkah' || !g.noMadina) return null;
+    const mine = existing.filter(s => !s.deleted && s.ums && String(s.ums.ref) === String(g.sh));
+    if (!mine.length) return null;
+    const at = (n) => mine.find(s => s.ums.key === `${g.sh}|makkah|${n}`);
+    const stored = mine.find(s => s.ums.madinaDate || s.ums.makkahDate)?.ums;
+    // the itinerary they had: an earlier import may already have written MAKKAH on the first leg while the second leg still says how it was
+    const it = String([at(2), at(1), ...mine].find(s => s && s.ums.itinerary && s.ums.itinerary !== 'MAKKAH')?.ums.itinerary || 'MAKKAH');
+    if (it === 'MAKKAH' && !stored) return null;   // Makkah only before as well: nothing to keep
+    let madinaDate = stored?.madinaDate || null, makkahDate = stored?.makkahDate || null, depFromMadina = stored ? !!stored.depFromMadina : false;
+    const firstArrival = String(stored ? ((at(1) || mine[0]).ums.firstArrival || g.firstArrival) : (it.startsWith('MADINA') ? 'MADINA' : 'MAKKAH')).toUpperCase();
+    if (!stored) {
+        if (it === 'MAKKAH→MADINA→MAKKAH') { madinaDate = at(1)?.checkout_date || null; makkahDate = at(2)?.checkin_date || null; }
+        else if (it === 'MAKKAH→MADINA') { madinaDate = at(1)?.checkout_date || null; depFromMadina = true; }
+        else if (it === 'MADINA→MAKKAH') { makkahDate = at(1)?.checkin_date || null; madinaDate = g.arrival.date; }
+    }
+    if (firstArrival === 'MAKKAH' ? !madinaDate : !makkahDate) return null;
+    if (madinaDate && makkahDate && makkahDate <= madinaDate) return null;   // the legs no longer make sense (the first was stretched): leave it to UMS
+    if (firstArrival === 'MADINA' && !madinaDate) madinaDate = g.arrival.date;
+    return { ...g, noMadina: false, madinaDate, makkahDate, depFromMadina, firstArrival, compliance: true };
 }
 
 const hasRooms = (s) => [...(s.rooms?.gents || []), ...(s.rooms?.ladies || [])].some(r => String(r.room_no || '').trim());
@@ -307,7 +339,7 @@ const assignedBeds = (s) => [...(s.rooms?.gents || []), ...(s.rooms?.ladies || [
  */
 export function planImport(parsed, existing, siteId, cfg = UMS) {
     const now = new Date().toISOString();
-    const plan = { siteId, create: [], update: [], kept: [], unchanged: 0, missing: [], warnings: [], stays: 0, groups: 0, otherSiteStays: 0 };
+    const plan = { siteId, create: [], update: [], kept: [], unchanged: 0, missing: [], warnings: [], stays: 0, groups: 0, otherSiteStays: 0, compliance: 0 };
 
     const byKey = new Map();
     const unlinkedBySh = new Map();
@@ -324,8 +356,10 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
     const fileShs = new Set();   // every SH in the file (any site)
     let fromDay = null, toDay = null; // check-in dates this file covers for this site
 
-    for (const g of parsed.groups) {
-        fileShs.add(String(g.sh));
+    for (const g0 of parsed.groups) {
+        fileShs.add(String(g0.sh));
+        const g = complianceGroup(g0, existing, siteId) || g0;
+        if (g.compliance) plan.compliance++;
         const { stays, warnings } = staysOf(g, cfg);
         plan.warnings.push(...warnings);
         const mine = stays.filter(st => st.site === siteId);
@@ -385,7 +419,7 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
             for (const [f, c] of Object.entries(changes)) if (c.kind === 'override') notes.push(`your edit to ${f} (${c.from}) replaced — UMS changed it from ${c.was} to ${c.to}`);
 
             if (Object.keys(kept).length) plan.kept.push({ key: meta.key, slip, kept });
-            const linkChanged = slip.ums?.key !== meta.key || !eq(slip.site, siteId);
+            const linkChanged = slip.ums?.key !== meta.key || !eq(slip.site, siteId) || !!slip.ums?.compliance !== !!meta.compliance;   // also: the compliance tag comes or goes
             if (!changed.length && !linkChanged) { plan.unchanged++; continue; }
 
             const next = { ...slip, site: slip.site || siteId, updatedAt: now, ums: { ...meta, applied: vals } };
@@ -406,6 +440,7 @@ export function planImport(parsed, existing, siteId, cfg = UMS) {
     plan.missingRange = fromDay ? { from: fromDay, to: toDay } : null;
     for (const s of existing) {
         if (s.deleted || s.site !== siteId || !fromDay || s.ums_absent_kept) continue;
+        if (/^S\d/i.test(String(s.sh_no ?? '').trim()) || s.ums?.compliance) continue;   // a second stay (S…) and compliance slips are not listed
         if (!s.checkin_date || s.checkin_date < fromDay || s.checkin_date > toDay) continue;
         if (s.ums?.key) { if (!seenKeys.has(s.ums.key)) plan.missing.push({ slip: s, why: 'ums' }); }
         else if (!claimed.has(s.id) && String(s.sh_no ?? '').trim() && !fileShs.has(baseSh(s.sh_no))) plan.missing.push({ slip: s, why: 'pms' });

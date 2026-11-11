@@ -522,6 +522,7 @@ async function route(req, env) {
     }
     if (p === '/api/me' && m === 'GET') return json({ desk: publicDesk(me) });
     if (p === '/api/me/password' && m === 'POST') return changeOwnPassword(req, env, me);
+    if (p === '/api/me/verify-password' && m === 'POST') return verifyOwnPassword(req, env, me);
     if (p === '/api/me/prefs' && m === 'GET') return getPrefs(env, me);
     if (p === '/api/me/prefs' && m === 'PUT') return putPrefs(req, env, me);
 
@@ -1361,6 +1362,20 @@ async function updateDesk(req, env, me, id) {
 
 // Any login changes its own password: the current one is required (and counts towards the lockout),
 // every other session of this desk is signed out, this one stays.
+// A login confirms itself before a big step (UMS Import → Undo / Redo): its own password, wrong ones counting towards the lock
+async function verifyOwnPassword(req, env, me) {
+    const { password } = await body(req);
+    const since = new Date(Date.now() - 15 * 60e3).toISOString();
+    const fails = await env.DB.prepare('SELECT COUNT(*) AS c FROM login_failures WHERE name = ? AND at > ?').bind(me.name, since).first('c');
+    if (fails >= LOGIN_MAX_FAILS) throw new HttpError(429, 'Too many wrong passwords. Wait 15 minutes and try again.');
+    const desk = await env.DB.prepare('SELECT * FROM desks WHERE id = ?').bind(me.id).first();
+    if (!desk || !password || !sameHex(await pbkdf2(String(password), desk.pw_salt, desk.pw_iter), desk.pw_hash)) {
+        await env.DB.prepare('INSERT INTO login_failures (name, at) VALUES (?, ?)').bind(me.name, now()).run();
+        throw new HttpError(400, 'Wrong password.');
+    }
+    return json({ ok: true });
+}
+
 async function changeOwnPassword(req, env, me) {
     const { current, password } = await body(req);
     const since = new Date(Date.now() - 15 * 60e3).toISOString();
