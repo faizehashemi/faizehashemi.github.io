@@ -79,7 +79,7 @@ export default function CheckinsPage() {
     const leg = (r: Row) => legOf(r, siteId, other, ums.baseSh);
     const outCol = siteId === 'medina';
     // the Transport day trips of the check-out days of the check-ins shown: SH → trip (the day's list of this site)
-    const outDays = useMemo(() => [...new Set(win.ins.map(r => String(r.checkout_date || '')).filter(Boolean))].sort().slice(0, 40).join(','), [win]);
+    const outDays = useMemo(() => [...new Set([...win.ins, ...win.outs].map(r => String(r.checkout_date || '')).filter(Boolean))].sort().slice(0, 40).join(','), [win]);
     useEffect(() => {
         if (!outCol || !libs || !outDays) return;
         let off = false;
@@ -172,14 +172,14 @@ export default function CheckinsPage() {
         const rows = rowsOf(kind), hidden = hiddenCols(kind);
         const cols = colsFor(siteId).filter(c => !hidden.includes(c.id));
         const showOther = !hidden.includes('other'), showSlip = !hidden.includes('slip') && may.slip;
-        const lastOut = kind === 'in' && outCol;
+        const lastOut = outCol;   // Madina: on Check-ins the check-out with its transport; on Check-outs (the date is the row's own) the transport only
         // Madina check-ins: the Check-out & transport column sits right after Group (before Group Leader); with Group hidden, where it would be
         const outAt = !lastOut ? -1 : (() => { const g = cols.findIndex(c => c.id === 'group'); if (g >= 0) return g + 1; const l = cols.findIndex(c => c.id === 'leader'); return l >= 0 ? l : 0; })();
-        const outCell = (r: Row, co: Date | null) => (() => { const t = tripOf(r), lm = leaveOf(r); return <TableCell className="whitespace-nowrap">{fmtDT(co)}<span className="block text-xs">{lm.mode ? <b>{lm.mode}</b> : <span className="text-muted-foreground">mode not known</span>}{t ? <span className="text-muted-foreground"> · {(!/ZIYARAT/i.test(String(t.route || '')) && String(r.to_place || '').trim()) ? String(r.to_place).trim().toUpperCase() : String(t.route || '').split('-').slice(1).join('-')}{t.at ? ` ${String(t.at).slice(11, 16)}` : ''}{t.bus != null && t.bus !== '' ? ` · ${libs?.transport.vehicleNo(t.bus, t.vehicle, t.vehicle_label)}` : ''}</span> : lm.src && <span className="text-muted-foreground"> · {lm.src === 'ums' ? 'UMS' : 'slip'}</span>}</span></TableCell>; })();
+        const outCell = (r: Row, co: Date | null) => (() => { const t = tripOf(r), lm = leaveOf(r); return <TableCell className="whitespace-nowrap">{kind === 'in' && fmtDT(co)}<span className={cn(kind === 'in' ? 'block text-xs' : 'text-sm')}>{lm.mode ? <b>{lm.mode}</b> : <span className="text-muted-foreground">mode not known</span>}{t ? <span className="text-muted-foreground"> · {(!/ZIYARAT/i.test(String(t.route || '')) && String(r.to_place || '').trim()) ? String(r.to_place).trim().toUpperCase() : String(t.route || '').split('-').slice(1).join('-')}{t.at ? ` ${String(t.at).slice(11, 16)}` : ''}{t.bus != null && t.bus !== '' ? ` · ${libs?.transport.vehicleNo(t.bus, t.vehicle, t.vehicle_label)}` : ''}</span> : lm.src && <span className="text-muted-foreground"> · {lm.src === 'ums' ? 'UMS' : 'slip'}</span>}</span></TableCell>; })();
         const withOut = (cells: React.ReactNode[], out: React.ReactNode) => (outAt < 0 ? cells : [...cells.slice(0, outAt), out, ...cells.slice(outAt)]);
         const n = 1 + (showFl ? 1 : 0) + cols.length + (showOther ? 1 : 0) + (showSlip ? 1 : 0) + (kind === 'in' ? 1 : 0) + (lastOut ? 1 : 0);
         const head = (
-            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{withOut(cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>), <TableHead key="out" className="whitespace-nowrap">Check-out &amp; transport</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}</TableRow>
+            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{withOut(cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>), <TableHead key="out" className="whitespace-nowrap">{kind === 'in' ? <>Check-out &amp; transport</> : 'Transport'}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}</TableRow>
         );
         const tot = (list: Row[], label: string, cls: string) => {
             const k = countsOf(list), v: Record<string, number> = { as: k.as, t: k.t, g: k.g, l: k.l, c: k.c, i: k.i };
