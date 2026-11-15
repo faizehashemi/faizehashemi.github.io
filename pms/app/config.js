@@ -29,7 +29,7 @@ export const DEFAULT_SITE = 'makkah';
 // The menu bar, router and page frame as React (react/src/shell) instead of core/nav.js + legacy-shell.js. On for everybody since 2026-11-02 (approved after staging);
 // one browser: localStorage pms_react_shell = 1 (on) / 0 (off); one visit: ?shell=react / ?shell=legacy in the address (see main.js).
 export const REACT_SHELL = true;
-export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
+export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','slip-builder','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
@@ -45,6 +45,7 @@ export const VIEWS = [
     { id: 'grouping',     label: 'Grouping',           title: 'Groups',                key: '6', hint: 'Bundle arrivals and print stickers' },
     { id: 'kg',           label: 'KG',                 title: 'FEA',                   key: '7', hint: 'Fakkul Ehraam & Atraaf duty roster' },
     { id: 'print',        label: 'Print slips',        title: 'Print — GL Copy',       key: '8', hint: 'A5 slips and group-leader copies' },
+    { id: 'slip-builder',  label: 'Slip builder',       title: 'Slip Builder',          hint: 'Madina: arrange the accommodation slip (rows, labels, colours, sizes)', sites: ['medina'] },
     { id: 'admin',        label: 'Slip admin',         title: 'Admin',                 key: '9', hint: 'Search, delete, back up slips' },
     { id: 'mawaid',       label: 'Mawaid',             title: 'Mawaid Stats',          key: '0', hint: 'Meal counts and thals per building' },
     { id: 'tosha',        label: 'Tosha summary',      title: 'Tosha Summary',         hint: 'Travel refreshments for tomorrow’s and today’s buses' },
@@ -77,7 +78,7 @@ export const VIEWS = [
 
 // Menu categories (top bar on laptops, drawer sections on phones)
 export const NAV = [
-    { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'print'] },
+    { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'print', 'slip-builder'] },
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'key-cards', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'arrival', 'signage-builder'] },

@@ -11,6 +11,7 @@ export const PAGES: Record<string, () => Promise<PageModule>> = {
     'key-cards': () => import('@/pages/key-cards/KeyCardsPage'),
     'pending-checkouts': () => import('@/pages/pending-checkouts/PendingCheckoutsPage'),
     'building-hisaab': () => import('@/pages/building-hisaab/BuildingHisaabPage'),
+    'slip-builder': () => import('@/pages/slip-builder/SlipBuilderPage'),
     'menu-card': () => import('@/pages/menu-card/MenuCardPage'),
     performance: () => import('@/pages/performance/PerformancePage'),
     occupancy: () => import('@/pages/occupancy/OccupancyPage'),

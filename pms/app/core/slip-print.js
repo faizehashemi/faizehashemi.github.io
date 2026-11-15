@@ -70,6 +70,7 @@ const SLIP_NOTE = `<div class="slip-req" style="margin-top:1.5mm;border:1px dash
 
 /** One copy of the slip; opts.admin = the printed slip (checkout box for the desk) */
 export function slipHTML(rec, rows, opts = {}) {
+    if (rec.site === 'medina') return layoutSlip(rec, rows, opts, slipLayout('medina'));
     const gents = (rec.rooms?.gents || []).slice(0, rows);
     const ladies = (rec.rooms?.ladies || []).slice(0, rows);
     const fillRows = (arr) => {
@@ -118,6 +119,100 @@ export function slipHTML(rec, rows, opts = {}) {
   </div>`;
 }
 
+/* ------------------------------ slip layout (Madina) ------------------------------ */
+// Front desk → Slip builder: the Madina slip is drawn from a layout the desk arranges — which rows, in what order and pairs, each field's label, colour,
+// weight and size, the room tables and the footer. Kept as the site setting slip_layout; DEFAULT_LAYOUT is the slip as it was (with the highlights).
+export const SLIP_FIELDS = {
+    tour: ['TOUR NAME', (r) => r.tour_name],
+    leader: ['GRP LEADER', (r) => glName(r)],
+    gl_phone: ['GL PHONE', (r) => r.ums?.glPhone || r.ums?.phone || ''],
+    checkin: ['CHECK IN', (r) => [ymdToDMY(r.checkin_date || ''), hhmmToHMS(r.checkin_time || '')], 'dt'],
+    checkout: ['CHECK OUT', (r) => [ymdToDMY(r.checkout_date || ''), hhmmToHMS(r.checkout_time || '')], 'dt'],
+    checkin_date: ['CHECK IN', (r) => ymdToDMY(r.checkin_date || '')],
+    checkout_date: ['CHECK OUT', (r) => ymdToDMY(r.checkout_date || '')],
+    building: ['BUILDING', (r) => r.building],
+    from: ['FROM', (r) => r.from_place || '-'],
+    to: ['TO', (r) => r.to_place || '-'],
+    mode_from: ['MODE', (r) => arriveMode(r).mode || '-'],
+    mode_to: ['MODE', (r) => r._leave || leaveMode(r).mode || '-'],
+    sh: ['SH NO.', (r) => r.sh_no],
+    total: ['TOTAL', (r) => r.total],
+    gents: ['GENTS', (r) => r.gents],
+    ladies: ['LADIES', (r) => r.ladies],
+    children: ['CHILDREN', (r) => r.children],
+    infants: ['INFANTS', (r) => r.infants],
+    arrival: ['ARRIVAL', (r) => { const a = r.ums?.arrival; return a ? `${ymdToDMY(a.date)} ${a.time || ''} ${a.flight || ''}`.trim() : '-'; }],
+    departure: ['DEPARTURE', (r) => { const d = r.ums?.departure; return d ? `${ymdToDMY(d.date)} ${d.time || ''} ${d.flight || ''}`.trim() : '-'; }],
+};
+const HL = (color) => ({ color, bold: true, size: 13.5 });
+export const DEFAULT_LAYOUT = {
+    title: 'ACCOMODATION DETAILS', titleSize: 14, size: 11,
+    rows: [['tour'], ['leader'], ['checkin'], ['checkout'], ['building'], ['from', 'to'], ['mode_from', 'mode_to'], ['sh', 'total'], ['gents', 'ladies'], ['children', 'infants']],
+    fields: { checkin: HL('#0a8a3a'), checkout: HL('#0a8a3a'), sh: HL('#c8102e'), total: HL('#1a3fc4') },
+    rooms: { show: true, gentsTitle: 'GENTS', ladiesTitle: 'LADIES', roomLabel: 'Room No', bedsLabel: 'Assigned Beds', color: '#c8102e', bold: true, size: 15 },
+    notes: true, adminBox: true, note: 'This slip is required during Hisaab / Passport collection / Key card submission and Checkout.',
+};
+const LAYOUTS = {};
+/** The layout a site's slips are drawn with (the saved one, else the default) */
+export const slipLayout = (site) => LAYOUTS[site] || DEFAULT_LAYOUT;
+/** Use this layout from now on in this tab (the builder's preview and after a save) */
+export const setSlipLayout = (site, layout) => { LAYOUTS[site] = layout || null; };
+/** Read the saved layout of a site (called when this module loads, and by the builder) */
+export async function loadSlipLayout(site = 'medina') {
+    try { const v = (await loadSettings(site)).settings.slip_layout; if (v && Array.isArray(v.rows)) LAYOUTS[site] = v; } catch { }
+    return slipLayout(site);
+}
+loadSlipLayout('medina');
+
+const cssOf = (st, base) => {
+    if (!st) return '';
+    const p = [];
+    if (st.color) p.push(`color:${st.color}!important`);
+    if (st.bold) p.push('font-weight:800!important');
+    if (st.size && st.size !== base) p.push(`font-size:${Number(st.size)}px!important`);
+    return p.length ? ` style="${p.join(';')}"` : '';
+};
+/** A slip drawn from a layout (Madina) */
+export function layoutSlip(rec, rows, opts, L) {
+    const base = Number(L.size) || 11, F = L.fields || {}, R = L.rooms || {};
+    const lab = (id) => esc((F[id] && F[id].label) || SLIP_FIELDS[id]?.[0] || id);
+    const val = (id) => { const f = SLIP_FIELDS[id]; return f ? f[1](rec) : ''; };
+    const td = (id, extra = '') => `<td${extra}${cssOf(F[id], base)}>${esc(val(id) ?? '')}</td>`;
+    const body = (L.rows || []).filter(r => r && r.length && SLIP_FIELDS[r[0]]).map(r => {
+        const [a, b] = r;
+        if (!b || !SLIP_FIELDS[b]) {
+            if (SLIP_FIELDS[a][2] === 'dt') { const [d, t] = val(a); return `<tr><th>${lab(a)}</th><td${cssOf(F[a], base)}>${esc(d)}</td><td>${esc(t)}</td><td></td></tr>`; }
+            return `<tr><th>${lab(a)}</th>${td(a, ' colspan="3"')}</tr>`;
+        }
+        const one = (id) => SLIP_FIELDS[id][2] === 'dt' ? `<th>${lab(id)}</th><td${cssOf(F[id], base)}>${esc(val(id).join(' '))}</td>` : `<th>${lab(id)}</th>${td(id)}`;
+        return `<tr>${one(a)}${one(b)}</tr>`;
+    }).join('');
+    const roomCss = cssOf({ color: R.color, bold: R.bold, size: R.size }, base);
+    const fill = (arr) => {
+        const out = [];
+        for (let i = 0; i < rows; i++) {
+            const r = arr[i];
+            const room = r && r.room_no ? r.room_no : '-';
+            const beds = r && (r.assigned !== '' && r.assigned != null) ? r.assigned : (r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0);
+            const exB = showExclBuilding() ? ` · ${esc(String(r.building || rec.building || '').toUpperCase())}` : '';
+            const excl = r && r.room_no && r.exclusive ? `<small style="display:block;font-size:8px;font-weight:700;line-height:1.1">EXCL${exB}</small>` : '';
+            out.push(`<tr><td${r && r.room_no ? roomCss : ''}>${esc(room)}${excl}</td><td>${esc(beds)}</td></tr>`);
+        }
+        return out.join('');
+    };
+    const mini = (title, list) => `<table class="mini"><caption>${esc(title)}</caption><thead><tr><th>${esc(R.roomLabel || 'Room No')}</th><th>${esc(R.bedsLabel || 'Assigned Beds')}</th></tr></thead><tbody>${fill(list)}</tbody></table>`;
+    const notes = L.notes !== false && String(rec.notes || '').trim();
+    const sz = base !== 11 ? ` style="--slip-size:${base}px"` : '';
+    return `
+  <div class="slip slip-l" data-rec-id="${esc(rec.id)}"${sz}>
+    <div class="title"${L.titleSize && L.titleSize !== 14 ? ` style="font-size:${Number(L.titleSize)}px"` : ''}>${esc(L.title ?? 'ACCOMODATION DETAILS')}</div>
+    <table class="grid pair"><tbody>${body}</tbody></table>
+    ${notes ? `<table class="grid pair" style="margin-top:2mm"><tbody><tr><th>NOTES</th><td colspan="3" class="slip-notes" style="text-align:left!important;white-space:pre-wrap">${esc(String(rec.notes).trim())}</td></tr></tbody></table>` : ''}
+    ${R.show !== false ? `<div class="subtables">${mini(R.gentsTitle || 'GENTS', (rec.rooms?.gents || []).slice(0, rows))}${mini(R.ladiesTitle || 'LADIES', (rec.rooms?.ladies || []).slice(0, rows))}</div>` : ''}
+    ${opts.admin && L.adminBox !== false ? ADMIN_BOX : ''}${L.note ? `<div class="slip-req" style="margin-top:1.5mm;border:1px dashed #111;border-left:3px solid #111;padding:1mm 1.8mm;font-size:9px;line-height:1.25;text-align:left"><b>Note:</b> ${esc(L.note)}</div>` : ''}
+  </div>`;
+}
+
 /* ------------------------------ shared styles ------------------------------ */
 
 export const SLIP_CSS = `
@@ -133,6 +228,7 @@ export const SLIP_CSS = `
 .pms-slips table.grid th, .pms-slips table.grid td, .pms-slips .mini th, .pms-slips .mini td {
   border: 1px solid var(--border); padding: 1.2mm 1.6mm; font-size: 11px; vertical-align: middle; text-align: center !important; color: var(--ink); background: #fff; }
 .pms-slips table.grid th { font-weight: 700; white-space: nowrap; }
+.pms-slips .slip-l table.grid th, .pms-slips .slip-l table.grid td, .pms-slips .slip-l .mini th, .pms-slips .slip-l .mini td { font-size: var(--slip-size, 11px); }
 .pms-slips .pair th { width: 28%; }
 .pms-slips .subtables { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; margin-top: 2mm; }
 .pms-slips .mini caption { caption-side: top; text-align: left; font-weight: 700; font-size: 11px; margin-bottom: 1mm; color: var(--ink); }

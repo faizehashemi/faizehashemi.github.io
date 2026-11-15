@@ -543,6 +543,7 @@ async function route(req, env) {
 
     if (p === '/api/settings' && m === 'GET') return getSettings(env, me, url.searchParams.get('site'));
     if (p === '/api/settings' && m === 'PUT') { requireDeskManager(me); return putSettings(req, env, me, url); }
+    if (p === '/api/slip-layout' && m === 'PUT') return putSlipLayout(req, env, me);
 
     if (p === '/api/kg' && m === 'GET') return getKg(env, String(url.searchParams.get('site') || me.site));
     if (p === '/api/kg/op' && m === 'POST') return kgOp(req, env, me);
@@ -1115,6 +1116,13 @@ const SETTINGS = {
             && Object.entries(v).every(([k, c]) => k.trim().length >= 1 && k.length <= 60 && !/[<>]/.test(k) && typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c)),
         msg: 'GL copy colours: up to 100 buildings, each a colour like #e8590c.',
     },
+    // Front desk → Slip builder: how a site's slip is laid out (rows, labels, colours, sizes, room tables, footer). Plain values only
+    slip_layout: {
+        check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Array.isArray(v.rows) && v.rows.length <= 40
+            && v.rows.every(r => Array.isArray(r) && r.length >= 1 && r.length <= 2 && r.every(x => /^[a-z_]{1,20}$/.test(String(x))))
+            && JSON.stringify(v).length <= 20000 && !/[<>]/.test(JSON.stringify(v)),
+        msg: 'Slip layout: up to 40 rows of one or two fields, plain text only.',
+    },
     // Transport day: the most pax a bus may carry, per destination of the site ({ "mdziyarat": 45, "madina": 49 }); a destination not listed keeps 49
     bus_limits: {
         check: (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length <= 30
@@ -1125,7 +1133,7 @@ const SETTINGS = {
 
 // Settings are global, and a site can have its own value for the SITE_SETTINGS keys, stored under "<site>/<key>". A login of a site gets its site's values
 // (its own where set, else the global ones); an owner admin gets the global ones, or those of the site it asks for (?site=).
-const SITE_SETTINGS = ['arrival_commute_hours', 'arrival_other_hours', 'departure_lead_hours', 'transfer_checkin_time', 'transfer_checkout_time', 'laundry_info', 'kg_sessions', 'fe_windows', 'delay_hold_days', 'sh_prefixes', 'gl_colors', 'bus_limits'];
+const SITE_SETTINGS = ['slip_layout', 'arrival_commute_hours', 'arrival_other_hours', 'departure_lead_hours', 'transfer_checkin_time', 'transfer_checkout_time', 'laundry_info', 'kg_sessions', 'fe_windows', 'delay_hold_days', 'sh_prefixes', 'gl_colors', 'bus_limits'];
 async function getSettings(env, me, siteArg) {
     const site = me.role === 'admin' ? (SITES[siteArg] ? siteArg : null) : me.site;
     const { results } = await env.DB.prepare(
@@ -1142,6 +1150,24 @@ async function getSettings(env, me, siteArg) {
         if (!last || r.updated_at > last.updated_at) last = r;
     }
     return json({ settings: { ...settings, ...own }, site, overrides, updated_at: last ? last.updated_at : null, updated_by: last ? last.updated_by : null });
+}
+
+// Front desk → Slip builder: a desk of the site saves its slip layout (null = back to the default)
+async function putSlipLayout(req, env, me) {
+    const { site, layout } = await body(req);
+    assertWrite(me, site);
+    const key = `${site}/slip_layout`;
+    if (layout === null) {
+        await env.DB.batch([env.DB.prepare('DELETE FROM settings WHERE key = ?').bind(key), auditStmt(env, me, 'settings', null, `${site}: slip layout back to the default`)]);
+        return json({ ok: true, layout: null });
+    }
+    if (!SETTINGS.slip_layout.check(layout)) throw new HttpError(400, SETTINGS.slip_layout.msg);
+    await env.DB.batch([
+        env.DB.prepare('INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by')
+            .bind(key, JSON.stringify(layout), now(), me.id),
+        auditStmt(env, me, 'settings', null, `${site}: slip layout saved`),
+    ]);
+    return json({ ok: true, layout });
 }
 
 async function putSettings(req, env, me, url) {

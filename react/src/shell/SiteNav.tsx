@@ -72,7 +72,7 @@ function Bar({ deps, siteId, viewId, desk, prefs, wide, host, onSiteChange, onLo
     const [dd, setDd] = useState<string | null>(null);                  // open dropdown: a group id or 'desk'
     const [drawer, setDrawer] = useState(false), [backdrop, setBackdrop] = useState(false);
     const [search, setSearch] = useState(false), [q, setQ] = useState(''), [sel, setSel] = useState(0);
-    const menu = useMemo(() => deps.menuFor(prefs).map(g => ({ ...g, views: g.views.filter(v => viewById[v] && canOpen(v, desk)) })).filter(g => g.views.length), [prefs, desk, viewById]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const menu = useMemo(() => deps.menuFor(prefs).map(g => ({ ...g, views: g.views.filter(v => viewById[v] && canOpen(v, desk) && (!(viewById[v] as any).sites || (viewById[v] as any).sites.includes(siteId))) })).filter(g => g.views.length), [prefs, desk, viewById, siteId]);   // a page for some sites only (VIEWS sites: [...])   // eslint-disable-line react-hooks/exhaustive-deps
     const cat = menu.find(c => c.views.includes(viewId));
     const [openGrp, setOpenGrp] = useState<string | null>(cat?.id ?? null);   // sidebar / drawer: the group shown open
     useEffect(() => { setOpenGrp(cat?.id ?? null); }, [viewId, cat?.id]);
