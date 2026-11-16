@@ -76,29 +76,31 @@ export function luggageSheet(T: T, b: Row) {
     </section>`;
 }
 
-export type Libs = T & { tripRows: (buses: Row[]) => { r: Row; b: Row; rider: boolean }[]; ziyaratSummary: (day: string, g: Row) => { html: string; rest: Row[] } };
+export type Libs = T & { tripRows: (buses: Row[]) => { r: Row; b: Row; rider: boolean }[]; ziyaratSummary: (day: string, g: Row, opts?: { rooms?: boolean }) => { html: string; rest: Row[] } };
+/** a group's room numbers on the Transport day (Madina: Bus sheets → Include room numbers) */
+const roomsOf = (r: Row) => (Array.isArray(r.rooms) ? r.rooms.join(', ') : String(r.rooms || ''));
 
-function table(L: Libs, day: string, { dest, buses }: { dest: Row; buses: Row[] }) {
+function table(L: Libs, day: string, { dest, buses }: { dest: Row; buses: Row[] }, rooms = false) {
     const pax = buses.reduce((s, b) => s + b.pax, 0);
     return `<table class="sum">
-      <colgroup><col style="width:6%"><col style="width:17%"><col style="width:22%"><col style="width:9%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:12%"><col style="width:8%"></colgroup>
+      <colgroup><col style="width:6%"><col style="width:17%"><col style="width:22%"><col style="width:9%"><col style="width:6%"><col style="width:9%"><col style="width:11%"><col style="width:12%"><col style="width:8%">${rooms ? '<col style="width:10%">' : ''}</colgroup>
       <thead>
-        <tr class="band"><th class="d" colspan="2">${esc(L.sheetDate(day))}</th><th class="t" colspan="7">${esc(dest.label)}</th></tr>
-        <tr class="cols"><th>BUS NO</th><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>BUILDING</th><th>TRANSPORTER</th><th>VEHICLE</th></tr>
+        <tr class="band"><th class="d" colspan="2">${esc(L.sheetDate(day))}</th><th class="t" colspan="${rooms ? 8 : 7}">${esc(dest.label)}</th></tr>
+        <tr class="cols"><th>BUS NO</th><th>GROUP</th><th>GROUP LEADER</th><th>SH REF</th><th>PAX</th><th>TIME</th><th>BUILDING</th><th>TRANSPORTER</th><th>VEHICLE</th>${rooms ? '<th>ROOM NO</th>' : ''}</tr>
       </thead>
       <tbody>${L.tripRows(buses).map(({ r, b, rider }) => `<tr${rider ? ' class="rider"' : ''}>
         <td class="n">${esc(b.bus ?? '')}</td><td>${esc(r.operator || '')}</td><td>${esc(r.leader || '')}</td><td class="n">${esc(r.ref)}</td><td class="n">${esc(r.pax)}</td>
-        <td class="n">${esc(L.time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(r.transporter || b.transporter || '')}</td><td>${esc(L.vehicleWord(b.vehicle, b.vlabel))}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="4">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="4"></td></tr></tfoot>
+        <td class="n">${esc(L.time12(b.at))}</td><td>${esc(r.building || b.building || '')}</td><td>${esc(r.transporter || b.transporter || '')}</td><td>${esc(L.vehicleWord(b.vehicle, b.vlabel))}</td>${rooms ? `<td>${esc(roomsOf(r))}</td>` : ''}</tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="4">${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups</td><td class="n">${pax}</td><td colspan="${rooms ? 5 : 4}"></td></tr></tfoot>
     </table>`;
 }
 
 /** The day's summary: per destination, in the sheet yellows — every chosen trip with its time, vehicle and number */
-export function summary(L: Libs, day: string, groups: Row[]) {
+export function summary(L: Libs, day: string, groups: Row[], rooms = false) {
     return groups.map(g => {
         // Medina Ziyarat split into gents / ladies: the desks' Ziyarat sheets, then any bus not split as usual
-        if (g.dest.id === 'mdziyarat') { const z = L.ziyaratSummary(day, g); return z.html + (z.rest.length ? table(L, day, { dest: g.dest, buses: z.rest }) : ''); }
-        return table(L, day, g as { dest: Row; buses: Row[] });
+        if (g.dest.id === 'mdziyarat') { const z = L.ziyaratSummary(day, g, { rooms }); return z.html + (z.rest.length ? table(L, day, { dest: g.dest, buses: z.rest }, rooms) : ''); }
+        return table(L, day, g as { dest: Row; buses: Row[] }, rooms);
     }).join('');
 }
 

@@ -87,10 +87,12 @@ export async function exportSheets(day, groups, site) {
     download(await wb.xlsx.writeBuffer(), fileName('Bus sheets', day, site));
 }
 
-export async function exportSummary(day, groups, site) {
+export async function exportSummary(day, groups, site, opts = {}) {
+    const RM = !!opts.rooms, N = RM ? 10 : 9;   // Madina: Bus sheets → Include room numbers adds ROOM NO at the end
+    const roomsOf = (r) => (Array.isArray(r.rooms) ? r.rooms.join(', ') : String(r.rooms || ''));
     const wb = await workbook();
     const ws = wb.addWorksheet('Summary', landscape());
-    ws.columns = [{ width: 9 }, { width: 28 }, { width: 32 }, { width: 11 }, { width: 8 }, { width: 13 }, { width: 17 }, { width: 20 }, { width: 13 }];   // BUS NO first, as on the printed summary
+    ws.columns = [{ width: 9 }, { width: 28 }, { width: 32 }, { width: 11 }, { width: 8 }, { width: 13 }, { width: 17 }, { width: 20 }, { width: 13 }, ...(RM ? [{ width: 16 }] : [])];   // BUS NO first, as on the printed summary
     const zy = [];
     let row = 1;
     for (const g of groups) {
@@ -99,15 +101,15 @@ export async function exportSummary(day, groups, site) {
         if (!buses.length) continue;
         const pax = buses.reduce((s, b) => s + b.pax, 0);
         // band: date and destination, bold black on the yellow
-        ws.mergeCells(row, 1, row, 2); ws.getCell(row, 1).value = sheetDate(day); ws.mergeCells(row, 3, row, 9); ws.getCell(row, 3).value = g.dest.label;
-        for (let c = 1; c <= 9; c++) { const x = ws.getCell(row, c); x.fill = fill('FFF1C232'); x.font = { bold: true, size: c <= 2 ? 15 : 20, underline: true, color: BLACK, name: 'Arial Black' }; x.alignment = center; x.border = box(); }
+        ws.mergeCells(row, 1, row, 2); ws.getCell(row, 1).value = sheetDate(day); ws.mergeCells(row, 3, row, N); ws.getCell(row, 3).value = g.dest.label;
+        for (let c = 1; c <= N; c++) { const x = ws.getCell(row, c); x.fill = fill('FFF1C232'); x.font = { bold: true, size: c <= 2 ? 15 : 20, underline: true, color: BLACK, name: 'Arial Black' }; x.alignment = center; x.border = box(); }
         ws.getRow(row).height = 32; row++;
-        ['BUS NO', 'GROUP', 'GROUP LEADER', 'SH REF', 'PAX', 'TIME', 'BUILDING', 'TRANSPORTER', 'VEHICLE'].forEach((h, i) => {
+        ['BUS NO', 'GROUP', 'GROUP LEADER', 'SH REF', 'PAX', 'TIME', 'BUILDING', 'TRANSPORTER', 'VEHICLE', ...(RM ? ['ROOM NO'] : [])].forEach((h, i) => {
             const x = ws.getCell(row, i + 1); x.value = h; x.fill = fill('FFFFD966'); x.font = { bold: true, size: 10.5, underline: true, name: 'Arial Black' }; x.alignment = center; x.border = box();
         });
         row++;
         for (const { r, b, rider } of tripRows(buses)) {
-            [b.bus ?? '', r.operator || '', r.leader || '', r.ref ?? '', r.pax ?? '', time12(b.at), r.building || b.building || '', r.transporter || b.transporter || '', vehicleWord(b.vehicle, b.vlabel)].forEach((v, i) => {
+            [b.bus ?? '', r.operator || '', r.leader || '', r.ref ?? '', r.pax ?? '', time12(b.at), r.building || b.building || '', r.transporter || b.transporter || '', vehicleWord(b.vehicle, b.vlabel), ...(RM ? [roomsOf(r)] : [])].forEach((v, i) => {
                 const x = ws.getCell(row, i + 1); x.value = v; x.fill = fill(rider ? 'FFFFFAF0' : 'FFFFF2CC'); x.border = box();
                 x.font = { bold: true, size: 11, color: { argb: 'FF3D3100' }, name: 'Times New Roman' };
                 x.alignment = { ...center, horizontal: i === 1 || i === 2 || i === 6 || i === 7 ? 'left' : 'center' };
@@ -117,7 +119,7 @@ export async function exportSummary(day, groups, site) {
         ws.mergeCells(row, 1, row, 4);
         ws.getCell(row, 1).value = `${buses.length} vehicle${buses.length === 1 ? '' : 's'} · ${buses.reduce((s, b) => s + b.rows.length, 0)} groups`;
         ws.getCell(row, 5).value = pax;
-        for (let c = 1; c <= 9; c++) { const x = ws.getCell(row, c); x.border = box(); x.font = { bold: true, size: 11 }; x.alignment = { vertical: 'middle', horizontal: c === 5 ? 'center' : 'left' }; }
+        for (let c = 1; c <= N; c++) { const x = ws.getCell(row, c); x.border = box(); x.font = { bold: true, size: 11 }; x.alignment = { vertical: 'middle', horizontal: c === 5 ? 'center' : 'left' }; }
         row += 2;
     }
     if (row === 1) wb.removeWorksheet(ws.id);
@@ -125,39 +127,40 @@ export async function exportSummary(day, groups, site) {
     // Medina Ziyarat split into gents / ladies: the desks' sheet, one table per part and time
     if (zy.length) {
         const wz = wb.addWorksheet('Ziyarat', landscape());
-        wz.columns = [{ width: 6 }, { width: 10 }, { width: 44 }, { width: 10 }, { width: 8 }, { width: 7 }, { width: 9 }, { width: 20 }];
+        const Z = RM ? 9 : 8;
+        wz.columns = [{ width: 6 }, { width: 10 }, { width: 44 }, { width: 10 }, { width: 8 }, { width: 7 }, { width: 9 }, { width: 20 }, ...(RM ? [{ width: 16 }] : [])];
         let r = 1;
         for (const z of zy) {
             const G = z.G;
-            wz.mergeCells(r, 1, r, 8);
+            wz.mergeCells(r, 1, r, Z);
             const [a, b] = z.title.split('ZIYARAT');
             wz.getCell(r, 1).value = { richText: [{ text: a, font: { bold: true, size: 17 } }, { text: 'ZIYARAT', font: { bold: true, size: 17, color: RED } }, { text: b, font: { bold: true, size: 17 } }] };
             wz.getCell(r, 1).alignment = center; wz.getRow(r).height = 28;
-            for (let c = 1; c <= 8; c++) wz.getCell(r, c).border = box(medium);
+            for (let c = 1; c <= Z; c++) wz.getCell(r, c).border = box(medium);
             r++;
-            ['S N', 'S H NO.', 'GRUP-NAME', G ? 'GENTS' : 'LADIES', G ? 'G-C' : 'L-C', 'IFN', 'T-P', 'HOTEL-NAME'].forEach((h, i) => {
+            ['S N', 'S H NO.', 'GRUP-NAME', G ? 'GENTS' : 'LADIES', G ? 'G-C' : 'L-C', 'IFN', 'T-P', 'HOTEL-NAME', ...(RM ? ['ROOM NO'] : [])].forEach((h, i) => {
                 const x = wz.getCell(r, i + 1); x.value = h; x.alignment = center; x.border = box(medium);
                 x.font = { bold: true, size: 10.5, color: [0, 1, 3, 6].includes(i) ? RED : BLACK };
             });
             r++;
             for (const row2 of z.rows) {
                 const name = row2.leader ? { richText: [{ text: row2.operator, font: { bold: true, color: RED, size: 10 } }, { text: `\n( ${row2.leader} )`, font: { bold: true, size: 10 } }] } : { richText: [{ text: row2.operator, font: { bold: true, color: RED, size: 10 } }] };
-                [row2.sn, row2.ref, name, row2.adults, row2.c, row2.inf, row2.pax, row2.hotel].forEach((v, i) => {
+                [row2.sn, row2.ref, name, row2.adults, row2.c, row2.inf, row2.pax, row2.hotel, ...(RM ? [row2.rooms] : [])].forEach((v, i) => {
                     const x = wz.getCell(r, i + 1); x.value = v; x.border = box(medium);
                     x.alignment = { ...center, horizontal: i === 2 ? 'left' : 'center' };
                     x.font = i === 6 ? { bold: true, size: 11, color: RED } : { bold: true, size: 11 };
                 });
                 wz.getRow(r).height = row2.leader ? 32 : 22; r++;
             }
-            wz.mergeCells(r, 1, r, 8);
+            wz.mergeCells(r, 1, r, Z);
             wz.getCell(r, 1).value = { richText: [{ text: 'NOTE:- ', font: { bold: true } }, { text: `PER BUS-${z.perBus}`, font: { bold: true, color: RED } }, { text: ` PAX ...... ${z.coasters}-COASTER-${z.perCoaster} PAX`, font: { bold: true } }] };
             wz.getCell(r, 1).alignment = center;
-            for (let c = 1; c <= 8; c++) wz.getCell(r, c).border = box(medium);
+            for (let c = 1; c <= Z; c++) wz.getCell(r, c).border = box(medium);
             r++;
             wz.mergeCells(r, 1, r, 3);
             wz.getCell(r, 1).value = { richText: [{ text: z.total.label, font: { bold: true, size: 12, color: RED } }, { text: ` - ${z.total.pax} - ${z.bigN} BUS ${z.coasters}-COASTER`, font: { bold: true, size: 12 } }] };
-            [z.total.adults, z.total.c, z.total.inf, z.total.pax, ''].forEach((v, i) => { const x = wz.getCell(r, i + 4); x.value = v; x.font = { bold: true, size: 12, color: i === 3 ? RED : BLACK }; x.alignment = center; });
-            for (let c = 1; c <= 8; c++) wz.getCell(r, c).border = box(medium);
+            [z.total.adults, z.total.c, z.total.inf, z.total.pax, '', ...(RM ? [''] : [])].forEach((v, i) => { const x = wz.getCell(r, i + 4); x.value = v; x.font = { bold: true, size: 12, color: i === 3 ? RED : BLACK }; x.alignment = center; });
+            for (let c = 1; c <= Z; c++) wz.getCell(r, c).border = box(medium);
             wz.getRow(r).addPageBreak();
             r += 2;
         }

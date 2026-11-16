@@ -208,7 +208,7 @@ export function ziyaratTables(day, group) {
         const per = (l) => l.map(b => b.pax).join(' / ') || '00';
         return {
             G, part, at, title: `MADINA ZIYARAT ${G ? 'GENTS' : 'LADIES'}-${t12(at)} ${shortDate(day)}`,
-            rows: list.map(({ r, b }, i) => ({ sn: i + 1, ref: r.ref || '', operator: r.operator || '', leader: r.leader || '', adults: adults(r) || '', c: r.c || '', inf: r.inf || '', pax: r.pax || 0, hotel: r.building || b.building || '' })),
+            rows: list.map(({ r, b }, i) => ({ sn: i + 1, ref: r.ref || '', operator: r.operator || '', leader: r.leader || '', adults: adults(r) || '', c: r.c || '', inf: r.inf || '', pax: r.pax || 0, hotel: r.building || b.building || '', rooms: (Array.isArray(r.rooms) ? r.rooms.join(', ') : String(r.rooms || '')) })),
             perBus: per(big), bigN: pad(big.length), coasters: pad(small.length), perCoaster: per(small),
             total: { label: `TOTAL PAX. ${G ? 'GENTS' : 'LADIES'}`, adults: sum(adults), c: sum(r => r.c || 0), inf: sum(r => r.inf || 0), pax: sum(r => r.pax || 0) },
         };
@@ -217,24 +217,25 @@ export function ziyaratTables(day, group) {
 }
 
 /** The same tables as HTML for the print summary; returns { html, rest }. */
-export function ziyaratSummary(day, group) {
+export function ziyaratSummary(day, group, opts = {}) {
+    const R = !!opts.rooms;   // Madina: Bus sheets → Include room numbers
     const { tables, rest } = ziyaratTables(day, group);
     const html = tables.map((z) => {
         const G = z.G, head = z.title.replace('ZIYARAT', '<span class="zy-red">ZIYARAT</span>');
         return `<table class="sum zy">
-          <colgroup><col style="width:5%"><col style="width:9%"><col style="width:40%"><col style="width:8%"><col style="width:7%"><col style="width:6%"><col style="width:8%"><col style="width:17%"></colgroup>
+          <colgroup><col style="width:5%"><col style="width:9%"><col style="width:40%"><col style="width:8%"><col style="width:7%"><col style="width:6%"><col style="width:8%"><col style="width:17%">${R ? '<col style="width:12%">' : ''}</colgroup>
           <thead>
-            <tr class="zy-title"><th colspan="8">${head}</th></tr>
-            <tr class="zy-cols"><th class="zy-red">S N</th><th class="zy-red">S H NO.</th><th>GRUP-NAME</th><th class="zy-red">${G ? 'GENTS' : 'LADIES'}</th><th>${G ? 'G-C' : 'L-C'}</th><th>IFN</th><th class="zy-red">T-P</th><th>HOTEL-NAME</th></tr>
+            <tr class="zy-title"><th colspan="${R ? 9 : 8}">${head}</th></tr>
+            <tr class="zy-cols"><th class="zy-red">S N</th><th class="zy-red">S H NO.</th><th>GRUP-NAME</th><th class="zy-red">${G ? 'GENTS' : 'LADIES'}</th><th>${G ? 'G-C' : 'L-C'}</th><th>IFN</th><th class="zy-red">T-P</th><th>HOTEL-NAME</th>${R ? '<th>ROOM NO</th>' : ''}</tr>
           </thead>
           <tbody>${z.rows.map((r) => `<tr>
             <td>${r.sn}</td><td>${esc(r.ref)}</td>
             <td class="zy-name">${r.operator ? `<span class="zy-red">${esc(r.operator)}</span>` : ''}${r.leader ? `<br>( ${esc(r.leader)} )` : ''}</td>
-            <td>${r.adults}</td><td>${r.c}</td><td>${r.inf}</td><td class="zy-tp">${r.pax}</td><td>${esc(r.hotel)}</td></tr>`).join('')}</tbody>
+            <td>${r.adults}</td><td>${r.c}</td><td>${r.inf}</td><td class="zy-tp">${r.pax}</td><td>${esc(r.hotel)}</td>${R ? `<td>${esc(r.rooms)}</td>` : ''}</tr>`).join('')}</tbody>
           <tfoot>
-            <tr class="zy-note"><td colspan="8">NOTE:- <span class="zy-red">PER BUS-${esc(z.perBus)}</span> PAX ...... ${z.coasters}-COASTER-${esc(z.perCoaster)} PAX</td></tr>
+            <tr class="zy-note"><td colspan="${R ? 9 : 8}">NOTE:- <span class="zy-red">PER BUS-${esc(z.perBus)}</span> PAX ...... ${z.coasters}-COASTER-${esc(z.perCoaster)} PAX</td></tr>
             <tr class="zy-total"><td colspan="3"><span class="zy-red">${z.total.label}</span> - ${z.total.pax} - ${z.bigN} BUS ${z.coasters}-COASTER</td>
-              <td>${z.total.adults}</td><td>${z.total.c}</td><td>${z.total.inf}</td><td class="zy-tp">${z.total.pax}</td><td></td></tr>
+              <td>${z.total.adults}</td><td>${z.total.c}</td><td>${z.total.inf}</td><td class="zy-tp">${z.total.pax}</td><td></td>${R ? '<td></td>' : ''}</tr>
           </tfoot>
         </table>`;
     }).join('');

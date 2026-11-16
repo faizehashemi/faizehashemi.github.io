@@ -59,6 +59,9 @@ export default function TransportPrintPage() {
     const [lugOpen, setLugOpen] = useState(false);
     const [lugOff, setLugOff] = useState<string[]>([]);
     const [xl, setXl] = useState('');
+    // Madina: the summary (print, picture, Excel) can carry each group's room numbers in a last column; this browser remembers the choice
+    const [withRooms, setWithRooms] = useState(() => { try { return localStorage.getItem('pms_bus_sum_rooms') === '1'; } catch { return false; } });
+    const rooms = siteId === 'medina' && withRooms;
     const [libs, setLibs] = useState<any>(null);
     const sheetsRef = useRef<HTMLDivElement>(null);
 
@@ -113,7 +116,7 @@ export default function TransportPrintPage() {
         w.document.close();
     }
     const printSheets = () => printTab(`Bus sheets ${day}`, 'tq-sheets', pages.join(''));
-    const printSummary = () => { if (L) printTab(`Bus summary ${day}`, 'tq-summary', summary(L, day, chosen())); };
+    const printSummary = () => { if (L) printTab(`Bus summary ${day}`, 'tq-summary', summary(L, day, chosen(), rooms)); };
     const lugGroups = groups.filter(g => g.buses.length);
     const lugCount = groups.filter(g => !lugOff.includes(g.dest.id)).reduce((s, g) => s + g.buses.length, 0);
     const printLug = () => printTab(`Luggage sheets ${day}`, 'tq-lugsheets', groups.filter(g => !lugOff.includes(g.dest.id)).flatMap(g => g.buses.map((b: Row) => luggageSheet(T, b))).join(''));
@@ -124,7 +127,7 @@ export default function TransportPrintPage() {
         const host = document.createElement('div');
         host.className = 'tq-summary';
         host.style.cssText = 'display:block;position:fixed;left:-10000px;top:0;width:1000px;background:#fff';
-        host.innerHTML = summary(L, day, chosen());
+        host.innerHTML = summary(L, day, chosen(), rooms);
         document.body.appendChild(host);
         try {
             const lib = await loadCore('table-image');
@@ -135,7 +138,7 @@ export default function TransportPrintPage() {
     }
     async function toExcel(what: 'sheets' | 'summary') {
         setXl(what); setMsg('');
-        try { await (what === 'sheets' ? libs.ex.exportSheets : libs.ex.exportSummary)(day, chosen(), site.label); }
+        try { await (what === 'sheets' ? libs.ex.exportSheets : libs.ex.exportSummary)(day, chosen(), site.label, { rooms }); }
         catch (e: any) { setMsg(e?.message || 'Could not make the Excel file.'); }
         finally { setXl(''); }
     }
@@ -162,6 +165,7 @@ export default function TransportPrintPage() {
                         )}
                         <Button disabled={none} onClick={printSheets}><Printer className="size-4" />Print</Button>
                         <Button variant="outline" title="One A4 landscape page per bus: the groups on it" onClick={() => setLugOpen(o => !o)}>🧳 Luggage sheet</Button>
+                        {siteId === 'medina' && <label className="flex items-center gap-1.5 text-sm" title="Add a ROOM NO column at the end of the summary: print, picture and Excel"><input type="checkbox" checked={withRooms} onChange={e => { setWithRooms(e.target.checked); try { localStorage.setItem('pms_bus_sum_rooms', e.target.checked ? '1' : '0'); } catch { /* not kept */ } }} />Include room numbers</label>}
                         <Button variant="outline" disabled={none || !L} title="One list of all the chosen trips of the day" onClick={printSummary}>📋 Print summary</Button>
                         <Button variant="outline" disabled={none || !L} title="The summary tables as one picture on the clipboard, to paste into a chat" onClick={() => void copySummaryImage()}><ImageDown className="size-4" />Copy summary image</Button>
                         <Button variant="outline" disabled={none || !libs || !!xl} title="The chosen bus sheets as an Excel file (one block per bus, a page break after each)" onClick={() => void toExcel('sheets')}>{xl === 'sheets' ? '⏳ Building…' : '📊 Excel: sheets'}</Button>
