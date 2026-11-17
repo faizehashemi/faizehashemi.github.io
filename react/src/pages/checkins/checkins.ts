@@ -94,9 +94,36 @@ export function partsOf(rows: Row[], key: 'checkin' | 'checkout', split: boolean
     if (!split) return [[null, rows]];
     const side = key === 'checkin' ? 'from' : 'to';
     const pick = (w: string) => rows.filter(r => leg(r)[side] === w);
-    return key === 'checkin'
-        ? [['From the airport', pick('airport')], [`From ${otherLabel}`, pick(otherSite)]]
-        : [['Departing to the airport', pick('airport')], [`Departing to ${otherLabel}`, pick(otherSite)]];
+    const head = key === 'checkin' ? 'From' : 'Departing to';
+    return [...airportParts(pick('airport'), key), [`${head} ${otherLabel}`, pick(otherSite)]];
+}
+
+// The airport part, one per airport as the slip names it (From / To: "Jeddah Airport", "Madina Airport", "Taif Airport"), biggest first.
+// A slip that names no airport ("By car", empty) gets its own part, so nothing is dropped.
+const MADINA_AIRPORT = /\b(madina|medina|madinah|medinah)\b/i;
+export function airportName(place: unknown): string {
+    const p = String(place ?? '').trim().replace(/\s+/g, ' ');
+    if (!p) return '';
+    if (/air ?port|\bapt\b/i.test(p) || /^(jeddah|jed|taif|tif|med|madina|medina)$/i.test(p)) {
+        const city = p.replace(/\b(international|intl|air ?port|apt)\b/gi, '').trim();
+        const nm = MADINA_AIRPORT.test(city) || /^med$/i.test(city) ? 'Madina' : /^jed/i.test(city) ? 'Jeddah' : /^(taif|tif)$/i.test(city) ? 'Taif'
+            : city.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        return `${nm || 'The'} Airport`;
+    }
+    return '';
+}
+function airportParts(rows: Row[], key: 'checkin' | 'checkout'): [string, Row[]][] {
+    const head = key === 'checkin' ? 'From' : 'Departing to';
+    const byName = new Map<string, Row[]>();
+    for (const r of rows) {
+        const place = key === 'checkin' ? r.from_place : r.to_place;
+        const name = airportName(place);
+        const other = String(place ?? '').trim();
+        const label = name ? `${head} ${name}` : /^by /i.test(other) ? `${key === 'checkin' ? 'Arriving' : 'Departing'} ${other.toLowerCase()} (airport leg)` : `${head} the airport (no airport on the slip)`;
+        byName.set(label, [...(byName.get(label) || []), r]);
+    }
+    if (!byName.size) return [[`${head} the airport`, []]];
+    return [...byName].sort((a, b) => b[1].length - a[1].length);
 }
 
 // Totals of what the table shows, as a row: As. (assigned), T (guests), G, L, C, I — the same numbers as the rows above it
