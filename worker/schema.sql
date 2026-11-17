@@ -185,10 +185,13 @@ CREATE TABLE IF NOT EXISTS laundry_staff (          -- free (complimentary) laun
     remarks     TEXT NOT NULL DEFAULT '',
     limits      TEXT NOT NULL DEFAULT '{}',          -- JSON: per_bill_items, per_day_items, per_week_items, per_month_value, per_month_bills, enforce
     deleted     INTEGER NOT NULL DEFAULT 0,          -- 1 = deleted by the admin: hidden, but kept with its history
+    charged     INTEGER NOT NULL DEFAULT 0,          -- 1 = paid mode: 1 SAR a piece, own receipt series NAME-ROOM-01, shows in unpaid / paid
+    archived    INTEGER NOT NULL DEFAULT 0,          -- 1 = archived: off the laundry screen, kept (restore any time)
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL,
     updated_by  INTEGER
 );
+-- added 2026-11-17: ALTER TABLE laundry_staff ADD COLUMN charged INTEGER NOT NULL DEFAULT 0; ALTER TABLE laundry_staff ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS laundry_bills (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     site        TEXT NOT NULL,

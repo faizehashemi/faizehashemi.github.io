@@ -62,7 +62,7 @@ export default function LaundryPage() {
             try { setItems((await guard<any>(L.cached(`pms_laundry_items:${siteId}`, () => req('GET', `/api/laundry/items?site=${siteId}`)))).data.items.filter((i: Row) => i.active)); } catch (e: any) { setMsg(e.message || 'Could not load the items.'); }
             try { const r = (await guard<any>(L.cached('pms_laundry_info', () => req('GET', '/api/settings')))).data; setInfo(r.settings?.laundry_info || L.DEFAULT_INFO); setCats(r.settings?.laundry_staff_categories?.[siteId] || []); } catch { setInfo(L.DEFAULT_INFO); }
             loadSlips();
-            try { setStaffList((await guard<any>(L.cached(`pms_laundry_staff:${siteId}`, () => req('GET', `/api/laundry/staff?site=${siteId}`)))).data.staff.filter((s: Row) => s.active && s.free)); } catch { /* ignore */ }
+            try { setStaffList((await guard<any>(L.cached(`pms_laundry_staff:${siteId}`, () => req('GET', `/api/laundry/staff?site=${siteId}`)))).data.staff.filter((s: Row) => s.active && s.free && !s.archived)); } catch { /* ignore */ }
             refreshOffline(); void tryFlush();
         })();
         const onOnline = () => void tryFlush();
@@ -128,8 +128,10 @@ export default function LaundryPage() {
         if (q != null) setQty(id, q);
     }
     const lines = useMemo(() => [...cart].map(([id, qty]) => { const i = items.find(x => x.id === id); return i && { item_id: id, name: i.name, price: i.price, qty, amount: i.price * qty, image: i.image }; }).filter(Boolean) as Row[], [cart, items]);
-    const total = building ? 0 : lines.reduce((n, l) => n + l.amount, 0);
     const pcs = lines.reduce((n, l) => n + l.qty, 0);
+    // a staff member in paid mode pays 1 SAR a piece (not the price list); the bill waits under Pending cash until marked paid
+    const chg = free && !!staff?.charged;
+    const total = building ? 0 : chg ? pcs * 100 : lines.reduce((n, l) => n + l.amount, 0);
     function resetBill() {
         setCarts(c => ({ ...c, [billTab]: new Map() })); setReceived('');
         if (tab === 'bill') pickFloor(wheels.current.f?.value);   // keep building and floor (the next customer is often a neighbour), room back to —
@@ -150,7 +152,7 @@ export default function LaundryPage() {
         try { setUsage((await guard<any>((cloud as any).request('GET', `/api/laundry/staff/${s.id}`))).usage); } catch { /* ignore */ }
     }
     const warnList = () => {
-        if (!staff) return [] as string[];
+        if (!staff || staff.charged) return [] as string[];
         const Lm = staff.limits || {}, u = usage, w: string[] = [];
         if (Lm.per_bill_items && pcs > Lm.per_bill_items) w.push(`${pcs} pieces — limit ${Lm.per_bill_items} per time`);
         if (u && Lm.per_day_items && u.day_items + pcs > Lm.per_day_items) w.push(`${u.day_items + pcs} pieces today — limit ${Lm.per_day_items}`);
@@ -168,7 +170,7 @@ export default function LaundryPage() {
         const payload: Row = {
             site: siteId, kind: free ? 'free' : building ? 'building' : 'paid', customer: free || building ? undefined : cust, staff_id: free ? staff?.id : undefined,
             lines: lines.map(l => ({ item_id: l.item_id, qty: l.qty })), method: tab === 'bill' ? 'cash' : undefined, received: tab !== 'bill' || received.trim() === '' ? undefined : Number(received),
-            preview_lines: lines.map(({ image: _i, ...l }) => l), preview_value: total, staff_name: free ? staff?.name : undefined, approval,
+            preview_lines: lines.map(({ image: _i, ...l }) => (chg ? { ...l, price: 100, amount: 100 * l.qty } : l)), preview_value: total, staff_name: free ? staff?.name : undefined, approval,
         };
         payload.client_uid = pendingUid.current || (pendingUid.current = L.uid());
         setSaving(true); setMsg('');
@@ -192,8 +194,9 @@ export default function LaundryPage() {
         if (!L || (tab !== 'slog' && tab !== 'blog')) return;
         const kind = tab === 'blog' ? 'building' : 'free', day = slogDay;
         setSlog(s => ({ ...s, day, loading: true, err: '' }));
-        guard<any>((cloud as any).request('GET', `/api/laundry/bills?site=${siteId}&from=${day}&to=${day}&kind=${kind}&all=1`))
-            .then(r => setSlog(s => ({ ...s, bills: r.bills, loading: false }))).catch(e => setSlog(s => ({ ...s, bills: [], err: e.message || 'Not available offline.', loading: false })));
+        // the staff log has paid-mode staff bills too (cash bills with a staff member)
+        guard<any>((cloud as any).request('GET', `/api/laundry/bills?site=${siteId}&from=${day}&to=${day}${kind === 'building' ? '&kind=building' : ''}&all=1`))
+            .then(r => setSlog(s => ({ ...s, bills: kind === 'building' ? r.bills : r.bills.filter((b: Row) => b.kind === 'free' || (b.kind === 'paid' && b.staff_id)), loading: false }))).catch(e => setSlog(s => ({ ...s, bills: [], err: e.message || 'Not available offline.', loading: false })));
     }, [L, tab, slogDay]);   // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (!L || tab !== 'cash') return;
@@ -211,7 +214,7 @@ export default function LaundryPage() {
     if (!L) return <div className="p-4 text-sm">Loading…</div>;
     const { sar, itemPic, jeddahDay, jeddahTime, jeddahDate } = L;
     const html = (h: string) => <Html h={h} />;
-    const custLabel = (b: Row) => (b.kind === 'free' ? '👷 ' + b.staff_name : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + b.customer.building : ''}` : `🚪 ${[b.customer?.building, b.customer?.room || '—'].filter(Boolean).join(' · ')}${b.customer?.name ? ' · ' + b.customer.name : ''}`);
+    const custLabel = (b: Row) => (b.kind === 'free' || b.staff_id ? '👷 ' + (b.staff_name || b.customer?.name || '') + (b.kind === 'paid' && b.customer?.room ? ' · 🚪 ' + b.customer.room : '') : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + b.customer.building : ''}` : `🚪 ${[b.customer?.building, b.customer?.room || '—'].filter(Boolean).join(' · ')}${b.customer?.name ? ' · ' + b.customer.name : ''}`);
     const billish = tab === 'bill' || tab === 'free' || tab === 'building';
     const quick = [...new Set([total, ...[5, 10, 20, 50, 100, 200, 500].map(v => v * 100).filter(v => v > total)].slice(0, 5))];
     const queue: Row[] = L.queued();
@@ -309,6 +312,7 @@ export default function LaundryPage() {
                             <div className="ld-photo">{staff.photo ? <img src={staff.photo} alt={`Photo of ${staff.name}`} /> : <span>👤<small>no photo</small></span>}</div>
                             <div className="ld-sinfo"><b>{staff.name}</b><span>{[staff.staff_code && 'ID ' + staff.staff_code, staff.department, staff.room && '🚪 ' + staff.room].filter(Boolean).join(' · ')}</span>
                                 <span className="ld-check">👀 Is this the same person? Check the photo.</span>
+                                {staff.charged && <span className="ld-warn">💵 PAID laundry · 1 SAR a piece — stays unpaid until the admin marks it paid</span>}
                                 {usage && <span className="ld-usage">This month: <b>{usage.month_bills}</b> times · <b>{usage.month_items}</b> pcs · <b>{sar(usage.month_value)}</b> SAR</span>}
                                 {w.length > 0 && <span className="ld-warn">⚠️ {w.map((x, i) => <span key={i}>{i ? <><br />⚠️ </> : null}{x}</span>)}{staff.limits?.enforce && <><br />Supervisor approval needed.</>}</span>}
                                 <button type="button" className="ld-change-staff" onClick={() => setStaff(null)}>Change person</button></div></div>}
@@ -344,7 +348,7 @@ export default function LaundryPage() {
                     </div>
 
                     <div className={`ld-bar${free ? ' free' : ''}${building ? ' bld' : ''}`}>
-                        <div className="ld-total"><small>{free ? 'VALUE · STAFF' : building ? 'BUILDING · NO PAYMENT' : 'TOTAL · CASH'}</small><b>{building ? pcs : sar(total)}</b><small><span>{building ? 'pieces' : 'SAR'}</span>{!building && <span> · {pcs} pcs</span>}</small></div>
+                        <div className="ld-total"><small>{chg ? 'TO PAY · 1 SAR / PIECE' : free ? 'VALUE · STAFF' : building ? 'BUILDING · NO PAYMENT' : 'TOTAL · CASH'}</small><b>{building ? pcs : sar(total)}</b><small><span>{building ? 'pieces' : 'SAR'}</span>{!building && <span> · {pcs} pcs</span>}</small></div>
                         <button type="button" className="ld-clear" aria-label="Clear the bill" onClick={() => { if (!cart.size || confirm('Clear this bill?')) resetBill(); }}>✖</button>
                         <button type="button" className="ld-save" disabled={!lines.length || (free && !staff) || saving} onClick={() => void save()}><span aria-hidden="true">✔</span> SAVE{free ? ' · STAFF' : building ? ' · BUILDING' : ''}</button>
                     </div>
@@ -358,7 +362,7 @@ export default function LaundryPage() {
                 <div className="ld-people-h"><h3>👷 {dlg.g.label}</h3><button type="button" aria-label="Close" onClick={() => setDlg(null)}>✖</button></div>
                 <div className="ld-people-grid">{dlg.g.people.map((s: Row) => (
                     <button type="button" key={s.id} className="ld-person" onClick={() => void pick(s)}>
-                        {s.photo ? <img src={s.photo} alt="" /> : <span className="nophoto">👤</span>}<b>{s.name}</b><small>{[s.staff_code, s.department, s.room && '🚪 ' + s.room].filter(Boolean).join(' · ')}</small></button>))}</div></Dlg>}
+                        {s.photo ? <img src={s.photo} alt="" /> : <span className="nophoto">👤</span>}<b>{s.name}{s.charged ? ' 💵' : ''}</b><small>{[s.staff_code, s.department, s.room && '🚪 ' + s.room].filter(Boolean).join(' · ')}</small></button>))}</div></Dlg>}
             {dlg?.kind === 'approval' && <ApprovalDlg warnings={dlg.warnings} onClose={() => setDlg(null)} onApprove={a => { setDlg(null); void save(a); }} />}
             {dlg?.kind === 'receipt' && <Dlg className="ld-dlg ld-rdlg" onClose={() => setDlg(null)}>
                 {dlg.close === '➕ Next bill' && <div className="ld-done">{dlg.offline ? '⏳ Saved on this device — will send when online' : dlg.bill.kind === 'free' ? '✅ Saved · STAFF' : dlg.bill.kind === 'building' ? '✅ Saved · building linen' : `✅ Saved · ${sar(dlg.bill.paid)} SAR cash`}</div>}

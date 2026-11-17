@@ -1740,7 +1740,7 @@ function rowToStaff(r, withPhoto = true) {
     return {
         id: r.id, site: r.site, name: r.name, staff_code: r.staff_code, room: r.room, department: r.department, contact: r.contact, category: r.category || '',
         photo: withPhoto ? r.photo : undefined, has_photo: !!r.photo, deleted: !!r.deleted, free: !!r.free, active: !!r.active, started_on: r.started_on,
-        remarks: r.remarks, limits: JSON.parse(r.limits || '{}'), updated_at: r.updated_at,
+        remarks: r.remarks, limits: JSON.parse(r.limits || '{}'), updated_at: r.updated_at, charged: !!r.charged, archived: !!r.archived,
     };
 }
 // Deleted profiles stay in the table (their bills keep pointing at them); `withDeleted` is for the admin's
@@ -1767,7 +1767,7 @@ function prepareStaff(b) {
     return {
         name, staff_code: text(b.staff_code, 30), room: text(b.room, 20), department: text(b.department, 60), contact: text(b.contact, 30), category: text(b.category, 40),
         photo, free: b.free === false ? 0 : 1, active: b.active === false ? 0 : 1, started_on: /^\d{4}-\d{2}-\d{2}$/.test(b.started_on || '') ? b.started_on : null,
-        remarks: text(b.remarks, 300), limits: JSON.stringify(limits),
+        remarks: text(b.remarks, 300), limits: JSON.stringify(limits), charged: b.charged ? 1 : 0, archived: b.archived ? 1 : 0,
     };
 }
 async function saveLaundryStaff(req, env, me, id) {
@@ -1780,17 +1780,17 @@ async function saveLaundryStaff(req, env, me, id) {
         assertOwnSite(me, old.site);
         await env.DB.batch([
             env.DB.prepare(`UPDATE laundry_staff SET name = ?, staff_code = ?, room = ?, department = ?, contact = ?, category = ?, photo = ?, free = ?, active = ?,
-                started_on = ?, remarks = ?, limits = ?, updated_at = ?, updated_by = ? WHERE id = ?`)
-                .bind(x.name, x.staff_code, x.room, x.department, x.contact, x.category, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, now(), me.id, id),
+                started_on = ?, remarks = ?, limits = ?, charged = ?, archived = ?, updated_at = ?, updated_by = ? WHERE id = ?`)
+                .bind(x.name, x.staff_code, x.room, x.department, x.contact, x.category, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, x.charged, x.archived, now(), me.id, id),
             auditStmt(env, me, 'laundry-staff', null, `${old.site} ${x.name}${old.name !== x.name ? ` (was ${old.name})` : ''}: profile saved${x.active ? '' : ' (inactive)'}${(old.category || '') !== x.category ? `, category "${old.category || ''}" → "${x.category}"` : ''}, limits ${x.limits}`),
         ]);
         return json({ staff: await listLaundryStaff(env, old.site) });
     }
     const site = laundrySite(me, b.site);
     await env.DB.batch([
-        env.DB.prepare(`INSERT INTO laundry_staff (site, name, staff_code, room, department, contact, category, photo, free, active, started_on, remarks, limits, created_at, updated_at, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-            .bind(site, x.name, x.staff_code, x.room, x.department, x.contact, x.category, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, now(), now(), me.id),
+        env.DB.prepare(`INSERT INTO laundry_staff (site, name, staff_code, room, department, contact, category, photo, free, active, started_on, remarks, limits, charged, archived, created_at, updated_at, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            .bind(site, x.name, x.staff_code, x.room, x.department, x.contact, x.category, x.photo, x.free, x.active, x.started_on, x.remarks, x.limits, x.charged, x.archived, now(), now(), me.id),
         auditStmt(env, me, 'laundry-staff', null, `${site} ${x.name}: free-laundry profile added`),
     ]);
     return json({ staff: await listLaundryStaff(env, site) }, 201);
@@ -1820,6 +1820,29 @@ async function saveStaffCategories(req, env, me) {
     stmts.push(auditStmt(env, me, 'laundry-staff', null, `${site} staff categories: ${before.join(', ') || '—'} → ${list.join(', ') || '—'}${renames.length ? ` (renamed ${renames.map(([f, to]) => `${f} → ${to}`).join(', ')})` : ''}`.slice(0, 500)));
     await env.DB.batch(stmts);
     return json({ categories: list, staff: await listLaundryStaff(env, site, true) });
+}
+
+// Admin: one change for many staff at once (Laundry admin → Staff, ticked people or whole categories):
+// archive / restore, paid mode on (1 SAR a piece, unpaid until marked paid) / off (free again), move to a category
+const STAFF_BULK = { archive: ['archived = 1', 'archived'], restore: ['archived = 0', 'restored'], charged: ['charged = 1', 'paid mode on (1 SAR a piece)'], free: ['charged = 0', 'free laundry (paid mode off)'] };
+async function bulkLaundryStaff(req, env, me) {
+    requireLaundryAdmin(me);
+    const b = await body(req);
+    const site = laundrySite(me, b.site);
+    const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+    if (!ids.length) throw new HttpError(400, 'Choose at least one person.');
+    if (ids.length > 2000) throw new HttpError(400, 'Too many people at once.');
+    let set, what, args = [];
+    if (b.action === 'category') { const c = text(b.category, 40); set = 'category = ?'; args = [c]; what = `moved to "${c || 'Uncategorized'}"`; }
+    else if (STAFF_BULK[b.action]) [set, what] = STAFF_BULK[b.action];
+    else throw new HttpError(400, 'Unknown action.');
+    const marks = ids.map(() => '?').join(',');
+    const names = (await env.DB.prepare(`SELECT name FROM laundry_staff WHERE site = ? AND deleted = 0 AND id IN (${marks})`).bind(site, ...ids).all()).results.map(r => r.name);
+    await env.DB.batch([
+        env.DB.prepare(`UPDATE laundry_staff SET ${set}, updated_at = ?, updated_by = ? WHERE site = ? AND deleted = 0 AND id IN (${marks})`).bind(...args, now(), me.id, site, ...ids),
+        auditStmt(env, me, 'laundry-staff', null, `${site} ${names.length} staff ${what}: ${names.join(', ')}`.slice(0, 1000)),
+    ]);
+    return json({ staff: await listLaundryStaff(env, site, true), changed: names.length });
 }
 
 // Admin: "delete" a profile = hide it (kept in the database with its whole free-laundry history)
@@ -1938,6 +1961,22 @@ async function nextReceipt(env, site, day, kind) {
     return `${LAUNDRY_PREFIX[site] || 'XX'}-${LAUNDRY_KIND_CODE[kind] || 'LD'}-${day.replace(/-/g, '')}-${String(r.n).padStart(3, '0')}`;
 }
 
+// A staff member in paid mode has a receipt series of their own: their name and room, then 01, 02, … (never restarts,
+// other bills in between do not touch it; 100 follows 99). One counter per person: laundry_counters key <site>|staff|<id>.
+const staffSeries = (s) => [s.name, s.room].map(v => String(v || '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-') || 'STAFF';
+async function nextStaffReceipt(env, site, staff) {
+    const key = `${site}|staff|${staff.id}`, base = staffSeries(staff);
+    for (let i = 0; i < 50; i++) {
+        const r = await env.DB.prepare('INSERT INTO laundry_counters (key, n) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET n = n + 1 RETURNING n').bind(key).first();
+        const no = `${base}-${String(r.n).padStart(2, '0')}`;
+        // receipt numbers are unique: someone else with the same name and room (or the other site) may hold this one
+        if (!(await env.DB.prepare('SELECT 1 FROM laundry_bills WHERE receipt_no = ?').bind(no).first())) return no;
+    }
+    throw new HttpError(409, 'Could not make a receipt number. Try again.');
+}
+const STAFF_PIECE = 100;   // paid-mode staff: 1 SAR a piece, whatever the item (not the price list)
+const staffPriced = (p) => { const lines = p.lines.map(l => ({ ...l, price: STAFF_PIECE, amount: STAFF_PIECE * l.qty })); return { lines, items: p.items, value: STAFF_PIECE * p.items }; };
+
 async function createLaundryBill(req, env, me) {
     const b = await body(req);
     const site = laundrySite(me, b.site);
@@ -1948,8 +1987,8 @@ async function createLaundryBill(req, env, me) {
     const dup = await env.DB.prepare('SELECT * FROM laundry_bills WHERE client_uid = ?').bind(uid).first();
     if (dup) return json({ bill: rowToBill(dup), duplicate: true });
 
-    const kind = b.kind === 'free' || b.kind === 'building' ? b.kind : 'paid';
-    const { lines, items, value } = await priceLines(env, site, b.lines);
+    let kind = b.kind === 'free' || b.kind === 'building' ? b.kind : 'paid';
+    let { lines, items, value } = await priceLines(env, site, b.lines);
     // when the worker pressed Save (offline bills keep their own time), never in the future
     const at = b.created_local && Date.parse(b.created_local) < Date.now() + 5 * 60e3 && Date.parse(b.created_local) > Date.now() - 14 * 864e5
         ? new Date(Date.parse(b.created_local)).toISOString() : now();
@@ -1961,8 +2000,15 @@ async function createLaundryBill(req, env, me) {
     } else if (kind === 'free') {
         staff = await env.DB.prepare('SELECT * FROM laundry_staff WHERE id = ? AND site = ? AND deleted = 0').bind(Number(b.staff_id), site).first();
         if (!staff) throw new HttpError(400, 'Choose the staff member for free laundry.');
-        if (!staff.active || !staff.free) throw new HttpError(400, `${staff.name} does not have free laundry (profile inactive).`);
+        if (!staff.active || !staff.free || staff.archived) throw new HttpError(400, `${staff.name} does not have staff laundry (profile ${staff.archived ? 'archived' : 'inactive'}).`);
         customer = { name: staff.name, room: staff.room, building: '', contact: staff.contact, group: staff.department };
+    }
+    if (kind === 'free' && staff.charged) {
+        // paid mode: a cash bill at 1 SAR a piece, unpaid until marked paid, numbered in the person's own series
+        kind = 'paid';
+        ({ lines, items, value } = staffPriced({ lines, items }));
+        method = 'cash'; paid = value; received = value;
+    } else if (kind === 'free') {
         const limits = JSON.parse(staff.limits || '{}');
         warnings = limitWarnings(limits, await staffUsage(env, staff.id, day), items, value);
         if (warnings.length && limits.enforce) {
@@ -1971,13 +2017,13 @@ async function createLaundryBill(req, env, me) {
         } else if (warnings.length && b.approval && b.approval.name) {
             approvalBy = await verifyApprover(env, b.approval);
         }
-    } else {
+    } else if (kind === 'paid') {
         method = 'cash';                                          // laundry takes cash only
         paid = value;
         received = b.received === '' || b.received == null ? value : halalas(b.received);
         if (!(received >= 0 && received <= 10000000)) throw new HttpError(400, 'Amount received is not a valid number.');
     }
-    const receipt = await nextReceipt(env, site, day, kind);
+    const receipt = staff && staff.charged ? await nextStaffReceipt(env, site, staff) : await nextReceipt(env, site, day, kind);
     const res = await env.DB.prepare(`INSERT OR IGNORE INTO laundry_bills (site, receipt_no, client_uid, kind, customer, staff_id, staff_name, lines, items, value,
             paid, method, received, status, voided, given_at, worker_id, worker_name, day, approval_by, warnings, version, created_at, updated_at, updated_by)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', 0, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`)
@@ -2050,8 +2096,10 @@ async function editLaundryBill(req, env, me, id) {
     if (Number(b.version) !== r.version) throw new HttpError(409, 'Someone changed this bill meanwhile. Reload and try again.');
     if (r.voided) throw new HttpError(400, 'A cancelled bill cannot be edited.');
     const before = rowToBill(r);
-    const { lines, items, value } = await priceLines(env, r.site, b.lines, before.lines);
-    const customer = r.kind === 'paid' ? prepareCustomer(b.customer) : before.customer;
+    const staffPaid = r.kind === 'paid' && !!r.staff_id;   // a paid-mode staff bill stays at 1 SAR a piece and keeps its person
+    let { lines, items, value } = await priceLines(env, r.site, b.lines, before.lines);
+    if (staffPaid) ({ lines, items, value } = staffPriced({ lines, items }));
+    const customer = r.kind === 'paid' && !staffPaid ? prepareCustomer(b.customer) : before.customer;
     let method = r.method, received = r.received, paid = r.paid;
     if (r.kind === 'paid') {
         method = 'cash';
@@ -2178,6 +2226,7 @@ async function laundryRoute(p, m, url, req, env, me) {
     if (p === '/api/laundry/staff' && m === 'GET') return json({ staff: await listLaundryStaff(env, laundrySite(me, url.searchParams.get('site')), url.searchParams.get('deleted') === '1' && canSeeAll(me)) });
     if (p === '/api/laundry/staff' && m === 'POST') return saveLaundryStaff(req, env, me, 0);
     if (p === '/api/laundry/staff-categories' && m === 'PUT') return saveStaffCategories(req, env, me);
+    if (p === '/api/laundry/staff-bulk' && m === 'POST') return bulkLaundryStaff(req, env, me);
     mm = p.match(/^\/api\/laundry\/staff\/(\d+)$/);
     if (mm && m === 'PUT') return saveLaundryStaff(req, env, me, Number(mm[1]));
     if (mm && m === 'GET') return staffInfo(env, me, Number(mm[1]), url);

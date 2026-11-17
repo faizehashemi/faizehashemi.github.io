@@ -105,17 +105,17 @@ export function dropQueued(clientUid) { setQueue(queued().filter(x => x.client_u
 
 /* ---------------------------------- receipt ---------------------------------- */
 export function receiptHTML(b, info = '') {
-    const free = b.kind === 'free', bld = b.kind === 'building';
+    const free = b.kind === 'free', bld = b.kind === 'building', staffPaid = b.kind === 'paid' && !!b.staff_id;   // staffPaid: a staff member in paid mode (1 SAR a piece)
     const when = b.given_at || b.created_at || new Date().toISOString();
     const change = !free && b.method === 'cash' && b.received > b.paid ? b.received - b.paid : 0;
     return `<div class="ld-receipt">
       <div class="r-h1">MOHAMMEDI MAKAN</div>
-      <div class="r-h2">${free ? 'STAFF LAUNDRY' : bld ? 'BUILDING LAUNDRY' : 'LAUNDRY RECEIPT'}</div>
+      <div class="r-h2">${free ? 'STAFF LAUNDRY' : bld ? 'BUILDING LAUNDRY' : staffPaid ? 'STAFF LAUNDRY – PAID' : 'LAUNDRY RECEIPT'}</div>
       <div class="r-row"><span>Receipt No</span><b>${esc(b.receipt_no)}</b></div>
       <div class="r-row"><span>Date</span><span>${esc(jeddahDate(when))}</span></div>
       <div class="r-row"><span>Time</span><span>${esc(jeddahTime(when))}</span></div>
       <hr>
-      ${free ? `<div class="r-row"><span>Staff</span><b>${esc(b.staff_name || b.customer?.name)}</b></div>`
+      ${free || staffPaid ? `<div class="r-row"><span>Staff</span><b>${esc(b.staff_name || b.customer?.name)}</b></div>${staffPaid && b.customer?.room ? `<div class="r-row"><span>Room</span><b>${esc(b.customer.room)}</b></div>` : ''}`
         : bld ? (b.customer?.building ? `<div class="r-row"><span>Building</span><b>${esc(b.customer.building)}</b></div>` : '') : `
       ${b.customer?.building ? `<div class="r-row"><span>Building</span><b>${esc(b.customer.building)}</b></div>` : ''}
       <div class="r-row"><span>Room</span><b>${esc(b.customer?.room || '—')}</b></div>

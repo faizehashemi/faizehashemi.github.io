@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ const clickRow = 'cursor-pointer hover:bg-accent/50';
 
 /** Who a bill is for, as one line. */
 export function whoOf(b: Row) {
+    if (b.kind === 'paid' && b.staff_id) return `👷 ${b.staff_name || b.customer?.name || ''}${b.customer?.room ? ' · Room ' + b.customer.room : ''} · 💵 staff`;   // paid-mode staff
     return b.kind === 'free' ? `👷 ${b.staff_name}` : b.kind === 'building' ? `🏨 Building linen${b.customer?.building ? ' · ' + b.customer.building : ''}` : [b.customer?.building, b.customer?.room].filter(Boolean).join(' · ') || b.customer?.name || '—';
 }
 export function StaffPhoto({ id, cls = 'size-9' }: { id: number; cls?: string }) {
@@ -257,15 +258,47 @@ export function PricesTab() {
 }
 
 /* ------------------------------ staff ------------------------------ */
+// Staff profiles: tick people (or a whole category) for bulk changes — archive / restore, paid mode on / off, move to a category — and print
+// person-wise bills for a date range (dates and pieces only). Paid mode = 1 SAR a piece, receipts NAME-ROOM-01, 02 … per person, shown as unpaid
+// cash bills until marked paid (Bills tab / Pending cash). Archived people leave the laundry screen; their history stays.
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+export function personBillsHtml(people: Row[], bills: Row[], from: string, to: string, fmt: (d: string) => string) {
+    const pages = people.map(p => {
+        const mine = bills.filter(b => b.staff_id === p.id && !b.voided && (b.kind === 'free' || b.kind === 'paid'));
+        const byDay = new Map<string, number>();
+        for (const b of mine) byDay.set(b.day, (byDay.get(b.day) || 0) + b.items);
+        const days = [...byDay].sort((a, b) => a[0].localeCompare(b[0]));
+        const total = days.reduce((n, [, q]) => n + q, 0);
+        return `<section class="pb"><h1>${esc(p.name)}</h1><p class="sub">${[p.room && 'Room ' + esc(p.room), p.category && esc(p.category), p.charged ? 'Paid laundry' : 'Staff laundry'].filter(Boolean).join(' · ')}</p>
+            <p class="sub">${fmt(from)} → ${fmt(to)}</p>
+            <table><thead><tr><th>Date</th><th>Pieces</th></tr></thead><tbody>${days.length ? days.map(([d, q]) => `<tr><td>${fmt(d)}</td><td>${q}</td></tr>`).join('') : '<tr><td colspan="2">No laundry in these dates</td></tr>'}</tbody>
+            <tfoot><tr><th>Total</th><th>${total}</th></tr></tfoot></table></section>`;
+    }).join('');
+    return `<!doctype html><html><head><meta charset="utf-8"><title>Staff laundry ${from} to ${to}</title><style>
+        @page{size:A5;margin:10mm} body{font:13px system-ui,sans-serif;color:#111;margin:0}
+        .pb{page-break-after:always} .pb:last-child{page-break-after:auto} h1{font-size:20px;margin:0 0 2px} .sub{margin:0 0 4px;color:#444}
+        table{width:100%;border-collapse:collapse;margin-top:8px} th,td{border:1px solid #333;padding:5px 8px;text-align:left} td:last-child,th:last-child{text-align:right;width:30%}
+        thead th{background:#eee} tfoot th{font-size:15px}</style></head><body>${pages}</body></html>`;
+}
+
 export function StaffTab() {
-    const { isAdmin, staff, cats, loadStaff, api, site, setCats, setStaff, libs, confirm, prompt, openStaffForm, openStaffHistory } = useLa();
+    const { isAdmin, staff, cats, loadStaff, api, site, setCats, setStaff, libs, confirm, prompt, openStaffForm, openStaffHistory, fmtDay } = useLa();
     const [q, setQ] = useState(''), [cat, setCat] = useState('*'), [newCat, setNewCat] = useState(''), [msg, setMsg] = useState('');
+    const [view, setView] = useState<'live' | 'archived'>('live'), [sel, setSel] = useState<Set<number>>(new Set()), [moveTo, setMoveTo] = useState('');
+    const today = libs.jeddahDay();
+    const [pr, setPr] = useState<{ open: boolean; from: string; to: string; busy: boolean }>({ open: false, from: today.slice(0, 8) + '01', to: today, busy: false });
+    const printFor = useRef<number[]>([]);
     const { data: ok, err } = useLoad(async () => { await loadStaff(); return true; }, []);
     if (err) return <Err e={err} />;
     if (!ok) return <Loading />;
     const catOf = (s: Row) => (cats.includes(s.category) ? s.category : '');
-    const n = (c: string) => staff.filter(s => !s.deleted && (c === '' ? !cats.includes(s.category) : s.category === c)).length;
-    const list = staff.filter(s => !s.deleted).filter(s => cat === '*' || catOf(s) === cat).filter(s => !q.trim() || [s.name, s.staff_code, s.room, s.contact, s.department].some(v => String(v || '').toLowerCase().includes(q.trim().toLowerCase())));
+    const people = staff.filter(s => !s.deleted && (view === 'archived' ? s.archived : !s.archived));
+    const n = (c: string) => people.filter(s => (c === '' ? !cats.includes(s.category) : s.category === c)).length;
+    const list = people.filter(s => cat === '*' || catOf(s) === cat).filter(s => !q.trim() || [s.name, s.staff_code, s.room, s.contact, s.department].some(v => String(v || '').toLowerCase().includes(q.trim().toLowerCase())));
+    const picked = people.filter(s => sel.has(s.id));
+    const inCat = (c: string) => people.filter(s => catOf(s) === c);
+    const catState = (c: string) => { const m = inCat(c); const k = m.filter(s => sel.has(s.id)).length; return !m.length || !k ? false : k === m.length ? true : 'indeterminate' as const; };
+    const tick = (ids: number[], on: boolean) => setSel(x => { const nx = new Set(x); ids.forEach(i => (on ? nx.add(i) : nx.delete(i))); return nx; });
     async function saveCats(categories: string[], renames: Record<string, string> = {}) {
         try { const r = await api('PUT', '/api/laundry/staff-categories', { site, categories, renames }); setCats(r.categories); setStaff(r.staff); setMsg(''); } catch (e: any) { setMsg(e.message); }
     }
@@ -280,25 +313,77 @@ export function StaffTab() {
         if (!(await confirm({ title: `Delete ${s.name}?`, confirmLabel: 'Delete', body: "The profile disappears from this list and from the worker's free-laundry search, so no new free laundry can be given.\nThe record and all past free-laundry entries stay saved (register, reports, history)." }))) return;
         try { setStaff((await api('DELETE', `/api/laundry/staff/${s.id}`)).staff); } catch (e: any) { setMsg(e.message); }
     }
+    const LABEL: Record<string, string> = { archive: '🗄 Archive', restore: '♻️ Restore', charged: '💵 Paid mode on', free: '🆓 Free (paid mode off)', category: '🗂️ Move' };
+    async function bulk(action: string, ids: number[], extra: Row = {}) {
+        if (!ids.length) return;
+        const who = people.filter(s => ids.includes(s.id));
+        const body = action === 'charged' ? 'Their next laundry costs 1 SAR a piece, gets their own receipt number (NAME-ROOM-01, 02 …) and waits as unpaid until marked paid.'
+            : action === 'free' ? 'Their next laundry is free staff laundry again. Bills already made stay as they are.'
+            : action === 'archive' ? 'They leave the laundry screen. Their history stays; restore them any time from "Archived".' : undefined;
+        if (!(await confirm({ title: `${LABEL[action]}${action === 'category' ? ` to "${extra.category || 'Uncategorized'}"` : ''} — ${who.length} ${who.length === 1 ? 'person' : 'people'}?`, body: <>{body && <p>{body}</p>}<p className="text-xs text-muted-foreground">{who.map(s => s.name).join(', ')}</p></>, confirmLabel: 'Apply' }))) return;
+        try { const r = await api('POST', '/api/laundry/staff-bulk', { site, ids, action, ...extra }); setStaff(r.staff); setSel(new Set()); setMsg(`${r.changed} updated.`); } catch (e: any) { setMsg(e.message); }
+    }
+    async function printBills(ids: number[]) {
+        if (!ids.length) return;
+        if (pr.from > pr.to) { setMsg('"From" is after "To".'); return; }
+        setPr(p => ({ ...p, busy: true }));
+        try {
+            const { bills } = await api('GET', `/api/laundry/bills?site=${site}&from=${pr.from}&to=${pr.to}&all=1`);
+            const w = window.open('', '_blank');
+            if (!w) { setMsg('Allow pop-ups to print.'); return; }
+            w.document.write(personBillsHtml(staff.filter(s => ids.includes(s.id)), bills, pr.from, pr.to, fmtDay));
+            w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+            setPr(p => ({ ...p, open: false }));
+        } catch (e: any) { setMsg(e.message); } finally { setPr(p => ({ ...p, busy: false })); }
+    }
+    const openPrint = (ids: number[]) => { printFor.current = ids; setPr(p => ({ ...p, open: true })); };
+    const allShown = list.length > 0 && list.every(s => sel.has(s.id));
     return (
         <div className="grid gap-3">
-            <Card><CardHeader><CardTitle className="text-base">🗂️ Staff categories <small className="font-normal text-muted-foreground">— the laundry screen shows these first; staff without one are under "Uncategorized"</small></CardTitle></CardHeader><CardContent className="grid gap-3">
-                <div className="flex flex-wrap gap-2">{cats.map(c => <span key={c} className="inline-flex items-center gap-1.5 rounded-full border bg-accent px-3 py-1 text-sm"><b>{c}</b> <small>{n(c)}</small>
-                    {isAdmin && <><button type="button" aria-label={`Rename ${c}`} onClick={() => void rename(c)}>✏️</button><button type="button" aria-label={`Delete ${c}`} onClick={async () => { if (await confirm({ title: `Delete the category "${c}"?`, body: 'Its staff stay, under "Uncategorized".', confirmLabel: 'Delete' })) await saveCats(cats.filter(x => x !== c)); }}>🗑</button></>}</span>)}
-                    <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm text-muted-foreground"><b>Uncategorized</b> <small>{n('')}</small></span></div>
+            <Card><CardHeader><CardTitle className="text-base">🗂️ Staff categories <small className="font-normal text-muted-foreground">— tick a category to select all its people; the laundry screen shows these first</small></CardTitle></CardHeader><CardContent className="grid gap-3">
+                <div className="flex flex-wrap gap-2">{[...cats, ''].map(c => <span key={c || '-'} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm', c ? 'bg-accent' : 'text-muted-foreground')}>
+                    <Checkbox aria-label={`Select everyone in ${c || 'Uncategorized'}`} checked={catState(c)} disabled={!inCat(c).length} onCheckedChange={v => tick(inCat(c).map(s => s.id), v === true)} />
+                    <b>{c || 'Uncategorized'}</b> <small>{n(c)}</small>
+                    {isAdmin && c && <><button type="button" aria-label={`Rename ${c}`} onClick={() => void rename(c)}>✏️</button><button type="button" aria-label={`Delete ${c}`} onClick={async () => { if (await confirm({ title: `Delete the category "${c}"?`, body: 'Its staff stay, under "Uncategorized".', confirmLabel: 'Delete' })) await saveCats(cats.filter(x => x !== c)); }}>🗑</button></>}</span>)}</div>
                 {isAdmin && <div className="flex flex-wrap gap-2"><Input className="max-w-xs" maxLength={40} placeholder="New category, e.g. Kitchen" value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(), document.getElementById('catAdd')?.click(); }} />
                     <Button id="catAdd" onClick={async () => { const name = newCat.trim(); if (!name) return; if (cats.some(c => c.toLowerCase() === name.toLowerCase())) { setMsg(`"${name}" is already a category.`); return; } setNewCat(''); await saveCats([...cats, name]); }}>➕ Add category</Button></div>}
-                {msg && <p className="text-sm text-destructive">{msg}</p>}</CardContent></Card>
-            <div className="flex flex-wrap gap-2"><Input type="search" className="max-w-xs" placeholder="🔎 Name, staff ID, room, mobile" value={q} onChange={e => setQ(e.target.value)} />
+                </CardContent></Card>
+            <div className="flex flex-wrap items-center gap-2"><Input type="search" className="max-w-xs" placeholder="🔎 Name, staff ID, room, mobile" value={q} onChange={e => setQ(e.target.value)} />
                 <select aria-label="Category" className="h-9 rounded-md border bg-background px-2 text-sm" value={cat} onChange={e => setCat(e.target.value)}><option value="*">All categories</option>{cats.map(c => <option key={c} value={c}>{c}</option>)}<option value="">Uncategorized</option></select>
+                <div className="inline-flex rounded-md border p-0.5 text-sm">{(['live', 'archived'] as const).map(v => <button key={v} type="button" className={cn('rounded px-3 py-1', view === v && 'bg-primary text-primary-foreground')} onClick={() => { setView(v); setSel(new Set()); }}>{v === 'live' ? `👥 Current (${staff.filter(s => !s.deleted && !s.archived).length})` : `🗄 Archived (${staff.filter(s => !s.deleted && s.archived).length})`}</button>)}</div>
                 {isAdmin && <Button onClick={() => openStaffForm(null)}>➕ Add staff</Button>}</div>
+            <div className="sticky top-14 z-10 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2 shadow-sm">
+                <Label className="gap-2"><Checkbox checked={allShown ? true : list.some(s => sel.has(s.id)) ? 'indeterminate' : false} onCheckedChange={v => tick(list.map(s => s.id), v === true)} />Select all shown</Label>
+                <b className="text-sm">{picked.length} selected</b>{picked.length > 0 && <Button size="sm" variant="ghost" onClick={() => setSel(new Set())}>Clear</Button>}
+                <span className="grow" />
+                <Button size="sm" variant="outline" disabled={!picked.length} onClick={() => openPrint(picked.map(s => s.id))}>🖨 Print bills</Button>
+                {isAdmin && <>
+                    {view === 'live' ? <Button size="sm" variant="outline" disabled={!picked.length} onClick={() => void bulk('archive', picked.map(s => s.id))}>{LABEL.archive}</Button>
+                        : <Button size="sm" variant="outline" disabled={!picked.length} onClick={() => void bulk('restore', picked.map(s => s.id))}>{LABEL.restore}</Button>}
+                    <Button size="sm" variant="outline" disabled={!picked.length} onClick={() => void bulk('charged', picked.map(s => s.id))}>{LABEL.charged}</Button>
+                    <Button size="sm" variant="outline" disabled={!picked.length} onClick={() => void bulk('free', picked.map(s => s.id))}>{LABEL.free}</Button>
+                    <select aria-label="Move to category" className="h-8 rounded-md border bg-background px-2 text-sm" value={moveTo} onChange={e => setMoveTo(e.target.value)}><option value="">Uncategorized</option>{cats.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                    <Button size="sm" variant="outline" disabled={!picked.length} onClick={() => void bulk('category', picked.map(s => s.id), { category: moveTo })}>{LABEL.category}</Button></>}
+            </div>
+            {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{list.map(s => (
-                <div key={s.id} className={cn('flex gap-3 rounded-xl border bg-card p-3', !(s.active && s.free) && 'opacity-60')}>
+                <div key={s.id} className={cn('flex gap-3 rounded-xl border bg-card p-3', (!(s.active && s.free) || s.archived) && 'opacity-60', sel.has(s.id) && 'ring-2 ring-primary')}>
+                    <Checkbox className="mt-1" aria-label={`Select ${s.name}`} checked={sel.has(s.id)} onCheckedChange={v => tick([s.id], v === true)} />
                     {s.photo ? <img src={s.photo} alt="" className="size-16 rounded-lg object-cover" /> : <span className="grid size-16 place-items-center rounded-lg bg-muted text-2xl">👤</span>}
                     <div className="grid min-w-0 gap-0.5"><b>{s.name}</b><Sm>🗂️ {catOf(s) || 'Uncategorized'}</Sm><Sm>{[s.staff_code && 'ID ' + s.staff_code, s.department, s.room && 'Room ' + s.room].filter(Boolean).join(' · ')}</Sm>
-                        <Sm>{s.active && s.free ? '🆓 Free laundry' : '⛔ Not active'}{Object.keys(s.limits || {}).some(k => k !== 'enforce' && s.limits[k]) ? ' · ' + limitText(libs.sar, s.limits) : ''}</Sm>
-                        <span className="mt-1 flex flex-wrap gap-1"><Button size="sm" variant="outline" onClick={() => openStaffHistory(s.id)}>📒 History</Button>{isAdmin && <><Button size="sm" variant="outline" onClick={() => openStaffForm(s)}>✏️ Edit</Button><Button size="sm" variant="outline" className="text-destructive" onClick={() => void del(s)}>🗑 Delete</Button></>}</span></div></div>))}
-                {!list.length && <p className="text-sm text-muted-foreground">{staff.some(s => !s.deleted) ? 'Nobody matches.' : 'No free-laundry staff yet.'}</p>}</div>
+                        <Sm>{s.archived ? '🗄 Archived' : !(s.active && s.free) ? '⛔ Not active' : s.charged ? '💵 Paid · 1 SAR a piece' : '🆓 Free laundry'}{!s.charged && Object.keys(s.limits || {}).some(k => k !== 'enforce' && s.limits[k]) ? ' · ' + limitText(libs.sar, s.limits) : ''}</Sm>
+                        <span className="mt-1 flex flex-wrap gap-1"><Button size="sm" variant="outline" onClick={() => openStaffHistory(s.id)}>📒 History</Button><Button size="sm" variant="outline" onClick={() => openPrint([s.id])}>🖨 Bills</Button>
+                            {isAdmin && <><Button size="sm" variant="outline" onClick={() => openStaffForm(s)}>✏️ Edit</Button>
+                                <Button size="sm" variant="outline" onClick={() => void bulk(s.charged ? 'free' : 'charged', [s.id])}>{s.charged ? '🆓 Make free' : '💵 Make paid'}</Button>
+                                <Button size="sm" variant="outline" onClick={() => void bulk(s.archived ? 'restore' : 'archive', [s.id])}>{s.archived ? LABEL.restore : LABEL.archive}</Button>
+                                <Button size="sm" variant="outline" className="text-destructive" onClick={() => void del(s)}>🗑 Delete</Button></>}</span></div></div>))}
+                {!list.length && <p className="text-sm text-muted-foreground">{people.length ? 'Nobody matches.' : view === 'archived' ? 'Nobody is archived.' : 'No staff yet.'}</p>}</div>
+            <Dialog open={pr.open} onOpenChange={o => setPr(p => ({ ...p, open: o }))}>
+                <DialogContent className="max-w-sm"><DialogHeader><DialogTitle>🖨 Person-wise bills</DialogTitle></DialogHeader>
+                    <p className="text-sm text-muted-foreground">{printFor.current.length === 1 ? staff.find(s => s.id === printFor.current[0])?.name : `${printFor.current.length} people`} — one page each, dates and pieces only.</p>
+                    <div className="grid grid-cols-2 gap-2"><div className="grid gap-1"><Label>From</Label><Input type="date" value={pr.from} onChange={e => setPr(p => ({ ...p, from: e.target.value || p.from }))} /></div>
+                        <div className="grid gap-1"><Label>To</Label><Input type="date" value={pr.to} onChange={e => setPr(p => ({ ...p, to: e.target.value || p.to }))} /></div></div>
+                    <Button disabled={pr.busy} onClick={() => void printBills(printFor.current)}>{pr.busy ? 'Loading…' : '🖨 Print'}</Button></DialogContent></Dialog>
         </div>
     );
 }

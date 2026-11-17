@@ -172,13 +172,13 @@ export function StaffFormDialog({ staffRow, open, onClose }: { staffRow: Row | n
         if (!open) return;
         const L = s?.limits || {};
         setF({ name: s?.name || '', staff_code: s?.staff_code || '', room: s?.room || '', department: s?.department || '', contact: s?.contact || '', started_on: s?.started_on || '', category: s?.category || '', remarks: s?.remarks || '',
-            free: !s || s.free, active: !s || s.active, per_bill_items: L.per_bill_items || '', per_day_items: L.per_day_items || '', per_week_items: L.per_week_items || '', per_month_value: L.per_month_value ? L.per_month_value / 100 : '', per_month_bills: L.per_month_bills || '', enforce: !!L.enforce });
+            free: !s || s.free, active: !s || s.active, charged: !!s?.charged, archived: !!s?.archived, per_bill_items: L.per_bill_items || '', per_day_items: L.per_day_items || '', per_week_items: L.per_week_items || '', per_month_value: L.per_month_value ? L.per_month_value / 100 : '', per_month_bills: L.per_month_bills || '', enforce: !!L.enforce });
         setPhoto(s?.photo || ''); setErr('');
     }, [open, s?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
     const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF(p => ({ ...p, [k]: e.target.value }));
     async function save(e: React.FormEvent) {
         e.preventDefault();
-        const payload = { site, name: f.name, staff_code: f.staff_code, room: f.room, department: f.department, contact: f.contact, category: f.category, started_on: f.started_on, remarks: f.remarks, free: !!f.free, active: !!f.active, photo,
+        const payload = { site, name: f.name, staff_code: f.staff_code, room: f.room, department: f.department, contact: f.contact, category: f.category, started_on: f.started_on, remarks: f.remarks, free: !!f.free, active: !!f.active, charged: !!f.charged, archived: !!f.archived, photo,
             limits: { per_bill_items: f.per_bill_items, per_day_items: f.per_day_items, per_week_items: f.per_week_items, per_month_value: f.per_month_value, per_month_bills: f.per_month_bills, enforce: !!f.enforce } };
         try { const r = await api(s ? 'PUT' : 'POST', s ? `/api/laundry/staff/${s.id}` : '/api/laundry/staff', payload); setStaff(r.staff); onClose(); } catch (er: any) { setErr(er.message); }
     }
@@ -197,7 +197,7 @@ export function StaffFormDialog({ staffRow, open, onClose }: { staffRow: Row | n
                         {inp('Mobile', 'contact', { maxLength: 30 })}{inp('Free laundry from', 'started_on', { type: 'date' })}
                         {field('Category', <select className="h-9 rounded-md border bg-background px-2 text-sm" value={f.category || ''} onChange={set('category')}><option value="">Uncategorized</option>{cats.map(c => <option key={c} value={c}>{c}</option>)}</select>)}</div>
                     {inp('Remarks', 'remarks', { maxLength: 300 })}
-                    <div className="grid gap-2 sm:grid-cols-2">{chk('free', 'Free laundry: YES')}{chk('active', 'Active')}</div>
+                    <div className="grid gap-2 sm:grid-cols-2">{chk('free', 'Free laundry: YES')}{chk('active', 'Active')}{chk('charged', '💵 Paid mode: 1 SAR a piece, own receipt series')}{chk('archived', '🗄 Archived (off the laundry screen)')}</div>
                     <fieldset className="grid gap-2 rounded-lg border p-3"><legend className="px-1 text-sm font-bold">Limits (optional — leave empty for none)</legend>
                         <div className="grid gap-2 sm:grid-cols-2">{inp('Max pieces per submission', 'per_bill_items', { type: 'number', min: 1 })}{inp('Max pieces per day', 'per_day_items', { type: 'number', min: 1 })}{inp('Max pieces per week', 'per_week_items', { type: 'number', min: 1 })}
                             {inp('Max value per month (SAR)', 'per_month_value', { type: 'number', min: 1, step: 0.5 })}{inp('Max free bills per month', 'per_month_bills', { type: 'number', min: 1 })}</div>
