@@ -264,7 +264,7 @@ export default function CheckinsPage() {
                         <label className="flex items-center gap-1.5 text-sm" title="Exclusive rooms show only 'Excl' unless this is ticked (table, printed table and printed slips)"><input type="checkbox" checked={exclB} onChange={e => pickExclB(e.target.checked)} />show building on Excl rooms</label>
                         {may.print && libs && <>
                             <Button size="sm" title="Print every slip in this table (A5, like Print slips)" onClick={() => libs.slipPrint.printSlips(withLeave(rows), { title: `check-${kind}s ${rangeLabel}` })}>Print slips</Button>
-                            <Button size="sm" title="The A4 itinerary letter of every slip in this table" onClick={() => libs.slipPrint.printItineraries(rows, slips.data ?? [], { title: `check-${kind}s ${rangeLabel}` })}>Print itinerary</Button>
+                            <Button size="sm" title="The A4 itinerary letter of every slip in this table (S-prefix slips left out: they got theirs on the first leg)" onClick={() => libs.slipPrint.printItineraries(rows.filter(r => !/^S/i.test(String(r.sh_no ?? '').trim())), slips.data ?? [], { title: `check-${kind}s ${rangeLabel}` })}>Print itinerary</Button>
                             <Button size="sm" title="Each slip as an A5 picture to send to its group leader" onClick={() => libs.slipPrint.openGlCopies(withLeave(rows), { title: `check-${kind}s ${rangeLabel}` })}>GL copy</Button></>}
                     </div></CardHeader>
                 <CardContent className="overflow-x-auto p-0">{renderTable(kind)}</CardContent>

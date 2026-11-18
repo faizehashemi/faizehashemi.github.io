@@ -29,7 +29,7 @@ export const DEFAULT_SITE = 'makkah';
 // The menu bar, router and page frame as React (react/src/shell) instead of core/nav.js + legacy-shell.js. On for everybody since 2026-11-02 (approved after staging);
 // one browser: localStorage pms_react_shell = 1 (on) / 0 (off); one visit: ?shell=react / ?shell=legacy in the address (see main.js).
 export const REACT_SHELL = true;
-export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','slip-builder','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
+export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','slip-builder','reports','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
@@ -58,6 +58,7 @@ export const VIEWS = [
     { id: 'slip-search',  label: 'Search slips',       title: 'Search Slips',          hint: 'Find a slip and see its details — view only' },
     { id: 'performance',  label: 'Performance',        title: 'Performance',           hint: 'Page speed on the desks and their feedback (admins)' },
     { id: 'backups',      label: 'Backups',            title: 'Backups',               hint: 'Hourly database backups: health, download, and restore a slip as it was (admins)' },
+    { id: 'reports',      label: 'Reports',            title: 'Reports',               hint: 'Mawaid, occupancy, transport, website, development, KG and laundry reports as PDF' },
     { id: 'changelog',    label: 'Change log',         title: 'Change Log',            hint: 'Every deployed change, by feature or day by day' },
     { id: 'setup',        label: 'Setup',              title: 'Setup',                 hint: 'This desk, old data upload, desk logins' },
     { id: 'laundry',      label: 'Laundry POS',        title: 'Laundry POS',           hint: 'New bill, staff only, building linen, logs, pending cash' },
@@ -84,6 +85,7 @@ export const NAV = [
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'arrival', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
     { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts', 'building-hisaab', 'passport'] },
+    { id: 'reports', label: 'Reports',       views: ['reports'] },
     { id: 'data',   label: 'Data',           views: ['slip-search', 'ums', 'admin', 'setup', 'performance', 'backups', 'changelog'] },
 ];
 
