@@ -302,6 +302,34 @@ CREATE TABLE IF NOT EXISTS activity (
     items     TEXT                                 -- bulk: JSON [{ sh, grp, text }]
 );
 CREATE INDEX IF NOT EXISTS activity_site ON activity(site, id);
+
+-- Lost & Found (Rooms → Lost & Found): an item left in a room, its photo, and every hand-over until it is back with the guest.
+-- status: found (registered, awaiting collection) | handed (with an authorised custodian) | returned (back with the guest: completed).
+-- history: JSON [{ at, action: found|handed|returned|edit|reopen, from, to, by, remarks, desk }] — never shortened.
+CREATE TABLE IF NOT EXISTS lost_items (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    site       TEXT NOT NULL,
+    ref        TEXT NOT NULL,                     -- LF-MM-0001 (per site)
+    building   TEXT NOT NULL DEFAULT '',
+    floor      TEXT NOT NULL DEFAULT '',
+    room       TEXT NOT NULL DEFAULT '',
+    item       TEXT NOT NULL,
+    photo      TEXT NOT NULL DEFAULT '',          -- data: URL (JPEG, ~1000 px)
+    thumb      TEXT NOT NULL DEFAULT '',          -- data: URL (small, for lists)
+    found_at   TEXT NOT NULL,                     -- YYYY-MM-DDTHH:MM (local)
+    found_by   TEXT NOT NULL DEFAULT '',
+    custodian  TEXT NOT NULL DEFAULT '',
+    remarks    TEXT NOT NULL DEFAULT '',
+    status     TEXT NOT NULL DEFAULT 'found',
+    history    TEXT NOT NULL DEFAULT '[]',
+    deleted    INTEGER NOT NULL DEFAULT 0,
+    version    INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    created_by INTEGER,
+    updated_at TEXT NOT NULL,
+    updated_by INTEGER
+);
+CREATE INDEX IF NOT EXISTS lost_items_site ON lost_items(site, status);
 -- added 2026-11-19: ALTER TABLE desks ADD COLUMN seen_activity INTEGER;
 
 -- Transport: the day's vehicle list from the transport system, one JSON document per site and day

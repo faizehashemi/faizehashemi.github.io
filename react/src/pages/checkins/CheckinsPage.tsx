@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useSlips } from '@/hooks/useSlips';
 import { usePrefs } from '@/hooks/usePrefs';
 import { useCore, useDb, useLoadCore, useNav, useSite } from '@/pms/PmsContext';
+import { RoomChanges } from './RoomChanges';
 import { assignedCount, computeWindow, countsOf, fmtDT, guests, legOf, luggageAt, luggageIndex, num, parseDT, partSum, partsOf, paxOrder, plusOneDay, printTableHtml, roomsFromSlip, splitExcl, toCSV, ymd, type Row } from './checkins';
 
 // Check-ins & Check-outs (Front desk): filter by one day or a date/time range; the results are read-only and come from the shared PMS data. Each table has a
@@ -278,6 +279,7 @@ export default function CheckinsPage() {
     ];
     return (
         <div className="mx-auto grid grid-cols-[minmax(0,1fr)] max-w-[2400px] min-w-0 gap-3 px-3 pb-10 pt-4 sm:px-4">
+            <RoomChanges cloud={cloud as any} siteId={siteId} />
             <header className="grid gap-3 print:hidden">
                 <div><h1 className="text-2xl font-bold text-primary">Check-ins &amp; Check-outs</h1><p className="text-sm text-muted-foreground">Filter by single day or a date/time range. Results are read-only and come from the shared PMS data.</p></div>
                 <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">

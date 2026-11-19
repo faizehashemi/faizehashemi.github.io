@@ -7,7 +7,7 @@ import { useCore, useGuard, useLoadCore, useSite } from '@/pms/PmsContext';
 import { BillDialog, EditBillDialog, ItemFormDialog, StaffFormDialog, StaffHistoryDialog } from './dialogs';
 import { LaProvider, type LaCtx } from './la';
 import { makeDates, type Libs } from './ladmin';
-import { BillsTab, BuildingTab, FreeTab, NoticeTab, PaymentsTab, PricesTab, ReportsTab, StaffTab } from './tabs';
+import { BillsSplit, BuildingTab, FreeTab, NoticeTab, PaymentsTab, PricesTab, ReportsTab, StaffTab } from './tabs';
 
 // Laundry admin (PC): cash bills (from → to; mark Paid one by one, by selection or by the amount the worker handed over), the payments log, reports, staff-only
 // laundry, building linen, prices (clothes and building linen, with pictures), staff profiles (photo, limits, categories) and the laundry notice. Admin logins
@@ -67,7 +67,7 @@ export default function LaundryAdminPage() {
                     <span className="text-sm text-muted-foreground">{site.label} · {isAdmin ? 'admin' : canPay ? 'desk · can mark cash paid' : 'view only'}</span></PageHeader>
                 <Tabs value={tab} onValueChange={setTab}>
                     <TabsList variant="underline">{TABS.map(([k, l]) => <TabsTrigger key={k} value={k}>{l}</TabsTrigger>)}</TabsList>
-                    <TabsContent key={`bills-${epoch}`} value="bills"><BillsTab /></TabsContent>
+                    <TabsContent key={`bills-${epoch}`} value="bills"><BillsSplit /></TabsContent>
                     <TabsContent key={`payments-${epoch}`} value="payments"><PaymentsTab /></TabsContent>
                     <TabsContent key={`reports-${epoch}`} value="reports"><ReportsTab /></TabsContent>
                     <TabsContent key={`free-${epoch}`} value="free"><FreeTab /></TabsContent>

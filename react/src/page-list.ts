@@ -12,6 +12,7 @@ export const PAGES: Record<string, () => Promise<PageModule>> = {
     'pending-checkouts': () => import('@/pages/pending-checkouts/PendingCheckoutsPage'),
     'building-hisaab': () => import('@/pages/building-hisaab/BuildingHisaabPage'),
     reports: () => import('@/pages/reports/ReportsPage'),
+    'lost-found': () => import('@/pages/lost-found/LostFoundPage'),
     'slip-builder': () => import('@/pages/slip-builder/SlipBuilderPage'),
     'menu-card': () => import('@/pages/menu-card/MenuCardPage'),
     performance: () => import('@/pages/performance/PerformancePage'),

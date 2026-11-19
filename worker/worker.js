@@ -523,6 +523,7 @@ async function route(req, env) {
     if (p === '/api/me' && m === 'GET') return json({ desk: publicDesk(me) });
     if (p === '/api/activity' && m === 'GET') return listActivity(url, env, me);
     if (p === '/api/activity/seen' && m === 'POST') return seenActivity(req, env, me);
+    if (p.startsWith('/api/lost')) { const r = await lostRoute(p, m, url, req, env, me); if (r) return r; }
     if (p === '/api/me/password' && m === 'POST') return changeOwnPassword(req, env, me);
     if (p === '/api/me/verify-password' && m === 'POST') return verifyOwnPassword(req, env, me);
     if (p === '/api/me/prefs' && m === 'GET') return getPrefs(env, me);
@@ -817,6 +818,8 @@ function slipChanges(old, s) {
         const gone = a.filter(x => !b.includes(x)), added = b.filter(x => !a.includes(x));
         if (!gone.length && !added.length) continue;
         if (gone.length === 1 && added.length === 1) out.push(`${sideName[k]} room ${gone[0]} → ${added[0]}`);
+        else if (!gone.length) out.push(`${sideName[k]} room${added.length === 1 ? '' : 's'} ${added.join(', ')} assigned`);
+        else if (!added.length) out.push(`${sideName[k]} room${gone.length === 1 ? '' : 's'} ${gone.join(', ')} removed`);
         else out.push(`${sideName[k]} rooms ${[...added.map(x => '+' + x), ...gone.map(x => '−' + x)].join(' ')}`);
     }
     if (old) {
@@ -849,6 +852,11 @@ async function listActivity(url, env, me) {
         }
         after = d.seen_activity;
     }
+    const hours = Number(url.searchParams.get('hours'));
+    if (hours > 0) {   // the last N hours (Check-ins: room changes as cards)
+        const { results } = await env.DB.prepare('SELECT * FROM activity WHERE site = ? AND at >= ? ORDER BY id DESC LIMIT 400').bind(site, new Date(Date.now() - Math.min(hours, 720) * 36e5).toISOString()).all();
+        return json({ items: results.reverse().map(r => ({ ...r, items: r.items ? JSON.parse(r.items) : null })), last: top });
+    }
     if (Math.random() < 0.02) await env.DB.prepare('DELETE FROM activity WHERE at < ?').bind(new Date(Date.now() - 30 * 864e5).toISOString()).run();
     const { results } = await env.DB.prepare('SELECT * FROM activity WHERE site = ? AND id > ? ORDER BY id DESC LIMIT 300').bind(site, Number(after) || 0).all();
     return json({ items: results.reverse().map(r => ({ ...r, items: r.items ? JSON.parse(r.items) : null })), last: top });
@@ -859,6 +867,102 @@ async function seenActivity(req, env, me) {
     if (!(n >= 0)) throw new HttpError(400, 'Missing id.');
     await env.DB.prepare('UPDATE desks SET seen_activity = MAX(COALESCE(seen_activity, 0), ?) WHERE id = ?').bind(n, me.id).run();
     return json({ ok: true });
+}
+
+/* ------------------------------ Lost & Found ------------------------------ */
+// Every login sees the items of a site; desks and admins (not view-only logins) add, edit and record hand-overs. Nothing is ever removed
+// from an item's history; a returned item stays, marked completed.
+const LOST_STATUS = ['found', 'handed', 'returned'];
+const LOST_MAX_PHOTO = 450 * 1024, LOST_MAX_THUMB = 40 * 1024;
+const lostPic = (v, max) => { const s = v == null ? '' : String(v); if (s && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s)) throw new HttpError(400, 'The photo must be a JPEG/PNG picture.'); if (s.length > max) throw new HttpError(413, 'The photo is too large.'); return s; };
+const lostWhen = (v) => { const s = String(v || '').slice(0, 16); if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) throw new HttpError(400, 'Enter the date and time found.'); return s; };
+function lostRead(me, site) {
+    const s = String(site || me.site);
+    if (!SITES[s]) throw new HttpError(400, `Unknown site "${s}".`);
+    return s;
+}
+function rowToLost(r, full = false) {
+    return { id: r.id, site: r.site, ref: r.ref, building: r.building, floor: r.floor, room: r.room, item: r.item, thumb: r.thumb, ...(full ? { photo: r.photo } : {}),
+        found_at: r.found_at, found_by: r.found_by, custodian: r.custodian, remarks: r.remarks, status: r.status, history: JSON.parse(r.history || '[]'),
+        version: r.version, created_at: r.created_at, updated_at: r.updated_at };
+}
+function prepareLost(b) {
+    const item = text(b.item, 300);
+    if (!item) throw new HttpError(400, 'Describe the item.');
+    const room = text(b.room, 20);
+    if (!room) throw new HttpError(400, 'Choose the room.');
+    const found_by = text(b.found_by, 80);
+    if (!found_by) throw new HttpError(400, 'Enter who found it (supervisor).');
+    return { building: text(b.building, 60), floor: text(b.floor, 20), room, item, found_at: lostWhen(b.found_at), found_by, custodian: text(b.custodian, 80), remarks: text(b.remarks, 600) };
+}
+async function lostRoute(p, m, url, req, env, me) {
+    if (p === '/api/lost' && m === 'GET') {
+        const site = lostRead(me, url.searchParams.get('site'));
+        const { results } = await env.DB.prepare('SELECT id, site, ref, building, floor, room, item, thumb, found_at, found_by, custodian, remarks, status, history, version, created_at, updated_at FROM lost_items WHERE site = ? AND deleted = 0 ORDER BY found_at DESC, id DESC LIMIT 3000').bind(site).all();
+        return json({ items: results.map(r => rowToLost(r)), can_edit: me.role !== 'viewer' });
+    }
+    const one = /^\/api\/lost\/(\d+)(\/move)?$/.exec(p);
+    if (one && m === 'GET' && !one[2]) {
+        const r = await env.DB.prepare('SELECT * FROM lost_items WHERE id = ? AND deleted = 0').bind(Number(one[1])).first();
+        if (!r) throw new HttpError(404, 'No such item.');
+        lostRead(me, r.site);
+        return json({ item: rowToLost(r, true) });
+    }
+    if (p === '/api/lost' && m === 'POST') {
+        const b = await body(req);
+        const site = lostRead(me, b.site);
+        assertWrite(me, site);
+        const x = prepareLost(b), photo = lostPic(b.photo, LOST_MAX_PHOTO), thumb = lostPic(b.thumb, LOST_MAX_THUMB);
+        const t = now();
+        const n = (await env.DB.prepare('INSERT INTO laundry_counters (key, n) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET n = n + 1 RETURNING n').bind(`${site}|lost`).first()).n;
+        const ref = `LF-${LAUNDRY_PREFIX[site] || 'XX'}-${String(n).padStart(4, '0')}`;
+        const history = [{ at: t, action: 'found', by: x.found_by, to: x.custodian, remarks: x.remarks, desk: me.name }];
+        const res = await env.DB.prepare(`INSERT INTO lost_items (site, ref, building, floor, room, item, photo, thumb, found_at, found_by, custodian, remarks, status, history, created_at, created_by, updated_at, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'found', ?, ?, ?, ?, ?)`).bind(site, ref, x.building, x.floor, x.room, x.item, photo, thumb, x.found_at, x.found_by, x.custodian, x.remarks, JSON.stringify(history), t, me.id, t, me.id).run();
+        const id = res.meta.last_row_id;
+        await env.DB.batch([auditStmt(env, me, 'lost-add', null, `${site} ${ref}: ${x.item} (room ${x.room})`)]);
+        return json({ item: rowToLost(await env.DB.prepare('SELECT * FROM lost_items WHERE id = ?').bind(id).first(), true) }, 201);
+    }
+    if (one && (m === 'PUT' || m === 'POST')) {
+        const id = Number(one[1]);
+        const r = await env.DB.prepare('SELECT * FROM lost_items WHERE id = ? AND deleted = 0').bind(id).first();
+        if (!r) throw new HttpError(404, 'No such item.');
+        assertWrite(me, r.site);
+        const b = await body(req);
+        if (Number(b.version) !== r.version) throw new HttpError(409, 'Someone changed this item meanwhile. Reload and try again.');
+        const history = JSON.parse(r.history || '[]'), t = now();
+        if (m === 'PUT' && !one[2]) {
+            // edit the record (the history keeps what changed)
+            const x = prepareLost(b);
+            const photo = b.photo === undefined ? r.photo : lostPic(b.photo, LOST_MAX_PHOTO), thumb = b.thumb === undefined ? r.thumb : lostPic(b.thumb, LOST_MAX_THUMB);
+            const diff = ['building', 'floor', 'room', 'item', 'found_at', 'found_by', 'custodian', 'remarks'].filter(k => String(r[k] || '') !== String(x[k] || '')).map(k => `${k.replace('_', ' ')}: "${r[k] || ''}" → "${x[k] || ''}"`);
+            if (photo !== r.photo) diff.push('photo changed');
+            if (!diff.length) return json({ item: rowToLost(r, true) });
+            history.push({ at: t, action: 'edit', remarks: diff.join('; ').slice(0, 600), desk: me.name });
+            await env.DB.batch([
+                env.DB.prepare(`UPDATE lost_items SET building = ?, floor = ?, room = ?, item = ?, photo = ?, thumb = ?, found_at = ?, found_by = ?, custodian = ?, remarks = ?, history = ?,
+                    version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?`).bind(x.building, x.floor, x.room, x.item, photo, thumb, x.found_at, x.found_by, x.custodian, x.remarks, JSON.stringify(history), t, me.id, id, r.version),
+                auditStmt(env, me, 'lost-edit', null, `${r.site} ${r.ref}: ${diff.join('; ')}`.slice(0, 500)),
+            ]);
+        } else if (one[2] && m === 'POST') {
+            // a hand-over: to a custodian (handed), back to the guest (returned), or reopened (found again)
+            const status = String(b.status || '');
+            if (!LOST_STATUS.includes(status)) throw new HttpError(400, 'Choose what happened.');
+            const to = text(b.to, 80), by = text(b.by, 80), remarks = text(b.remarks, 600);
+            const at = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(b.at || '')) ? String(b.at).slice(0, 16) : t.slice(0, 16);
+            if (status !== 'found' && !to) throw new HttpError(400, status === 'returned' ? "Enter the guest's name who received it." : 'Enter who received it.');
+            if (!by) throw new HttpError(400, 'Enter who gave it.');
+            history.push({ at: t, when: at, action: status === 'found' ? 'reopen' : status, from: by, to, by, remarks, confirmed: !!b.confirmed, desk: me.name });
+            const custodian = status === 'handed' ? to : status === 'found' ? (to || r.custodian) : r.custodian;
+            await env.DB.batch([
+                env.DB.prepare('UPDATE lost_items SET status = ?, custodian = ?, history = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?')
+                    .bind(status, custodian, JSON.stringify(history), t, me.id, id, r.version),
+                auditStmt(env, me, 'lost-move', null, `${r.site} ${r.ref}: ${r.status} → ${status}${to ? ' (to ' + to + ')' : ''} by ${by}`.slice(0, 500)),
+            ]);
+        } else return null;
+        return json({ item: rowToLost(await env.DB.prepare('SELECT * FROM lost_items WHERE id = ?').bind(id).first(), true) });
+    }
+    return null;
 }
 
 function rowToSlip(r) {

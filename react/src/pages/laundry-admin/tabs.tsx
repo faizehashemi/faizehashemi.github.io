@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { BarChart, Err, Kpi, Loading, Pic, RangeBar, useLa, useLoad, useRange } from './la';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { printHtml, staffBillHtml, staffStatementHtml } from './staffprint';
 import { exportBuilding, exportPdf, exportXlsx, limitText, stats, fileTag, type Stats } from './ladmin';
 
 type Row = Record<string, any>;
@@ -46,15 +48,29 @@ function KpiBlocks({ s }: { s: Stats }) {
 /* ------------------------------ bills ------------------------------ */
 // Cash bills only. Unpaid = the worker still holds the cash; the admin marks bills Paid when it is handed over: one bill (✔ button), ticked bills, or
 // "amount collected" (ticks the oldest unpaid bills that fit that amount). "From" starts at the oldest unpaid bill (or the last 7 days when all are paid).
-export function BillsTab() {
+// Bills: two parts — Guests (the room cash bills, as before) and Staff (staff in paid mode, 1 SAR a piece: their bills only here, with the printed
+// invoice of one bill and the statement of every unpaid one)
+export function BillsSplit() {
+    const [part, setPart] = useState<'guest' | 'staff'>('guest');
+    return (
+        <Tabs value={part} onValueChange={v => setPart(v as 'guest' | 'staff')}>
+            <TabsList><TabsTrigger value="guest">🚪 Guests</TabsTrigger><TabsTrigger value="staff">👷 Staff</TabsTrigger></TabsList>
+            <TabsContent value="guest"><BillsTab who="guest" /></TabsContent>
+            <TabsContent value="staff"><BillsTab who="staff" /></TabsContent>
+        </Tabs>
+    );
+}
+
+export function BillsTab({ who = 'guest' }: { who?: 'guest' | 'staff' }) {
     const { api, canPay, libs, fmtDay, indexBills, billIndex, site, confirm, openBill } = useLa();
+    const staffPart = who === 'staff', siteLabel = site === 'medina' ? 'Madina' : 'Makkah';
     const { sar, jeddahDay, jeddahTime, jeddahDate } = libs;
     const [from, setFrom] = useState<string | null>(null), [to, setTo] = useState(jeddahDay());
     const [sel, setSel] = useState<Set<number>>(new Set()), [collect, setCollect] = useState(''), [note, setNote] = useState(''), [unpaidFirst, setUnpaidFirst] = useState(true);
     const { data: bills, err, reload, set } = useLoad<Row[]>(async () => {
         let f = from;
         if (f === null) { try { const d = (await api('GET', `/api/laundry/oldest-unpaid?site=${site}`)).day; f = d || libs.addDays(jeddahDay(), -6); } catch { f = libs.addDays(jeddahDay(), -6); } setFrom(f); }
-        const list = ((await api('GET', `/api/laundry/bills?site=${site}&from=${f}&to=${to}&kind=paid&all=1`)).bills as Row[]).filter(b => !b.voided).sort((a, b) => a.given_at.localeCompare(b.given_at));
+        const list = ((await api('GET', `/api/laundry/bills?site=${site}&from=${f}&to=${to}&kind=paid&all=1`)).bills as Row[]).filter(b => !b.voided && (staffPart ? !!b.staff_id : !b.staff_id)).sort((a, b) => a.given_at.localeCompare(b.given_at));
         indexBills(list);
         setSel(s => new Set([...s].filter(id => list.some(b => b.id === id && !b.settled_at))));
         return list;
@@ -101,9 +117,11 @@ export function BillsTab() {
                 <Button size="sm" variant="outline" onClick={pickByAmount}>Select bills for this amount</Button>
                 <span className="ml-auto text-sm font-bold">{picked.length} selected · {sar(sum(picked))} SAR</span>
                 <Button size="sm" disabled={!picked.length} onClick={() => void settle([...sel])}>✔ Mark selected paid</Button></div>}
+            {staffPart && <div className="flex flex-wrap items-center gap-2"><Button variant="outline" disabled={!unpaid.length} onClick={() => { if (!printHtml(staffStatementHtml(unpaid, siteLabel))) setNote('Allow pop-ups to print.'); }}>🖨 Print all unpaid ({unpaid.length})</Button>
+                <small className="text-muted-foreground">One A4 statement, person by person · or 🖨 on a bill for its own invoice.</small></div>}
             {note && <p className="text-sm text-muted-foreground">{note}</p>}
             {bills.length ? <Table>
-                <TableHeader><TableRow>{canPay && <TableHead />}<TableHead>Date</TableHead><TableHead>Time</TableHead><TableHead>Receipt</TableHead><TableHead>Building · room</TableHead><TableHead className="text-right">Items</TableHead><TableHead className="text-right">Amount SAR</TableHead><TableHead>Worker</TableHead><TableHead>Status</TableHead>{canPay && <TableHead />}</TableRow></TableHeader>
+                <TableHeader><TableRow>{canPay && <TableHead />}<TableHead>Date</TableHead><TableHead>Time</TableHead><TableHead>Receipt</TableHead><TableHead>{staffPart ? 'Staff · room' : 'Building · room'}</TableHead><TableHead className="text-right">Items</TableHead><TableHead className="text-right">Amount SAR</TableHead><TableHead>Worker</TableHead><TableHead>Status</TableHead>{canPay && <TableHead />}{staffPart && <TableHead />}</TableRow></TableHeader>
                 <TableBody>{shown.map(b => (
                     <TableRow key={b.id} className={cn(clickRow, b.settled_at ? '' : 'bg-warn-soft/30', sel.has(b.id) && 'bg-accent')} onClick={() => openBill(b)}>
                         {canPay && <TableCell onClick={e => e.stopPropagation()}>{!b.settled_at && <Checkbox aria-label={`Select ${b.receipt_no}`} checked={sel.has(b.id)} onCheckedChange={v => setSel(s => { const n = new Set(s); if (v === true) n.add(b.id); else n.delete(b.id); return n; })} />}</TableCell>}
@@ -111,7 +129,8 @@ export function BillsTab() {
                         <TableCell className="text-right">{b.items}</TableCell><TableCell className="text-right"><b>{sar(b.paid)}</b></TableCell><TableCell>{b.worker}</TableCell>
                         <TableCell>{b.settled_at ? <><Badge>Paid</Badge> <small className="text-muted-foreground">{jeddahDate(b.settled_at)}{b.settled_by ? ' · ' + b.settled_by : ''}{b.settlement_id ? ' · #' + b.settlement_id : ''}</small></> : <Badge variant="outline">Unpaid</Badge>}</TableCell>
                         {canPay && <TableCell onClick={e => e.stopPropagation()}>{b.settled_at ? <Button size="sm" variant="outline" onClick={() => void settle([b.id], false)}>↩ Unpaid</Button> : <Button size="sm" onClick={() => void settle([b.id])}>✔ Paid</Button>}</TableCell>}
-                    </TableRow>))}</TableBody></Table> : <p className="text-sm text-muted-foreground">No cash bills in these dates.</p>}
+                        {staffPart && <TableCell onClick={e => e.stopPropagation()}><Button size="sm" variant="outline" aria-label={`Print ${b.receipt_no}`} onClick={() => { if (!printHtml(staffBillHtml(b, siteLabel))) setNote('Allow pop-ups to print.'); }}>🖨</Button></TableCell>}
+                    </TableRow>))}</TableBody></Table> : <p className="text-sm text-muted-foreground">{staffPart ? 'No paid staff laundry in these dates.' : 'No cash bills in these dates.'}</p>}
         </div>
     );
 }

@@ -29,7 +29,7 @@ export const DEFAULT_SITE = 'makkah';
 // The menu bar, router and page frame as React (react/src/shell) instead of core/nav.js + legacy-shell.js. On for everybody since 2026-11-02 (approved after staging);
 // one browser: localStorage pms_react_shell = 1 (on) / 0 (off); one visit: ?shell=react / ?shell=legacy in the address (see main.js).
 export const REACT_SHELL = true;
-export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','slip-builder','reports','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
+export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','slip-builder','reports','lost-found','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
@@ -53,6 +53,7 @@ export const VIEWS = [
     { id: 'group-export', label: 'Group export',       title: 'Groups Export',         hint: 'Group signs as PDF or Word' },
     { id: 'housekeeping', label: 'Room cleaning',      title: 'Room Cleaning',         hint: 'Which rooms housekeeping does first today, from check-ins and check-outs' },
     { id: 'key-cards',    label: 'Room Key Cards',     title: 'Room Key Cards',        hint: 'Key cards given to the rooms of each group and how many came back' },
+    { id: 'lost-found',   label: 'Lost & Found',       title: 'Lost & Found',          hint: 'Items left in rooms: photo, custodian, hand-overs, returned to the guest' },
     { id: 'builder',      label: 'Rooms & Buildings',  title: 'Rooms & Buildings',     hint: 'Buildings, rooms and bed counts' },
     { id: 'ums',          label: 'UMS import',         title: 'UMS Import',            hint: 'Bring in the UMS group list' },
     { id: 'slip-search',  label: 'Search slips',       title: 'Search Slips',          hint: 'Find a slip and see its details — view only' },
@@ -80,7 +81,7 @@ export const VIEWS = [
 // Menu categories (top bar on laptops, drawer sections on phones)
 export const NAV = [
     { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'print', 'slip-builder'] },
-    { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'key-cards', 'builder'] },
+    { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'key-cards', 'lost-found', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
     { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'arrival', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
