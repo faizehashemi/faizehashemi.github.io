@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useSlips } from '@/hooks/useSlips';
 import { useCore, useGuard, useLoadApp, useLoadCore, useSite } from '@/pms/PmsContext';
 import { computeOccupancy, type BuildingIn } from '@/pages/occupancy/occupancy';
-import { REPORTS, daysOf, docHtml, kgDoc, laundryDoc, mawaidDoc, occupancyDoc, plus, softdevDoc, transportDoc, websiteDoc, ymd, type Doc, type ReportId } from './reports';
+import { REPORTS, daysOf, docHtml, kgDoc, laundryDoc, lostDoc, mawaidDoc, occupancyDoc, plus, softdevDoc, transportDoc, websiteDoc, ymd, type Doc, type ReportId } from './reports';
 
 // Reports (main menu): a card per report; a card opens a window for the From → To dates and "Download PDF", which works the report out from the
 // latest data and opens it in a print tab (Save as PDF). The numbers and the printed design are in reports.ts.
@@ -56,6 +56,7 @@ export default function ReportsPage() {
             return websiteDoc(b, await guard(cloud.request('GET', `/api/perf/summary?days=${back}&site=${siteId}`)) as Row);
         }
         if (id === 'softdev') return softdevDoc(b, await loadApp('views/changelog/data.js'));
+        if (id === 'lost') return lostDoc(b, ((await guard(cloud.request('GET', `/api/lost?site=${siteId}`))) as Row).items || []);
         if (id === 'kg') return kgDoc(b, await guard(cloud.request('GET', `/api/kg?site=${siteId}`)) as Row as any);
         const { bills } = (await guard(cloud.request('GET', `/api/laundry/bills?site=${siteId}&from=${f}&to=${t}&all=1`))) as Row;
         return laundryDoc(b, bills);

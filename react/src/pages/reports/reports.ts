@@ -15,7 +15,7 @@ const n1 = (v: number) => (Number.isFinite(v) ? (Math.round(v * 10) / 10).toLoca
 const sum = (a: number[]) => a.reduce((s, v) => s + (Number(v) || 0), 0);
 const avg = (a: number[]) => { const x = a.filter(v => Number(v) > 0); return x.length ? sum(x) / x.length : 0; };   // over the days that had any
 
-export type ReportId = 'mawaid' | 'occupancy' | 'transport' | 'website' | 'softdev' | 'kg' | 'laundry';
+export type ReportId = 'mawaid' | 'occupancy' | 'transport' | 'website' | 'softdev' | 'kg' | 'laundry' | 'lost';
 export const REPORTS: { id: ReportId; icon: string; title: string; blurb: string; hue: string; maxDays?: number; sites?: string[] }[] = [
     { id: 'mawaid', icon: '🍽️', title: 'Mawaid stats', blurb: 'Breakfast, lunch and dinner — thals and pax for every day', hue: '#b45309', maxDays: MAX_DAYS },
     { id: 'occupancy', icon: '🏨', title: 'Occupancy & vacancy', blurb: 'Beds in use and beds free, per night and per building', hue: '#0f766e', maxDays: MAX_DAYS },
@@ -24,6 +24,7 @@ export const REPORTS: { id: ReportId; icon: string; title: string; blurb: string
     { id: 'softdev', icon: '🛠️', title: 'Software development', blurb: 'What was built and shipped, from the change log', hue: '#be123c' },
     { id: 'kg', icon: '🕋', title: 'Fakkul Ehraam KG stats', blurb: 'FE1, FE2 and Atraaf duties per person and per day', hue: '#065f46' },
     { id: 'laundry', icon: '🧺', title: 'Laundry stats', blurb: 'Bills, pieces, cash, staff laundry and building linen', hue: '#0e7490' },
+    { id: 'lost', icon: '🧳', title: 'Lost & Found', blurb: 'Items found in rooms, with photos — pending, handed over and returned', hue: '#a16207' },
 ];
 
 /* ------------------------------ the printed document ------------------------------ */
@@ -275,6 +276,31 @@ export function laundryDoc(b: Base, bills: Row[]): Doc {
             { title: 'Most washed', html: bars(I.slice(0, 14).map(([n, q]) => ({ label: n, value: q })), hue) },
             { title: 'Cash', html: table(['', 'Bills', 'Pieces', 'SAR'], [['Paid (handed over)', cash.length - unpaid.length, pcs(cash.filter(x => x.settled_at)), sar(sum(cash.filter(x => x.settled_at).map(x => x.paid)))], ['Unpaid', unpaid.length, pcs(unpaid), sar(sum(unpaid.map(x => x.paid)))]], ['All cash', cash.length, pcs(cash), sar(sum(cash.map(x => x.paid)))]) },
             { title: 'Day by day', html: table(['Day', 'Cash bills', 'Cash SAR', 'Paid pieces', 'Staff pieces', 'Linen pieces'], days.filter(d => live.some(x => x.day === d)).map(d => { const c = cash.filter(x => x.day === d); return [fmtDay(d), c.length, sar(sum(c.map(x => x.paid))), pcs(c), pcs(staff.filter(x => x.day === d)), pcs(bld.filter(x => x.day === d))]; })) },
+        ],
+    };
+}
+
+/** Lost & Found: the items found in the range (by date found), with their photos and where each one is now */
+export function lostDoc(b: Base, all: Row[]): Doc {
+    const hue = base('lost', b).hue;
+    const list = all.filter(x => { const d = String(x.found_at || '').slice(0, 10); return d >= b.from && d <= b.to; }).sort((a, z) => String(a.found_at).localeCompare(String(z.found_at)));
+    if (!list.length) return { ...base('lost', b), kpis: [], sections: [], empty: 'No items found in these dates.' };
+    const n = (s: string) => list.filter(x => x.status === s).length;
+    const days = daysOf(b.from, b.to), byDay = days.map(d => list.filter(x => String(x.found_at).slice(0, 10) === d).length);
+    const bld = new Map<string, number>(); for (const x of list) bld.set(x.building || '—', (bld.get(x.building || '—') || 0) + 1);
+    const STATUS: Record<string, string> = { found: 'Found · awaiting collection', handed: 'Handed over · in custody', returned: 'Returned to guest' };
+    const lastTo = (x: Row) => { const h = [...(x.history || [])].reverse().find((e: Row) => e.action === 'returned' || e.action === 'handed'); return h ? `${h.action === 'returned' ? 'to ' : 'with '}${h.to}` : (x.custodian ? `with ${x.custodian}` : ''); };
+    const when = (s: string) => new Date(s).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const pic = (x: Row) => (x.thumb ? `<img src="${esc(x.thumb)}" alt="" style="width:14mm;height:14mm;object-fit:cover;border-radius:2mm;display:block">` : '<span style="display:grid;place-items:center;width:14mm;height:14mm;border-radius:2mm;background:#f1ebe0">📦</span>');
+    const pill = (s: string) => `<span class="pill" style="${s === 'returned' ? 'background:#0a7a3a1f;color:#0a7a3a' : s === 'handed' ? 'background:#0369a11f;color:#0369a1' : ''}">${esc(STATUS[s] || s)}</span>`;
+    return {
+        ...base('lost', b),
+        kpis: [{ label: 'Items found', value: n0(list.length), sub: peak(days, byDay) }, { label: 'Pending', value: n0(n('found')) }, { label: 'Handed over', value: n0(n('handed')) },
+            { label: 'Returned to guests', value: n0(n('returned')), sub: list.length ? `${n1((100 * n('returned')) / list.length)}% of items` : undefined }],
+        sections: [
+            { title: 'Items found per day', html: columns(days, byDay, hue, undefined, ['Items']) },
+            { title: 'Where they were found', html: bars([...bld].sort((a, z) => z[1] - a[1]).map(([k, v]) => ({ label: k, value: v })), hue) },
+            { title: 'Every item', html: table(['', 'Ref', 'Found', 'Room', 'Item', 'Status', 'Now'], list.map(x => [pic(x), `<span style="font-family:Consolas,monospace;font-size:8pt">${esc(x.ref)}</span>`, esc(when(x.found_at)), esc(`${x.room}${x.building ? ' · ' + x.building : ''}`), `<b>${esc(x.item)}</b>${x.found_by ? `<br><small style="color:#78716c">found by ${esc(x.found_by)}</small>` : ''}`, pill(x.status), esc(lastTo(x))]), undefined, 99) },
         ],
     };
 }
