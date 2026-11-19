@@ -521,6 +521,8 @@ async function route(req, env) {
         return json({ ok: true });
     }
     if (p === '/api/me' && m === 'GET') return json({ desk: publicDesk(me) });
+    if (p === '/api/activity' && m === 'GET') return listActivity(url, env, me);
+    if (p === '/api/activity/seen' && m === 'POST') return seenActivity(req, env, me);
     if (p === '/api/me/password' && m === 'POST') return changeOwnPassword(req, env, me);
     if (p === '/api/me/verify-password' && m === 'POST') return verifyOwnPassword(req, env, me);
     if (p === '/api/me/prefs' && m === 'GET') return getPrefs(env, me);
@@ -795,6 +797,70 @@ function auditStmt(env, me, action, slipId, detail) {
         .bind(now(), me ? me.id : null, action, slipId, detail == null ? null : String(detail).slice(0, 500));
 }
 
+/* ------------------------------ live changes (activity) ------------------------------ */
+// What a slip change did, in a few words for the toasts: rooms assigned / changed, building, dates, guests. `old` = the stored data (null when new).
+const roomsOf = (s, side) => ((s && s.rooms && s.rooms[side]) || []).filter(r => r && String(r.room_no || '').trim())
+    .map(r => `${r.building && String(r.building).trim() && String(r.building).trim() !== String(s.building || '').trim() ? String(r.building).trim() + ' ' : ''}${String(r.room_no).trim()}`);
+const fmtD = (d, t) => { if (!d) return '—'; const [y, m, dd] = String(d).split('-'); const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m) - 1] || m; return `${Number(dd)} ${mon}${t ? ' ' + String(t).slice(0, 5) : ''}`; };
+// prepareSlip() keeps the slip as JSON text; the stored row's data is parsed already
+const slipData = (x) => (x && typeof x.text === 'string' && !x.rooms ? (() => { try { return JSON.parse(x.text); } catch { return {}; } })() : x);
+function slipChanges(old, s) {
+    s = slipData(s);
+    const out = [];
+    const sideName = { gents: 'Gents', ladies: 'Ladies' };
+    const before = old ? [...roomsOf(old, 'gents'), ...roomsOf(old, 'ladies')] : [];
+    const now2 = [...roomsOf(s, 'gents'), ...roomsOf(s, 'ladies')];
+    if (!before.length && now2.length) out.push(`rooms assigned: ${['gents', 'ladies'].map(k => roomsOf(s, k).length ? `${sideName[k]} ${roomsOf(s, k).join(', ')}` : '').filter(Boolean).join(' · ')}`);
+    else if (before.length && !now2.length) out.push(`rooms removed (${before.join(', ')})`);
+    else for (const k of ['gents', 'ladies']) {
+        const a = roomsOf(old, k), b = roomsOf(s, k);
+        const gone = a.filter(x => !b.includes(x)), added = b.filter(x => !a.includes(x));
+        if (!gone.length && !added.length) continue;
+        if (gone.length === 1 && added.length === 1) out.push(`${sideName[k]} room ${gone[0]} → ${added[0]}`);
+        else out.push(`${sideName[k]} rooms ${[...added.map(x => '+' + x), ...gone.map(x => '−' + x)].join(' ')}`);
+    }
+    if (old) {
+        if (String(old.building || '') !== String(s.building || '')) out.push(`building ${old.building || '—'} → ${s.building || '—'}`);
+        if (old.checkin_date !== s.checkin_date || String(old.checkin_time || '') !== String(s.checkin_time || '')) out.push(`check-in ${fmtD(old.checkin_date, old.checkin_time)} → ${fmtD(s.checkin_date, s.checkin_time)}`);
+        if (old.checkout_date !== s.checkout_date || String(old.checkout_time || '') !== String(s.checkout_time || '')) out.push(`check-out ${fmtD(old.checkout_date, old.checkout_time)} → ${fmtD(s.checkout_date, s.checkout_time)}`);
+        if (Number(old.total) !== Number(s.total)) out.push(`guests ${Number(old.total) || 0} → ${Number(s.total) || 0}`);
+        if (!!old.checked_in !== !!s.checked_in && s.checked_in) out.push('checked in');
+    }
+    return out;
+}
+const slipGrp = (s) => String((slipData(s) && slipData(s).tour_name) || '').trim().slice(0, 80);
+function activityStmt(env, me, site, kind, { slipId = null, sh = '', grp = '', text = '', items = null } = {}) {
+    return env.DB.prepare('INSERT INTO activity (at, site, desk_id, desk_name, kind, slip_id, sh, grp, text, items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(now(), site, me ? me.id : null, me ? String(me.name || '') : '', kind, slipId, String(sh || ''), grp, String(text).slice(0, 600), items ? JSON.stringify(items).slice(0, 60000) : null);
+}
+// GET /api/activity?site=…&after=ID — the changes after ID. Without `after`: the changes since this login last looked (desks.seen_activity);
+// a login that never looked (new, or first time after this was added) starts from now and gets none.
+async function listActivity(url, env, me) {
+    const site = String(url.searchParams.get('site') || me.site);
+    if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+    if (me.role !== 'admin' && me.role !== 'viewer' && site !== me.site) throw new HttpError(403, `${me.name} works at ${SITES[me.site]}.`);
+    const top = (await env.DB.prepare('SELECT MAX(id) AS n FROM activity').first())?.n || 0;
+    let after = url.searchParams.get('after');
+    if (after == null || after === '') {
+        const d = await env.DB.prepare('SELECT seen_activity FROM desks WHERE id = ?').bind(me.id).first();
+        if (d == null || d.seen_activity == null) {
+            await env.DB.prepare('UPDATE desks SET seen_activity = ? WHERE id = ?').bind(top, me.id).run();
+            return json({ items: [], last: top, fresh: true });
+        }
+        after = d.seen_activity;
+    }
+    if (Math.random() < 0.02) await env.DB.prepare('DELETE FROM activity WHERE at < ?').bind(new Date(Date.now() - 30 * 864e5).toISOString()).run();
+    const { results } = await env.DB.prepare('SELECT * FROM activity WHERE site = ? AND id > ? ORDER BY id DESC LIMIT 300').bind(site, Number(after) || 0).all();
+    return json({ items: results.reverse().map(r => ({ ...r, items: r.items ? JSON.parse(r.items) : null })), last: top });
+}
+async function seenActivity(req, env, me) {
+    const { id } = await body(req);
+    const n = Math.floor(Number(id));
+    if (!(n >= 0)) throw new HttpError(400, 'Missing id.');
+    await env.DB.prepare('UPDATE desks SET seen_activity = MAX(COALESCE(seen_activity, 0), ?) WHERE id = ?').bind(n, me.id).run();
+    return json({ ok: true });
+}
+
 function rowToSlip(r) {
     if (r.deleted) return { id: r.id, site: r.site, deleted: true, _seq: r.seq };
     return { ...JSON.parse(r.data), id: r.id, site: r.site, _v: r.version, _seq: r.seq };
@@ -894,7 +960,9 @@ async function createSlip(req, env, me) {
     const [res] = await env.DB.batch([insertStmt(env, me, site, s, null, at), verStmt(env, me, at, 'create', 'edit', null)]);
     if (!res.meta.changes) throw new HttpError(409, 'This UMS stay already exists.');
     const id = res.meta.last_row_id;
-    await auditStmt(env, me, 'create', id, `SH ${s.sh_no}`).run();
+    const ch = slipChanges(null, s);
+    await env.DB.batch([auditStmt(env, me, 'create', id, `SH ${s.sh_no}`),
+        activityStmt(env, me, site, 'slip-create', { slipId: id, sh: s.sh_no, grp: slipGrp(s), text: ['new slip', ...ch].join(' · ') })]);
     return json({ slip: rowToSlip(await getRow(env, id)) }, 201);
 }
 
@@ -919,7 +987,9 @@ async function updateSlip(req, env, me, id) {
     if (!res.meta.changes) {
         throw new HttpError(409, 'Someone else changed this slip after you opened it. Reload it and make your change again.', { current: rowToSlip(await getRow(env, id)) });
     }
-    await auditStmt(env, me, 'update', id, `SH ${s.sh_no}`).run();
+    const ch = slipChanges(JSON.parse(row.data || '{}'), s);
+    await env.DB.batch([auditStmt(env, me, 'update', id, `SH ${s.sh_no}`),
+        activityStmt(env, me, row.site, 'slip-update', { slipId: id, sh: s.sh_no, grp: slipGrp(s), text: ch.join(' · ') || 'slip edited' })]);
     return json({ slip: rowToSlip(await getRow(env, id)) });
 }
 
@@ -934,7 +1004,8 @@ async function deleteSlip(url, env, me, id) {
          WHERE id = ? AND deleted = 0 AND (? IS NULL OR version = ?)`
     ).bind(at, me.id, id, v, v == null ? null : Number(v)), verStmt(env, me, at, 'delete', 'delete', 'deleted', true)]);
     if (!res.meta.changes) throw new HttpError(409, 'Someone else changed this slip after you opened it. Reload and try again.');
-    await auditStmt(env, me, 'delete', id, `SH ${row.sh_no}`).run();
+    let grp = ''; try { grp = slipGrp(JSON.parse(row.data || '{}')); } catch { }
+    await env.DB.batch([auditStmt(env, me, 'delete', id, `SH ${row.sh_no}`), activityStmt(env, me, row.site, 'slip-delete', { slipId: id, sh: row.sh_no, grp, text: 'slip deleted' })]);
     return json({ ok: true });
 }
 
@@ -975,10 +1046,12 @@ async function bulk(req, env, me) {
     assertWrite(me, site);
     if (add.length + put.length > MAX_BULK) throw new HttpError(413, `At most ${MAX_BULK} slips per request.`);
 
+    let oldData = new Map();
     if (put.length) {
         const ids = put.map(p => Number(p.id));
-        const rows = (await env.DB.prepare(`SELECT id, site, version, deleted FROM slips WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all()).results;
+        const rows = (await env.DB.prepare(`SELECT id, site, version, deleted, data FROM slips WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all()).results;
         const byId = new Map(rows.map(r => [r.id, r]));
+        oldData = new Map(rows.map(r => { try { return [r.id, JSON.parse(r.data || '{}')]; } catch { return [r.id, {}]; } }));
         const stale = put.filter(p => { const r = byId.get(Number(p.id)); return !r || r.deleted || r.site !== site || r.version !== Number(p.version); });
         if (stale.length) throw new HttpError(409, `${stale.length} slip(s) were changed on another desk meanwhile.`, { stale: stale.map(p => p.id) });
     }
@@ -992,7 +1065,13 @@ async function bulk(req, env, me) {
     const results = stmts.length ? await env.DB.batch([...stmts, verStmt(env, me, at, importAct(reason), importAct(reason), String(reason))]) : [];
     const created = results.slice(0, add.length).filter(r => r.meta.changes).length;
     const updated = results.slice(add.length, add.length + put.length).filter(r => r.meta.changes).length;
-    await auditStmt(env, me, reason, null, `${site}: ${created} created, ${updated} updated, ${add.length - created} skipped (already there)`).run();
+    // the live-changes line: one row for the whole request, its slips (what changed in each) in items
+    const items = [
+        ...add.filter((_, i) => results[i] && results[i].meta.changes).map(sl => { const s = prepareSlip(sl); return { sh: String(s.sh_no || ''), grp: slipGrp(s), text: ['new slip', ...slipChanges(null, s)].join(' · ') }; }),
+        ...put.filter((_, i) => results[add.length + i] && results[add.length + i].meta.changes).map(p => { const s = prepareSlip(p.slip); const ch = slipChanges(oldData.get(Number(p.id)) || null, s); return ch.length ? { sh: String(s.sh_no || ''), grp: slipGrp(s), text: ch.join(' · ') } : null; }).filter(Boolean),
+    ].slice(0, 400);
+    await env.DB.batch([auditStmt(env, me, reason, null, `${site}: ${created} created, ${updated} updated, ${add.length - created} skipped (already there)`),
+        ...(items.length ? [activityStmt(env, me, site, `bulk:${String(reason).slice(0, 40)}`, { text: `${created ? `${created} new` : ''}${created && items.length > created ? ', ' : ''}${items.length > created ? `${items.length - created} changed` : ''}`, items })] : [])]);
     return json({ created, updated, skipped: add.length - created, conflicts: put.length - updated });
 }
 

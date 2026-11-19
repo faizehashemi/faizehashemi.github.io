@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
+import { LiveFeed } from './LiveFeed';
 import { PmsProvider } from '@/pms/PmsContext';
 import type { CoreModules, PmsCtx } from '@/pms/types';
 import { PAGES } from '@/page-list';
@@ -110,7 +111,7 @@ function ShellRoot({ deps }: { deps: ShellDeps }) {
             <div id="view" data-shell="" data-view={r?.view.id}>
                 {r && <PageFrame key={`${r.key}#${r.nonce}`} r={r} deps={deps} />}
             </div>
-            <div className="pms-react"><Toaster /></div>
+            <div className="pms-react"><Toaster />{desk && r?.siteId && <LiveFeed key={`${desk.id}|${r.siteId}`} cloud={cloud} siteId={r.siteId} deskId={desk.id} />}</div>
         </TooltipProvider>
     );
 }

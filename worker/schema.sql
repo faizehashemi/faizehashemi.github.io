@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS desks (
     pw_iter     INTEGER NOT NULL,
     site_only   INTEGER NOT NULL DEFAULT 0,   -- 1 with role 'admin' = site admin: manages the logins of its own site only
     disabled    INTEGER NOT NULL DEFAULT 0,
-    created_at  TEXT NOT NULL
+    created_at  TEXT NOT NULL,
+    seen_activity INTEGER                    -- live changes: the last activity row this login has seen (null = never looked)
 );
 
 -- Login sessions. Only a SHA-256 of the token is stored.
@@ -284,6 +285,24 @@ CREATE TABLE IF NOT EXISTS audit (
     detail   TEXT
 );
 CREATE INDEX IF NOT EXISTS audit_at ON audit(id);
+
+-- Live changes (toasts on every open PMS, and "since you were last here"): one plain-language line per slip change, or one row per
+-- bulk write (UMS import, room allocation …) with its slips in `items`. Kept 30 days. desks.seen_activity = the last row a login has seen.
+CREATE TABLE IF NOT EXISTS activity (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    at        TEXT NOT NULL,
+    site      TEXT NOT NULL,
+    desk_id   INTEGER,
+    desk_name TEXT NOT NULL DEFAULT '',
+    kind      TEXT NOT NULL,                       -- slip-create | slip-update | slip-delete | bulk:<reason>
+    slip_id   INTEGER,
+    sh        TEXT NOT NULL DEFAULT '',
+    grp       TEXT NOT NULL DEFAULT '',            -- the group (tour name)
+    text      TEXT NOT NULL DEFAULT '',
+    items     TEXT                                 -- bulk: JSON [{ sh, grp, text }]
+);
+CREATE INDEX IF NOT EXISTS activity_site ON activity(site, id);
+-- added 2026-11-19: ALTER TABLE desks ADD COLUMN seen_activity INTEGER;
 
 -- Transport: the day's vehicle list from the transport system, one JSON document per site and day
 -- (Transport import page; app/core/transport.js). n / pax only for the list of days.
