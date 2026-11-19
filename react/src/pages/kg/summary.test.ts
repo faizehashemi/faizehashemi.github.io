@@ -32,6 +32,11 @@ describe('KG summary', () => {
         expect(ids(s[1])).toEqual(['101', '102', '110']);
         expect(ids(s[2])).toEqual(['101']);   // clash
     });
+    it('never lists a second Umrah (S slip) in Atraaf', () => {
+        const extra = [...slips, slip('S111', { checkin_date: '2026-11-11', checkin_time: '16:00' })];
+        expect(ids(kgSummary(extra, [], day, W, baseSh)[0])).toEqual(['100']);
+        expect(ids(kgSummary(extra, [{ ref: 'S105', route: 'MAKKAH-MAKKAH ATRAAF' }, { ref: '104', route: 'MAKKAH-MAKKAH ATRAAF' }], day, W, baseSh)[0])).toEqual(['104']);
+    });
     it("Wada Sabaq lists tomorrow's departures, not today's", () => {
         const s = kgSummary([slip(201, { checkout_date: day, to_place: 'Medina' }), slip(202, { checkout_date: next, to_place: 'Jeddah Airport', ums: { firstArrival: 'MADINA' } })], [], day, W, baseSh, [{ ref: '202', route: 'MAKKAH-JEDDAH AIRPORT' }]);
         expect(ids(s[1])).toEqual(['202']);

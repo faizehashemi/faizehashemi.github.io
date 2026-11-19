@@ -36,11 +36,11 @@ export function kgSummary(slips: Row[], trips: Row[], day: string, win: Windows,
     const fromTrip = (t: Row): Item => { const s = slipOf(t.ref); return s ? item(s) : { sh: String(t.ref ?? ''), group: String(t.operator || '').trim() || `SH ${t.ref ?? ''}`, leader: String(t.leader || '').trim(), pax: Number(t.pax) || 0, second: false }; };
     const uniq = (list: Item[]) => list.filter((x, i) => list.findIndex(y => baseSh(y.sh) === baseSh(x.sh) && y.second === x.second) === i);
 
-    // 1. Atraaf
+    // 1. Atraaf — never a second Umrah (S… slips): they did Atraaf on their first stay
     const atraafTrips = trips.filter(t => /ATRAAF/i.test(String(t.route || '')) && String(t.ref || '').trim());
     const atraaf: Section = atraafTrips.length
-        ? { id: 'atraaf', title: 'Aaje Dupehre Atraaf', note: 'Atraaf trips on the Transport day', items: uniq(atraafTrips.map(fromTrip)) }
-        : { id: 'atraaf', title: 'Aaje Dupehre Atraaf', note: `No Atraaf trip on the Transport day — yesterday's arrivals (${plus(day, -1).split('-').reverse().join('/')})`, items: uniq(live.filter(s => s.checkin_date === plus(day, -1)).sort(bySecondThenTime('checkin')).map(item)) };
+        ? { id: 'atraaf', title: 'Aaje Dupehre Atraaf', note: 'Atraaf trips on the Transport day', items: uniq(atraafTrips.map(fromTrip)).filter(x => !x.second) }
+        : { id: 'atraaf', title: 'Aaje Dupehre Atraaf', note: `No Atraaf trip on the Transport day — yesterday's arrivals (${plus(day, -1).split('-').reverse().join('/')})`, items: uniq(live.filter(s => s.checkin_date === plus(day, -1)).sort(bySecondThenTime('checkin')).map(item)).filter(x => !x.second) };
 
     // 2. Wada Sabaq is given the day before departure: the groups leaving tomorrow, and where each goes — its Transport day trip (tomorrow's list), else the slip's To
     const tripOf = (s: Row) => nextTrips.find(t => baseSh(t.ref) === baseSh(s.sh_no) && !/ATRAAF|ZIYARAT/i.test(String(t.route || '')));
