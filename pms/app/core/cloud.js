@@ -40,7 +40,7 @@ export function setApiOverride(url) {
 }
 
 // Pages every login may open whatever the admin ticked (Settings holds the password change)
-export const ALWAYS_OPEN = ['login', 'settings', 'blank', 'lost-found'];   // Lost & Found: every login may look (adding needs a desk login)
+export const ALWAYS_OPEN = ['login', 'settings', 'blank'];
 
 /** The page a login lands on when it may not open Home: its first allowed page in menu order, else 'blank'. */
 export function firstPage(desk = currentDesk(), order = []) {

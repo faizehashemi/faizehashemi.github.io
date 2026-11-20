@@ -25,6 +25,8 @@ const ACTION: Record<string, string> = { found: 'Registered', handed: 'Handed ov
 const pad = (n: number) => String(n).padStart(2, '0');
 const nowLocal = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const fmt = (s: string) => (s ? new Date(s.length <= 16 ? s : s).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
+/** Where an item was found, in a few words */
+export const whereOf = (x: Row) => (x.place === 'bus' ? `🚌 ${/^bus/i.test(x.spot) ? '' : 'Bus '}${x.spot}` : x.place === 'other' ? `📍 ${x.spot}` : `🚪 Room ${x.room}${x.building ? ` · ${x.building}` : ''}${x.floor ? ` · floor ${x.floor}` : ''}`);
 const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 
 function StatusBadge({ s }: { s: Status }) {
@@ -48,7 +50,7 @@ export default function LostFoundPage() {
     const shown = useMemo(() => {
         const t = q.trim().toLowerCase();
         return items.filter(x => (st === 'all' || x.status === st) && (!day || String(x.found_at).slice(0, 10) === day)
-            && (!t || [x.ref, x.room, x.building, x.floor, x.item, x.found_by, x.custodian].some(v => String(v || '').toLowerCase().includes(t))));
+            && (!t || [x.ref, x.room, x.spot, x.building, x.floor, x.item, x.found_by, x.custodian].some(v => String(v || '').toLowerCase().includes(t))));
     }, [items, q, st, day]);
     const n = (s: Status) => items.filter(x => x.status === s).length;
 
@@ -79,7 +81,7 @@ export default function LostFoundPage() {
                             <span className="grid min-w-0 content-start gap-1">
                                 <span className="font-mono text-[11px] text-muted-foreground">{x.ref}</span>
                                 <b className="line-clamp-2 leading-tight">{x.item}</b>
-                                <span className="text-sm">🚪 Room {x.room}{x.building ? ` · ${x.building}` : ''}{x.floor ? ` · floor ${x.floor}` : ''}</span>
+                                <span className="text-sm">{whereOf(x)}</span>
                                 <small className="text-muted-foreground">Found {fmt(x.found_at)}</small>
                                 <span className="flex flex-wrap items-center gap-1.5"><StatusBadge s={x.status} />{x.status !== 'returned' && x.custodian && <small className="text-muted-foreground">with {x.custodian}</small>}</span>
                             </span>
@@ -93,7 +95,7 @@ export default function LostFoundPage() {
 
 function ItemForm({ init, blds, siteId, cloud, guard, loadCore, onClose, onSaved }: { init: Row; blds: Row[]; siteId: string; cloud: any; guard: any; loadCore: any; onClose: () => void; onSaved: (it: Row) => void }) {
     const edit = !!init.id;
-    const [f, setF] = useState<Row>(() => ({ building: init.building || blds[0]?.name || '', floor: init.floor || '', room: init.room || '', item: init.item || '', found_at: init.found_at || nowLocal(),
+    const [f, setF] = useState<Row>(() => ({ place: init.place || 'room', spot: init.spot || '', building: init.building || blds[0]?.name || '', floor: init.floor || '', room: init.room || '', item: init.item || '', found_at: init.found_at || nowLocal(),
         found_by: init.found_by || '', custodian: init.custodian || '', remarks: init.remarks || '' }));
     const [photo, setPhoto] = useState<{ photo?: string; thumb?: string }>(edit ? {} : {}), [preview, setPreview] = useState<string>(init.photo || init.thumb || '');
     const [err, setErr] = useState(''), [busy, setBusy] = useState(false);
@@ -125,12 +127,16 @@ function ItemForm({ init, blds, siteId, cloud, guard, loadCore, onClose, onSaved
             <DialogContent className="flex max-h-[92vh] max-w-xl flex-col">
                 <DialogHeader><DialogTitle className="font-serif text-2xl">{edit ? `Edit ${init.ref}` : 'Add lost item'}</DialogTitle><DialogDescription>Where it was found, a photo, and who has it now.</DialogDescription></DialogHeader>
                 <form onSubmit={save} className="grid min-h-0 gap-3 overflow-y-auto pr-1">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid gap-1"><Label>Found in</Label>
+                        <div className="inline-flex w-fit rounded-lg border p-0.5 text-sm" role="radiogroup" aria-label="Found in">{([['room', '🚪 Room'], ['bus', '🚌 Bus'], ['other', '📍 Other place']] as const).map(([k, l]) => (
+                            <button key={k} type="button" role="radio" aria-checked={f.place === k} className={cn('rounded-md px-3 py-1.5', f.place === k && 'bg-primary text-primary-foreground')} onClick={() => set('place', k)}>{l}</button>))}</div></div>
+                    {f.place !== 'room' && <div className="grid gap-1"><Label>{f.place === 'bus' ? 'Bus (number / trip / date)' : 'Where it was found'}</Label><Input required maxLength={120} value={f.spot} onChange={e => set('spot', e.target.value)} placeholder={f.place === 'bus' ? 'e.g. Bus 3 · Madina trip 18 Nov' : 'e.g. Mawaid hall, lobby, lift'} /></div>}
+                    {f.place === 'room' && <div className="grid grid-cols-3 gap-2">
                         <div className="grid gap-1"><Label>Building</Label><select className={sel} value={f.building} onChange={e => { set('building', e.target.value); set('floor', ''); }}>{blds.map(x => <option key={x.name} value={x.name}>{x.name}</option>)}{!blds.length && <option value="">—</option>}</select></div>
                         <div className="grid gap-1"><Label>Floor</Label><select className={sel} value={f.floor} onChange={e => set('floor', e.target.value)}><option value="">All floors</option>{floors.map(x => <option key={x} value={x}>{x}</option>)}</select></div>
                         <div className="grid gap-1"><Label>Room</Label>{roomList.length ? <select className={sel} required value={f.room} onChange={e => { set('room', e.target.value); const r = roomsOf.find((x: Row) => String(x.room_no) === e.target.value); if (r && !f.floor && r.floor != null) set('floor', String(r.floor)); }}><option value="">Choose…</option>{roomList.map((x: string) => <option key={x} value={x}>{x}</option>)}</select>
                             : <Input required value={f.room} onChange={e => set('room', e.target.value)} placeholder="Room no." />}</div>
-                    </div>
+                    </div>}
                     <div className="grid gap-1"><Label>Item name / description</Label><Textarea required rows={2} maxLength={300} value={f.item} onChange={e => set('item', e.target.value)} placeholder="e.g. Black leather wallet with ID card" /></div>
                     <div className="grid gap-2"><Label>Item photo</Label>
                         <div className="flex items-center gap-3">{preview ? <img src={preview} alt="The item" className="size-28 rounded-xl object-cover" /> : <span className="grid size-28 place-items-center rounded-xl bg-muted text-3xl">📷</span>}
@@ -169,7 +175,7 @@ function ItemView({ id, cloud, guard, canEdit, onClose, onEdit, onChanged }: { i
                         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                             {it.photo ? <a href={it.photo} target="_blank" rel="noopener"><img src={it.photo} alt={it.item} className="max-h-72 w-full rounded-2xl object-cover" /></a> : <span className="grid h-48 place-items-center rounded-2xl bg-muted text-5xl">📦</span>}
                             <dl className="grid content-start gap-2 text-sm">
-                                {([['Room', `${it.room}${it.floor ? ` · floor ${it.floor}` : ''}`], ['Building', it.building || '—'], ['Found', fmt(it.found_at)], ['Found by', it.found_by || '—'], ['Custodian', it.custodian || '—'], ['Remarks', it.remarks || '—']] as const).map(([k, v]) => (
+                                {([['Found in', whereOf(it)], ['Found', fmt(it.found_at)], ['Found by', it.found_by || '—'], ['Custodian', it.custodian || '—'], ['Remarks', it.remarks || '—']] as const).map(([k, v]) => (
                                     <div key={k}><dt className="text-xs uppercase tracking-wider text-muted-foreground">{k}</dt><dd className="font-medium">{v}</dd></div>))}
                             </dl>
                         </div>

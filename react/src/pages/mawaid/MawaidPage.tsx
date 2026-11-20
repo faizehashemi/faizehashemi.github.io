@@ -69,15 +69,22 @@ export default function MawaidPage() {
     const mainRef = useRef<HTMLTableElement>(null!), cookRef = useRef<HTMLTableElement>(null!), mandaRef = useRef<HTMLTableElement>(null!);
     const [status, setStatus] = useState('');
 
-    type Res = { error: string } | { main: Stats; cook: Stats; manda: ReturnType<typeof buildManda> };
+    // buildings left out of every table (e.g. the other hotels once the Miqaat is over) — kept per site on this computer
+    const hideKey = `pms_mawaid_hidden:${siteId}`;
+    const [hidden, setHidden] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(hideKey) || '[]'); } catch { return []; } });
+    const [pickOpen, setPickOpen] = useState(false);
+    const toggleHidden = (b: string) => setHidden(h => { const n = h.includes(b) ? h.filter(x => x !== b) : [...h, b]; try { localStorage.setItem(hideKey, JSON.stringify(n)); } catch { /* not kept */ } return n; });
+    type Res = { error: string } | { main: Stats; cook: Stats; manda: ReturnType<typeof buildManda>; names: string[] };
     const res = useMemo<Res | null>(() => {
         if (!meals || !slips.data) return null;
         const thal = Math.max(1, Number(thalSize) || 8);
         const ranges = { B: { start: t.bS || '04:00', end: t.bE || '09:30' }, L: { start: t.lS || '11:00', end: t.lE || '16:00' }, D: { start: t.dS || '18:00', end: t.dE || '23:00' } };
         const stats = meals.computeByBuilding(slips.data, date, ranges, thal, incA, incC, incI) as Stats | null;
         if (!stats) return { error: 'Check your start/end times; end must be after start for each meal.' };
-        return { main: { ...meals.buildFirstMerged(stats, thal), unassigned: stats.unassigned } as Stats, cook: buildCooking(stats, thal), manda: buildManda(stats, Number(multL) || 3, Number(multD) || 2.5) };
-    }, [meals, slips.data, date, t, thalSize, incA, incC, incI, multL, multD]);
+        const names = stats.rows.map(r => r.building);
+        const st: Stats = { ...stats, rows: stats.rows.filter(r => !hidden.includes(r.building)) };
+        return { main: { ...meals.buildFirstMerged(st, thal), unassigned: stats.unassigned } as Stats, cook: buildCooking(st, thal), manda: buildManda(st, Number(multL) || 3, Number(multD) || 2.5), names };
+    }, [meals, slips.data, date, t, thalSize, incA, incC, incI, multL, multD, hidden]);
 
     const exportCsv = () => {
         const table = mainRef.current; if (!table) return;
@@ -107,6 +114,12 @@ export default function MawaidPage() {
                     <div className="grid gap-1"><Label htmlFor="multL">Manda: Lunch thal ×</Label><Input id="multL" type="number" step={0.1} value={multL} onChange={e => setMultL(e.target.value)} /></div>
                     <div className="grid gap-1"><Label htmlFor="multD">Manda: Dinner thal ×</Label><Input id="multD" type="number" step={0.1} value={multD} onChange={e => setMultD(e.target.value)} /></div>
                 </div>
+                {res && 'names' in res && <div className="grid gap-1.5">
+                    <button type="button" className="w-fit text-sm font-semibold underline-offset-2 hover:underline" aria-expanded={pickOpen} onClick={() => setPickOpen(o => !o)}>
+                        🏨 Buildings shown: {res.names.filter(n => !hidden.includes(n)).length} of {res.names.length}{hidden.length ? ` · hidden: ${hidden.join(', ')}` : ''} {pickOpen ? '▴' : '▾'}</button>
+                    {pickOpen && <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">{[...new Set([...res.names, ...hidden])].map(n => <label key={n} className="flex items-center gap-2"><Checkbox checked={!hidden.includes(n)} onCheckedChange={() => toggleHidden(n)} />{n}</label>)}
+                        {hidden.length > 0 && <button type="button" className="text-primary underline" onClick={() => { setHidden([]); try { localStorage.removeItem(hideKey); } catch { /* */ } }}>Show all</button>}</div>}
+                </div>}
                 <div className="flex flex-wrap gap-x-8 gap-y-3">
                     <div className="grid gap-1.5"><b className="text-sm">Include in Pax totals</b>
                         <div className="flex flex-wrap gap-4 text-sm">{([['Adults', incA, setIncA], ['Children', incC, setIncC], ['Infants', incI, setIncI]] as const).map(([l, v, set]) => <label key={l} className="flex items-center gap-2"><Checkbox checked={v} onCheckedChange={on => set(on === true)} />{l}</label>)}</div></div>

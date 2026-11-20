@@ -882,23 +882,25 @@ function lostRead(me, site) {
     return s;
 }
 function rowToLost(r, full = false) {
-    return { id: r.id, site: r.site, ref: r.ref, building: r.building, floor: r.floor, room: r.room, item: r.item, thumb: r.thumb, ...(full ? { photo: r.photo } : {}),
+    return { id: r.id, site: r.site, ref: r.ref, building: r.building, floor: r.floor, room: r.room, place: r.place || 'room', spot: r.spot || '', item: r.item, thumb: r.thumb, ...(full ? { photo: r.photo } : {}),
         found_at: r.found_at, found_by: r.found_by, custodian: r.custodian, remarks: r.remarks, status: r.status, history: JSON.parse(r.history || '[]'),
         version: r.version, created_at: r.created_at, updated_at: r.updated_at };
 }
 function prepareLost(b) {
     const item = text(b.item, 300);
     if (!item) throw new HttpError(400, 'Describe the item.');
-    const room = text(b.room, 20);
-    if (!room) throw new HttpError(400, 'Choose the room.');
+    const place = ['room', 'bus', 'other'].includes(b.place) ? b.place : 'room';
+    const room = place === 'room' ? text(b.room, 20) : '', spot = place === 'room' ? '' : text(b.spot, 120);
+    if (place === 'room' && !room) throw new HttpError(400, 'Choose the room.');
+    if (place !== 'room' && !spot) throw new HttpError(400, place === 'bus' ? 'Enter the bus (number / trip).' : 'Enter where it was found.');
     const found_by = text(b.found_by, 80);
     if (!found_by) throw new HttpError(400, 'Enter who found it (supervisor).');
-    return { building: text(b.building, 60), floor: text(b.floor, 20), room, item, found_at: lostWhen(b.found_at), found_by, custodian: text(b.custodian, 80), remarks: text(b.remarks, 600) };
+    return { place, spot, building: place === 'room' ? text(b.building, 60) : '', floor: place === 'room' ? text(b.floor, 20) : '', room, item, found_at: lostWhen(b.found_at), found_by, custodian: text(b.custodian, 80), remarks: text(b.remarks, 600) };
 }
 async function lostRoute(p, m, url, req, env, me) {
     if (p === '/api/lost' && m === 'GET') {
         const site = lostRead(me, url.searchParams.get('site'));
-        const { results } = await env.DB.prepare('SELECT id, site, ref, building, floor, room, item, thumb, found_at, found_by, custodian, remarks, status, history, version, created_at, updated_at FROM lost_items WHERE site = ? AND deleted = 0 ORDER BY found_at DESC, id DESC LIMIT 3000').bind(site).all();
+        const { results } = await env.DB.prepare('SELECT id, site, ref, building, floor, room, place, spot, item, thumb, found_at, found_by, custodian, remarks, status, history, version, created_at, updated_at FROM lost_items WHERE site = ? AND deleted = 0 ORDER BY found_at DESC, id DESC LIMIT 3000').bind(site).all();
         return json({ items: results.map(r => rowToLost(r)), can_edit: me.role !== 'viewer' });
     }
     const one = /^\/api\/lost\/(\d+)(\/move)?$/.exec(p);
@@ -917,10 +919,10 @@ async function lostRoute(p, m, url, req, env, me) {
         const n = (await env.DB.prepare('INSERT INTO laundry_counters (key, n) VALUES (?, 1) ON CONFLICT(key) DO UPDATE SET n = n + 1 RETURNING n').bind(`${site}|lost`).first()).n;
         const ref = `LF-${LAUNDRY_PREFIX[site] || 'XX'}-${String(n).padStart(4, '0')}`;
         const history = [{ at: t, action: 'found', by: x.found_by, to: x.custodian, remarks: x.remarks, desk: me.name }];
-        const res = await env.DB.prepare(`INSERT INTO lost_items (site, ref, building, floor, room, item, photo, thumb, found_at, found_by, custodian, remarks, status, history, created_at, created_by, updated_at, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'found', ?, ?, ?, ?, ?)`).bind(site, ref, x.building, x.floor, x.room, x.item, photo, thumb, x.found_at, x.found_by, x.custodian, x.remarks, JSON.stringify(history), t, me.id, t, me.id).run();
+        const res = await env.DB.prepare(`INSERT INTO lost_items (site, ref, building, floor, room, place, spot, item, photo, thumb, found_at, found_by, custodian, remarks, status, history, created_at, created_by, updated_at, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'found', ?, ?, ?, ?, ?)`).bind(site, ref, x.building, x.floor, x.room, x.place, x.spot, x.item, photo, thumb, x.found_at, x.found_by, x.custodian, x.remarks, JSON.stringify(history), t, me.id, t, me.id).run();
         const id = res.meta.last_row_id;
-        await env.DB.batch([auditStmt(env, me, 'lost-add', null, `${site} ${ref}: ${x.item} (room ${x.room})`)]);
+        await env.DB.batch([auditStmt(env, me, 'lost-add', null, `${site} ${ref}: ${x.item} (${x.place === 'room' ? 'room ' + x.room : x.spot})`)]);
         return json({ item: rowToLost(await env.DB.prepare('SELECT * FROM lost_items WHERE id = ?').bind(id).first(), true) }, 201);
     }
     if (one && (m === 'PUT' || m === 'POST')) {
@@ -935,13 +937,13 @@ async function lostRoute(p, m, url, req, env, me) {
             // edit the record (the history keeps what changed)
             const x = prepareLost(b);
             const photo = b.photo === undefined ? r.photo : lostPic(b.photo, LOST_MAX_PHOTO), thumb = b.thumb === undefined ? r.thumb : lostPic(b.thumb, LOST_MAX_THUMB);
-            const diff = ['building', 'floor', 'room', 'item', 'found_at', 'found_by', 'custodian', 'remarks'].filter(k => String(r[k] || '') !== String(x[k] || '')).map(k => `${k.replace('_', ' ')}: "${r[k] || ''}" → "${x[k] || ''}"`);
+            const diff = ['place', 'spot', 'building', 'floor', 'room', 'item', 'found_at', 'found_by', 'custodian', 'remarks'].filter(k => String(r[k] || '') !== String(x[k] || '')).map(k => `${k.replace('_', ' ')}: "${r[k] || ''}" → "${x[k] || ''}"`);
             if (photo !== r.photo) diff.push('photo changed');
             if (!diff.length) return json({ item: rowToLost(r, true) });
             history.push({ at: t, action: 'edit', remarks: diff.join('; ').slice(0, 600), desk: me.name });
             await env.DB.batch([
-                env.DB.prepare(`UPDATE lost_items SET building = ?, floor = ?, room = ?, item = ?, photo = ?, thumb = ?, found_at = ?, found_by = ?, custodian = ?, remarks = ?, history = ?,
-                    version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?`).bind(x.building, x.floor, x.room, x.item, photo, thumb, x.found_at, x.found_by, x.custodian, x.remarks, JSON.stringify(history), t, me.id, id, r.version),
+                env.DB.prepare(`UPDATE lost_items SET building = ?, floor = ?, room = ?, place = ?, spot = ?, item = ?, photo = ?, thumb = ?, found_at = ?, found_by = ?, custodian = ?, remarks = ?, history = ?,
+                    version = version + 1, updated_at = ?, updated_by = ? WHERE id = ? AND version = ?`).bind(x.building, x.floor, x.room, x.place, x.spot, x.item, photo, thumb, x.found_at, x.found_by, x.custodian, x.remarks, JSON.stringify(history), t, me.id, id, r.version),
                 auditStmt(env, me, 'lost-edit', null, `${r.site} ${r.ref}: ${diff.join('; ')}`.slice(0, 500)),
             ]);
         } else if (one[2] && m === 'POST') {

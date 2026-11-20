@@ -127,7 +127,7 @@ export default function SignageBuilderPage() {
     useEffect(() => { if (S && stageRef.current) S.renderTemplate(stageRef.current, cur.data, preview); }, [S, cur.data, preview]);
     useEffect(() => {
         if (!S || !canvasRef.current) return;
-        const fit = () => setScale(canvasRef.current!.clientWidth / S.STAGE_W || 1);
+        const fit = () => { if (canvasRef.current) setScale(canvasRef.current.clientWidth / S.STAGE_W || 1); };   // the page may be closed already
         const ro = new ResizeObserver(fit); ro.observe(canvasRef.current); fit();
         return () => ro.disconnect();
     }, [S]);

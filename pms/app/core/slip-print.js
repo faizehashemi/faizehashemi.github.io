@@ -81,7 +81,7 @@ export function slipHTML(rec, rows, opts = {}) {
             const beds = r && (r.assigned !== '' && r.assigned != null) ? r.assigned
                 : (r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0);
             // an Exclusive room says so, with its building (the row's own, else the slip's)
-            const exB = showExclBuilding() ? ` · ${esc(String(r.building || rec.building || '').toUpperCase())}` : '';
+            const exB = r && showExclBuilding() ? ` · ${esc(String(r.building || rec.building || '').toUpperCase())}` : '';   // empty rows have no room (and no building)
             const excl = r && r.room_no && r.exclusive ? `<small style="display:block;font-size:8px;font-weight:700;line-height:1.1">EXCL${exB}</small>` : '';
             out.push(`<tr><td>${esc(room)}${excl}</td><td>${esc(beds)}</td></tr>`);
         }
@@ -194,7 +194,7 @@ export function layoutSlip(rec, rows, opts, L) {
             const r = arr[i];
             const room = r && r.room_no ? r.room_no : '-';
             const beds = r && (r.assigned !== '' && r.assigned != null) ? r.assigned : (r && (r.capacity !== '' && r.capacity != null) ? r.capacity : 0);
-            const exB = showExclBuilding() ? ` · ${esc(String(r.building || rec.building || '').toUpperCase())}` : '';
+            const exB = r && showExclBuilding() ? ` · ${esc(String(r.building || rec.building || '').toUpperCase())}` : '';   // empty rows have no room (and no building)
             const excl = r && r.room_no && r.exclusive ? `<small style="display:block;font-size:8px;font-weight:700;line-height:1.1">EXCL${exB}</small>` : '';
             out.push(`<tr><td${r && r.room_no ? roomCss : ''}>${esc(room)}${excl}</td><td>${esc(beds)}</td></tr>`);
         }

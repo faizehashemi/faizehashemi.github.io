@@ -287,7 +287,7 @@ export function lostDoc(b: Base, all: Row[]): Doc {
     if (!list.length) return { ...base('lost', b), kpis: [], sections: [], empty: 'No items found in these dates.' };
     const n = (s: string) => list.filter(x => x.status === s).length;
     const days = daysOf(b.from, b.to), byDay = days.map(d => list.filter(x => String(x.found_at).slice(0, 10) === d).length);
-    const bld = new Map<string, number>(); for (const x of list) bld.set(x.building || '—', (bld.get(x.building || '—') || 0) + 1);
+    const bld = new Map<string, number>(); for (const x of list) { const k = x.place === 'bus' ? 'Buses' : x.place === 'other' ? 'Other places' : x.building || '—'; bld.set(k, (bld.get(k) || 0) + 1); }
     const STATUS: Record<string, string> = { found: 'Found · awaiting collection', handed: 'Handed over · in custody', returned: 'Returned to guest' };
     const lastTo = (x: Row) => { const h = [...(x.history || [])].reverse().find((e: Row) => e.action === 'returned' || e.action === 'handed'); return h ? `${h.action === 'returned' ? 'to ' : 'with '}${h.to}` : (x.custodian ? `with ${x.custodian}` : ''); };
     const when = (s: string) => new Date(s).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -300,7 +300,7 @@ export function lostDoc(b: Base, all: Row[]): Doc {
         sections: [
             { title: 'Items found per day', html: columns(days, byDay, hue, undefined, ['Items']) },
             { title: 'Where they were found', html: bars([...bld].sort((a, z) => z[1] - a[1]).map(([k, v]) => ({ label: k, value: v })), hue) },
-            { title: 'Every item', html: table(['', 'Ref', 'Found', 'Room', 'Item', 'Status', 'Now'], list.map(x => [pic(x), `<span style="font-family:Consolas,monospace;font-size:8pt">${esc(x.ref)}</span>`, esc(when(x.found_at)), esc(`${x.room}${x.building ? ' · ' + x.building : ''}`), `<b>${esc(x.item)}</b>${x.found_by ? `<br><small style="color:#78716c">found by ${esc(x.found_by)}</small>` : ''}`, pill(x.status), esc(lastTo(x))]), undefined, 99) },
+            { title: 'Every item', html: table(['', 'Ref', 'Found', 'Where', 'Item', 'Status', 'Now'], list.map(x => [pic(x), `<span style="font-family:Consolas,monospace;font-size:8pt">${esc(x.ref)}</span>`, esc(when(x.found_at)), esc(x.place === 'bus' ? `${/^bus/i.test(x.spot) ? '' : 'Bus '}${x.spot}` : x.place === 'other' ? x.spot : `${x.room}${x.building ? ' · ' + x.building : ''}`), `<b>${esc(x.item)}</b>${x.found_by ? `<br><small style="color:#78716c">found by ${esc(x.found_by)}</small>` : ''}`, pill(x.status), esc(lastTo(x))]), undefined, 99) },
         ],
     };
 }

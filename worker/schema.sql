@@ -313,6 +313,8 @@ CREATE TABLE IF NOT EXISTS lost_items (
     building   TEXT NOT NULL DEFAULT '',
     floor      TEXT NOT NULL DEFAULT '',
     room       TEXT NOT NULL DEFAULT '',
+    place      TEXT NOT NULL DEFAULT 'room',      -- where it was found: room | bus | other
+    spot       TEXT NOT NULL DEFAULT '',          -- bus: its number / trip; other: the place, as typed
     item       TEXT NOT NULL,
     photo      TEXT NOT NULL DEFAULT '',          -- data: URL (JPEG, ~1000 px)
     thumb      TEXT NOT NULL DEFAULT '',          -- data: URL (small, for lists)
@@ -330,6 +332,7 @@ CREATE TABLE IF NOT EXISTS lost_items (
     updated_by INTEGER
 );
 CREATE INDEX IF NOT EXISTS lost_items_site ON lost_items(site, status);
+-- added 2026-11-20: ALTER TABLE lost_items ADD COLUMN place TEXT NOT NULL DEFAULT 'room'; ALTER TABLE lost_items ADD COLUMN spot TEXT NOT NULL DEFAULT '';
 -- added 2026-11-19: ALTER TABLE desks ADD COLUMN seen_activity INTEGER;
 
 -- Transport: the day's vehicle list from the transport system, one JSON document per site and day
