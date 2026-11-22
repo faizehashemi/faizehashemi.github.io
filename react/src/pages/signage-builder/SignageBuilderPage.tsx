@@ -28,7 +28,7 @@ const guideName = (at: number, size: number, axis: 'x' | 'y') => {
 const ELEMENTS: [string, string, string?][] = [['title', '🅃 Title'], ['heading', '🏷️ Trip type heading'], ['text', '✏️ Text'], ['date', '📅 Date'], ['sdate', '📆 Short date'],
     ['rdate', '🗓️ Relative date', "The date(s) of the trips shown on the slide — not today's"], ['clock', '🕒 Clock'], ['image', '🖼️ Image'], ['table', '▦ Data table']];
 
-export default function SignageBuilderPage() {
+export default function SignageBuilderPage({ start = 'board' }: { start?: 'board' | 1 | 2 } = {}) {
     const { cloud, transport } = useCore();
     const T = transport as any;
     const guard = useGuard();
@@ -54,7 +54,7 @@ export default function SignageBuilderPage() {
     const [order, setOrder] = useState<Row[]>([]);
     const [fade, setFade] = useState(0.3);
     const [slidesMsg, setSlidesMsg] = useState('');
-    const [area, setArea] = useState<'board' | 1 | 2>('board');   // the transport board, or notice screen 1 / 2 (ScreensPanel)
+    const [area, setArea] = useState<'board' | 1 | 2>(start);   // the transport board, or notice screen 1 / 2 (ScreensPanel)
     const undo = useRef<string[]>([]), redo = useRef<string[]>([]), lastKey = useRef(''), lastAt = useRef(0);
     const curRef = useRef(cur); curRef.current = cur;
     const selRef = useRef(sel); selRef.current = sel;

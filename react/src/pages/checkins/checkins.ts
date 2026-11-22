@@ -72,21 +72,35 @@ export function computeWindow(slips: Slip[], start: Date, end: Date, stay: Stay)
 // for the airport.
 const CITY: Record<string, string> = { MAKKAH: 'makkah', MADINA: 'medina' };
 export type Place = 'airport' | 'makkah' | 'medina';
+/** What a slip's From / To names: the airport, a city, or nothing certain ('By car', empty) */
+export function placeOf(v: unknown): Place | null {
+    const p = String(v ?? '').trim();
+    if (!p) return null;
+    if (/air ?port|\bapt\b/i.test(p)) return 'airport';
+    if (/^(makkah|mecca|makka)\b/i.test(p)) return 'makkah';
+    if (/^(madina|medina|madinah|medinah)\b/i.test(p)) return 'medina';
+    return null;
+}
 export function legOf(r: Row, siteId: string, other: Slip[], baseSh: (s: unknown) => string): { from: Place; to: Place } {
     const otherSite = (siteId === 'makkah' ? 'medina' : 'makkah') as Place;
+    // the slip's own From / To first: the UMS itinerary kept on a slip can be an old one (44791, Nov 2026: MAKKAH→MADINA kept after UMS made it MADINA→MAKKAH)
+    const own = (x: Place | null) => (x === siteId ? null : x);   // "Makkah" on a Makkah slip says nothing about the leg
+    const f = own(placeOf(r.from_place)), t = own(placeOf(r.to_place));
+    if (f && t) return { from: f, to: t };
     const it = String(r.ums?.itinerary || '');
-    if (it) {
+    const fromIt = it ? (() => {
         const legs = it.split('→').map(c => CITY[c.trim()]);
         const seg = Number(r.ums?.seg) || 1;
         let idx = -1, n = 0;
         for (let i = 0; i < legs.length; i++) if (legs[i] === siteId && ++n === seg) { idx = i; break; }
-        if (idx >= 0) return { from: (idx === 0 ? 'airport' : legs[idx - 1]) as Place, to: (idx === legs.length - 1 ? 'airport' : legs[idx + 1]) as Place };
-    }
+        return idx >= 0 ? { from: (idx === 0 ? 'airport' : legs[idx - 1]) as Place, to: (idx === legs.length - 1 ? 'airport' : legs[idx + 1]) as Place } : null;
+    })() : null;
+    if (fromIt) return { from: f ?? fromIt.from, to: t ?? fromIt.to };
     const from: Place = /^S/i.test(String(r.sh_no ?? '').trim()) ? otherSite : 'airport';
     const co = r.checkout_date, key = baseSh(r.sh_no);
     const day = (d: string, n: number) => { const x = new Date(`${d}T12:00`); x.setDate(x.getDate() + n); return ymd(x); };
     const next = key && co && other.some(o => !o.deleted && baseSh(o.sh_no) === key && o.checkin_date >= day(co, -1) && o.checkin_date <= day(co, 1));
-    return { from, to: next ? otherSite : 'airport' };
+    return { from: f ?? from, to: t ?? (next ? otherSite : 'airport') };
 }
 
 /** [[title, rows]]: one untitled part, or (split view) arrivals by where from / departures by where to. The table, the CSV and Print table all use it. */

@@ -39,6 +39,7 @@ export const PAGES: Record<string, () => Promise<PageModule>> = {
     ums: () => import('@/pages/ums/UmsPage'),
     laundry: () => import('@/pages/laundry/LaundryPage'),
     'signage-builder': () => import('@/pages/signage-builder/SignageBuilderPage'),
+    'notice-screens': () => import('@/pages/signage-builder/NoticeScreensPage'),
     'laundry-admin': () => import('@/pages/laundry-admin/LaundryAdminPage'),
     'transport-import': () => import('@/pages/transport-import/TransportImportPage'),
     'transport-print': () => import('@/pages/transport-print/TransportPrintPage'),

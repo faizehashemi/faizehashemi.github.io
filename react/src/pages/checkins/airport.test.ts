@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { airportName, partsOf } from './checkins';
+import { airportName, legOf, partsOf } from './checkins';
 
 describe('check-ins split by airport', () => {
     it('names the airport from the slip', () => {
@@ -18,5 +18,11 @@ describe('check-ins split by airport', () => {
         const p = partsOf(rows, 'checkout', true, leg, 'medina', 'Madina');
         expect(p.map(([t, l]) => [t, l.length])).toEqual([['Departing to Jeddah Airport', 2], ['Departing to Madina Airport', 1], ['Departing by car (airport leg)', 1], ['Departing to Madina', 1]]);
         expect(partsOf([], 'checkin', true, leg, 'medina', 'Madina').map(([t]) => t)).toEqual(['From the airport', 'From Madina']);
+    });
+    it("trusts the slip's From / To over an old UMS itinerary (44791)", () => {
+        const r = { sh_no: '44791', from_place: 'Madina Airport', to_place: 'Makkah', checkout_date: '2026-11-22', ums: { itinerary: 'MAKKAH→MADINA', seg: 1 } };
+        expect(legOf(r, 'medina', [], x => String(x))).toEqual({ from: 'airport', to: 'makkah' });
+        // no From / To on the slip: the itinerary still decides
+        expect(legOf({ ...r, from_place: '', to_place: 'By car' }, 'medina', [], x => String(x))).toEqual({ from: 'makkah', to: 'airport' });
     });
 });

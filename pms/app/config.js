@@ -29,7 +29,7 @@ export const DEFAULT_SITE = 'makkah';
 // The menu bar, router and page frame as React (react/src/shell) instead of core/nav.js + legacy-shell.js. On for everybody since 2026-11-02 (approved after staging);
 // one browser: localStorage pms_react_shell = 1 (on) / 0 (off); one visit: ?shell=react / ?shell=legacy in the address (see main.js).
 export const REACT_SHELL = true;
-export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','slip-builder','reports','lost-found','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
+export const REACT_PAGES = (localStorage.getItem('pms_react_off') ? [] : ['paxchart','blank','slip-search','backups','changelog','key-cards','pending-checkouts','building-hisaab','slip-builder','reports','lost-found','menu-card','performance','occupancy','housekeeping','departures','tosha','grouping','group-export','kg','mawaid','timeline','grid','checkins','transport','transport-print','arrival','passport','transport-import','laundry-admin','signage-builder','notice-screens','laundry','admin','ums','login','settings','builder','setup','home','forecast','slip']);
 
 // Every page. `key` is its default Alt+<key> shortcut (each browser can change them in Settings);
 // `hint` shows in the menus.
@@ -71,6 +71,7 @@ export const VIEWS = [
     { id: 'transport-import', label: 'Transport import', title: 'Transport Import',    hint: 'Paste the transport list; review changes before saving' },
     { id: 'arrival', label: 'Arrival sheet', title: 'Arrival Sheet', hint: 'Buses and flights arriving on a day, with time and floor' },
     { id: 'transport-print', label: 'Bus sheets',      title: 'Bus Sheets',            hint: 'One printout per bus to stick on it' },
+    { id: 'notice-screens', label: 'Notice screens',   title: 'Notice Screens',        hint: 'The portrait notice TVs: posters, pictures, videos, PDF and PowerPoint' },
     { id: 'signage-builder', label: 'Signage Builder', title: 'Signage Builder',       hint: 'Design the transport board; template per trip type' },
     { id: 'blank',       label: 'No pages',           title: 'PMS', hidden: true },
     { id: 'settings',     label: 'Settings',           title: 'Settings',              hint: 'Your look, quick links, shortcuts — follow your login' },
@@ -83,7 +84,7 @@ export const NAV = [
     { id: 'desk',   label: 'Front desk',     views: ['slip', 'checkins', 'departures', 'paxchart', 'print', 'slip-builder'] },
     { id: 'rooms',  label: 'Rooms',          views: ['forecast', 'grid', 'timeline', 'occupancy', 'housekeeping', 'key-cards', 'lost-found', 'builder'] },
     { id: 'groups', label: 'Groups & meals', views: ['grouping', 'group-export', 'kg', 'mawaid', 'tosha', 'menu-card'] },
-    { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'arrival', 'signage-builder'] },
+    { id: 'transport', label: 'Transport',   views: ['transport', 'transport-import', 'transport-print', 'arrival', 'notice-screens', 'signage-builder'] },
     { id: 'laundry', label: 'Laundry',       views: ['laundry', 'laundry-admin'] },
     { id: 'accounts', label: 'Accounts',     views: ['pending-checkouts', 'building-hisaab', 'passport'] },
     { id: 'reports', label: 'Reports',       views: ['reports'] },

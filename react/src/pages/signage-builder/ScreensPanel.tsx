@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useCore, useGuard, useLoadCore, useSite } from '@/pms/PmsContext';
 import { Chk, Num, Sel, Txt } from './inspector';
+import { NoticeTable } from './NoticeTable';
 
 // Signage Builder → Screen 1 / Screen 2: the notice screens /<site>/signage1 and /signage2, TVs hung on their side beside the transport board.
 // A list of slides — the Important Notice poster (edited here: sections of text, a table, a picture such as a QR code), pictures, videos, PDF and PowerPoint
@@ -36,6 +37,7 @@ export function ScreensPanel({ n }: { n: number }) {
     const [busy, setBusy] = useState('');
     const [msg, setMsg] = useState<{ t: string; bad?: boolean }>({ t: '' });
     const [secOpen, setSecOpen] = useState<number | null>(0);
+    const [drop, setDrop] = useState(false);
     const uploaded = useRef(new Set<string>());   // files sent up while editing: those no slide keeps are deleted after a save
     const dirty = !!cfg && JSON.stringify(cfg) !== saved;
 
@@ -80,6 +82,10 @@ export function ScreensPanel({ n }: { n: number }) {
         ids.forEach(id => uploaded.current.add(id));
         return ids;
     }
+    async function addFiles(files: File[]) {   // several at once: each becomes its own slide, in the order picked
+        for (const f of files) await addFile(f);
+        if (files.length > 1) setMsg({ t: `Added ${files.length} files. Save to send them to the screen.` });
+    }
     async function addFile(file?: File | null) {
         if (!file) return;
         const kind = M.kindOf(file), name = file.name.replace(/\.[^.]+$/, '');
@@ -111,6 +117,20 @@ export function ScreensPanel({ n }: { n: number }) {
         };
         inp.click();
     }
+    // the same slide on the other TV too (its files are shared — nothing is uploaded again); saved there at once
+    async function copyToOther(i: number) {
+        const other = n === 1 ? 2 : 1, s = slides[i];
+        if (!(await confirmAsk({ title: `Copy "${s.name}" to screen ${other}?`, body: `It is added at the end of screen ${other}'s slides and saved there now.`, confirmLabel: 'Copy' }))) return;
+        setBusy(`Copying to screen ${other}…`);
+        try {
+            const r = await guard<Row>(M.loadScreen(siteId, other));
+            const oc = r.config || S.defaultScreen(other);
+            oc.slides.push({ ...clone(s), id: S.newId() });
+            await guard(M.saveScreen(siteId, other, oc, r.version || 0));
+            setMsg({ t: `Copied "${s.name}" to screen ${other}.${dirty ? ' (Screen ' + n + ' still has unsaved changes.)' : ''}` });
+        } catch (e: any) { setMsg({ t: (e instanceof cloud.UserError ? e.message : 'Could not copy: ' + (e.message || e)), bad: true }); }
+        finally { setBusy(''); }
+    }
     async function remove(i: number) {
         if (!(await confirmAsk({ title: `Remove "${slides[i].name}"?`, body: 'It leaves this screen when you save.', confirmLabel: 'Remove' }))) return;
         set(c => { c.slides.splice(i, 1); }); setSel(Math.max(0, Math.min(sel, slides.length - 2)));
@@ -132,7 +152,8 @@ export function ScreensPanel({ n }: { n: number }) {
             </Card>
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,20rem)_auto_minmax(0,1fr)]">
-                <Card className="grid content-start gap-2 p-3">
+                <Card className={cn('grid content-start gap-2 p-3', drop && 'ring-2 ring-gold')} onDragOver={e => { if (writable && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDrop(true); } }} onDragLeave={() => setDrop(false)}
+                    onDrop={e => { if (!writable) return; e.preventDefault(); setDrop(false); void addFiles([...e.dataTransfer.files]); }}>
                     <h2 className="font-bold">Slides of screen {n}</h2>
                     <p className="text-xs text-muted-foreground">Played top to bottom. A slide with a schedule shows only in its hours (Saudi time).</p>
                     {slides.map((s, i) => (
@@ -149,7 +170,8 @@ export function ScreensPanel({ n }: { n: number }) {
                     {!slides.length && <p className="text-sm text-muted-foreground">No slides: the screen stays black.</p>}
                     {writable && <div className="grid gap-2 pt-1">
                         <label className={cn('inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-gold', busy && 'pointer-events-none opacity-50')}>＋ Add picture, video, PDF or PowerPoint
-                            <input type="file" className="sr-only" accept="image/*,video/mp4,video/webm,.mp4,.webm,application/pdf,.pdf,.pptx,.ppt" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; void addFile(f); }} /></label>
+                            <input type="file" multiple className="sr-only" accept="image/*,video/mp4,video/webm,.mp4,.webm,application/pdf,.pdf,.pptx,.ppt" onChange={e => { const fs = [...(e.target.files || [])]; e.target.value = ''; void addFiles(fs); }} /></label>
+                        <p className="text-center text-[11px] text-muted-foreground">Pick several files at once, or drop them on this list.</p>
                         <Button variant="outline" disabled={!!busy} onClick={() => { set(c => { c.slides.push({ ...clone(S.defaultScreen(n).slides[0]), id: S.newId(), name: 'Notice' }); }); setSel(slides.length); }}>＋ Notice poster</Button>
                     </div>}
                 </Card>
@@ -163,6 +185,7 @@ export function ScreensPanel({ n }: { n: number }) {
                 {cur && <Card className="grid content-start gap-2 p-3 lg:max-h-[calc(100vh-140px)] lg:overflow-auto">
                     <h2 className="font-bold">{KIND[cur.kind]}</h2>
                     <label className="grid gap-1 text-xs font-semibold">Name<Input className="h-8" disabled={dis} value={cur.name} onChange={e => setSlide('name', e.target.value)} /></label>
+                    {writable && <Button size="sm" variant="outline" className="w-fit" disabled={!!busy} onClick={() => void copyToOther(sel)}>⧉ Copy to screen {n === 1 ? 2 : 1}</Button>}
                     {cur.kind !== 'video' && <Num label={cur.kind === 'pages' ? 'Seconds a page' : 'Seconds'} min={3} max={600} disabled={dis} value={cur.seconds} onChange={v => setSlide('seconds', Math.max(3, Number(v) || 10))} />}
                     {cur.kind !== 'notice' && <><Sel label="Fit" disabled={dis} value={cur.fit} list={[['contain', 'Whole picture (bars around)'], ['cover', 'Fill the screen (edges cut)']]} onChange={v => setSlide('fit', v)} />
                         <Num label="Bars colour" as="color" disabled={dis} value={cur.bg} onChange={v => setSlide('bg', v)} /></>}
@@ -198,8 +221,21 @@ function NoticeEditor({ nt, dis, busy, open, setOpen, setNotice, setSec, set, pi
     const secs: Row[] = nt.sections || [];
     return (
         <div className="grid gap-2">
+            <div className="grid gap-1 text-xs font-semibold">Design
+                <div className="flex flex-wrap gap-1.5">{Object.entries(S.DESIGNS as Record<string, Row>).map(([k, d]) => (
+                    <button key={k} type="button" disabled={dis} title={`Colours of the "${d.label}" design (text, tables and pictures stay)`} onClick={() => set(n => { S.applyDesign(n, k); })}
+                        className={cn('flex items-center gap-1.5 rounded-lg border px-2 py-1 font-normal', nt.design === k && 'border-gold bg-accent font-bold')}>
+                        <span className="flex"><i className="size-3.5 rounded-l" style={{ background: d.strip }} /><i className="size-3.5" style={{ background: d.bg }} /><i className="size-3.5 rounded-r" style={{ background: d.tdBg }} /></span>{d.label}</button>))}</div></div>
             <label className="grid gap-1 text-xs font-semibold">Side title<Input className="h-8" disabled={dis} value={nt.title} onChange={e => setNotice('title', e.target.value)} /></label>
             <Sel label="Side strip" disabled={dis} value={nt.side} list={[['left', 'On the left'], ['right', 'On the right']]} onChange={v => setNotice('side', v)} />
+            <Sel label="Strip size" disabled={dis} value={nt.stripSize || 'normal'} list={[['hidden', 'Hidden (no strip)'], ['slim', 'Slim'], ['normal', 'Normal'], ['wide', 'Wide']]} onChange={v => setNotice('stripSize', v)} />
+            {(nt.stripSize || 'normal') !== 'hidden' && <Num label="Title size" min={30} max={220} disabled={dis} value={nt.titleSize ?? null} onChange={v => setNotice('titleSize', v)} />}
+            <Sel label="Heading font" disabled={dis} value={nt.headFont || ''} list={[['', 'Same as text'], ...(S.NOTICE_FONTS as string[]).map(f => [f, f] as [string, string])]} onChange={v => setNotice('headFont', v)} />
+            <Sel label="Text font" disabled={dis} value={nt.bodyFont || 'Georgia'} list={(S.NOTICE_FONTS as string[]).map(f => [f, f] as [string, string])} onChange={v => setNotice('bodyFont', v)} />
+            <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-1.5 text-xs font-semibold">Text size
+                <span className="flex items-center gap-2 font-normal"><label className="flex items-center gap-1"><input type="checkbox" disabled={dis} checked={!nt.textSize} onChange={e => setNotice('textSize', e.target.checked ? null : 34)} />Auto (fill the screen)</label>
+                    {!!nt.textSize && <><input type="range" min={16} max={80} disabled={dis} value={nt.textSize} onChange={e => setNotice('textSize', Number(e.target.value))} className="min-w-0 flex-1" /><b className="w-10 text-right">{nt.textSize}px</b></>}</span></div>
+            {!!nt.textSize && <p className="text-[11px] text-muted-foreground">With a fixed size, long text can run past the bottom of the screen — check the preview.</p>}
             <Num label="Strip colour" as="color" disabled={dis} value={nt.strip} onChange={v => setNotice('strip', v)} />
             <Num label="Text colour" as="color" disabled={dis} value={nt.color} onChange={v => setNotice('color', v)} />
             <div className="flex flex-wrap items-center gap-2 text-xs"><b>Background:</b>
@@ -224,7 +260,8 @@ function NoticeEditor({ nt, dis, busy, open, setOpen, setNotice, setSec, set, pi
                         <Num label="Band colour" as="color" disabled={dis} value={s.band} onChange={v => setSec(i, 'band', v)} />
                         <Txt label="Text" disabled={dis} value={s.text} onChange={v => setSec(i, 'text', v)} />
                         <Sel label="Text align" disabled={dis} value={s.align} list={[['left', 'Left'], ['center', 'Centre']]} onChange={v => setSec(i, 'align', v)} />
-                        <Txt label="Table (optional)" disabled={dis} value={s.table} onChange={v => setSec(i, 'table', v)} />
+                        <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-1.5 text-xs font-semibold">Section size<span className="flex items-center gap-2 font-normal"><input type="range" min={60} max={160} step={5} disabled={dis} value={s.scale || 100} onChange={e => setSec(i, 'scale', Number(e.target.value))} className="min-w-0 flex-1" /><b className="w-10 text-right">{s.scale || 100}%</b></span></div>
+                        <NoticeTable value={s.table || ''} disabled={dis} onChange={v => setSec(i, 'table', v)} />
                         <Txt label="Line under the table (optional)" disabled={dis} value={s.note} onChange={v => setSec(i, 'note', v)} />
                         <div className="flex items-center gap-2 text-xs"><b>Picture (QR code…):</b>{s.image ? <span className="text-muted-foreground">set</span> : <span className="text-muted-foreground">none</span>}
                             <Button size="sm" variant="outline" className="h-7" disabled={dis || busy} onClick={() => pickSec(i)}>{s.image ? 'Change…' : 'Add…'}</Button>
@@ -244,15 +281,19 @@ function Preview({ slide, S, url }: { slide: Row; S: any; url: (id: string) => s
     const html = slide.kind === 'notice' ? S.noticeHtml(slide.notice, url) : '';
     useLayoutEffect(() => { if (box.current && slide.kind === 'notice') S.fitNotice(box.current); }, [html]);   // eslint-disable-line react-hooks/exhaustive-deps
     const media = slide.media?.[0];
+    const [state, setState] = useState<'' | 'loading' | 'ok' | 'failed'>('');   // a large picture can take a moment: say so instead of a black box
+    useEffect(() => { setState(media && slide.kind !== 'notice' ? 'loading' : ''); }, [media, slide.kind]);
     return (
         <div className="relative overflow-hidden rounded-md border bg-black shadow" style={{ width: W, height: S.STAGE_H * k }}>
             {slide.kind === 'notice'
                 ? <div ref={box} className="absolute left-0 top-0 origin-top-left" style={{ width: S.STAGE_W, height: S.STAGE_H, transform: `scale(${k})` }} dangerouslySetInnerHTML={{ __html: html }} />
                 : <div className="absolute left-0 top-0 origin-top-left" style={{ width: S.STAGE_W, height: S.STAGE_H, transform: `scale(${k})`, background: slide.bg || '#000' }}>
-                    {slide.kind === 'video' && media && <video key={media} src={url(media)} muted autoPlay loop playsInline className="absolute inset-0 size-full" style={{ objectFit: slide.fit === 'cover' ? 'cover' : 'contain' }} />}
-                    {(slide.kind === 'image' || slide.kind === 'pages') && media && <img src={url(media)} alt="" className="absolute inset-0 size-full" style={{ objectFit: slide.fit === 'cover' ? 'cover' : 'contain' }} />}
+                    {slide.kind === 'video' && media && <video key={media} src={url(media)} onLoadedData={() => setState('ok')} onError={() => setState('failed')} muted autoPlay loop playsInline className="absolute inset-0 size-full" style={{ objectFit: slide.fit === 'cover' ? 'cover' : 'contain' }} />}
+                    {(slide.kind === 'image' || slide.kind === 'pages') && media && <img key={media} src={url(media)} onLoad={() => setState('ok')} onError={() => setState('failed')} alt="" className="absolute inset-0 size-full" style={{ objectFit: slide.fit === 'cover' ? 'cover' : 'contain' }} />}
                 </div>}
             {slide.kind !== 'notice' && !media && <Badge className="absolute left-2 top-2">No file</Badge>}
+            {state === 'loading' && <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-white/80">Loading {slide.kind === 'video' ? 'video' : 'picture'}…</span>}
+            {state === 'failed' && <span className="absolute inset-x-3 top-1/2 -translate-y-1/2 rounded bg-destructive/90 p-2 text-center text-sm text-white">This file could not be loaded. Check the connection, or add the file again.</span>}
         </div>
     );
 }

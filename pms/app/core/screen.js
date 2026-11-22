@@ -54,6 +54,31 @@ export function defaultScreen(n) {
 }
 export const blankSection = () => sec('📌', 'New section', '#8f9ef0', 'Text');
 
+/* ---------------------------------- poster look: strip size, fonts, text size, designs ---------------------------------- */
+// notice fields (all optional — an old poster looks as before):
+//   stripSize 'hidden' | 'slim' | 'normal' | 'wide'; titleSize (px of the side title); headFont / bodyFont (NOTICE_FONTS);
+//   textSize (px; empty = the biggest that fits); headInk, thBg, tdBg, td1Bg, tblInk, noteInk (colours); section.scale (% of the text size)
+export const NOTICE_FONTS = ['Georgia', 'Times New Roman', 'Bookman Old Style', 'Arial', 'Arial Black', 'Segoe UI', 'Roboto', 'Poppins', 'Lato', 'Playfair Display', 'Merriweather'];
+const GOOGLE = { Roboto: 'Roboto:wght@400;700', Poppins: 'Poppins:wght@400;600;700', Lato: 'Lato:wght@400;700', 'Playfair Display': 'Playfair+Display:wght@500;700;800', Merriweather: 'Merriweather:wght@400;700' };
+const fontOf = (f, fallback) => (NOTICE_FONTS.includes(f) ? `'${f}', ${fallback}` : fallback);
+export const STRIPS = { hidden: 0, slim: 130, normal: 210, wide: 280 };
+const STRIP_TITLE = { slim: 76, normal: 118, wide: 150 };
+/** Ready-made looks: colours of the strip, page, text, section bands and table in one tap */
+export const DESIGNS = {
+    classic: { label: 'Classic blue', strip: '#1d6fe0', bg: '#dcebfb', color: '#404040', headInk: '#0e1f45', thBg: '#4f86ea', tdBg: '#2f6fe0', td1Bg: '#3b7be6', tblInk: '#ffffff', noteInk: '#1d47b8', bands: ['#a99cf0', '#f0a9c4', '#f2cf6b', '#7fc9be', '#8fd0f0', '#7d95e6'], media: true },
+    gold: { label: 'Gold & cream', strip: '#8a6a1f', bg: '#fbf4e4', color: '#3b3226', headInk: '#3b2a08', thBg: '#b8912f', tdBg: '#d9b45a', td1Bg: '#c9a043', tblInk: '#2b2006', noteInk: '#8a6a1f', bands: ['#e6c77a', '#d9b45a', '#f0dca8', '#c9a043', '#e6c77a', '#f0dca8'], media: false },
+    green: { label: 'Green', strip: '#0f6b4c', bg: '#e8f5ee', color: '#23362c', headInk: '#0b3b29', thBg: '#2f8f68', tdBg: '#1f7a56', td1Bg: '#278562', tblInk: '#ffffff', noteInk: '#0f6b4c', bands: ['#9fd8bd', '#bde5c9', '#8fcfb0', '#cdebd9', '#9fd8bd', '#bde5c9'], media: false },
+    dark: { label: 'Dark', strip: '#c9a227', bg: '#0f1626', color: '#e9edf5', headInk: '#ffffff', thBg: '#c9a227', tdBg: '#24314d', td1Bg: '#2d3c5c', tblInk: '#ffffff', noteInk: '#f5d78e', bands: ['#3a4d7a', '#5a3a7a', '#7a5a2a', '#2a6a5a', '#3a4d7a', '#5a3a7a'], media: false },
+};
+/** Put a design on a poster (colours only — text, tables and pictures stay) */
+export function applyDesign(n, key) {
+    const d = DESIGNS[key]; if (!d) return n;
+    Object.assign(n, { strip: d.strip, bg: d.bg, color: d.color, headInk: d.headInk, thBg: d.thBg, tdBg: d.tdBg, td1Bg: d.td1Bg, tblInk: d.tblInk, noteInk: d.noteInk, design: key });
+    if (d.media) { n.bgVideo = BG.bgVideo; n.bgImage = BG.bgImage; } else { n.bgVideo = ''; n.bgImage = ''; }
+    (n.sections || []).forEach((s, i) => { s.band = d.bands[i % d.bands.length]; });
+    return n;
+}
+
 /* ---------------------------------- the notice poster ---------------------------------- */
 
 /** "a | b\n^ | c\n# Heading" → table HTML: '#' rows are heading rows (one cell spans the table), '^' merges with the cell above */
@@ -75,7 +100,7 @@ export function tableHtml(src, color) {
         const tag = r.head ? 'th' : 'td';
         return `<tr${r.head ? ' class="h"' : ''}>${r.cells.map((c, j) => c === '^' && !r.head ? '' : `<${tag}${span[i][j] > 1 ? ` rowspan="${span[i][j]}"` : ''}${j === r.cells.length - 1 && r.cells.length < cols ? ` colspan="${cols - j}"` : ''}>${inline(c)}</${tag}>`).join('')}</tr>`;
     }).join('');
-    return `<table class="nt-t" style="color:${esc(color)}">${body}</table>`;
+    return `<table class="nt-t">${body}</table>`;
 }
 
 /** The notice poster as HTML for a 1080 × 1920 box; `img(id)` gives the URL of a picture. fitNotice() then sizes the text to fill it. */
@@ -83,48 +108,57 @@ export function noticeHtml(n, img) {
     const right = n.side === 'right';
     // background: a looping video (the bubbles of the announcement slides) over its first frame as a picture, or a colour
     const bg = (n.bgImage ? `<img class="nt-bgm" src="${esc(img(n.bgImage))}" alt="">` : '') + (n.bgVideo ? `<video class="nt-bgm" src="${esc(img(n.bgVideo))}" autoplay muted loop playsinline></video>` : '');
+    const strip = STRIPS[n.stripSize] ?? STRIPS.normal;
+    const titleSize = Number(n.titleSize) || (right && (n.stripSize || 'normal') === 'normal' ? 96 : STRIP_TITLE[n.stripSize || 'normal'] || 118);
+    const fonts = [n.headFont, n.bodyFont].filter(f => GOOGLE[f]).map(f => GOOGLE[f]);
+    const fontLink = fonts.length ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${[...new Set(fonts)].map(f => 'family=' + f).join('&')}&display=swap">` : '';
     const sections = (n.sections || []).map(s => {
         const pic = s.image ? `<img class="nt-img" src="${esc(img(s.image))}" alt="">` : '';
         const text = s.text ? `<div class="nt-txt" style="text-align:${s.align === 'center' ? 'center' : 'left'}">${String(s.text).split('\n').map(l => `<div>${inline(l) || '&nbsp;'}</div>`).join('')}</div>` : '';
         const note = s.note ? `<div class="nt-note">${String(s.note).split('\n').map(l => `<div>${inline(l)}</div>`).join('')}</div>` : '';
-        return `<section class="nt-s">
+        const scale = Number(s.scale) && Number(s.scale) !== 100 ? ` style="font-size:${Math.max(50, Math.min(200, Number(s.scale))) / 100}em"` : '';
+        return `<section class="nt-s"${scale}>
             <div class="nt-head"><span class="nt-ico" style="background:${esc(s.band)}">${esc(s.icon || '')}</span><h2 style="background:linear-gradient(90deg, ${esc(s.band)}, ${esc(s.band)}cc 75%, transparent)">${inline(s.title)}</h2></div>
             <div class="nt-body${pic ? ' with-img' : ''}">${text}${pic}</div>${s.table ? tableHtml(s.table, n.color) : ''}${note}
         </section>`;
     }).join('');
-    return `<div class="nt ${right ? 'nt-r' : 'nt-l'}" style="--strip:${esc(n.strip || '#1d6fe0')};--bg:${esc(n.bg || '#dcebfb')};--ink:${esc(n.color || '#404040')}">${bg}
+    const v = (k, d) => esc(n[k] || d);
+    return `<div class="nt ${right ? 'nt-r' : 'nt-l'}${strip ? '' : ' nt-nostrip'}" style="--strip:${v('strip', '#1d6fe0')};--bg:${v('bg', '#dcebfb')};--ink:${v('color', '#404040')};--head-ink:${v('headInk', '#0e1f45')};--th-bg:${v('thBg', '#4f86ea')};--td-bg:${v('tdBg', '#2f6fe0')};--td1-bg:${v('td1Bg', '#3b7be6')};--tbl-ink:${v('tblInk', '#ffffff')};--note-ink:${v('noteInk', '#1d47b8')};--strip-w:${strip}px;--title-size:${titleSize}px;--body-font:${fontOf(n.bodyFont, "Georgia, 'Times New Roman', serif").replace(/"/g, '')};--head-font:${fontOf(n.headFont || n.bodyFont, "Georgia, 'Times New Roman', serif").replace(/"/g, '')}">${fontLink}${bg}
         <style>
-            .nt { position: absolute; inset: 0; display: flex; background: var(--bg); font-family: Georgia, 'Times New Roman', serif; color: var(--ink); overflow: hidden; }
+            .nt { position: absolute; inset: 0; display: flex; background: var(--bg); font-family: var(--body-font); color: var(--ink); overflow: hidden; }
             .nt-bgm { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
             .nt-r { flex-direction: row-reverse; }
-            .nt-side { position: relative; width: 210px; flex: none; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, var(--strip), color-mix(in srgb, var(--strip) 70%, #000)); }
-            .nt-side span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 118px; color: #fff; letter-spacing: 2px; white-space: nowrap; text-shadow: 0 2px 6px rgba(0,0,0,.25); }
-            .nt-r .nt-side span { transform: none; letter-spacing: 10px; font-size: 96px; }
+            .nt-side { position: relative; width: var(--strip-w); flex: none; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, var(--strip), color-mix(in srgb, var(--strip) 70%, #000)); }
+            .nt-side span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--title-size); font-family: var(--head-font); color: #fff; letter-spacing: 2px; white-space: nowrap; text-shadow: 0 2px 6px rgba(0,0,0,.25); }
+            .nt-r .nt-side span { transform: none; letter-spacing: 10px; }
+            .nt-nostrip .nt-side { display: none; } .nt-nostrip .nt-main { padding-left: 34px !important; padding-right: 34px !important; }
             .nt-main { position: relative; flex: 1; min-width: 0; margin: 40px 0; padding: 24px 34px 24px 0; display: flex; flex-direction: column; justify-content: space-evenly; overflow: hidden; }
             .nt-r .nt-main { padding: 24px 0 24px 34px; }
             .nt-s { margin: 0.25em 0; }
             .nt-head { display: flex; align-items: center; position: relative; margin-bottom: 0.3em; }
             .nt-ico { width: 2.2em; height: 2.2em; border-radius: 0 50% 50% 0; display: inline-flex; align-items: center; justify-content: center; font-size: 1.05em; flex: none; margin-right: -0.3em; position: relative; z-index: 1; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
-            .nt-head h2 { flex: 1; margin: 0; padding: 0.15em 0.8em; font-size: 1.2em; font-weight: 700; color: #0e1f45; letter-spacing: .5px; }
+            .nt-head h2 { flex: 1; margin: 0; padding: 0.15em 0.8em; font-size: 1.2em; font-weight: 700; color: var(--head-ink); font-family: var(--head-font); letter-spacing: .5px; }
             .nt-body { padding: 0 0.4em 0 2em; line-height: 1.3; }
             .nt-body.with-img { display: flex; align-items: center; gap: 0.6em; }
             .nt-body.with-img .nt-txt { flex: 1; }
             .nt-img { width: 6.5em; height: 6.5em; object-fit: contain; flex: none; }
             .nt-t { margin: 0.2em 0.4em 0.2em 1.4em; border-collapse: collapse; width: calc(100% - 1.8em); font-family: Arial, Helvetica, sans-serif; font-size: .8em; }
-            .nt-t td, .nt-t th { border: 1.5px solid #fff; padding: 0.3em 0.4em; text-align: center; background: #2f6fe0; color: #fff; }
-            .nt-t td:first-child:not(:last-child) { background: #3b7be6; }
-            .nt-t tr.h th { background: #4f86ea; color: #dfe9ff; font-weight: 700; }
-            .nt-note { text-align: center; font-family: Arial, Helvetica, sans-serif; font-size: .75em; color: #1d47b8; margin-top: 0.2em; }
+            .nt-t td, .nt-t th { border: 1.5px solid #fff; padding: 0.3em 0.4em; text-align: center; background: var(--td-bg); color: var(--tbl-ink); }
+            .nt-t td:first-child:not(:last-child) { background: var(--td1-bg); }
+            .nt-t tr.h th { background: var(--th-bg); color: var(--tbl-ink); font-weight: 700; }
+            .nt-note { text-align: center; font-family: Arial, Helvetica, sans-serif; font-size: .75em; color: var(--note-ink); margin-top: 0.2em; }
         </style>
         <div class="nt-side"><span>${inline(n.title)}</span></div>
-        <div class="nt-main">${sections}</div>
+        <div class="nt-main"${Number(n.textSize) ? ` data-size="${Math.max(12, Math.min(120, Number(n.textSize)))}"` : ''}>${sections}</div>
     </div>`;
 }
 
 /** Biggest text that still fits the poster box (binary search on the font size) */
-export function fitNotice(box) {
+export function fitNotice(box, again = true) {
     const main = box.querySelector('.nt-main');
     if (!main) return;
+    if (main.dataset.size) { main.style.fontSize = main.dataset.size + 'px'; return; }   // a fixed text size chosen in the builder
+    if (again && document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => fitNotice(box, false));   // a web font arriving later changes the sizes
     let lo = 18, hi = 80;
     for (let i = 0; i < 9; i++) {
         const mid = (lo + hi) / 2;
