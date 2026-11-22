@@ -36,7 +36,7 @@
     <script nomodule>document.getElementById('sgDiag').textContent = 'This TV browser is too old for the screen — open it in an up-to-date browser (Chrome 90 or later).';</script>
     <script type="module">
         import { API_URL } from '../app/config.js';
-        import { defaultScreen, noticeHtml, fitNotice, playing, mediaUrl, stageTransform } from '../app/core/screen.js';
+        import { defaultScreen, noticeHtml, fitNotice, playing, mediaUrl, stageTransform, designHtml, tickDesign } from '../app/core/screen.js';
 
         const q = new URLSearchParams(location.search);
         const parts = location.pathname.split('/').filter(Boolean);
@@ -76,6 +76,7 @@
             const bg = s.bg || '#000';
             const fit = s.fit === 'cover' ? 'cover' : 'contain';
             if (s.kind === 'notice') { box.innerHTML = noticeHtml(s.notice || {}, url); return { el: box, ms: (s.seconds || 30) * 1000, fit: true }; }
+            if (s.kind === 'design') { box.innerHTML = designHtml(s.design || {}, url); tickDesign(); return { el: box, ms: (s.seconds || 20) * 1000 }; }   // a free design (Signage Builder → Design)
             if (s.kind === 'video') {
                 const v = document.createElement('video');
                 v.className = 'full'; v.muted = true; v.autoplay = true; v.playsInline = true; v.src = url(s.media[0]); v.style.objectFit = fit; v.style.background = bg;

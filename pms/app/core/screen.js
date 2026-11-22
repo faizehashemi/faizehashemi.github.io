@@ -209,3 +209,121 @@ export function stageTransform(rotate, W, H) {
     const s = side ? Math.min(W / STAGE_H, H / STAGE_W) : Math.min(W / STAGE_W, H / STAGE_H);
     return { left: (W - STAGE_W) / 2, top: (H - STAGE_H) / 2, transform: `rotate(${rotate || 0}deg) scale(${s})` };
 }
+
+/* ---------------------------------- free design slides (Signage Builder → Screen 1 / 2 → Design) ---------------------------------- */
+// A slide drawn like a PowerPoint page on the 1080 × 1920 stage: elements placed anywhere, sized, turned, layered (array order = back to front).
+// design { bg, bgImage, bgFit, elements: [el…] }
+// el { id, type, x, y, w, h, rot, opacity, … }
+//   text   text (lines; **bold**, !!red!!, __underline__), font, size, color, bold, italic, underline, align, valign, bg, radius, pad, lh, shadow, border, borderColor
+//   clock  as text, fmt: 'time12' | 'time24' | 'date' | 'day' — kept live on the screen
+//   shape  shape: 'rect' | 'ellipse', fill, border, borderColor, radius
+//   image  src (media id or asset:), fit: 'contain' | 'cover' | 'fill', radius · video src, fit, radius (muted, looping)
+//   table  cells [[…]], head (first row a heading row), font, size, color, headBg, headColor, cellBg, altBg, line, lineW, radius, bold
+export const DESIGN_FONTS = [...NOTICE_FONTS, 'Amiri', 'Cairo', 'Oswald', 'Montserrat'];
+const GOOGLE2 = { ...GOOGLE, Amiri: 'Amiri:wght@400;700', Cairo: 'Cairo:wght@400;700', Oswald: 'Oswald:wght@400;700', Montserrat: 'Montserrat:wght@400;700;900' };
+const okColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(String(c || '')) || /^rgba?\([\d\s.,%]+\)$/i.test(String(c || '')) ? String(c) : '');
+const fontCss = (f) => (DESIGN_FONTS.includes(f) ? `'${f}', Arial, sans-serif` : "Georgia, 'Times New Roman', serif");
+const num = (v, d) => (v !== '' && v != null && Number.isFinite(Number(v)) ? Number(v) : d);
+const pad2 = (n) => String(n).padStart(2, '0');
+/** The live text of a clock element, Saudi time */
+export function liveText(fmt, at = Date.now()) {
+    const d = new Date(at + 3 * 3600e3);   // Saudi Arabia: UTC+3
+    const h = d.getUTCHours(), m = pad2(d.getUTCMinutes());
+    if (fmt === 'time24') return `${pad2(h)}:${m}`;
+    if (fmt === 'date') return d.toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' });
+    if (fmt === 'day') return d.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' });
+    return `${h % 12 || 12}:${m} ${h < 12 ? 'AM' : 'PM'}`;
+}
+const textCss = (e) => [`font-family:${fontCss(e.font)}`, `font-size:${num(e.size, 48)}px`, `color:${okColor(e.color) || '#111111'}`, `font-weight:${e.bold ? 700 : 400}`,
+    `font-style:${e.italic ? 'italic' : 'normal'}`, `text-decoration:${e.underline ? 'underline' : 'none'}`, `text-align:${['left', 'center', 'right'].includes(e.align) ? e.align : 'left'}`,
+    `line-height:${num(e.lh, 1.2)}`, e.shadow ? 'text-shadow:0 3px 10px rgba(0,0,0,.35)' : ''].filter(Boolean).join(';');
+/** The box of one element (position, size, turn) */
+export function elBoxCss(e) {
+    const base = ['position:absolute', `left:${num(e.x, 0)}px`, `top:${num(e.y, 0)}px`, `width:${Math.max(4, num(e.w, 200))}px`, `height:${Math.max(4, num(e.h, 100))}px`,
+        `opacity:${Math.max(0, Math.min(1, num(e.opacity, 1)))}`, e.rot ? `transform:rotate(${num(e.rot, 0)}deg)` : '', 'box-sizing:border-box'];
+    const border = num(e.border, 0) > 0 ? `border:${num(e.border, 0)}px solid ${okColor(e.borderColor) || '#000000'}` : '';
+    if (e.type === 'shape') base.push(`background:${okColor(e.fill) || 'transparent'}`, border, `border-radius:${e.shape === 'ellipse' ? '50%' : num(e.radius, 0) + 'px'}`);
+    if (e.type === 'text' || e.type === 'clock') base.push(`background:${okColor(e.bg) || 'transparent'}`, border, `border-radius:${num(e.radius, 0)}px`, `padding:${num(e.pad, 8)}px`,
+        'display:flex', 'flex-direction:column', `justify-content:${e.valign === 'top' ? 'flex-start' : e.valign === 'bottom' ? 'flex-end' : 'center'}`, 'overflow:hidden', textCss(e));
+    if (e.type === 'image' || e.type === 'video' || e.type === 'table') base.push(`border-radius:${num(e.radius, 0)}px`, 'overflow:hidden', border);
+    return base.filter(Boolean).join(';');
+}
+/** What is inside one element (HTML); `img(id)` gives a file's address */
+export function elInner(e, img) {
+    if (e.type === 'text') return String(e.text ?? '').split('\n').map(l => `<div>${inline(l) || '&nbsp;'}</div>`).join('');
+    if (e.type === 'clock') return `<div data-live="${esc(e.fmt || 'time12')}">${esc(liveText(e.fmt))}</div>`;
+    if (e.type === 'image') return e.src ? `<img src="${esc(img(e.src))}" alt="" draggable="false" style="width:100%;height:100%;display:block;object-fit:${e.fit === 'cover' ? 'cover' : e.fit === 'fill' ? 'fill' : 'contain'}">` : '';
+    if (e.type === 'video') return e.src ? `<video src="${esc(img(e.src))}" autoplay muted loop playsinline style="width:100%;height:100%;display:block;object-fit:${e.fit === 'cover' ? 'cover' : 'contain'}"></video>` : '';
+    if (e.type === 'table') {
+        const rows = Array.isArray(e.cells) ? e.cells : [];
+        const line = okColor(e.line) || '#ffffff';
+        return `<table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed;${textCss({ ...e, align: e.align || 'center', size: num(e.size, 34) })}">${rows.map((r, i) => {
+            const head = e.head !== false && i === 0;
+            const bg = head ? okColor(e.headBg) || '#1d4ed8' : (i % 2 === 0 && okColor(e.altBg)) || okColor(e.cellBg) || '#dbeafe';
+            const color = head ? okColor(e.headColor) || '#ffffff' : okColor(e.color) || '#111111';
+            const tag = head ? 'th' : 'td';
+            return `<tr>${(Array.isArray(r) ? r : []).map((c, j) => `<${tag} data-cell="${i}:${j}" style="border:${num(e.lineW, 3)}px solid ${line};padding:0.25em 0.35em;background:${bg};color:${color};font-weight:${head || e.bold ? 700 : 400}">${String(c ?? '').split('\n').map(l => inline(l)).join('<br>') || '&nbsp;'}</${tag}>`).join('')}</tr>`;
+        }).join('')}</table>`;
+    }
+    return '';
+}
+/** The fonts a design uses, as one Google Fonts link */
+export function designFonts(d) {
+    const fams = [...new Set(((d && d.elements) || []).map(e => e.font).filter(f => GOOGLE2[f]))];
+    return fams.length ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${fams.map(f => 'family=' + GOOGLE2[f]).join('&')}&display=swap">` : '';
+}
+export function designBgCss(d, img) {
+    const bg = okColor(d && d.bg) || '#ffffff';
+    return d && d.bgImage ? `background:${bg} url("${String(img(d.bgImage)).replace(/"/g, '')}") center/${d.bgFit === 'contain' ? 'contain' : 'cover'} no-repeat` : `background:${bg}`;
+}
+/** A design slide as HTML for the 1080 × 1920 stage */
+export function designHtml(d, img) {
+    d = d || {};
+    return `<div class="dz" style="position:absolute;inset:0;overflow:hidden;${designBgCss(d, img)}">${designFonts(d)}${(d.elements || []).map(e => `<div style="${elBoxCss(e)}">${elInner(e, img)}</div>`).join('')}</div>`;
+}
+let ticking = 0;
+/** Keeps every clock element on the page showing the time (one timer for the whole page) */
+export function tickDesign() {
+    if (ticking) return;
+    ticking = setInterval(() => { for (const el of document.querySelectorAll('[data-live]')) { const t = liveText(el.getAttribute('data-live')); if (el.textContent !== t) el.textContent = t; } }, 1000);
+}
+export const newDesign = () => ({ bg: '#fdf8ee', elements: [] });
+
+/** A notice poster turned into a free design (so it can be changed element by element) */
+export function noticeToDesign(n) {
+    n = n || {};
+    const right = n.side === 'right', strip = STRIPS[n.stripSize] ?? STRIPS.normal;
+    const els = [];
+    if (strip) {
+        els.push({ id: newId(), type: 'shape', shape: 'rect', x: right ? STAGE_W - strip : 0, y: 0, w: strip, h: STAGE_H, fill: n.strip || '#1d6fe0' });
+        els.push({ id: newId(), type: 'text', text: n.title || 'Important Notice', x: (right ? STAGE_W - strip : 0) + strip / 2 - 900, y: STAGE_H / 2 - strip / 2, w: 1800, h: strip, rot: right ? 90 : -90,
+            font: n.headFont || 'Georgia', size: Number(n.titleSize) || (strip > 200 ? 118 : 80), color: '#ffffff', align: 'center', valign: 'middle', pad: 0 });
+    }
+    const left = right ? 34 : strip + 30, width = STAGE_W - strip - 64;
+    const secs = n.sections || [];
+    // each section's height at text size z (lines wrap at the column width); the biggest z for which all of them fit the page
+    const tableRows = (sct) => String(sct.table || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = (t, z) => String(t || '').split('\n').reduce((c, l) => c + Math.max(1, Math.ceil(l.length * z * 0.52 / (width - 70))), 0);
+    const heightOf = (sct, z) => z * 1.9 + (sct.text ? lines(sct.text, z) * z * 1.32 + 14 : 0) + (sct.table ? tableRows(sct).length * z * 1.3 + 10 : 0) + (sct.note ? lines(sct.note, z * 0.75) * z * 1.1 + 6 : 0) + z * 0.7;
+    let size = 46;
+    while (size > 20 && secs.reduce((t, sct) => t + heightOf(sct, size), 0) > STAGE_H - 80) size -= 1;
+    const spare = Math.max(0, (STAGE_H - 80 - secs.reduce((t, sct) => t + heightOf(sct, size), 0)) / Math.max(1, secs.length));
+    let y = 40;
+    secs.forEach((sc) => {
+        const head = Math.round(size * 1.9);
+        els.push({ id: newId(), type: 'shape', shape: 'rect', x: left, y: Math.round(y), w: width, h: head, fill: sc.band || '#8f9ef0', radius: 14 });
+        els.push({ id: newId(), type: 'text', text: `${sc.icon || ''} ${sc.title || ''}`.trim(), x: left + 10, y: Math.round(y), w: width - 20, h: head, font: n.headFont || n.bodyFont || 'Georgia', size: Math.round(size * 1.15), bold: true, color: n.headInk || '#0e1f45', valign: 'middle', pad: 6 });
+        let yy = y + head + 6;
+        if (sc.text) { const th = lines(sc.text, size) * size * 1.32 + 14; els.push({ id: newId(), type: 'text', text: sc.text, x: left + 30, y: Math.round(yy), w: width - 40, h: Math.round(th), font: n.bodyFont || 'Georgia', size, color: n.color || '#404040', align: sc.align === 'center' ? 'center' : 'left', valign: 'top', pad: 4 }); yy += th; }
+        if (sc.table) {
+            const rows = tableRows(sc).map(l => (l.startsWith('#') ? l.slice(1) : l).split('|').map(c => (c.trim() === '^' ? '' : c.trim())));
+            const cols = Math.max(...rows.map(r => r.length)); const cells = rows.map(r => [...r, ...Array(cols - r.length).fill('')]);
+            const th = rows.length * size * 1.3;
+            els.push({ id: newId(), type: 'table', cells, head: String(sc.table).trim().startsWith('#'), x: left + 30, y: Math.round(yy), w: width - 40, h: Math.round(th), font: 'Arial', size: Math.round(size * 0.8), headBg: n.thBg || '#4f86ea', headColor: n.tblInk || '#ffffff', cellBg: n.tdBg || '#2f6fe0', color: n.tblInk || '#ffffff', line: '#ffffff' });
+            yy += th + 10;
+        }
+        if (sc.note) { const nh = lines(sc.note, size * 0.75) * size * 1.1 + 6; els.push({ id: newId(), type: 'text', text: sc.note, x: left + 30, y: Math.round(yy), w: width - 40, h: Math.round(nh), font: 'Arial', size: Math.round(size * 0.75), color: n.noteInk || '#1d47b8', align: 'center', pad: 2 }); }
+        y += heightOf(sc, size) + spare;
+    });
+    return { bg: n.bg || '#dcebfb', elements: els };
+}

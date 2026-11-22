@@ -10,6 +10,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { useCore, useGuard, useLoadCore, useSite } from '@/pms/PmsContext';
 import { Chk, Num, Sel, Txt } from './inspector';
 import { NoticeTable } from './NoticeTable';
+import { DesignEditor } from './DesignEditor';
 
 // Signage Builder → Screen 1 / Screen 2: the notice screens /<site>/signage1 and /signage2, TVs hung on their side beside the transport board.
 // A list of slides — the Important Notice poster (edited here: sections of text, a table, a picture such as a QR code), pictures, videos, PDF and PowerPoint
@@ -18,7 +19,7 @@ import { NoticeTable } from './NoticeTable';
 
 type Row = Record<string, any>;
 const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
-const KIND: Record<string, string> = { notice: '📋 Notice', image: '🖼️ Picture', video: '🎬 Video', pages: '📑 Pages' };
+const KIND: Record<string, string> = { design: '🎨 Design', notice: '📋 Notice', image: '🖼️ Picture', video: '🎬 Video', pages: '📑 Pages' };
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TURN: [string, string][] = [['90', 'TV turned anticlockwise (top edge on the left)'], ['-90', 'TV turned clockwise (top edge on the right)'], ['0', 'TV set to portrait itself'], ['180', 'Upside down']];
 
@@ -172,17 +173,23 @@ export function ScreensPanel({ n }: { n: number }) {
                         <label className={cn('inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-gold', busy && 'pointer-events-none opacity-50')}>＋ Add picture, video, PDF or PowerPoint
                             <input type="file" multiple className="sr-only" accept="image/*,video/mp4,video/webm,.mp4,.webm,application/pdf,.pdf,.pptx,.ppt" onChange={e => { const fs = [...(e.target.files || [])]; e.target.value = ''; void addFiles(fs); }} /></label>
                         <p className="text-center text-[11px] text-muted-foreground">Pick several files at once, or drop them on this list.</p>
+                        <Button disabled={!!busy} onClick={() => { set(c => { c.slides.push({ id: S.newId(), kind: 'design', name: 'Design', on: true, seconds: 20, fit: 'contain', bg: '#000000', media: [], sched: { on: false }, design: S.newDesign() }); }); setSel(slides.length); }}>🎨 ＋ Design slide (free, like PowerPoint)</Button>
                         <Button variant="outline" disabled={!!busy} onClick={() => { set(c => { c.slides.push({ ...clone(S.defaultScreen(n).slides[0]), id: S.newId(), name: 'Notice' }); }); setSel(slides.length); }}>＋ Notice poster</Button>
                     </div>}
                 </Card>
 
-                <Card className="grid content-start justify-items-center gap-2 p-3">
+                {cur?.kind === 'design' ? <Card className="min-w-0 gap-2 p-3 lg:col-span-2">
+                    <h2 className="font-bold">🎨 {cur.name} <small className="font-normal text-muted-foreground">— design it right on the page; Save screen {n} sends it to the TV</small></h2>
+                    <DesignEditor key={cur.id} design={cur.design || S.newDesign()} S={S} url={url} dis={dis} onChange={dz => set(c => { c.slides[sel].design = dz; })}
+                        uploadFile={async f => { const k = M.kindOf(f); const [id] = await upload([k === 'image' ? await M.prepImage(f) : f], f.name); setBusy(''); return id; }} />
+                </Card> : <Card className="grid content-start justify-items-center gap-2 p-3">
                     <h2 className="justify-self-start font-bold">Preview</h2>
                     {cur ? <Preview slide={cur} S={S} url={url} /> : <p className="text-sm text-muted-foreground">Add a slide.</p>}
+                    {cur?.kind === 'notice' && writable && <Button variant="outline" size="sm" disabled={!!busy} onClick={() => { const dz = S.noticeToDesign(cur.notice); set(c => { c.slides[sel].on = false; c.slides.splice(sel + 1, 0, { id: S.newId(), kind: 'design', name: `${cur.name} (design)`, on: true, seconds: cur.seconds || 30, fit: 'contain', bg: '#000000', media: [], sched: clone(cur.sched || { on: false }), design: dz }); }); setSel(sel + 1); setMsg({ t: 'Made a free design from this notice (the notice itself is switched off). Change anything on the page, then save.' }); }}>🎨 Turn into a free design</Button>}
                     {cur?.kind === 'pages' && <p className="text-xs text-muted-foreground">{cur.media.length} pages — the first is shown; the screen shows each in turn.</p>}
-                </Card>
+                </Card>}
 
-                {cur && <Card className="grid content-start gap-2 p-3 lg:max-h-[calc(100vh-140px)] lg:overflow-auto">
+                {cur && <Card className={cn('grid content-start gap-2 p-3 lg:max-h-[calc(100vh-140px)] lg:overflow-auto', cur.kind === 'design' && 'lg:col-span-3 lg:max-h-none')}>
                     <h2 className="font-bold">{KIND[cur.kind]}</h2>
                     <label className="grid gap-1 text-xs font-semibold">Name<Input className="h-8" disabled={dis} value={cur.name} onChange={e => setSlide('name', e.target.value)} /></label>
                     {writable && <Button size="sm" variant="outline" className="w-fit" disabled={!!busy} onClick={() => void copyToOther(sel)}>⧉ Copy to screen {n === 1 ? 2 : 1}</Button>}
