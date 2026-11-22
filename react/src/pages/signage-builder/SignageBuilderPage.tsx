@@ -10,6 +10,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { useCore, useGuard, useLoadCore, useNav, useSite } from '@/pms/PmsContext';
 import { Chk, Col, Num, Sel, Txt, readImage } from './inspector';
 import { ScreensPanel } from './ScreensPanel';
+import { DataSource } from './DataSource';
 
 // Signage Builder (Transport): design templates for the public board /<site>/signage on a 1920×1080 screen — drag elements from the palette (title, texts, date,
 // clock, image, data table), move and resize them, pick and order the table's columns, set colours and a background image — save as templates in the cloud, and
@@ -295,6 +296,13 @@ export default function SignageBuilderPage({ start = 'board' }: { start?: 'board
         } catch (er: any) { setSlidesMsg(er instanceof cloud.UserError ? er.message : 'Could not save.'); }
     }
     const saveSlides = () => saveSlidesOf(order);
+    // Data source switch (PMS / Sigatul Haj): saved with the slides' settings
+    async function saveSource(patch: { source: string; sh_url: string }) {
+        try { const r = await guard<any>(A.saveSignageConfig(siteId, patch, cfg.version)); setCfg(r.config); setTemplates(r.templates); return null; }
+        catch (er: any) { return er instanceof cloud.UserError ? er.message : 'Could not save.'; }
+    }
+    // the trip types Sigatul Haj uses, so each can be given a template (the PMS lists may not have them yet)
+    const addRoutes = (routes: string[]) => setOrder(o => [...o, ...routes.filter(t => !o.some(x => x.type === t)).map(type => ({ type, template: 'classic', seconds: 15, trips: 0, last: '', fromSh: true }))]);
 
     // ---- PDF slides: each page a picture (core/signage-pdf.js), kept as a template of kind 'pdf'; the slide row is { type: 'pdf:<id>', template: id, seconds a page } ----
     const [pdfBusy, setPdfBusy] = useState('');
@@ -455,6 +463,7 @@ export default function SignageBuilderPage({ start = 'board' }: { start?: 'board
                 </Card>
             </div>
 
+            {siteId === 'makkah' && <DataSource cfg={cfg} siteId={siteId} writable={writable} cloud={cloud} save={saveSource} onRoutes={addRoutes} />}   {/* Sigatul Haj: Makkah only */}
             <Card className="gap-3 p-4">
                 <h2 className="font-bold">Slides — which template for which trip type</h2>
                 <p className="text-sm text-muted-foreground">Every trip type found in the imported transport lists. The board shows them in this order, each slide for its seconds; a type with no trips in the window is skipped. Types on <b>Classic</b> (or on a template whose table has “share pages” ticked) share their pages. The window (which days and hours) is set on the Transport day page.</p>
@@ -463,7 +472,7 @@ export default function SignageBuilderPage({ start = 'board' }: { start?: 'board
                     <tbody>{order.map((s, i) => String(s.type).startsWith('pdf:') ? pdfRow(s, i) : (
                         <tr key={s.type} className={cn('border-b', s.template === 'none' && 'opacity-70')}>
                             <td className="whitespace-nowrap p-2"><Button size="icon" variant="outline" className="size-7" aria-label="Move up" disabled={dis || !i} onClick={() => { setOrder(o => { const n = [...o]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; }); setSlidesMsg('Not saved yet.'); }}><ChevronUp className="size-4" /></Button> <Button size="icon" variant="outline" className="size-7" aria-label="Move down" disabled={dis || i === order.length - 1} onClick={() => { setOrder(o => { const n = [...o]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; return n; }); setSlidesMsg('Not saved yet.'); }}><ChevronDown className="size-4" /></Button></td>
-                            <td className="p-2"><b>{S.travelTo(s.type)}</b><small className="block text-xs text-muted-foreground">{s.type} · {s.trips ? `${s.trips} trips, last ${s.last}` : 'no trips saved yet'}</small></td>
+                            <td className="p-2"><b>{S.travelTo(s.type)}</b><small className="block text-xs text-muted-foreground">{s.type} · {s.trips ? `${s.trips} trips, last ${s.last}` : (s as Row).fromSh ? 'from Sigatul Haj — save the slides to keep it' : 'no trips saved yet'}</small></td>
                             <td className="p-2"><select aria-label="Template" disabled={dis} className="h-9 rounded-md border bg-background px-2 text-sm" value={String(s.template)} onChange={ev => { const v = ev.target.value; setOrder(o => o.map((x, k) => k === i ? { ...x, template: v === 'none' || v === 'classic' ? v : Number(v) } : x)); setSlidesMsg('Not saved yet.'); }}>
                                 {[['none', '— not shown —'], ['classic', 'Classic (sigatulhaj layout)'], ...designs.map(t => [String(t.id), t.name]), ...(gone(s) ? [[String(s.template), '⚠ deleted template']] : [])].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                                 {gone(s) && <small className="block text-xs text-destructive">Its template was deleted — the board shows these trips in the Classic layout. Pick a template.</small>}</td>

@@ -521,6 +521,7 @@ async function route(req, env) {
         return json({ ok: true });
     }
     if (p === '/api/me' && m === 'GET') return json({ desk: publicDesk(me) });
+    if (p === '/api/signage/sigatul' && m === 'GET') return sigatulPreview(url, env, me);
     if (p === '/api/activity' && m === 'GET') return listActivity(url, env, me);
     if (p === '/api/activity/seen' && m === 'POST') return seenActivity(req, env, me);
     if (p.startsWith('/api/lost')) { const r = await lostRoute(p, m, url, req, env, me); if (r) return r; }
@@ -2561,14 +2562,19 @@ async function putSignageConfig(req, env, me) {
     const fadeIn = config.fade === undefined ? cur.fade : Number(config.fade);
     if (!Number.isFinite(fadeIn) || fadeIn < 0 || fadeIn > 3) throw new HttpError(400, 'Transition: 0 to 3 seconds.');
     const fade = Math.round(fadeIn * 10) / 10;
-    const data = JSON.stringify({ window: { from: window.from, to_day: window.to_day, to_time: window.to_time }, slides: clean, fade });
+    // where the board's trips come from: the PMS Transport days, or the Sigatul Haj signage page first (its data wins for its SH numbers)
+    const source = site !== 'makkah' ? 'pms' : config.source === undefined ? (cur.source || 'pms') : config.source === 'sigatulhaj' ? 'sigatulhaj' : 'pms';   // Sigatul Haj: Makkah only
+    const shUrl = config.sh_url === undefined ? (cur.sh_url || '') : String(config.sh_url || '').trim();
+    if (shUrl && !shUrlOk(shUrl)) throw new HttpError(400, 'The Sigatul Haj link must be an https://sigatulhaj.org/… address.');
+    if (source === 'sigatulhaj' && !(shUrl || SH_DEFAULT_URL[site])) throw new HttpError(400, 'Enter the Sigatul Haj signage link first.');
+    const data = JSON.stringify({ window: { from: window.from, to_day: window.to_day, to_time: window.to_time }, slides: clean, fade, source, sh_url: shUrl });
     const v = Number(version) || 0;
     const write = v === 0
         ? env.DB.prepare('INSERT OR IGNORE INTO signage_config (site, data, version, updated_at, updated_by) VALUES (?, ?, 1, ?, ?)').bind(site, data, now(), me.id)
         : env.DB.prepare('UPDATE signage_config SET data = ?, version = version + 1, updated_at = ?, updated_by = ? WHERE site = ? AND version = ?').bind(data, now(), me.id, site, v);
     const [res] = await env.DB.batch([write]);
     if (!res.meta.changes) throw new HttpError(409, 'The signage settings were changed by another desk meanwhile. Reload and try again.');
-    await auditStmt(env, me, 'signage-config', null, `${site}: ${clean.filter(s => s.template !== 'none').length} trip type(s) shown`).run();
+    await auditStmt(env, me, 'signage-config', null, `${site}: ${clean.filter(s => s.template !== 'none').length} trip type(s) shown · data from ${source === 'sigatulhaj' ? 'Sigatul Haj first' : 'PMS'}`).run();
     return getSignage(env, site);
 }
 
@@ -2600,6 +2606,112 @@ async function deleteTemplate(env, me, id) {
         auditStmt(env, me, 'signage-template', null, `${cur.site}: deleted "${cur.name}"`),
     ]);
     return json({ ok: true });
+}
+
+/* ---------------- Sigatul Haj signage page (the operator's live transport list) ---------------- */
+// https://sigatulhaj.org/signage/testsignage.aspx is an ASP.NET page that shows its list a page at a time (5 rows, a postback every 15 s). We walk its
+// pages (the same postback) until the first page comes round again, and read the grid: SH Ref | Travel To (merged per page) | Date | Tour Group | Total Pax.
+// Kept ~45 s per link in this Worker, so the board's calls do not hammer it.
+const SH_DEFAULT_URL = { makkah: 'https://sigatulhaj.org/signage/testsignage.aspx' };
+const SH_CITY = { makkah: 'MAKKAH', medina: 'MADINA' };
+const shUrlOk = (u) => { try { const x = new URL(u); return x.protocol === 'https:' && /(^|\.)sigatulhaj\.org$/i.test(x.hostname); } catch { return false; } };
+const shCache = new Map();
+const unent = (s) => String(s).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+function sigatulParse(htmlText, site) {
+    const t = /id="gvTransportList"[\s\S]*?<\/table>/.exec(htmlText);
+    if (!t) return null;
+    const out = []; let dest = '';
+    const trs = t[0].match(/<tr[^>]*>[\s\S]*?<\/tr>/g) || [];
+    for (const tr of trs.slice(1)) {
+        const tds = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1]);
+        let cells = tds.map(c => unent(c.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')).trim());
+        if (cells.length === 5) { dest = cells[1]; cells = [cells[0], cells[2], cells[3], cells[4]]; }
+        if (cells.length !== 4) continue;
+        const [ref, when, group, pax] = cells;
+        const m = /^(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{1,2}):(\d{2})/.exec(when);
+        if (!ref || !m) continue;
+        const at = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}T${m[4].padStart(2, '0')}:${m[5]}`;
+        const names = group.split('\n').map(x => x.trim()).filter(Boolean);
+        const d = dest.toUpperCase().replace(/\s+/g, ' ').trim();
+        out.push({ ref: ref.trim(), day: at.slice(0, 10), at, route: d.includes('-') ? d : `${SH_CITY[site] || 'MAKKAH'}-${d}`, operator: names.length > 1 ? names[0] : '', leader: names.length > 1 ? names.slice(1).join(' ') : (names[0] || ''), pax: Number(pax) || 0 });
+    }
+    return out;
+}
+function aspDelta(text) {   // an ASP.NET partial-page answer: |length|type|id|content| …
+    const out = { panels: [], hidden: {} };
+    let i = 0;
+    while (i < text.length) {
+        const a = text.indexOf('|', i); if (a < 0) break;
+        const len = Number(text.slice(i, a)); if (!Number.isFinite(len)) break;
+        const b = text.indexOf('|', a + 1), c = text.indexOf('|', b + 1);
+        const type = text.slice(a + 1, b), id = text.slice(b + 1, c), content = text.slice(c + 1, c + 1 + len);
+        if (type === 'updatePanel') out.panels.push(content);
+        if (type === 'hiddenField') out.hidden[id] = content;
+        i = c + 1 + len + 1;
+    }
+    return out;
+}
+async function sigatulRows(url, site) {
+    if (!shUrlOk(url)) throw new Error('Sigatul Haj link not set');
+    const hit = shCache.get(url);
+    if (hit && Date.now() - hit.t < 45e3) return hit.v;
+    const UA = { 'User-Agent': 'Mozilla/5.0 (PMS signage)' };
+    const get = async (init) => { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(12000) }); if (!r.ok) throw new Error(`Sigatul Haj answered ${r.status}`); return r.text(); };
+    let page = await get({ headers: UA });
+    let fields = Object.fromEntries([...page.matchAll(/<input type="hidden" name="([^"]+)" id="[^"]*" value="([^"]*)"/g)].map(m => [m[1], unent(m[2])]));
+    const rows = [], seen = new Set();
+    let first = '';
+    for (let k = 0; k < 25; k++) {
+        const got = sigatulParse(page, site);
+        if (!got) throw new Error('Sigatul Haj page has no transport table');
+        const key = got.map(r => r.ref + r.at).join(',');
+        if (k && (key === first || !got.length)) break;
+        if (!k) first = key;
+        for (const r of got) { const id = `${r.ref}|${r.at}|${r.route}`; if (!seen.has(id)) { seen.add(id); rows.push(r); } }
+        const body = new URLSearchParams({ ...fields, ScriptManager1: 'updpnlmain|btnDummy', __EVENTTARGET: '', __EVENTARGUMENT: '', __ASYNCPOST: 'true', btnDummy: '' });
+        const d = aspDelta(await get({ method: 'POST', body, headers: { ...UA, 'X-MicrosoftAjax': 'Delta=true', 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' } }));
+        if (!d.panels.length) break;
+        page = d.panels.join('');
+        fields = { ...fields, ...d.hidden };
+    }
+    const v = { at: new Date().toISOString(), rows };
+    shCache.set(url, { t: Date.now(), v });
+    return v;
+}
+/** Sigatul Haj first: its trips replace the PMS trip of the same SH number (time, guests, names — the PMS bus number stays), its other trips are
+ *  added, a PMS trip of an SH number it shows on another trip is hidden; PMS trips of other SH numbers stay as they are. */
+function mergeSigatul(rows, sh) {
+    const norm = (x) => String(x || '').trim().toUpperCase();
+    const shRefs = new Set(sh.map(r => norm(r.ref)));
+    const used = new Set();
+    for (const s of sh) {
+        const ref = norm(s.ref);
+        const mine = rows.filter(r => !used.has(r) && r.route && norm(r.ref) === ref);
+        const pick = mine.find(r => r.route === s.route && r.day === s.day) || mine.find(r => r.route === s.route) || mine.find(r => r.day === s.day);
+        if (pick) {
+            used.add(pick);
+            if (Number(pick.pax) !== s.pax) { pick.m = 0; pick.f = 0; pick.c = 0; }
+            Object.assign(pick, { at: s.at, day: s.day, route: s.route, pax: s.pax, operator: s.operator || pick.operator, leader: s.leader || pick.leader, sh: true });
+        } else {
+            const r = { day: s.day, key: `sh-${s.ref}-${s.at}`, ref: s.ref, at: s.at, route: s.route, operator: s.operator, leader: s.leader, pax: s.pax, m: 0, f: 0, c: 0, bus: null,
+                vehicle: '', vehicle_label: '', building: '', vch: '', dora: '', adj: '', with: '', vch_import: '', sh: true };
+            rows.push(r); used.add(r);
+        }
+    }
+    // the same SH number on a PMS trip Sigatul Haj no longer shows: hidden (groups riding with another trip keep riding with it)
+    for (let i = rows.length - 1; i >= 0; i--) { const r = rows[i]; if (r.route && !used.has(r) && shRefs.has(norm(r.ref))) rows.splice(i, 1); }
+    // groups riding in another trip (no route of their own): Sigatul Haj's guests and names
+    for (const r of rows) if (!r.route) { const s = sh.find(x => norm(x.ref) === norm(r.ref)); if (s) Object.assign(r, { pax: s.pax, operator: s.operator || r.operator, leader: s.leader || r.leader, sh: true }); }
+}
+// Signage Builder: what the Sigatul Haj page shows right now, and how it lands on the board
+async function sigatulPreview(url, env, me) {
+    const site = String(url.searchParams.get('site') || me.site);
+    if (!SITES[site]) throw new HttpError(400, `Unknown site "${site}".`);
+    const cfg = await signageConfig(env, site);
+    const link = String(url.searchParams.get('url') || cfg.sh_url || SH_DEFAULT_URL[site] || '');
+    if (!shUrlOk(link)) return json({ ok: false, error: 'No Sigatul Haj link for this site.', url: link });
+    try { shCache.delete(link); const got = await sigatulRows(link, site); return json({ ok: true, url: link, at: got.at, rows: got.rows }); }
+    catch (e) { return json({ ok: false, url: link, error: String(e && e.message || e) }); }
 }
 
 // Every trip type (route) in the saved transport lists: how many trips and the last day it appears
@@ -2658,7 +2770,12 @@ async function publicSignage(url, env) {
                 ...(withTransporter ? { transporter: t.transporter || '' } : {}) });
         }
     }
-    return publicJson({ site, now: riyadh.slice(0, 16), today, tomorrow: dayPlus(1), days, from, to, rows, stamp: await signageStamp(env, site, cfg) });
+    let sh = null;
+    if (cfg.source === 'sigatulhaj' && site === 'makkah') {
+        try { const got = await sigatulRows(cfg.sh_url || SH_DEFAULT_URL[site], site); sh = { ok: true, at: got.at, n: got.rows.length }; mergeSigatul(rows, got.rows.filter(r => days.includes(r.day) && types.has(r.route))); }
+        catch (e) { sh = { ok: false, error: String(e && e.message || e).slice(0, 200) }; }   // Sigatul Haj not reachable: the board keeps the PMS trips
+    }
+    return publicJson({ site, now: riyadh.slice(0, 16), today, tomorrow: dayPlus(1), days, from, to, rows, sh, stamp: await signageStamp(env, site, cfg) });
 }
 
 // Public (no login): the slides and the templates they use
