@@ -11,6 +11,7 @@ import { useCore, useGuard, useLoadCore, useSite } from '@/pms/PmsContext';
 import { Chk, Num, Sel, Txt } from './inspector';
 import { NoticeTable } from './NoticeTable';
 import { DesignEditor } from './DesignEditor';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Signage Builder → Screen 1 / Screen 2: the notice screens /<site>/signage1 and /signage2, TVs hung on their side beside the transport board.
 // A list of slides — the Important Notice poster (edited here: sections of text, a table, a picture such as a QR code), pictures, videos, PDF and PowerPoint
@@ -39,6 +40,7 @@ export function ScreensPanel({ n }: { n: number }) {
     const [msg, setMsg] = useState<{ t: string; bad?: boolean }>({ t: '' });
     const [secOpen, setSecOpen] = useState<number | null>(0);
     const [drop, setDrop] = useState(false);
+    const [presets, setPresets] = useState(false);   // the gallery of ready-made designs
     const uploaded = useRef(new Set<string>());   // files sent up while editing: those no slide keeps are deleted after a save
     const dirty = !!cfg && JSON.stringify(cfg) !== saved;
 
@@ -173,7 +175,7 @@ export function ScreensPanel({ n }: { n: number }) {
                         <label className={cn('inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-background px-3 py-2 text-sm font-semibold hover:border-gold', busy && 'pointer-events-none opacity-50')}>＋ Add picture, video, PDF or PowerPoint
                             <input type="file" multiple className="sr-only" accept="image/*,video/mp4,video/webm,.mp4,.webm,application/pdf,.pdf,.pptx,.ppt" onChange={e => { const fs = [...(e.target.files || [])]; e.target.value = ''; void addFiles(fs); }} /></label>
                         <p className="text-center text-[11px] text-muted-foreground">Pick several files at once, or drop them on this list.</p>
-                        <Button disabled={!!busy} onClick={() => { set(c => { c.slides.push({ id: S.newId(), kind: 'design', name: 'Design', on: true, seconds: 20, fit: 'contain', bg: '#000000', media: [], sched: { on: false }, design: S.newDesign() }); }); setSel(slides.length); }}>🎨 ＋ Design slide (free, like PowerPoint)</Button>
+                        <Button disabled={!!busy} onClick={() => setPresets(true)}>🎨 ＋ Design slide (free, like PowerPoint)</Button>
                         <Button variant="outline" disabled={!!busy} onClick={() => { set(c => { c.slides.push({ ...clone(S.defaultScreen(n).slides[0]), id: S.newId(), name: 'Notice' }); }); setSel(slides.length); }}>＋ Notice poster</Button>
                     </div>}
                 </Card>
@@ -217,6 +219,20 @@ export function ScreensPanel({ n }: { n: number }) {
                 </Card>}
             </div>
             {confirmDialog}
+            <Dialog open={presets} onOpenChange={setPresets}>
+                <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col">
+                    <DialogHeader><DialogTitle className="font-serif text-2xl">🎨 Pick a design to start from</DialogTitle>
+                        <DialogDescription>Everything on it can then be moved, resized and changed on the page.</DialogDescription></DialogHeader>
+                    <div className="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 overflow-y-auto p-1">
+                        {(S.DESIGN_PRESETS as Row[]).map(p => { const dz = p.make(); return (
+                            <button key={p.id} type="button" className="grid gap-1.5 rounded-xl border bg-card p-2 text-left transition hover:-translate-y-0.5 hover:border-gold hover:shadow-md"
+                                onClick={() => { const d2 = p.make(); set(c => { c.slides.push({ id: S.newId(), kind: 'design', name: p.name, on: true, seconds: 20, fit: 'contain', bg: '#000000', media: [], sched: { on: false }, design: d2 }); }); setSel(slides.length); setPresets(false); setMsg({ t: `Added "${p.name}" — change anything right on the page, then save.` }); }}>
+                                <span className="relative mx-auto block overflow-hidden rounded-md border" style={{ width: 130, height: 130 * 16 / 9 }}>
+                                    <span className="absolute left-0 top-0 block origin-top-left" style={{ width: S.STAGE_W, height: S.STAGE_H, transform: `scale(${130 / S.STAGE_W})` }} dangerouslySetInnerHTML={{ __html: S.designHtml(dz, url) }} /></span>
+                                <b className="text-sm">{p.name}</b></button>); })}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

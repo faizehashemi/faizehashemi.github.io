@@ -51,6 +51,7 @@ export default {
     // Cloudflare cron (wrangler.toml [triggers], every 5 minutes): live flight status when it is due
     async scheduled(event, env, ctx) {
         ctx.waitUntil(backupIfDue(env, event.scheduledTime).catch(e => console.error('backup', e && e.stack || e)));
+        ctx.waitUntil(syncSigatulDays(env, 'makkah', true).catch(e => console.error('sigatul', e && e.stack || e)));   // Sigatul Haj → Transport days (only when switched on)
         if (!FLIGHT_API_ON) return; // live flight status switched off (Check-ins shows only the Check 1 / Check 2 links)
         ctx.waitUntil(refreshFlightStatus(env, false).catch(e => console.error('flights', e && e.stack || e)));
     },
@@ -566,7 +567,11 @@ async function route(req, env) {
 
     if (p === '/api/arrival-sheet' && m === 'GET') return getArrivalSheet(url, env, me);
     if (p === '/api/arrival-sheet' && m === 'PUT') return putArrivalSheet(req, url, env, me);
-    if (p === '/api/transport' && m === 'GET') return getTransport(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
+    if (p === '/api/transport' && m === 'GET') {
+        const ts = transportSite(url.searchParams.get('site'), me);
+        await syncSigatulDays(env, ts).catch(e => console.error('sigatul', e && e.message));   // Makkah with Sigatul Haj switched on: its latest first
+        return getTransport(env, ts, transportDay(url.searchParams.get('day')));
+    }
     if (p === '/api/tosha' && m === 'GET') return getTosha(env, transportSite(url.searchParams.get('site'), me), transportDay(url.searchParams.get('day')));
     if (p === '/api/tosha' && m === 'PUT') return putTosha(req, env, me);
     if (p === '/api/flights/status' && m === 'GET') return getFlightStatus(env);
@@ -2703,6 +2708,71 @@ function mergeSigatul(rows, sh) {
     // groups riding in another trip (no route of their own): Sigatul Haj's guests and names
     for (const r of rows) if (!r.route) { const s = sh.find(x => norm(x.ref) === norm(r.ref)); if (s) Object.assign(r, { pax: s.pax, operator: s.operator || r.operator, leader: s.leader || r.leader, sh: true }); }
 }
+// Sigatul Haj → the Transport days themselves (Makkah, only while the board's data source is Sigatul Haj): upcoming trips only.
+//   same SH number → its time, route, guests and names written over the PMS trip (moved to another day if Sigatul Haj moved it; bus number kept);
+//   a trip only Sigatul Haj has → added (key sh-…, no bus number yet); an upcoming PMS trip of an SH number Sigatul Haj now shows on another trip →
+//   removed; a trip added from Sigatul Haj earlier that it no longer lists → removed. Other PMS trips are left alone.
+const shSyncAt = new Map();
+async function syncSigatulDays(env, site, force = false) {
+    if (site !== 'makkah') return null;
+    const cfg = await signageConfig(env, site);
+    if (cfg.source !== 'sigatulhaj') return null;
+    if (!force && Date.now() - (shSyncAt.get(site) || 0) < 60e3) return null;
+    shSyncAt.set(site, Date.now());
+    const got = await sigatulRows(cfg.sh_url || SH_DEFAULT_URL[site], site);
+    const sh = got.rows;
+    const nowR = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 16), today = nowR.slice(0, 10);
+    const days = [...new Set([...sh.map(r => r.day), ...[0, 1, 2].map(n => new Date(Date.parse(today) + n * 864e5).toISOString().slice(0, 10))])].filter(d => d >= today).sort();
+    if (!days.length) return null;
+    const { results } = await env.DB.prepare(`SELECT day, rows, version FROM transport_days WHERE site = ? AND day IN (${days.map(() => '?').join(',')})`).bind(site, ...days).all();
+    const docs = new Map(days.map(d => [d, { rows: [], version: 0, changed: false }]));
+    for (const r of results) docs.set(r.day, { rows: JSON.parse(r.rows), version: r.version, changed: false });
+    const norm = (x) => String(x || '').trim().toUpperCase();
+    const upcoming = (r) => r && r.route && String(r.at || '') >= nowR;
+    const all = () => [...docs].flatMap(([day, d]) => d.rows.filter(upcoming).map(row => ({ day, row })));
+    const used = new Set();
+    let updated = 0, added = 0, removed = 0;
+    for (const s of sh) {
+        if (s.at < nowR) continue;
+        const mine = all().filter(x => !used.has(x.row) && norm(x.row.ref) === norm(s.ref));
+        const pick = mine.find(x => x.row.route === s.route && x.day === s.day) || mine.find(x => x.row.route === s.route) || mine.find(x => x.day === s.day) || mine[0];
+        const target = docs.get(s.day) || (docs.set(s.day, { rows: [], version: 0, changed: false }), docs.get(s.day));
+        if (pick) {
+            used.add(pick.row);
+            const r = pick.row, before = JSON.stringify([r.at, r.route, r.pax, r.operator, r.leader]);
+            if (Number(r.pax) !== s.pax) { r.m = 0; r.f = 0; r.c = 0; }
+            Object.assign(r, { at: s.at, route: s.route, pax: s.pax, operator: s.operator || r.operator || '', leader: s.leader || r.leader || '', sh: true });
+            if (pick.day !== s.day) {   // Sigatul Haj moved it to another day
+                const from = docs.get(pick.day); from.rows = from.rows.filter(x => x !== r); from.changed = true;
+                target.rows.push(r); target.changed = true; updated++;
+            } else if (JSON.stringify([r.at, r.route, r.pax, r.operator, r.leader]) !== before) { target.changed = true; updated++; }
+        } else {
+            const r = { key: `sh-${s.ref}-${s.at.replace(/\D/g, '')}`, ref: s.ref, dora: '', vch: '', transporter: '', at: s.at, operator: s.operator, leader: s.leader, route: s.route,
+                m: 0, f: 0, c: 0, pax: s.pax, rooms: [], remarks: 'From Sigatul Haj', adj: '', loc: '', bus: null, bus_manual: false, vehicle: '', sh: true };
+            target.rows.push(r); target.changed = true; used.add(r); added++;
+        }
+    }
+    const refs = new Set(sh.map(r => norm(r.ref)));
+    for (const [, d] of docs) {
+        const keep = d.rows.filter(r => !(upcoming(r) && !used.has(r) && (refs.has(norm(r.ref)) || String(r.key || '').startsWith('sh-'))));
+        if (keep.length !== d.rows.length) { removed += d.rows.length - keep.length; d.rows = keep; d.changed = true; }
+    }
+    const t = now(), stmts = [];
+    for (const [day, d] of docs) {
+        if (!d.changed) continue;
+        d.rows.sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));
+        const text = JSON.stringify(cleanSlip(d.rows)), pax = d.rows.reduce((n, r) => n + (Number(r && r.pax) || 0), 0);
+        stmts.push(d.version
+            ? env.DB.prepare('UPDATE transport_days SET rows = ?, n = ?, pax = ?, version = version + 1, updated_at = ?, updated_by = NULL WHERE site = ? AND day = ? AND version = ?').bind(text, d.rows.length, pax, t, site, day, d.version)
+            : env.DB.prepare('INSERT OR IGNORE INTO transport_days (site, day, rows, n, pax, version, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, 1, ?, NULL)').bind(site, day, text, d.rows.length, pax, t));
+    }
+    if (stmts.length) {
+        stmts.push(auditStmt(env, null, 'transport-sigatul', null, `${site}: from Sigatul Haj — ${updated} trip(s) updated, ${added} added, ${removed} removed`));
+        await env.DB.batch(stmts);
+    }
+    return { updated, added, removed };
+}
+
 // Signage Builder: what the Sigatul Haj page shows right now, and how it lands on the board
 async function sigatulPreview(url, env, me) {
     const site = String(url.searchParams.get('site') || me.site);
@@ -2771,6 +2841,7 @@ async function publicSignage(url, env) {
         }
     }
     let sh = null;
+    if (cfg.source === 'sigatulhaj' && site === 'makkah') syncSigatulDays(env, site).catch(() => { });   // also into the Transport days (at most once a minute)
     if (cfg.source === 'sigatulhaj' && site === 'makkah') {
         try { const got = await sigatulRows(cfg.sh_url || SH_DEFAULT_URL[site], site); sh = { ok: true, at: got.at, n: got.rows.length }; mergeSigatul(rows, got.rows.filter(r => days.includes(r.day) && types.has(r.route))); }
         catch (e) { sh = { ok: false, error: String(e && e.message || e).slice(0, 200) }; }   // Sigatul Haj not reachable: the board keeps the PMS trips

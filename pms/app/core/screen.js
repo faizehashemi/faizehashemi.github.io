@@ -327,3 +327,75 @@ export function noticeToDesign(n) {
     });
     return { bg: n.bg || '#dcebfb', elements: els };
 }
+
+/* ---------------------------------- ready-made designs (＋ Design slide → pick one) ---------------------------------- */
+// Each makes a fresh design (new ids) on the 1080 × 1920 page; everything in it can then be moved and changed.
+const T = (o) => ({ id: newId(), type: 'text', align: 'center', valign: 'middle', pad: 8, ...o });
+const SH = (o) => ({ id: newId(), type: 'shape', shape: 'rect', ...o });
+const TB = (o) => ({ id: newId(), type: 'table', head: true, font: 'Poppins', size: 40, line: '#ffffff', lineW: 4, radius: 18, ...o });
+const CK = (o) => ({ id: newId(), type: 'clock', align: 'center', valign: 'middle', pad: 4, ...o });
+export const DESIGN_PRESETS = [
+    { id: 'notice-blue', name: 'Important notice (blue)', make: () => noticeToDesign(defaultScreen(1).slides[0].notice) },
+    { id: 'notice-right', name: 'Important notice (strip right)', make: () => noticeToDesign(defaultScreen(2).slides[0].notice) },
+    { id: 'welcome', name: 'Welcome', make: () => ({ bg: '#0b1020', elements: [
+        SH({ x: 0, y: 0, w: 1080, h: 1920, fill: '#0b1020' }),
+        SH({ shape: 'ellipse', x: 540, y: -260, w: 900, h: 900, fill: 'rgba(201,162,39,0.18)' }),
+        SH({ shape: 'ellipse', x: -320, y: 1300, w: 800, h: 800, fill: 'rgba(201,162,39,0.12)' }),
+        T({ text: 'Faiz e Hashemi', x: 90, y: 260, w: 900, h: 90, font: 'Montserrat', size: 44, color: '#f5d78e', bold: true }),
+        T({ text: 'Welcome', x: 60, y: 420, w: 960, h: 260, font: 'Playfair Display', size: 200, color: '#ffffff', bold: true }),
+        T({ text: 'to Makkah al-Mukarramah', x: 60, y: 690, w: 960, h: 110, font: 'Playfair Display', size: 66, color: '#fde7b0', italic: true }),
+        SH({ x: 390, y: 860, w: 300, h: 6, fill: '#c9a227', radius: 3 }),
+        CK({ fmt: 'time12', x: 140, y: 1040, w: 800, h: 230, font: 'Montserrat', size: 190, color: '#ffffff', bold: true }),
+        CK({ fmt: 'day', x: 90, y: 1280, w: 900, h: 100, font: 'Poppins', size: 54, color: '#f5d78e' }),
+        T({ text: 'May your Ziyarat be accepted', x: 90, y: 1640, w: 900, h: 100, font: 'Poppins', size: 46, color: '#d6d9e4' }),
+    ] }) },
+    { id: 'mawaid', name: 'Mawaid timings', make: () => ({ bg: '#fbf4e4', elements: [
+        SH({ x: 0, y: 0, w: 1080, h: 420, fill: '#8a6a1f' }),
+        T({ text: '🍽️', x: 440, y: 50, w: 200, h: 160, size: 120, pad: 0 }),
+        T({ text: 'Mawaid Timings', x: 60, y: 210, w: 960, h: 150, font: 'Playfair Display', size: 104, color: '#ffffff', bold: true }),
+        T({ text: 'PR Floor', x: 290, y: 470, w: 500, h: 100, font: 'Poppins', size: 54, color: '#8a6a1f', bold: true, bg: '#f5e6c0', radius: 50 }),
+        TB({ x: 70, y: 660, w: 940, h: 700, size: 52, cells: [['Meal', 'Time'], ['🥐 Breakfast', '7:30 – 9:00 AM'], ['🍛 Lunch', '1:30 PM'], ['🍲 Dinner', '7:00 PM']], headBg: '#8a6a1f', headColor: '#ffffff', cellBg: '#f5e6c0', altBg: '#fbf0d4', color: '#3b2a08' }),
+        T({ text: 'Thursday & Friday lunch: 1:00 PM', x: 70, y: 1420, w: 940, h: 110, font: 'Poppins', size: 46, color: '#c8102e', bold: true }),
+        T({ text: '⏰ Please be punctual and attend on time.', x: 70, y: 1600, w: 940, h: 120, font: 'Poppins', size: 44, color: '#3b3226' }),
+    ] }) },
+    { id: 'shuttle', name: 'Haram shuttle', make: () => ({ bg: '#e8f0fe', elements: [
+        SH({ x: 0, y: 0, w: 1080, h: 380, fill: '#1d4ed8' }),
+        T({ text: '🚌 Haram Shuttle', x: 60, y: 80, w: 960, h: 160, font: 'Montserrat', size: 100, color: '#ffffff', bold: true }),
+        T({ text: 'Daily (except Friday)', x: 60, y: 250, w: 960, h: 90, font: 'Poppins', size: 48, color: '#dbe7ff' }),
+        TB({ x: 60, y: 470, w: 960, h: 620, size: 44, cells: [['', 'Day', 'Night'], ['To Haram', '8:00 – 9:30 AM', '8:00 – 9:30 PM'], ['To Hotel', '12:30 – 1:15 PM', '11:30 PM – 1:30 AM']], headBg: '#1d4ed8', headColor: '#ffffff', cellBg: '#ffffff', color: '#0b1d4a', line: '#c7d7fb' }),
+        T({ text: 'Thursday & Friday', x: 60, y: 1150, w: 960, h: 100, font: 'Montserrat', size: 56, color: '#1d4ed8', bold: true }),
+        TB({ x: 60, y: 1260, w: 960, h: 320, size: 44, head: false, cells: [['To Haram', '7:30 & 8:30 AM'], ['To Hotel', 'After Namaz 2:30 PM']], cellBg: '#dbe7ff', color: '#0b1d4a', line: '#ffffff' }),
+        T({ text: 'Shuttle query: 0546356413 · 052689883', x: 60, y: 1680, w: 960, h: 110, font: 'Poppins', size: 44, color: '#ffffff', bg: '#0b1d4a', radius: 55, bold: true }),
+    ] }) },
+    { id: 'wifi', name: 'Wi-Fi & help', make: () => ({ bg: '#f3f0ff', elements: [
+        SH({ shape: 'ellipse', x: 290, y: 120, w: 500, h: 500, fill: '#6741d9' }),
+        T({ text: '📶', x: 390, y: 220, w: 300, h: 300, size: 220, pad: 0 }),
+        T({ text: 'Free Wi-Fi', x: 60, y: 700, w: 960, h: 150, font: 'Montserrat', size: 110, color: '#2b1a6b', bold: true }),
+        TB({ x: 120, y: 900, w: 840, h: 420, size: 56, head: false, cells: [['Network', 'MH'], ['Username', '1448'], ['Password', 'm5253']], cellBg: '#ffffff', altBg: '#e9e3ff', color: '#2b1a6b', line: '#d0c6ff', bold: true }),
+        T({ text: 'Scan the QR code in your room for queries and services', x: 90, y: 1430, w: 900, h: 200, font: 'Poppins', size: 48, color: '#4c3a8a' }),
+        T({ text: 'Front desk · Ground floor', x: 190, y: 1700, w: 700, h: 100, font: 'Poppins', size: 44, color: '#ffffff', bg: '#6741d9', radius: 50, bold: true }),
+    ] }) },
+    { id: 'alert', name: 'Announcement', make: () => ({ bg: '#fff5f5', elements: [
+        SH({ x: 0, y: 0, w: 1080, h: 520, fill: '#c8102e' }),
+        T({ text: '📢', x: 440, y: 80, w: 200, h: 180, size: 130, pad: 0 }),
+        T({ text: 'ANNOUNCEMENT', x: 60, y: 300, w: 960, h: 150, font: 'Montserrat', size: 92, color: '#ffffff', bold: true }),
+        T({ text: 'Write your message here', x: 90, y: 680, w: 900, h: 640, font: 'Poppins', size: 84, color: '#3a0a0a', bold: true }),
+        SH({ x: 90, y: 1420, w: 900, h: 6, fill: '#c8102e', radius: 3 }),
+        T({ text: 'Details · time · place', x: 90, y: 1480, w: 900, h: 260, font: 'Poppins', size: 54, color: '#6b1a1a' }),
+    ] }) },
+    { id: 'sabaq', name: 'Sabaq / event', make: () => ({ bg: '#ecfdf5', elements: [
+        SH({ x: 60, y: 80, w: 960, h: 360, fill: '#0f6b4c', radius: 40 }),
+        T({ text: '📖 Sabaq', x: 100, y: 120, w: 880, h: 180, font: 'Playfair Display', size: 120, color: '#ffffff', bold: true }),
+        T({ text: 'Please attend', x: 100, y: 310, w: 880, h: 90, font: 'Poppins', size: 50, color: '#bde5c9' }),
+        TB({ x: 60, y: 560, w: 960, h: 520, size: 44, cells: [['', 'Time', 'Venue'], ['Regular Sabaq', 'One day after arrival · 10 AM', 'MP Floor'], ['Wada Sabaq', 'One day before departure · after lunch', 'MP Floor']], headBg: '#0f6b4c', headColor: '#ffffff', cellBg: '#d1fae5', color: '#064e3b' }),
+        T({ text: 'Bring your Mansak', x: 90, y: 1260, w: 900, h: 120, font: 'Poppins', size: 56, color: '#0f6b4c', bold: true }),
+        CK({ fmt: 'day', x: 90, y: 1650, w: 900, h: 100, font: 'Poppins', size: 48, color: '#065f46' }),
+    ] }) },
+    { id: 'clock', name: 'Clock & date', make: () => ({ bg: '#111827', elements: [
+        CK({ fmt: 'time12', x: 40, y: 640, w: 1000, h: 300, font: 'Montserrat', size: 230, color: '#ffffff', bold: true }),
+        CK({ fmt: 'day', x: 40, y: 960, w: 1000, h: 120, font: 'Poppins', size: 64, color: '#f5d78e' }),
+        SH({ x: 390, y: 1130, w: 300, h: 6, fill: '#c9a227', radius: 3 }),
+        T({ text: 'Makkah time', x: 240, y: 1180, w: 600, h: 90, font: 'Poppins', size: 44, color: '#9ca3af' }),
+    ] }) },
+    { id: 'blank', name: 'Blank page', make: () => newDesign() },
+];
