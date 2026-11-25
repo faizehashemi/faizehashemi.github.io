@@ -2684,7 +2684,7 @@ async function sigatulRows(url, site) {
     return v;
 }
 /** Sigatul Haj first: its trips replace the PMS trip of the same SH number (time, guests, names — the PMS bus number stays), its other trips are
- *  added, a PMS trip of an SH number it shows on another trip is hidden; PMS trips of other SH numbers stay as they are. */
+ *  added; every other PMS trip stays as it is (nothing is hidden). */
 function mergeSigatul(rows, sh) {
     const norm = (x) => String(x || '').trim().toUpperCase();
     const shRefs = new Set(sh.map(r => norm(r.ref)));
@@ -2703,15 +2703,14 @@ function mergeSigatul(rows, sh) {
             rows.push(r); used.add(r);
         }
     }
-    // the same SH number on a PMS trip Sigatul Haj no longer shows: hidden (groups riding with another trip keep riding with it)
-    for (let i = rows.length - 1; i >= 0; i--) { const r = rows[i]; if (r.route && !used.has(r) && shRefs.has(norm(r.ref))) rows.splice(i, 1); }
+    // PMS trips Sigatul Haj does not list stay on the board (it stops listing a trip before it leaves)
     // groups riding in another trip (no route of their own): Sigatul Haj's guests and names
     for (const r of rows) if (!r.route) { const s = sh.find(x => norm(x.ref) === norm(r.ref)); if (s) Object.assign(r, { pax: s.pax, operator: s.operator || r.operator, leader: s.leader || r.leader, sh: true }); }
 }
 // Sigatul Haj → the Transport days themselves (Makkah, only while the board's data source is Sigatul Haj): upcoming trips only.
-//   same SH number → its time, route, guests and names written over the PMS trip (moved to another day if Sigatul Haj moved it; bus number kept);
-//   a trip only Sigatul Haj has → added (key sh-…, no bus number yet); an upcoming PMS trip of an SH number Sigatul Haj now shows on another trip →
-//   removed; a trip added from Sigatul Haj earlier that it no longer lists → removed. Other PMS trips are left alone.
+//   same SH number (and route or day) → its time, route, guests and names written over the PMS trip (moved to another day if Sigatul Haj moved it;
+//   bus number kept); a trip only Sigatul Haj has → added (key sh-…, no bus number yet); any trip Sigatul Haj stops listing →
+//   never removed (2026-11-25: its page stops listing a trip before it leaves — the PMS keeps every record). Other PMS trips are left alone.
 const shSyncAt = new Map();
 async function syncSigatulDays(env, site, force = false) {
     if (site !== 'makkah') return null;
@@ -2735,7 +2734,7 @@ async function syncSigatulDays(env, site, force = false) {
     for (const s of sh) {
         if (s.at < nowR) continue;
         const mine = all().filter(x => !used.has(x.row) && norm(x.row.ref) === norm(s.ref));
-        const pick = mine.find(x => x.row.route === s.route && x.day === s.day) || mine.find(x => x.row.route === s.route) || mine.find(x => x.day === s.day) || mine[0];
+        const pick = mine.find(x => x.row.route === s.route && x.day === s.day) || mine.find(x => x.row.route === s.route) || mine.find(x => x.day === s.day);   // never any trip of that SH number (it can have several)
         const target = docs.get(s.day) || (docs.set(s.day, { rows: [], version: 0, changed: false }), docs.get(s.day));
         if (pick) {
             used.add(pick.row);
@@ -2752,11 +2751,7 @@ async function syncSigatulDays(env, site, force = false) {
             target.rows.push(r); target.changed = true; used.add(r); added++;
         }
     }
-    const refs = new Set(sh.map(r => norm(r.ref)));
-    for (const [, d] of docs) {
-        const keep = d.rows.filter(r => !(upcoming(r) && !used.has(r) && (refs.has(norm(r.ref)) || String(r.key || '').startsWith('sh-'))));
-        if (keep.length !== d.rows.length) { removed += d.rows.length - keep.length; d.rows = keep; d.changed = true; }
-    }
+    // nothing is ever removed: Sigatul Haj's page stops listing a trip some time before it leaves (and drops past ones) — the PMS keeps the record
     const t = now(), stmts = [];
     for (const [day, d] of docs) {
         if (!d.changed) continue;
