@@ -503,6 +503,7 @@ async function route(req, env) {
     if (p === '/api/public/signage/screen' && m === 'GET') return edgeCached(req, 30, () => publicScreen(url, env));
     { const mm = p.match(/^\/api\/public\/signage\/media\/([a-z0-9]{8,32})$/); if (mm && (m === 'GET' || m === 'HEAD')) return getMedia(req, env, mm[1]); }
     if (p === '/api/public/chat-notify' && m === 'POST') return chatNotify(req, env); // no login: guest chatbot
+    if (p.startsWith('/api/public/hr/')) { const r = await hrPublic(p, m, url, req, env); if (r) return r; }   // no login: the HR check-in page (PIN, selfie, location)
     { const mj = p.match(/^\/api\/ai\/jobs\/(\d+)\/report$/); if (mj && m === 'POST') return aiJobReport(req, env, mj[1]); } // GitHub workflow, shared secret
 
     // the reads every open page makes all the time: login check + data in ONE database trip (D1 batch)
@@ -594,6 +595,7 @@ async function route(req, env) {
     if (p === '/api/transport' && m === 'DELETE') return deleteTransport(url, env, me);
 
     if (p.startsWith('/api/laundry/')) { const r = await laundryRoute(p, m, url, req, env, me); if (r) return r; }
+    if (p.startsWith('/api/hr/')) { const r = await hrRoute(p, m, url, req, env, me); if (r) return r; }
 
     if (p === '/api/buildings' && m === 'GET') return listBuildings(env);
     if (p === '/api/buildings' && m === 'POST') return createBuilding(req, env, me);
@@ -971,6 +973,300 @@ async function lostRoute(p, m, url, req, env, me) {
         return json({ item: rowToLost(await env.DB.prepare('SELECT * FROM lost_items WHERE id = ?').bind(id).first(), true) });
     }
     return null;
+}
+
+/* ================================ HR (main menu → HR) ================================ */
+// Staff, shifts, job roles with their duties, the weekly roster, attendance (selfie check-in / out on a public page: the person types their PIN,
+// looks at the camera and blinks; the PMS checks the face against the one enrolled by the manager, and the phone's location against the
+// workplace circle), leave and sick leave, and the day's tasks (assigned by the managers, started / done by the person, checked by a manager).
+// Desks and admins of a site manage it; view-only logins look. Everything per site.
+const HR_FACE_MAX = 0.5;          // face distance (128-number face descriptors): below = same person
+const HR_DEFAULT = { makkah: { geo: { lat: 21.3984375, lng: 39.8654375, radius: 200, code: '9VX8+95 Makkah' } } };
+const HR_LEAVE_TYPES = ['annual', 'sick', 'emergency', 'unpaid', 'other'];
+const hrHm = (v) => /^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : '';
+const hrDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
+const hrPic = (v, max) => { const s = String(v || ''); if (!s) return ''; if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s)) throw new HttpError(400, 'The picture must be a JPEG / PNG.'); if (s.length > max) throw new HttpError(413, 'The picture is too large.'); return s; };
+const riyadhNow = () => new Date(Date.now() + 3 * 3600e3).toISOString();   // Saudi time as text
+const hrPinHash = (site, pin) => sha256(`hr|${site}|${String(pin).trim()}|pms`);
+function hrSite(me, site) { const s = String(site || me.site); if (!SITES[s]) throw new HttpError(400, `Unknown site "${s}".`); return s; }
+async function hrSettings(env, site) {
+    const r = await env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind(`hr:${site}`).first();
+    const base = { geo: { lat: null, lng: null, radius: 200, code: '' }, faceMax: HR_FACE_MAX, annualDays: 21, otRate: 1.5, ...(HR_DEFAULT[site] || {}) };
+    return r ? { ...base, ...JSON.parse(r.value) } : base;
+}
+const metres = (a, b) => { const R = 6371000, t = (x) => x * Math.PI / 180; const dLat = t(b.lat - a.lat), dLng = t(b.lng - a.lng); const h = Math.sin(dLat / 2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dLng / 2) ** 2; return Math.round(2 * R * Math.asin(Math.sqrt(h))); };
+const faceDist = (a, b) => { if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return 9; let s = 0; for (let i = 0; i < a.length; i++) s += (a[i] - b[i]) ** 2; return Math.sqrt(s); };
+const rowToHrStaff = (r) => ({ id: r.id, site: r.site, name: r.name, name_local: r.name_local, phone: r.phone, emp_no: r.emp_no, role_id: r.role_id, dept: r.dept, photo: r.photo, has_face: !!r.face,
+    has_pin: !!r.pin_hash, wage: r.wage, shift_id: r.shift_id, active: !!r.active, joined_on: r.joined_on, nationality: r.nationality, notes: r.notes, updated_at: r.updated_at });
+async function hrAll(env, site) {
+    const [st, sh, ro] = await env.DB.batch([
+        env.DB.prepare('SELECT * FROM hr_staff WHERE site = ? AND deleted = 0 ORDER BY active DESC, name').bind(site),
+        env.DB.prepare('SELECT * FROM hr_shifts WHERE site = ? ORDER BY start').bind(site),
+        env.DB.prepare('SELECT * FROM hr_roles WHERE site = ? ORDER BY title').bind(site),
+    ]);
+    return { staff: st.results.map(rowToHrStaff), shifts: sh.results.map(s => ({ ...s, days: JSON.parse(s.days || '[]') })), roles: ro.results.map(r => ({ ...r, duties: JSON.parse(r.duties || '[]') })), settings: await hrSettings(env, site) };
+}
+async function hrRoute(p, m, url, req, env, me) {
+    const W = (site) => assertWrite(me, site);
+    if (p === '/api/hr/data' && m === 'GET') { const site = hrSite(me, url.searchParams.get('site')); return json({ site, ...(await hrAll(env, site)), can_edit: me.role !== 'viewer' }); }
+    // ---- staff ----
+    if (p === '/api/hr/staff' && m === 'POST') {
+        const b = await body(req); const site = hrSite(me, b.site); W(site);
+        const name = text(b.name, 80); if (!name) throw new HttpError(400, 'Enter the name.');
+        const r = await env.DB.prepare(`INSERT INTO hr_staff (site, name, name_local, phone, emp_no, role_id, dept, photo, wage, shift_id, active, joined_on, nationality, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`).bind(site, name, text(b.name_local, 80), text(b.phone, 30), text(b.emp_no, 30), Number(b.role_id) || null, text(b.dept, 60), hrPic(b.photo, 120e3),
+            Number(b.wage) || 0, Number(b.shift_id) || null, hrDay(b.joined_on) || null, text(b.nationality, 40), text(b.notes, 500), now(), now()).run();
+        await auditStmt(env, me, 'hr-staff', null, `${site}: added ${name}`).run();
+        return json({ id: r.meta.last_row_id, ...(await hrAll(env, site)) }, 201);
+    }
+    let mm = /^\/api\/hr\/staff\/(\d+)(\/face|\/pin)?$/.exec(p);
+    if (mm) {
+        const s = await env.DB.prepare('SELECT * FROM hr_staff WHERE id = ? AND deleted = 0').bind(Number(mm[1])).first();
+        if (!s) throw new HttpError(404, 'No such person.');
+        W(s.site);
+        const b = m === 'DELETE' ? {} : await body(req);
+        if (mm[2] === '/face' && m === 'POST') {
+            const d = b.descriptor; if (!Array.isArray(d) || d.length !== 128 || d.some(x => typeof x !== 'number' || !Number.isFinite(x))) throw new HttpError(400, 'No face found — take the picture again.');
+            await env.DB.batch([env.DB.prepare('UPDATE hr_staff SET face = ?, photo = COALESCE(NULLIF(?, \'\'), photo), updated_at = ? WHERE id = ?').bind(JSON.stringify(d.map(x => Math.round(x * 1e5) / 1e5)), hrPic(b.photo, 120e3), now(), s.id),
+                auditStmt(env, me, 'hr-staff', null, `${s.site}: face enrolled for ${s.name}`)]);
+            return json(await hrAll(env, s.site));
+        }
+        if (mm[2] === '/pin' && m === 'POST') {
+            // a new 4-digit PIN, shown once (the person types it on the check-in page); unique on the site
+            for (let i = 0; i < 40; i++) {
+                const pin = String(Math.floor(1000 + Math.random() * 9000));
+                const h = await hrPinHash(s.site, pin);
+                if (await env.DB.prepare('SELECT 1 FROM hr_staff WHERE site = ? AND pin_hash = ? AND id != ?').bind(s.site, h, s.id).first()) continue;
+                await env.DB.batch([env.DB.prepare('UPDATE hr_staff SET pin_hash = ?, updated_at = ? WHERE id = ?').bind(h, now(), s.id), auditStmt(env, me, 'hr-staff', null, `${s.site}: new PIN for ${s.name}`)]);
+                return json({ pin });
+            }
+            throw new HttpError(500, 'Could not make a PIN. Try again.');
+        }
+        if (m === 'PUT') {
+            await env.DB.batch([env.DB.prepare(`UPDATE hr_staff SET name = ?, name_local = ?, phone = ?, emp_no = ?, role_id = ?, dept = ?, photo = ?, wage = ?, shift_id = ?, active = ?, joined_on = ?, nationality = ?, notes = ?, updated_at = ? WHERE id = ?`)
+                .bind(text(b.name, 80) || s.name, text(b.name_local, 80), text(b.phone, 30), text(b.emp_no, 30), Number(b.role_id) || null, text(b.dept, 60), b.photo === undefined ? s.photo : hrPic(b.photo, 120e3), Number(b.wage) || 0,
+                    Number(b.shift_id) || null, b.active === false ? 0 : 1, hrDay(b.joined_on) || null, text(b.nationality, 40), text(b.notes, 500), now(), s.id),
+                auditStmt(env, me, 'hr-staff', null, `${s.site}: ${s.name} updated${b.active === false && s.active ? ' (made inactive)' : ''}`)]);
+            return json(await hrAll(env, s.site));
+        }
+        if (m === 'DELETE') { await env.DB.batch([env.DB.prepare('UPDATE hr_staff SET deleted = 1, active = 0, updated_at = ? WHERE id = ?').bind(now(), s.id), auditStmt(env, me, 'hr-staff', null, `${s.site}: ${s.name} removed (records kept)`)]); return json(await hrAll(env, s.site)); }
+    }
+    // ---- shifts and roles ----
+    for (const [kind, table] of [['shifts', 'hr_shifts'], ['roles', 'hr_roles']]) {
+        const rx = new RegExp(`^/api/hr/${kind}(?:/(\\d+))?$`).exec(p);
+        if (!rx) continue;
+        const b = m === 'DELETE' ? {} : await body(req);
+        const id = Number(rx[1]) || 0;
+        const cur = id ? await env.DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first() : null;
+        if (id && !cur) throw new HttpError(404, 'Not found.');
+        const site = cur ? cur.site : hrSite(me, b.site); W(site);
+        if (m === 'DELETE') { await env.DB.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id).run(); return json(await hrAll(env, site)); }
+        if (kind === 'shifts') {
+            const v = [text(b.name, 40) || 'Shift', hrHm(b.start) || '08:00', hrHm(b.end) || '17:00', Math.max(0, Math.min(240, Number(b.break_min) || 0)), Math.max(0, Math.min(120, Number(b.grace_min) ?? 10)), JSON.stringify((Array.isArray(b.days) ? b.days : [0, 1, 2, 3, 4, 6]).filter(x => x >= 0 && x <= 6)), text(b.color, 9) || '#2563eb'];
+            if (id) await env.DB.prepare('UPDATE hr_shifts SET name = ?, start = ?, "end" = ?, break_min = ?, grace_min = ?, days = ?, color = ? WHERE id = ?').bind(...v, id).run();
+            else await env.DB.prepare('INSERT INTO hr_shifts (site, name, start, "end", break_min, grace_min, days, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(site, ...v).run();
+        } else {
+            const duties = (Array.isArray(b.duties) ? b.duties : []).map(x => text(x, 200)).filter(Boolean).slice(0, 60);
+            const v = [text(b.title, 60) || 'Role', text(b.title_local, 60), JSON.stringify(duties), text(b.skills, 300)];
+            if (id) await env.DB.prepare('UPDATE hr_roles SET title = ?, title_local = ?, duties = ?, skills = ? WHERE id = ?').bind(...v, id).run();
+            else await env.DB.prepare('INSERT INTO hr_roles (site, title, title_local, duties, skills) VALUES (?, ?, ?, ?, ?)').bind(site, ...v).run();
+        }
+        return json(await hrAll(env, site));
+    }
+    if (p === '/api/hr/settings' && m === 'PUT') {
+        const b = await body(req); const site = hrSite(me, b.site); W(site);
+        const cur = await hrSettings(env, site);
+        const g = b.geo || {}, lat = Number(g.lat), lng = Number(g.lng);
+        const next = { ...cur, geo: { lat: Number.isFinite(lat) && Math.abs(lat) <= 90 ? lat : cur.geo.lat, lng: Number.isFinite(lng) && Math.abs(lng) <= 180 ? lng : cur.geo.lng, radius: Math.max(30, Math.min(2000, Number(g.radius) || cur.geo.radius)), code: text(g.code, 60) },
+            faceMax: Math.max(0.35, Math.min(0.65, Number(b.faceMax) || cur.faceMax)), annualDays: Math.max(0, Math.min(60, Number(b.annualDays) ?? cur.annualDays)), otRate: Math.max(1, Math.min(3, Number(b.otRate) || cur.otRate)) };
+        await env.DB.batch([env.DB.prepare(`INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`).bind(`hr:${site}`, JSON.stringify(next), now(), me.id),
+            auditStmt(env, me, 'hr-settings', null, `${site}: workplace ${next.geo.lat},${next.geo.lng} ±${next.geo.radius} m`)]);
+        return json(await hrAll(env, site));
+    }
+    // ---- roster ----
+    if (p === '/api/hr/schedule' && m === 'GET') {
+        const site = hrSite(me, url.searchParams.get('site')), from = hrDay(url.searchParams.get('from')), to = hrDay(url.searchParams.get('to'));
+        const { results } = await env.DB.prepare('SELECT day, staff_id, shift_id FROM hr_schedule WHERE site = ? AND day BETWEEN ? AND ?').bind(site, from, to).all();
+        return json({ entries: results });
+    }
+    if (p === '/api/hr/schedule' && m === 'PUT') {
+        const b = await body(req); const site = hrSite(me, b.site); W(site);
+        const list = (Array.isArray(b.entries) ? b.entries : []).slice(0, 2000).filter(e => hrDay(e.day) && Number(e.staff_id));
+        const stmts = list.map(e => e.shift_id === undefined ? env.DB.prepare('DELETE FROM hr_schedule WHERE site = ? AND day = ? AND staff_id = ?').bind(site, e.day, Number(e.staff_id))
+            : env.DB.prepare('INSERT INTO hr_schedule (site, day, staff_id, shift_id) VALUES (?, ?, ?, ?) ON CONFLICT(site, day, staff_id) DO UPDATE SET shift_id = excluded.shift_id').bind(site, e.day, Number(e.staff_id), e.shift_id === null ? null : Number(e.shift_id)));
+        for (let i = 0; i < stmts.length; i += 80) await env.DB.batch(stmts.slice(i, i + 80));
+        return json({ ok: true, n: list.length });
+    }
+    // ---- attendance ----
+    if (p === '/api/hr/attendance' && m === 'GET') {
+        const site = hrSite(me, url.searchParams.get('site')), from = hrDay(url.searchParams.get('from')), to = hrDay(url.searchParams.get('to'));
+        const { results } = await env.DB.prepare(`SELECT id, staff_id, kind, at, day, lat, lng, acc, dist, face_dist, blink, device, source, flags, note, (selfie != '') AS has_selfie FROM hr_attendance WHERE site = ? AND day BETWEEN ? AND ? ORDER BY at`).bind(site, from, to).all();
+        return json({ punches: results });
+    }
+    mm = /^\/api\/hr\/attendance\/(\d+)(\/selfie)?$/.exec(p);
+    if (mm && m === 'GET') { const r = await env.DB.prepare('SELECT site, selfie FROM hr_attendance WHERE id = ?').bind(Number(mm[1])).first(); if (!r) throw new HttpError(404, 'Not found.'); hrSite(me, r.site); return json({ selfie: r.selfie }); }
+    if (p === '/api/hr/attendance' && m === 'POST') {   // a manager's own entry (forgotten punch …) — always marked as manual, with the reason
+        const b = await body(req); const site = hrSite(me, b.site); W(site);
+        const s = await env.DB.prepare('SELECT id, name FROM hr_staff WHERE id = ? AND site = ?').bind(Number(b.staff_id), site).first(); if (!s) throw new HttpError(400, 'Choose the person.');
+        const at = String(b.at || ''); if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(at)) throw new HttpError(400, 'Date and time?');
+        const note = text(b.note, 300); if (!note) throw new HttpError(400, 'Give the reason.');
+        const kind = ['in', 'out'].includes(b.kind) ? b.kind : 'in';
+        await env.DB.batch([env.DB.prepare(`INSERT INTO hr_attendance (site, staff_id, kind, at, day, source, flags, note, by_id, selfie) VALUES (?, ?, ?, ?, ?, 'manual', '', ?, ?, '')`).bind(site, s.id, kind, at, at.slice(0, 10), note, me.id),
+            auditStmt(env, me, 'hr-attendance', null, `${site}: manual ${kind} for ${s.name} at ${at} — ${note}`)]);
+        return json({ ok: true });
+    }
+    if (mm && !mm[2] && m === 'DELETE') {
+        const r = await env.DB.prepare('SELECT a.*, s.name FROM hr_attendance a LEFT JOIN hr_staff s ON s.id = a.staff_id WHERE a.id = ?').bind(Number(mm[1])).first(); if (!r) throw new HttpError(404, 'Not found.'); W(r.site);
+        await env.DB.batch([env.DB.prepare('DELETE FROM hr_attendance WHERE id = ?').bind(r.id), auditStmt(env, me, 'hr-attendance', null, `${r.site}: removed ${r.kind} of ${r.name} at ${r.at} (${r.source})`)]);
+        return json({ ok: true });
+    }
+    // ---- leave ----
+    if (p === '/api/hr/leaves' && m === 'GET') {
+        const site = hrSite(me, url.searchParams.get('site'));
+        const { results } = await env.DB.prepare(`SELECT l.id, l.staff_id, l.type, l.from_day, l.to_day, l.days, l.reason, l.status, l.via, l.created_at, l.decided_at, (l.photo != '') AS has_photo, d.name AS decided_by FROM hr_leaves l LEFT JOIN desks d ON d.id = l.decided_by WHERE l.site = ? ORDER BY l.from_day DESC LIMIT 2000`).bind(site).all();
+        return json({ leaves: results });
+    }
+    if (p === '/api/hr/leaves' && m === 'POST') { const b = await body(req); const site = hrSite(me, b.site); W(site); await hrAddLeave(env, site, Number(b.staff_id), b, 'desk', me); return json({ ok: true }); }
+    mm = /^\/api\/hr\/leaves\/(\d+)(\/photo)?$/.exec(p);
+    if (mm) {
+        const l = await env.DB.prepare('SELECT l.*, s.name FROM hr_leaves l LEFT JOIN hr_staff s ON s.id = l.staff_id WHERE l.id = ?').bind(Number(mm[1])).first(); if (!l) throw new HttpError(404, 'Not found.');
+        if (mm[2] && m === 'GET') { hrSite(me, l.site); return json({ photo: l.photo }); }
+        W(l.site);
+        if (m === 'PUT') {
+            const b = await body(req); const status = ['approved', 'rejected', 'pending', 'cancelled'].includes(b.status) ? b.status : l.status;
+            await env.DB.batch([env.DB.prepare('UPDATE hr_leaves SET status = ?, decided_by = ?, decided_at = ? WHERE id = ?').bind(status, me.id, now(), l.id), auditStmt(env, me, 'hr-leave', null, `${l.site}: ${l.type} leave of ${l.name} ${l.from_day}→${l.to_day} ${status}`)]);
+            return json({ ok: true });
+        }
+    }
+    // ---- tasks ----
+    if (p === '/api/hr/tasks' && m === 'GET') {
+        const site = hrSite(me, url.searchParams.get('site')), from = hrDay(url.searchParams.get('from')), to = hrDay(url.searchParams.get('to'));
+        const { results } = await env.DB.prepare(`SELECT t.*, (t.photo != '') AS has_photo, d.name AS verified_name FROM hr_tasks t LEFT JOIN desks d ON d.id = t.verified_by WHERE t.site = ? AND t.day BETWEEN ? AND ? ORDER BY t.day, t.due`).bind(site, from, to).all();
+        return json({ tasks: results.map(t => ({ ...t, photo: undefined, staff_ids: JSON.parse(t.staff_ids || '[]'), checklist: JSON.parse(t.checklist || '[]') })) });
+    }
+    if (p === '/api/hr/tasks' && m === 'POST') {
+        const b = await body(req); const site = hrSite(me, b.site); W(site);
+        const days = (Array.isArray(b.days) && b.days.length ? b.days : [b.day]).map(hrDay).filter(Boolean).slice(0, 62);
+        if (!days.length) throw new HttpError(400, 'Choose the day.');
+        const title = text(b.title, 120); if (!title) throw new HttpError(400, 'What is the task?');
+        const staff = (Array.isArray(b.staff_ids) ? b.staff_ids : []).map(Number).filter(Boolean).slice(0, 100);
+        const checklist = (Array.isArray(b.checklist) ? b.checklist : []).map(x => text(x, 160)).filter(Boolean).slice(0, 30);
+        await env.DB.batch(days.map(day => env.DB.prepare(`INSERT INTO hr_tasks (site, day, title, title_local, details, place, staff_ids, due, minutes, priority, need_photo, checklist, status, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`).bind(site, day, title, text(b.title_local, 120), text(b.details, 600), text(b.place, 80), JSON.stringify(staff), hrHm(b.due), Math.max(0, Math.min(1440, Number(b.minutes) || 0)),
+            ['high', 'normal', 'low'].includes(b.priority) ? b.priority : 'normal', b.need_photo ? 1 : 0, JSON.stringify(checklist), me.id, now())));
+        return json({ ok: true, n: days.length }, 201);
+    }
+    mm = /^\/api\/hr\/tasks\/(\d+)(\/photo)?$/.exec(p);
+    if (mm) {
+        const t = await env.DB.prepare('SELECT * FROM hr_tasks WHERE id = ?').bind(Number(mm[1])).first(); if (!t) throw new HttpError(404, 'Not found.');
+        if (mm[2] && m === 'GET') { hrSite(me, t.site); return json({ photo: t.photo }); }
+        W(t.site);
+        if (m === 'DELETE') { await env.DB.prepare('DELETE FROM hr_tasks WHERE id = ?').bind(t.id).run(); return json({ ok: true }); }
+        const b = await body(req);
+        if (b.action === 'verify') await env.DB.prepare(`UPDATE hr_tasks SET status = 'verified', verified_by = ?, verified_at = ?, note = ? WHERE id = ?`).bind(me.id, now(), text(b.note, 300) || t.note, t.id).run();
+        else if (b.action === 'redo') await env.DB.prepare(`UPDATE hr_tasks SET status = 'open', done_at = NULL, note = ? WHERE id = ?`).bind(text(b.note, 300) || 'Please do it again', t.id).run();
+        else {
+            const staff = (Array.isArray(b.staff_ids) ? b.staff_ids : JSON.parse(t.staff_ids || '[]')).map(Number).filter(Boolean);
+            await env.DB.prepare('UPDATE hr_tasks SET title = ?, title_local = ?, details = ?, place = ?, staff_ids = ?, due = ?, minutes = ?, priority = ?, need_photo = ?, day = ? WHERE id = ?')
+                .bind(text(b.title, 120) || t.title, text(b.title_local, 120), text(b.details, 600), text(b.place, 80), JSON.stringify(staff), hrHm(b.due), Number(b.minutes) || 0, b.priority || t.priority, b.need_photo ? 1 : 0, hrDay(b.day) || t.day, t.id).run();
+        }
+        return json({ ok: true });
+    }
+    return null;
+}
+async function hrAddLeave(env, site, staffId, b, via, me) {
+    const s = await env.DB.prepare('SELECT id, name FROM hr_staff WHERE id = ? AND site = ? AND deleted = 0').bind(staffId, site).first(); if (!s) throw new HttpError(400, 'Choose the person.');
+    const from = hrDay(b.from_day), to = hrDay(b.to_day) || from; if (!from || to < from) throw new HttpError(400, 'Choose the dates.');
+    const days = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1; if (days > 90) throw new HttpError(400, 'At most 90 days at once.');
+    const type = HR_LEAVE_TYPES.includes(b.type) ? b.type : 'other';
+    await env.DB.batch([env.DB.prepare(`INSERT INTO hr_leaves (site, staff_id, type, from_day, to_day, days, reason, photo, status, via, decided_by, decided_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(site, s.id, type, from, to, days, text(b.reason, 400), hrPic(b.photo, 200e3), via === 'desk' && b.approved ? 'approved' : 'pending', via, via === 'desk' && b.approved ? me.id : null, via === 'desk' && b.approved ? now() : null, now()),
+        auditStmt(env, me || null, 'hr-leave', null, `${site}: ${type} leave ${from}→${to} for ${s.name} (${via})`)]);
+}
+
+// ---- the public check-in page (no PMS login): PIN → a 10-minute pass; selfie + blink + location → in / out; my tasks; leave request ----
+async function hrPublic(p, m, url, req, env) {
+    if (p === '/api/public/hr/config' && m === 'GET') {
+        const site = String(url.searchParams.get('site') || ''); if (!SITES[site]) throw new HttpError(400, 'Unknown site.');
+        const st = await hrSettings(env, site);
+        return json({ site, name: SITES[site], geo: st.geo });
+    }
+    const b = await body(req);
+    const site = String(b.site || ''); if (!SITES[site]) throw new HttpError(400, 'Unknown site.');
+    const ip = req.headers.get('CF-Connecting-IP') || 'x';
+    if (p === '/api/public/hr/who' && m === 'POST') {
+        const key = `hrpin|${ip}`;
+        const f = await env.DB.prepare('SELECT n, until FROM hr_pin_fails WHERE key = ?').bind(key).first();
+        if (f && f.until && f.until > now()) throw new HttpError(429, 'Too many wrong numbers. Wait 15 minutes. / অনেকবার ভুল হয়েছে, ১৫ মিনিট অপেক্ষা করুন।');
+        const pin = String(b.pin || '').replace(/\D/g, '');
+        const s = pin.length === 4 ? await env.DB.prepare('SELECT * FROM hr_staff WHERE site = ? AND pin_hash = ? AND deleted = 0 AND active = 1').bind(site, await hrPinHash(site, pin)).first() : null;
+        if (!s) {
+            const n = (f ? f.n : 0) + 1;
+            await env.DB.prepare('INSERT INTO hr_pin_fails (key, n, until) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET n = excluded.n, until = excluded.until').bind(key, n >= 8 ? 0 : n, n >= 8 ? new Date(Date.now() + 15 * 60e3).toISOString() : null).run();
+            throw new HttpError(404, 'Wrong number. / নম্বর ভুল।');
+        }
+        if (f) await env.DB.prepare('DELETE FROM hr_pin_fails WHERE key = ?').bind(key).run();
+        const token = toHex(crypto.getRandomValues(new Uint8Array(18)));
+        const day = riyadhNow().slice(0, 10);
+        await env.DB.batch([env.DB.prepare('DELETE FROM hr_tokens WHERE exp < ?').bind(now()), env.DB.prepare('INSERT INTO hr_tokens (token, staff_id, site, exp) VALUES (?, ?, ?, ?)').bind(token, s.id, site, new Date(Date.now() + 10 * 60e3).toISOString())]);
+        return json({ token, ...(await hrMine(env, site, s, day)) });
+    }
+    const tk = await env.DB.prepare('SELECT * FROM hr_tokens WHERE token = ? AND site = ? AND exp > ?').bind(String(b.token || ''), site, now()).first();
+    if (!tk) throw new HttpError(401, 'Time is up — type your number again. / সময় শেষ, আবার নম্বর দিন।');
+    const s = await env.DB.prepare('SELECT * FROM hr_staff WHERE id = ? AND deleted = 0 AND active = 1').bind(tk.staff_id).first();
+    if (!s) throw new HttpError(401, 'Not active.');
+    const day = riyadhNow().slice(0, 10);
+    if (p === '/api/public/hr/punch' && m === 'POST') {
+        const st = await hrSettings(env, site);
+        if (!s.face) throw new HttpError(400, 'Your face is not registered — ask the manager. / আপনার চেহারা নিবন্ধিত নয়, ম্যানেজারকে বলুন।');
+        const fd = faceDist(JSON.parse(s.face), b.descriptor);
+        const lat = Number(b.lat), lng = Number(b.lng), acc = Math.round(Number(b.acc) || 0);
+        const dist = st.geo.lat != null && Number.isFinite(lat) && Number.isFinite(lng) ? metres(st.geo, { lat, lng }) : null;
+        const flags = [];
+        const last = await env.DB.prepare(`SELECT kind, at FROM hr_attendance WHERE staff_id = ? AND day = ? AND kind IN ('in', 'out') ORDER BY at DESC LIMIT 1`).bind(s.id, day).first();
+        const kind = b.kind === 'in' || b.kind === 'out' ? b.kind : (last && last.kind === 'in' ? 'out' : 'in');
+        const at = riyadhNow().slice(0, 16), selfie = hrPic(b.selfie, 90e3), device = text(b.device, 40);
+        const reject = async (why, code) => {   // kept: a refused attempt is a record too (who tried, where, how close the face was)
+            await env.DB.prepare(`INSERT INTO hr_attendance (site, staff_id, kind, at, day, lat, lng, acc, dist, face_dist, blink, selfie, device, ip, source, flags, note) VALUES (?, ?, 'refused', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'selfie', ?, ?)`)
+                .bind(site, s.id, at, day, Number.isFinite(lat) ? lat : null, Number.isFinite(lng) ? lng : null, acc || null, dist, Math.round(fd * 1000) / 1000, b.blink ? 1 : 0, selfie, device, ip, code, why).run();
+            throw new HttpError(403, why);
+        };
+        if (!b.blink) await reject('Blink was not seen — try again and blink. / পলক দেখা যায়নি, আবার চেষ্টা করুন।', 'no-blink');
+        if (fd > st.faceMax) await reject('Face did not match. / চেহারা মেলেনি।', 'face');
+        if (st.geo.lat != null) {
+            if (dist == null) await reject('Location is off — turn on location. / লোকেশন চালু করুন।', 'no-location');
+            if (dist > st.geo.radius) await reject(`You are ${dist} m away from work. / আপনি কর্মস্থল থেকে ${dist} মিটার দূরে।`, 'outside');
+            if (acc > 150) flags.push('low-accuracy');
+        }
+        if (last && Date.parse(at + 'Z') - Date.parse(last.at + 'Z') < 120e3) throw new HttpError(409, 'Already done just now. / এইমাত্র হয়ে গেছে।');
+        if (device) { const other = await env.DB.prepare(`SELECT COUNT(DISTINCT staff_id) AS n FROM hr_attendance WHERE site = ? AND device = ? AND staff_id != ? AND at >= ?`).bind(site, device, s.id, new Date(Date.now() + 3 * 3600e3 - 12 * 3600e3).toISOString().slice(0, 16)).first(); if (other && other.n) flags.push('shared-phone'); }
+        await env.DB.prepare(`INSERT INTO hr_attendance (site, staff_id, kind, at, day, lat, lng, acc, dist, face_dist, blink, selfie, device, ip, source, flags, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'selfie', ?, '')`)
+            .bind(site, s.id, kind, at, day, lat, lng, acc || null, dist, Math.round(fd * 1000) / 1000, selfie, device, ip, flags.join(',')).run();
+        return json({ ok: true, kind, at, dist, ...(await hrMine(env, site, s, day)) });
+    }
+    if (p === '/api/public/hr/task' && m === 'POST') {
+        const t = await env.DB.prepare('SELECT * FROM hr_tasks WHERE id = ? AND site = ?').bind(Number(b.task_id), site).first();
+        if (!t || !JSON.parse(t.staff_ids || '[]').includes(s.id)) throw new HttpError(404, 'Not your task.');
+        if (b.action === 'start') await env.DB.prepare(`UPDATE hr_tasks SET status = 'started', started_at = COALESCE(started_at, ?) WHERE id = ? AND status IN ('open', 'started')`).bind(riyadhNow().slice(0, 16), t.id).run();
+        else if (b.action === 'done') {
+            const photo = hrPic(b.photo, 150e3);
+            if (t.need_photo && !photo) throw new HttpError(400, 'Take a photo of the finished work. / কাজের ছবি তুলুন।');
+            await env.DB.prepare(`UPDATE hr_tasks SET status = 'done', started_at = COALESCE(started_at, ?), done_at = ?, done_by = ?, photo = CASE WHEN ? != '' THEN ? ELSE photo END WHERE id = ?`).bind(riyadhNow().slice(0, 16), riyadhNow().slice(0, 16), s.id, photo, photo, t.id).run();
+        }
+        return json(await hrMine(env, site, s, day));
+    }
+    if (p === '/api/public/hr/leave' && m === 'POST') { await hrAddLeave(env, site, s.id, b, 'worker', null); return json(await hrMine(env, site, s, day)); }
+    return null;
+}
+async function hrMine(env, site, s, day) {
+    const [pu, ta, le] = await env.DB.batch([
+        env.DB.prepare(`SELECT kind, at FROM hr_attendance WHERE staff_id = ? AND day = ? AND kind IN ('in', 'out') ORDER BY at`).bind(s.id, day),
+        env.DB.prepare('SELECT id, title, title_local, details, place, due, priority, need_photo, status, checklist, note, staff_ids FROM hr_tasks WHERE site = ? AND day = ? AND staff_ids LIKE ? ORDER BY due').bind(site, day, `%${s.id}%`),
+        env.DB.prepare('SELECT type, from_day, to_day, status FROM hr_leaves WHERE staff_id = ? AND to_day >= ? ORDER BY from_day LIMIT 5').bind(s.id, day),
+    ]);
+    const tasks = ta.results.filter(t => JSON.parse(t.staff_ids || '[]').includes(s.id)).map(t => ({ ...t, staff_ids: undefined, checklist: JSON.parse(t.checklist || '[]') }));
+    const last = pu.results[pu.results.length - 1];
+    return { me: { id: s.id, name: s.name, name_local: s.name_local, photo: s.photo, has_face: !!s.face }, today: pu.results, next: last && last.kind === 'in' ? 'out' : 'in', tasks, leaves: le.results };
 }
 
 function rowToSlip(r) {

@@ -520,3 +520,34 @@ CREATE TABLE IF NOT EXISTS arrival_sheets (
     site TEXT NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by INTEGER, updated_name TEXT,
     PRIMARY KEY (site, day)
 );
+
+-- HR (main menu → HR; worker.js hrRoute / hrPublic). Per site. Faces: 128-number descriptors made in the browser (face-api); pictures as data: URLs.
+CREATE TABLE IF NOT EXISTS hr_staff (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, name TEXT NOT NULL, name_local TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', emp_no TEXT NOT NULL DEFAULT '',
+    role_id INTEGER, dept TEXT NOT NULL DEFAULT '', photo TEXT NOT NULL DEFAULT '', face TEXT, pin_hash TEXT, wage REAL NOT NULL DEFAULT 0, shift_id INTEGER,
+    active INTEGER NOT NULL DEFAULT 1, deleted INTEGER NOT NULL DEFAULT 0, joined_on TEXT, nationality TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hr_staff_site ON hr_staff(site, pin_hash);
+CREATE TABLE IF NOT EXISTS hr_shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, name TEXT NOT NULL, start TEXT NOT NULL, "end" TEXT NOT NULL, break_min INTEGER NOT NULL DEFAULT 0, grace_min INTEGER NOT NULL DEFAULT 10, days TEXT NOT NULL DEFAULT '[]', color TEXT NOT NULL DEFAULT '#2563eb');
+CREATE TABLE IF NOT EXISTS hr_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, title TEXT NOT NULL, title_local TEXT NOT NULL DEFAULT '', duties TEXT NOT NULL DEFAULT '[]', skills TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS hr_schedule (site TEXT NOT NULL, day TEXT NOT NULL, staff_id INTEGER NOT NULL, shift_id INTEGER, PRIMARY KEY (site, day, staff_id));
+CREATE TABLE IF NOT EXISTS hr_attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, staff_id INTEGER NOT NULL, kind TEXT NOT NULL,   -- in | out | refused (a check that failed: kept as a record)
+    at TEXT NOT NULL, day TEXT NOT NULL, lat REAL, lng REAL, acc INTEGER, dist INTEGER, face_dist REAL, blink INTEGER, selfie TEXT NOT NULL DEFAULT '', device TEXT, ip TEXT,
+    source TEXT NOT NULL DEFAULT 'selfie', flags TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', by_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS hr_attendance_day ON hr_attendance(site, day);
+CREATE INDEX IF NOT EXISTS hr_attendance_staff ON hr_attendance(staff_id, day);
+CREATE TABLE IF NOT EXISTS hr_leaves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, staff_id INTEGER NOT NULL, type TEXT NOT NULL, from_day TEXT NOT NULL, to_day TEXT NOT NULL, days INTEGER NOT NULL,
+    reason TEXT NOT NULL DEFAULT '', photo TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', via TEXT NOT NULL DEFAULT 'desk', decided_by INTEGER, decided_at TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS hr_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, day TEXT NOT NULL, title TEXT NOT NULL, title_local TEXT NOT NULL DEFAULT '', details TEXT NOT NULL DEFAULT '', place TEXT NOT NULL DEFAULT '',
+    staff_ids TEXT NOT NULL DEFAULT '[]', due TEXT NOT NULL DEFAULT '', minutes INTEGER NOT NULL DEFAULT 0, priority TEXT NOT NULL DEFAULT 'normal', need_photo INTEGER NOT NULL DEFAULT 0,
+    checklist TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'open', started_at TEXT, done_at TEXT, done_by INTEGER, photo TEXT NOT NULL DEFAULT '', verified_by INTEGER, verified_at TEXT,
+    note TEXT NOT NULL DEFAULT '', created_by INTEGER, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hr_tasks_day ON hr_tasks(site, day);
+CREATE TABLE IF NOT EXISTS hr_tokens (token TEXT PRIMARY KEY, staff_id INTEGER NOT NULL, site TEXT NOT NULL, exp TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS hr_pin_fails (key TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until TEXT);

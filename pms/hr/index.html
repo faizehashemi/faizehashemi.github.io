@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="bn">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#0b1020">
+    <title>Attendance · হাজিরা</title>
+    <!--
+      HR check-in page (public link, no PMS login): https://pms.raajsoftware.com/hr/?site=makkah
+      1. the person types their 4-digit PIN (given by the manager)  2. sees their own photo and name — "is this you?"
+      3. checks in / out: front camera, look and blink (a printed photo or a screen cannot blink), the phone's location must be inside the workplace circle;
+         the PMS compares the face with the one the manager enrolled (worker.js hrPublic)  4. sees today's tasks: Start / Done (with a photo when asked)
+      5. asks for leave / sick leave (photo of a doctor's note). Pictures and descriptors are made here, in the phone; the decision is the server's.
+    -->
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; min-height: 100%; background: #0b1020; color: #fff; font: 18px/1.35 system-ui, "Noto Sans Bengali", "Segoe UI", sans-serif; }
+        main { max-width: 520px; margin: 0 auto; padding: 16px 16px 40px; }
+        h1 { font-size: 24px; margin: 6px 0 2px; text-align: center; } .sub { text-align: center; color: #f5d78e; font-size: 15px; margin: 0 0 14px; }
+        .bn { display: block; font-size: 1.05em; } .en { display: block; font-size: .78em; color: #c7cbe0; }
+        .pin { display: flex; justify-content: center; gap: 12px; margin: 10px 0 16px; }
+        .pin span { width: 52px; height: 62px; border-radius: 14px; background: #1c2440; border: 2px solid #33406b; display: grid; place-items: center; font-size: 34px; font-weight: 800; }
+        .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .keys button { height: 78px; font-size: 36px; font-weight: 800; border: 0; border-radius: 18px; background: #f5f0e6; color: #0b1020; }
+        .keys button.dim { background: #2a3355; color: #fff; font-size: 26px; }
+        .big { width: 100%; min-height: 92px; border: 0; border-radius: 22px; margin: 10px 0; display: flex; align-items: center; gap: 16px; padding: 12px 18px; font-size: 22px; font-weight: 800; text-align: left; color: #0b1020; }
+        .big .ic { font-size: 44px; } .g { background: #34d399; } .r { background: #fb7185; } .y { background: #fcd34d; } .b { background: #93c5fd; } .w { background: #f5f0e6; }
+        .me { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 8px 0 12px; }
+        .me img, .me .ph { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 4px solid #f5d78e; background: #1c2440; display: grid; place-items: center; font-size: 60px; }
+        .me b { font-size: 24px; } .card { background: #151c33; border-radius: 18px; padding: 14px; margin: 10px 0; }
+        .cam { position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 24px; overflow: hidden; background: #000; }
+        .cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .ring { position: absolute; inset: 12% 14%; border: 6px dashed #f5d78e; border-radius: 50%; }
+        .ring.ok { border-color: #34d399; border-style: solid; }
+        .say { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px; background: linear-gradient(transparent, #000c); text-align: center; font-size: 22px; font-weight: 800; }
+        .result { text-align: center; padding: 26px 10px; border-radius: 24px; margin-top: 14px; } .result .ic { font-size: 90px; }
+        .task { background: #f5f0e6; color: #0b1020; border-radius: 18px; padding: 14px; margin: 10px 0; }
+        .task b { font-size: 20px; } .task small { display: block; color: #4b5563; }
+        .task .row { display: flex; gap: 10px; margin-top: 10px; } .task .row button { flex: 1; height: 64px; border: 0; border-radius: 14px; font-size: 22px; font-weight: 800; }
+        .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 14px; font-weight: 700; }
+        .types { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .types button { min-height: 96px; border: 3px solid transparent; border-radius: 18px; font-size: 18px; font-weight: 800; background: #f5f0e6; }
+        .types button.on { border-color: #34d399; background: #d1fae5; } .types .ic { font-size: 36px; display: block; }
+        input[type=date] { width: 100%; height: 58px; font-size: 22px; border-radius: 14px; border: 0; padding: 0 12px; }
+        .back { background: none; border: 0; color: #c7cbe0; font-size: 18px; padding: 10px 0; }
+        .err { color: #fecaca; text-align: center; min-height: 1.4em; font-weight: 700; }
+        .bar { height: 10px; border-radius: 99px; background: #26304f; overflow: hidden; margin: 10px 0; } .bar i { display: block; height: 100%; background: #f5d78e; width: 0; transition: width .3s; }
+    </style>
+</head>
+<body>
+<main id="app"></main>
+<script type="module">
+import { API_URL } from '../app/config.js';
+const api = (() => { try { return localStorage.getItem('pms_api_url') || API_URL; } catch { return API_URL; } })().replace(/\/+$/, '');
+const site = new URLSearchParams(location.search).get('site') || 'makkah';
+const FACE = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13';
+const app = document.getElementById('app');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const T = (bn, en) => `<span class="bn">${bn}</span><span class="en">${en}</span>`;
+const device = (() => { try { let d = localStorage.getItem('hr_device'); if (!d) { d = Math.random().toString(36).slice(2, 12); localStorage.setItem('hr_device', d); } return d; } catch { return 'x'; } })();
+let cfg = null, me = null, token = '', faceapi = null, idle = null;
+async function post(path, b) {
+    const r = await fetch(api + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site, token, ...b }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Error ' + r.status);
+    return j;
+}
+const resetSoon = (ms = 90000) => { clearTimeout(idle); idle = setTimeout(() => { token = ''; me = null; pinScreen(); }, ms); };   // the phone may be shared at the gate
+const beep = (ok) => { try { const a = new AudioContext(), o = a.createOscillator(); o.frequency.value = ok ? 880 : 220; o.connect(a.destination); o.start(); setTimeout(() => { o.stop(); a.close(); }, ok ? 180 : 500); } catch { } if (navigator.vibrate) navigator.vibrate(ok ? 80 : [200, 80, 200]); };
+
+// ---- 1. PIN ----
+function pinScreen(msg = '') {
+    let pin = '';
+    app.innerHTML = `<h1>${T('হাজিরা', 'Attendance')}</h1><p class="sub">${esc(cfg?.name || '')}</p>
+        <div class="card" style="text-align:center">${T('আপনার ৪ সংখ্যার নম্বর দিন', 'Type your 4-digit number')}</div>
+        <div class="pin">${[0, 1, 2, 3].map(i => `<span id="d${i}"></span>`).join('')}</div><p class="err" id="err">${esc(msg)}</p>
+        <div class="keys">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button data-k="${n}">${n}</button>`).join('')}<button class="dim" data-k="c">⌫</button><button data-k="0">0</button><button class="dim" data-k="x">✖</button></div>`;
+    const show = () => [0, 1, 2, 3].forEach(i => { document.getElementById('d' + i).textContent = pin[i] ? '●' : ''; });
+    app.querySelectorAll('[data-k]').forEach(b => b.onclick = async () => {
+        const k = b.dataset.k;
+        if (k === 'c') pin = pin.slice(0, -1); else if (k === 'x') pin = ''; else if (pin.length < 4) pin += k;
+        show();
+        if (pin.length === 4) {
+            document.getElementById('err').textContent = '…';
+            try { const r = await post('/api/public/hr/who', { pin }); token = r.token; me = r; resetSoon(); confirmScreen(); }
+            catch (e) { beep(false); pin = ''; show(); document.getElementById('err').textContent = e.message; }
+        }
+    });
+}
+// ---- 2. is this you? ----
+function confirmScreen() {
+    app.innerHTML = `<div class="me">${me.me.photo ? `<img src="${esc(me.me.photo)}" alt="">` : '<div class="ph">👤</div>'}<b>${esc(me.me.name)}</b>${me.me.name_local ? `<span>${esc(me.me.name_local)}</span>` : ''}</div>
+        <div class="card" style="text-align:center">${T('এটা কি আপনি?', 'Is this you?')}</div>
+        <button class="big g" id="yes"><span class="ic">✅</span>${T('হ্যাঁ', 'Yes')}</button><button class="big r" id="no"><span class="ic">✖</span>${T('না', 'No')}</button>`;
+    document.getElementById('yes').onclick = () => menu();
+    document.getElementById('no').onclick = () => { token = ''; pinScreen(); };
+}
+// ---- 3. menu ----
+function menu(msg = '') {
+    resetSoon();
+    const open = me.tasks.filter(t => t.status === 'open' || t.status === 'started').length;
+    const inNow = me.next === 'out';
+    app.innerHTML = `<div class="me">${me.me.photo ? `<img src="${esc(me.me.photo)}" alt="" style="width:90px;height:90px">` : ''}<b>${esc(me.me.name)}</b></div>${msg}
+        <button class="big ${inNow ? 'r' : 'g'}" id="punch"><span class="ic">${inNow ? '🏁' : '🟢'}</span>${inNow ? T('কাজ শেষ — বের হচ্ছি', 'Check OUT') : T('কাজে এসেছি — হাজিরা দিন', 'Check IN')}</button>
+        <button class="big y" id="tasks"><span class="ic">📋</span>${T(`আমার কাজ (${open})`, `My tasks (${open})`)}</button>
+        <button class="big b" id="leave"><span class="ic">🤒</span>${T('ছুটি / অসুস্থ', 'Leave / sick')}</button>
+        <div class="card">${T('আজ', 'Today')}${me.today.length ? me.today.map(p => `<div>${p.kind === 'in' ? '🟢 IN' : '🏁 OUT'} &nbsp; <b>${esc(p.at.slice(11, 16))}</b></div>`).join('') : '<div>—</div>'}</div>
+        <button class="back" id="out">⟵ ${T('বের হন', 'Exit')}</button>`;
+    document.getElementById('punch').onclick = () => camera(me.next);
+    document.getElementById('tasks').onclick = () => tasks();
+    document.getElementById('leave').onclick = () => leave();
+    document.getElementById('out').onclick = () => { token = ''; pinScreen(); };
+}
+// ---- 4. camera: face + blink + location ----
+async function loadFace(bar) {
+    if (faceapi) return faceapi;
+    faceapi = await import(`${FACE}/dist/face-api.esm.js`);
+    const parts = ['tinyFaceDetector', 'faceLandmark68Net', 'faceRecognitionNet'];
+    for (let i = 0; i < parts.length; i++) { await faceapi.nets[parts[i]].loadFromUri(`${FACE}/model/`); bar.style.width = `${Math.round((i + 1) / parts.length * 100)}%`; }
+    return faceapi;
+}
+const ear = (e) => { const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y); return (d(e[1], e[5]) + d(e[2], e[4])) / (2 * d(e[0], e[3])); };
+async function camera(kind) {
+    clearTimeout(idle);
+    app.innerHTML = `<div class="cam"><video id="v" autoplay playsinline muted></video><div class="ring" id="ring"></div><div class="say" id="say">${T('ক্যামেরা চালু হচ্ছে…', 'Starting the camera…')}</div></div>
+        <div class="bar"><i id="bar"></i></div><p class="err" id="err"></p><button class="back" id="back">⟵ ${T('ফিরে যান', 'Back')}</button>`;
+    const say = (bn, en) => { document.getElementById('say').innerHTML = T(bn, en); };
+    let stream, stop = false, pos = null, posErr = '';
+    document.getElementById('back').onclick = () => { stop = true; stream?.getTracks().forEach(t => t.stop()); menu(); };
+    // location starts at once (it can take a few seconds)
+    navigator.geolocation?.getCurrentPosition(p => { pos = p.coords; }, e => { posErr = e.message; }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 } }, audio: false }); }
+    catch { say('ক্যামেরার অনুমতি দিন', 'Allow the camera'); return; }
+    const v = document.getElementById('v'); v.srcObject = stream; await v.play().catch(() => { });
+    say('একটু অপেক্ষা করুন…', 'Please wait…');
+    const fa = await loadFace(document.getElementById('bar'));
+    const opt = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+    let open = false, blinked = false, started = Date.now();
+    say('ক্যামেরার দিকে তাকান, তারপর চোখের পলক ফেলুন 👁️', 'Look at the camera, then BLINK');
+    while (!stop) {
+        if (Date.now() - started > 25000) { say('আবার চেষ্টা করুন', 'Try again'); beep(false); setTimeout(() => { stream.getTracks().forEach(t => t.stop()); menu(); }, 1500); return; }
+        const r = await fa.detectSingleFace(v, opt).withFaceLandmarks();
+        const ring = document.getElementById('ring');
+        if (!r) { ring.classList.remove('ok'); say('মুখ ক্যামেরার মাঝে আনুন', 'Put your face in the circle'); await new Promise(x => setTimeout(x, 120)); continue; }
+        ring.classList.add('ok');
+        const e = (ear(r.landmarks.getLeftEye()) + ear(r.landmarks.getRightEye())) / 2;
+        if (e > 0.27) { if (blinked) break; open = true; }
+        if (open && e < 0.21) { blinked = true; say('ভালো! চোখ খোলা রাখুন', 'Good! Keep your eyes open'); }
+        await new Promise(x => setTimeout(x, 60));
+    }
+    if (stop) return;
+    say('মিলিয়ে দেখা হচ্ছে…', 'Checking…');
+    const full = await fa.detectSingleFace(v, opt).withFaceLandmarks().withFaceDescriptor();
+    const c = document.createElement('canvas'), w = 360, h = Math.round(w * v.videoHeight / v.videoWidth);
+    c.width = w; c.height = h; c.getContext('2d').drawImage(v, 0, 0, w, h);
+    const selfie = c.toDataURL('image/jpeg', 0.7);
+    stream.getTracks().forEach(t => t.stop());
+    if (!full) { result(false, T('মুখ পাওয়া যায়নি', 'No face found')); return; }
+    for (let i = 0; i < 40 && !pos && !posErr; i++) await new Promise(x => setTimeout(x, 250));   // up to 10 s more for the location
+    try {
+        const r = await post('/api/public/hr/punch', { kind, blink: true, descriptor: Array.from(full.descriptor), selfie, lat: pos?.latitude, lng: pos?.longitude, acc: pos?.accuracy, device });
+        me = { ...me, ...r };
+        result(true, r.kind === 'in' ? T(`হাজিরা হয়েছে ${r.at.slice(11, 16)}`, `Checked IN at ${r.at.slice(11, 16)}`) : T(`বের হওয়া হয়েছে ${r.at.slice(11, 16)}`, `Checked OUT at ${r.at.slice(11, 16)}`));
+    } catch (e) { result(false, esc(e.message) + (posErr ? `<br><small>${esc(posErr)}</small>` : '')); }
+}
+function result(ok, html) {
+    beep(ok);
+    app.innerHTML = `<div class="result ${ok ? 'g' : 'r'}" style="color:#0b1020"><div class="ic">${ok ? '✅' : '❌'}</div><div style="font-size:24px;font-weight:800">${html}</div></div>
+        <button class="big w" id="go"><span class="ic">${ok ? '📋' : '🔁'}</span>${ok ? T('আমার কাজ দেখুন', 'See my tasks') : T('আবার চেষ্টা করুন', 'Try again')}</button>`;
+    document.getElementById('go').onclick = () => ok ? tasks() : menu();
+    resetSoon(ok ? 20000 : 60000);
+}
+// ---- 5. tasks ----
+const shrink = (file, max = 900) => new Promise((res, rej) => { const i = new Image(); i.onload = () => { const k = Math.min(1, max / Math.max(i.width, i.height)), c = document.createElement('canvas'); c.width = i.width * k; c.height = i.height * k; c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', 0.7)); }; i.onerror = rej; i.src = URL.createObjectURL(file); });
+function tasks(msg = '') {
+    resetSoon();
+    const pill = { open: ['#fde68a', 'শুরু হয়নি · To do'], started: ['#bfdbfe', 'চলছে · Started'], done: ['#bbf7d0', 'শেষ · Done'], verified: ['#86efac', 'যাচাই হয়েছে · Checked'] };
+    app.innerHTML = `<h1>${T('আজকের কাজ', "Today's tasks")}</h1><p class="err">${esc(msg)}</p>${me.tasks.length ? me.tasks.map(t => `<div class="task">
+        <span class="pill" style="background:${pill[t.status]?.[0] || '#eee'}">${pill[t.status]?.[1] || t.status}</span>${t.priority === 'high' ? ' <span class="pill" style="background:#fecaca">⚠️ জরুরি · urgent</span>' : ''}
+        <b style="display:block;margin-top:6px">${esc(t.title_local || t.title)}</b>${t.title_local ? `<small>${esc(t.title)}</small>` : ''}
+        ${t.place ? `<small>📍 ${esc(t.place)}</small>` : ''}${t.due ? `<small>⏰ ${esc(t.due)}</small>` : ''}${t.details ? `<small>${esc(t.details)}</small>` : ''}
+        ${t.checklist.length ? `<small>${t.checklist.map(c => '☐ ' + esc(c)).join('<br>')}</small>` : ''}${t.note ? `<small style="color:#b91c1c">💬 ${esc(t.note)}</small>` : ''}
+        <div class="row">${t.status === 'open' ? `<button style="background:#93c5fd" data-s="${t.id}">▶ শুরু · Start</button>` : ''}${t.status === 'open' || t.status === 'started' ? `<button style="background:#34d399" data-d="${t.id}" data-p="${t.need_photo}">✔ শেষ · Done${t.need_photo ? ' 📷' : ''}</button>` : ''}</div></div>`).join('')
+        : `<div class="card" style="text-align:center">${T('আজ কোনো কাজ দেওয়া হয়নি', 'No tasks for today')}</div>`}
+        <button class="back" id="back">⟵ ${T('ফিরে যান', 'Back')}</button>`;
+    document.getElementById('back').onclick = () => menu();
+    app.querySelectorAll('[data-s]').forEach(b => b.onclick = async () => { try { me = { ...me, ...(await post('/api/public/hr/task', { task_id: Number(b.dataset.s), action: 'start' })) }; beep(true); tasks(); } catch (e) { tasks(e.message); } });
+    app.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+        const done = async (photo = '') => { try { me = { ...me, ...(await post('/api/public/hr/task', { task_id: Number(b.dataset.d), action: 'done', photo })) }; beep(true); tasks(); } catch (e) { tasks(e.message); } };
+        if (b.dataset.p !== '1') return done();
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+        inp.onchange = async () => { if (inp.files[0]) done(await shrink(inp.files[0])); }; inp.click();
+    });
+}
+// ---- 6. leave ----
+function leave() {
+    resetSoon(180000);
+    const today = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+    let type = 'sick', photo = '';
+    const types = [['sick', '🤒', 'অসুস্থ', 'Sick'], ['annual', '🏖️', 'বার্ষিক ছুটি', 'Annual leave'], ['emergency', '🚨', 'জরুরি', 'Emergency'], ['unpaid', '💤', 'বিনা বেতনে', 'Unpaid']];
+    app.innerHTML = `<h1>${T('ছুটির আবেদন', 'Ask for leave')}</h1>
+        <div class="types">${types.map(([k, ic, bn, en]) => `<button data-t="${k}" class="${k === type ? 'on' : ''}"><span class="ic">${ic}</span>${bn}<br><small>${en}</small></button>`).join('')}</div>
+        <div class="card">${T('কবে থেকে', 'From')}<input type="date" id="f" value="${today}"></div><div class="card">${T('কবে পর্যন্ত', 'Until')}<input type="date" id="t" value="${today}"></div>
+        <button class="big w" id="ph"><span class="ic">📷</span>${T('ডাক্তারের কাগজের ছবি (যদি থাকে)', "Photo of doctor's note (if any)")}</button>
+        <p class="err" id="err"></p><button class="big g" id="send"><span class="ic">📨</span>${T('পাঠান', 'Send')}</button><button class="back" id="back">⟵ ${T('ফিরে যান', 'Back')}</button>`;
+    app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { type = b.dataset.t; app.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x === b)); });
+    document.getElementById('ph').onclick = () => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment'; inp.onchange = async () => { if (inp.files[0]) { photo = await shrink(inp.files[0], 1100); document.getElementById('ph').innerHTML = `<span class="ic">✅</span>${T('ছবি নেওয়া হয়েছে', 'Photo added')}`; } }; inp.click(); };
+    document.getElementById('back').onclick = () => menu();
+    document.getElementById('send').onclick = async () => {
+        try { me = { ...me, ...(await post('/api/public/hr/leave', { type, from_day: document.getElementById('f').value, to_day: document.getElementById('t').value, photo })) }; beep(true); menu(`<div class="result g" style="color:#0b1020;padding:14px">${T('আবেদন পাঠানো হয়েছে — ম্যানেজার দেখবেন', 'Sent — the manager will decide')}</div>`); }
+        catch (e) { document.getElementById('err').textContent = e.message; beep(false); }
+    };
+}
+try { cfg = await (await fetch(`${api}/api/public/hr/config?site=${encodeURIComponent(site)}`)).json(); } catch { cfg = { name: '' }; }
+pinScreen();
+</script>
+</body>
+</html>
