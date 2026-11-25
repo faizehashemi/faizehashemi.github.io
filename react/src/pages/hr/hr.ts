@@ -60,4 +60,5 @@ export const STATUS: Record<DayLine['status'], [string, string]> = {
 /** Annual leave taken in a year (approved days), for the balance */
 export const annualTaken = (leaves: Row[], staffId: number, year: string) => leaves.filter(l => l.staff_id === staffId && l.type === 'annual' && l.status === 'approved' && l.from_day.startsWith(year)).reduce((n, l) => n + l.days, 0);
 export const FLAG: Record<string, string> = { 'shared-phone': '📱 same phone as someone else today', 'low-accuracy': '📍 weak location', manual: '✍️ entered by a manager',
-    'no-blink': '👁 refused: no blink', face: '🙂 refused: face did not match', outside: '📍 refused: outside the circle', 'no-location': '📍 refused: location off' };
+    'no-blink': '👁 refused: no blink', face: '🙂 refused: face did not match', outside: '📍 refused: outside the circle', 'no-location': '📍 refused: location off',
+    'dev-face': '🖐 machine · face', 'dev-finger': '🖐 machine · finger', 'dev-card': '🖐 machine · card', 'dev-pw': '🖐 machine · password', 'dev-palm': '🖐 machine · palm' };

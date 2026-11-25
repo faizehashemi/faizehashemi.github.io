@@ -503,6 +503,7 @@ async function route(req, env) {
     if (p === '/api/public/signage/screen' && m === 'GET') return edgeCached(req, 30, () => publicScreen(url, env));
     { const mm = p.match(/^\/api\/public\/signage\/media\/([a-z0-9]{8,32})$/); if (mm && (m === 'GET' || m === 'HEAD')) return getMedia(req, env, mm[1]); }
     if (p === '/api/public/chat-notify' && m === 'POST') return chatNotify(req, env); // no login: guest chatbot
+    if (p.startsWith('/iclock/')) return iclock(p, m, url, req, env);   // no login: ZKTeco punching machines (HR → Settings → Punching machines)
     if (p.startsWith('/api/public/hr/')) { const r = await hrPublic(p, m, url, req, env); if (r) return r; }   // no login: the HR check-in page (PIN, selfie, location)
     { const mj = p.match(/^\/api\/ai\/jobs\/(\d+)\/report$/); if (mj && m === 'POST') return aiJobReport(req, env, mj[1]); } // GitHub workflow, shared secret
 
@@ -595,7 +596,7 @@ async function route(req, env) {
     if (p === '/api/transport' && m === 'DELETE') return deleteTransport(url, env, me);
 
     if (p.startsWith('/api/laundry/')) { const r = await laundryRoute(p, m, url, req, env, me); if (r) return r; }
-    if (p.startsWith('/api/hr/')) { const r = await hrRoute(p, m, url, req, env, me); if (r) return r; }
+    if (p.startsWith('/api/hr/')) { const r = (await hrDevRoute(p, m, url, req, env, me)) || (await hrRoute(p, m, url, req, env, me)); if (r) return r; }
 
     if (p === '/api/buildings' && m === 'GET') return listBuildings(env);
     if (p === '/api/buildings' && m === 'POST') return createBuilding(req, env, me);
@@ -997,7 +998,7 @@ async function hrSettings(env, site) {
 const metres = (a, b) => { const R = 6371000, t = (x) => x * Math.PI / 180; const dLat = t(b.lat - a.lat), dLng = t(b.lng - a.lng); const h = Math.sin(dLat / 2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dLng / 2) ** 2; return Math.round(2 * R * Math.asin(Math.sqrt(h))); };
 const faceDist = (a, b) => { if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return 9; let s = 0; for (let i = 0; i < a.length; i++) s += (a[i] - b[i]) ** 2; return Math.sqrt(s); };
 const rowToHrStaff = (r) => ({ id: r.id, site: r.site, name: r.name, name_local: r.name_local, phone: r.phone, emp_no: r.emp_no, role_id: r.role_id, dept: r.dept, photo: r.photo, has_face: !!r.face,
-    has_pin: !!r.pin_hash, wage: r.wage, shift_id: r.shift_id, active: !!r.active, joined_on: r.joined_on, nationality: r.nationality, notes: r.notes, updated_at: r.updated_at });
+    has_pin: !!r.pin_hash, device_pin: r.device_pin || '', wage: r.wage, shift_id: r.shift_id, active: !!r.active, joined_on: r.joined_on, nationality: r.nationality, notes: r.notes, updated_at: r.updated_at });
 async function hrAll(env, site) {
     const [st, sh, ro] = await env.DB.batch([
         env.DB.prepare('SELECT * FROM hr_staff WHERE site = ? AND deleted = 0 ORDER BY active DESC, name').bind(site),
@@ -1174,6 +1175,176 @@ async function hrRoute(p, m, url, req, env, me) {
     }
     return null;
 }
+/* ------------------------- HR: punching machines (ZKTeco "ADMS" / push protocol) -------------------------
+   The machine (e.g. ZKTeco MB10, menu → Comm. → Cloud Server / ADMS) calls  http://<this API>/iclock/...  on its own:
+     GET  /iclock/cdata?SN=…&options=all     → we answer its settings (time zone, which records to send, from which stamp)
+     POST /iclock/cdata?SN=…&table=ATTLOG    → punches, one a line: PIN \t YYYY-MM-DD HH:MM:SS \t status \t verify …
+     POST /iclock/cdata?SN=…&table=OPERLOG   → its user list ("USER PIN=1\tName=Ali …") and other operations
+     GET  /iclock/getrequest?SN=…            → we hand it queued commands (C:<id>:<command>) or "OK"
+     POST /iclock/devicecmd?SN=…             → the results of those commands
+   No login (the machine cannot log in): a machine counts only once a manager has linked its serial number to a site (HR → Settings →
+   Punching machines). Every punch is first kept raw in hr_device_log (nothing is lost, even from an unlinked machine or an unknown person);
+   it becomes an IN / OUT in hr_attendance once the machine's user number is linked to a staff member. */
+const devTxt = (s) => new Response(s, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
+const DEV_VERIFY = { 0: 'dev-pw', 1: 'dev-finger', 2: 'dev-card', 3: 'dev-pw', 4: 'dev-card', 15: 'dev-face', 25: 'dev-palm' };
+async function iclock(p, m, url, req, env) {
+    const sn = text(url.searchParams.get('SN') || url.searchParams.get('sn'), 40).replace(/[^A-Za-z0-9_-]/g, '');
+    if (!sn) return devTxt('ERROR: no SN');
+    const t = now(), ip = req.headers.get('cf-connecting-ip') || '';
+    let dev = await env.DB.prepare('SELECT * FROM hr_devices WHERE sn = ?').bind(sn).first();
+    if (!dev) {   // a new machine: kept as "waiting to be linked"; its punches are stored but count for no one yet
+        await env.DB.prepare('INSERT OR IGNORE INTO hr_devices (sn, site, name, last_seen, ip, created_at) VALUES (?, NULL, ?, ?, ?, ?)').bind(sn, 'Punching machine', t, ip, t).run();
+        dev = { sn, site: null, att_stamp: '0', op_stamp: '0', last_seen: t };
+    } else if (!dev.last_seen || Date.parse(t) - Date.parse(dev.last_seen) > 60e3 || dev.ip !== ip) {
+        await env.DB.prepare('UPDATE hr_devices SET last_seen = ?, ip = ? WHERE sn = ?').bind(t, ip, sn).run();
+    }
+    if (p === '/iclock/cdata' && m === 'GET') {
+        return devTxt([`GET OPTION FROM: ${sn}`, `ATTLOGStamp=${dev.att_stamp || 0}`, `OPERLOGStamp=${dev.op_stamp || 0}`, 'ATTPHOTOStamp=None', 'ErrorDelay=30', 'Delay=10',
+            'TransTimes=00:00;14:05', 'TransInterval=1', 'TransFlag=TransData AttLog\tOpLog\tEnrollUser\tChgUser', 'TimeZone=3', 'Realtime=1', 'Encrypt=None', ''].join('\n'));
+    }
+    if (p === '/iclock/cdata' && m === 'POST') {
+        const table = String(url.searchParams.get('table') || '').toUpperCase(), stamp = text(url.searchParams.get('Stamp'), 20);
+        const raw = (await req.text()).slice(0, 2_000_000), lines = raw.split(/\r?\n/).filter(l => l.trim());
+        if (table === 'ATTLOG') {
+            const stmts = [];
+            for (const l of lines) {
+                const f = l.split('\t'), pin = text(f[0], 20), at = String(f[1] || '').trim();
+                if (!pin || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(at)) continue;
+                stmts.push(env.DB.prepare('INSERT OR IGNORE INTO hr_device_log (sn, pin, at, status, verify, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(sn, pin, at.length === 16 ? at + ':00' : at, Number(f[2]) || 0, Number(f[3]) || 0, t));
+            }
+            if (stamp) stmts.push(env.DB.prepare('UPDATE hr_devices SET att_stamp = ? WHERE sn = ?').bind(stamp, sn));
+            for (let i = 0; i < stmts.length; i += 90) await env.DB.batch(stmts.slice(i, i + 90));
+            if (dev.site) await hrDevApply(env, sn);
+            return devTxt(`OK: ${lines.length}`);
+        }
+        if (table === 'OPERLOG') {
+            const stmts = [];
+            for (const l of lines) {
+                if (!/^USER\s/.test(l)) continue;   // USER PIN=1\tName=Ali\tPri=0\tPasswd=\tCard=\tGrp=1 …
+                const kv = Object.fromEntries(l.replace(/^USER\s+/, '').split('\t').map(x => { const i = x.indexOf('='); return i < 0 ? [x, ''] : [x.slice(0, i).trim(), x.slice(i + 1)]; }));
+                const pin = text(kv.PIN, 20); if (!pin) continue;
+                stmts.push(env.DB.prepare('INSERT INTO hr_device_users (sn, pin, name, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(sn, pin) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at').bind(sn, pin, text(kv.Name, 60), t));
+            }
+            if (stamp) stmts.push(env.DB.prepare('UPDATE hr_devices SET op_stamp = ? WHERE sn = ?').bind(stamp, sn));
+            for (let i = 0; i < stmts.length; i += 90) await env.DB.batch(stmts.slice(i, i + 90));
+            return devTxt(`OK: ${lines.length}`);
+        }
+        return devTxt(`OK: ${lines.length}`);   // photos, fingerprint / face templates …: not kept
+    }
+    if (p === '/iclock/getrequest') {
+        const info = url.searchParams.get('INFO'); if (info) await env.DB.prepare('UPDATE hr_devices SET info = ? WHERE sn = ?').bind(text(info, 300), sn).run();
+        const { results } = await env.DB.prepare('SELECT id, cmd FROM hr_device_cmds WHERE sn = ? AND sent_at IS NULL ORDER BY id LIMIT 20').bind(sn).all();
+        if (!results.length) return devTxt('OK');
+        await env.DB.batch(results.map(c => env.DB.prepare('UPDATE hr_device_cmds SET sent_at = ? WHERE id = ?').bind(t, c.id)));
+        return devTxt(results.map(c => `C:${c.id}:${c.cmd}`).join('\n') + '\n');
+    }
+    if (p === '/iclock/devicecmd' && m === 'POST') {   // ID=12&Return=0&CMD=DATA  (one a line)
+        const stmts = [];
+        for (const l of (await req.text()).split(/\r?\n/)) { const q = new URLSearchParams(l.trim()); const id = Number(q.get('ID')); if (id) stmts.push(env.DB.prepare('UPDATE hr_device_cmds SET done_at = ?, result = ? WHERE id = ? AND sn = ?').bind(t, text(q.get('Return'), 20), id, sn)); }
+        if (stmts.length) await env.DB.batch(stmts);
+        return devTxt('OK');
+    }
+    return devTxt('OK');   // /iclock/ping, /iclock/registry …
+}
+/** Raw machine punches → IN / OUT for linked people (in time order; a second scan within 3 minutes is ignored;
+ *  "check-out / break-out / OT-out" keys give OUT, otherwise it flips: an IN open for less than 14 hours closes as OUT on the IN's day — night shifts work). */
+async function hrDevApply(env, sn, limit = 150) {
+    const dev = await env.DB.prepare('SELECT * FROM hr_devices WHERE sn = ?').bind(sn).first();
+    if (!dev || !dev.site) return 0;
+    const { results } = await env.DB.prepare(`SELECT l.pin, l.at, l.status, l.verify, s.id AS staff_id FROM hr_device_log l JOIN hr_staff s ON s.site = ? AND s.device_pin = l.pin AND s.deleted = 0
+        WHERE l.sn = ? AND l.att_id IS NULL AND l.at >= ? ORDER BY l.at LIMIT ?`).bind(dev.site, sn, dev.from_day || '0000', limit).all();
+    for (const r of results) {
+        const at = r.at.slice(0, 16).replace(' ', 'T');
+        const prev = await env.DB.prepare(`SELECT kind, at, day FROM hr_attendance WHERE staff_id = ? AND kind IN ('in', 'out') AND at <= ? ORDER BY at DESC, id DESC LIMIT 1`).bind(r.staff_id, at).first();
+        const gap = prev ? (Date.parse(at + ':00Z') - Date.parse(prev.at + ':00Z')) / 60000 : 1e9;
+        let attId = 0;
+        if (gap >= 3) {
+            const open = !!prev && prev.kind === 'in' && gap < 14 * 60;
+            const kind = [1, 2, 5].includes(r.status) || open ? 'out' : 'in';
+            const day = kind === 'out' && open ? prev.day : at.slice(0, 10);
+            const ins = await env.DB.prepare(`INSERT INTO hr_attendance (site, staff_id, kind, at, day, selfie, device, source, flags, note) VALUES (?, ?, ?, ?, ?, '', ?, 'machine', ?, '')`)
+                .bind(dev.site, r.staff_id, kind, at, day, dev.name || sn, DEV_VERIFY[r.verify] || '').run();
+            attId = ins.meta.last_row_id;
+        }
+        await env.DB.prepare('UPDATE hr_device_log SET att_id = ? WHERE sn = ? AND pin = ? AND at = ?').bind(attId, sn, r.pin, r.at).run();
+    }
+    return results.length;
+}
+async function hrDevApplySite(env, site) { const { results } = await env.DB.prepare('SELECT sn FROM hr_devices WHERE site = ?').bind(site).all(); for (const d of results) await hrDevApply(env, d.sn, 400); }
+async function hrDevices(env, site) {
+    const [dv, us, lg, cm] = await env.DB.batch([
+        env.DB.prepare('SELECT sn, site, name, last_seen, ip, info, from_day, created_at FROM hr_devices WHERE site = ? OR site IS NULL ORDER BY site IS NULL, name').bind(site),
+        env.DB.prepare('SELECT u.sn, u.pin, u.name FROM hr_device_users u JOIN hr_devices d ON d.sn = u.sn WHERE d.site = ? OR d.site IS NULL ORDER BY CAST(u.pin AS INTEGER), u.pin').bind(site),
+        env.DB.prepare(`SELECT l.sn, l.pin, COUNT(*) AS n, SUM(l.att_id IS NULL) AS waiting, MAX(l.at) AS last_at FROM hr_device_log l JOIN hr_devices d ON d.sn = l.sn WHERE d.site = ? OR d.site IS NULL GROUP BY l.sn, l.pin`).bind(site),
+        env.DB.prepare('SELECT c.* FROM hr_device_cmds c JOIN hr_devices d ON d.sn = c.sn WHERE d.site = ? ORDER BY c.id DESC LIMIT 30').bind(site),
+    ]);
+    return { devices: dv.results, users: us.results, pins: lg.results, cmds: cm.results };
+}
+async function hrDevRoute(p, m, url, req, env, me) {
+    const W = (site) => assertWrite(me, site);
+    if (p === '/api/hr/devices' && m === 'GET') { const site = hrSite(me, url.searchParams.get('site')); return json(await hrDevices(env, site)); }
+    let mm = /^\/api\/hr\/devices\/([A-Za-z0-9_-]{1,40})(\/cmd)?$/.exec(p);
+    if (mm) {
+        const dev = await env.DB.prepare('SELECT * FROM hr_devices WHERE sn = ?').bind(mm[1]).first(); if (!dev) throw new HttpError(404, 'No such machine.');
+        const b = m === 'DELETE' ? {} : await body(req);
+        const site = dev.site || hrSite(me, b.site); W(site);
+        if (!mm[2] && m === 'PUT') {   // link to the site / rename / count punches from a day
+            const from = hrDay(b.from_day) || dev.from_day || riyadhNow().slice(0, 10);
+            await env.DB.batch([env.DB.prepare('UPDATE hr_devices SET site = ?, name = ?, from_day = ? WHERE sn = ?').bind(site, text(b.name, 60) || dev.name || 'Punching machine', from, dev.sn),
+                auditStmt(env, me, 'hr-device', null, `${site}: punching machine ${dev.sn} linked (punches from ${from})`)]);
+            await hrDevApply(env, dev.sn, 400);
+            return json(await hrDevices(env, site));
+        }
+        if (!mm[2] && m === 'DELETE') {
+            await env.DB.batch([env.DB.prepare('UPDATE hr_devices SET site = NULL WHERE sn = ?').bind(dev.sn), auditStmt(env, me, 'hr-device', null, `${site}: punching machine ${dev.sn} unlinked (its punches stay)`)]);
+            return json(await hrDevices(env, site));
+        }
+        if (mm[2] && m === 'POST') {
+            const q = (cmd) => env.DB.prepare('INSERT INTO hr_device_cmds (sn, cmd, created_at) VALUES (?, ?, ?)').bind(dev.sn, cmd, now());
+            if (b.action === 'reread') {   // forget the stamps: the machine sends all its punches and users again (duplicates are ignored)
+                await env.DB.batch([env.DB.prepare(`UPDATE hr_devices SET att_stamp = '0', op_stamp = '0' WHERE sn = ?`).bind(dev.sn), q('CHECK'), q('DATA QUERY USERINFO')]);
+            } else if (b.action === 'users') await q('DATA QUERY USERINFO').run();
+            else if (b.action === 'push') {   // put PMS staff on the machine (each gets a machine number if they have none) — they then enrol face / finger at the machine
+                const ids = (Array.isArray(b.staff_ids) ? b.staff_ids : []).map(Number).filter(Boolean).slice(0, 300);
+                const { results: staff } = await env.DB.prepare(`SELECT id, name, device_pin FROM hr_staff WHERE site = ? AND deleted = 0 AND id IN (${ids.map(() => '?').join(',') || 'NULL'})`).bind(site, ...ids).all();
+                const { results: used } = await env.DB.prepare('SELECT pin FROM hr_device_users WHERE sn = ? UNION SELECT device_pin FROM hr_staff WHERE site = ? AND device_pin IS NOT NULL').bind(dev.sn, site).all();
+                let next = Math.max(0, ...used.map(u => Number(u.pin) || 0)) + 1;
+                const stmts = [];
+                for (const s of staff) {
+                    let pin = s.device_pin; if (!pin) { pin = String(next++); stmts.push(env.DB.prepare('UPDATE hr_staff SET device_pin = ? WHERE id = ?').bind(pin, s.id)); }
+                    const name = String(s.name).replace(/[\t\r\n]/g, ' ').slice(0, 24);
+                    stmts.push(q(`DATA UPDATE USERINFO PIN=${pin}\tName=${name}\tPri=0\tPasswd=\tCard=\tGrp=1\tTZ=0000000100000000\tVerify=0`));
+                }
+                for (let i = 0; i < stmts.length; i += 90) await env.DB.batch(stmts.slice(i, i + 90));
+                await q('DATA QUERY USERINFO').run();
+            } else throw new HttpError(400, 'Unknown action.');
+            return json(await hrDevices(env, site));
+        }
+    }
+    if (p === '/api/hr/device-pin' && m === 'PUT') {   // link a machine user number to a staff member (or unlink with pin '')
+        const b = await body(req); const site = hrSite(me, b.site); W(site);
+        const s = await env.DB.prepare('SELECT id, name FROM hr_staff WHERE id = ? AND site = ? AND deleted = 0').bind(Number(b.staff_id), site).first(); if (!s) throw new HttpError(400, 'Choose the person.');
+        const pin = text(b.pin, 20) || null;
+        await env.DB.batch([...(pin ? [env.DB.prepare('UPDATE hr_staff SET device_pin = NULL WHERE site = ? AND device_pin = ? AND id != ?').bind(site, pin, s.id)] : []),
+            env.DB.prepare('UPDATE hr_staff SET device_pin = ?, updated_at = ? WHERE id = ?').bind(pin, now(), s.id),
+            auditStmt(env, me, 'hr-device', null, pin ? `${site}: machine no. ${pin} → ${s.name}` : `${site}: ${s.name} unlinked from the machine`)]);
+        if (pin) await hrDevApplySite(env, site);
+        return json({ ...(await hrDevices(env, site)), ...(await hrAll(env, site)) });
+    }
+    if (p === '/api/hr/device-staff' && m === 'POST') {   // add machine users as new staff (already linked to their number)
+        const b = await body(req); const site = hrSite(me, b.site); W(site);
+        const list = (Array.isArray(b.users) ? b.users : []).slice(0, 300).map(u => ({ pin: text(u.pin, 20), name: text(u.name, 80) })).filter(u => u.pin);
+        const { results: taken } = await env.DB.prepare('SELECT device_pin FROM hr_staff WHERE site = ? AND deleted = 0 AND device_pin IS NOT NULL').bind(site).all();
+        const have = new Set(taken.map(r => r.device_pin)), t = now();
+        const stmts = list.filter(u => !have.has(u.pin)).map(u => env.DB.prepare(`INSERT INTO hr_staff (site, name, device_pin, active, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)`).bind(site, u.name || `Machine no. ${u.pin}`, u.pin, t, t));
+        for (let i = 0; i < stmts.length; i += 90) await env.DB.batch(stmts.slice(i, i + 90));
+        await auditStmt(env, me, 'hr-device', null, `${site}: ${stmts.length} staff added from the punching machine`).run();
+        await hrDevApplySite(env, site);
+        return json({ added: stmts.length, ...(await hrDevices(env, site)), ...(await hrAll(env, site)) });
+    }
+    return null;
+}
+
 async function hrAddLeave(env, site, staffId, b, via, me) {
     const s = await env.DB.prepare('SELECT id, name FROM hr_staff WHERE id = ? AND site = ? AND deleted = 0').bind(staffId, site).first(); if (!s) throw new HttpError(400, 'Choose the person.');
     const from = hrDay(b.from_day), to = hrDay(b.to_day) || from; if (!from || to < from) throw new HttpError(400, 'Choose the dates.');

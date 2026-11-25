@@ -525,7 +525,7 @@ CREATE TABLE IF NOT EXISTS arrival_sheets (
 CREATE TABLE IF NOT EXISTS hr_staff (
     id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, name TEXT NOT NULL, name_local TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', emp_no TEXT NOT NULL DEFAULT '',
     role_id INTEGER, dept TEXT NOT NULL DEFAULT '', photo TEXT NOT NULL DEFAULT '', face TEXT, pin_hash TEXT, wage REAL NOT NULL DEFAULT 0, shift_id INTEGER,
-    active INTEGER NOT NULL DEFAULT 1, deleted INTEGER NOT NULL DEFAULT 0, joined_on TEXT, nationality TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    active INTEGER NOT NULL DEFAULT 1, deleted INTEGER NOT NULL DEFAULT 0, joined_on TEXT, nationality TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, device_pin TEXT
 );
 CREATE INDEX IF NOT EXISTS hr_staff_site ON hr_staff(site, pin_hash);
 CREATE TABLE IF NOT EXISTS hr_shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, name TEXT NOT NULL, start TEXT NOT NULL, "end" TEXT NOT NULL, break_min INTEGER NOT NULL DEFAULT 0, grace_min INTEGER NOT NULL DEFAULT 10, days TEXT NOT NULL DEFAULT '[]', color TEXT NOT NULL DEFAULT '#2563eb');
@@ -551,3 +551,12 @@ CREATE TABLE IF NOT EXISTS hr_tasks (
 CREATE INDEX IF NOT EXISTS hr_tasks_day ON hr_tasks(site, day);
 CREATE TABLE IF NOT EXISTS hr_tokens (token TEXT PRIMARY KEY, staff_id INTEGER NOT NULL, site TEXT NOT NULL, exp TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS hr_pin_fails (key TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, until TEXT);
+
+-- HR punching machines (ZKTeco ADMS push: worker.js iclock / hrDevRoute). hr_staff.device_pin = the person's user number on the machine.
+-- added 2026-11-25: ALTER TABLE hr_staff ADD COLUMN device_pin TEXT;
+CREATE TABLE IF NOT EXISTS hr_devices (sn TEXT PRIMARY KEY, site TEXT, name TEXT NOT NULL DEFAULT '', last_seen TEXT, ip TEXT, info TEXT NOT NULL DEFAULT '', from_day TEXT,
+    att_stamp TEXT NOT NULL DEFAULT '0', op_stamp TEXT NOT NULL DEFAULT '0', created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS hr_device_users (sn TEXT NOT NULL, pin TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', updated_at TEXT, PRIMARY KEY (sn, pin));
+CREATE TABLE IF NOT EXISTS hr_device_log (sn TEXT NOT NULL, pin TEXT NOT NULL, at TEXT NOT NULL, status INTEGER, verify INTEGER, att_id INTEGER, created_at TEXT NOT NULL, PRIMARY KEY (sn, pin, at));
+CREATE INDEX IF NOT EXISTS hr_device_log_wait ON hr_device_log(sn, att_id, at);
+CREATE TABLE IF NOT EXISTS hr_device_cmds (id INTEGER PRIMARY KEY AUTOINCREMENT, sn TEXT NOT NULL, cmd TEXT NOT NULL, created_at TEXT NOT NULL, sent_at TEXT, done_at TEXT, result TEXT);

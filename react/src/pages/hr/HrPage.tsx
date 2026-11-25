@@ -68,7 +68,7 @@ export default function HrPage() {
                 <TabsContent value="leave"><Leave {...ctx} /></TabsContent>
                 <TabsContent value="tasks"><Tasks {...ctx} /></TabsContent>
                 <TabsContent value="setup"><Setup {...ctx} /></TabsContent>
-                <TabsContent value="settings"><Settings {...ctx} /></TabsContent>
+                <TabsContent value="settings"><Settings {...ctx} /><div className="mt-4"><Machines {...ctx} /></div></TabsContent>
             </Tabs>
             {confirmDialog}
         </div>
@@ -505,4 +505,73 @@ function LibTasks({ onPick, onClose }: { onPick: (t: LibTask) => void; onClose: 
             <small className="text-muted-foreground">📍 {t.place} · ⌛ {t.minutes} min · 🔁 {t.freq}{t.photo ? ' · 📷' : ''} · {t.steps.length} steps</small></button>)}
             {!shown.length && <p className="text-sm text-muted-foreground">Nothing matches.</p>}</div>
     </DialogContent></Dialog>;
+}
+
+/* ------------------------------ punching machines (ZKTeco, ADMS push) ------------------------------ */
+function Machines(c: Ctx) {
+    const [M, setM] = useState<Row | null>(null), [msg, setMsg] = useState(''), [push, setPush] = useState<Row | null>(null), [from, setFrom] = useState<Record<string, string>>({});
+    const load = async () => { try { setM(await c.api('GET', `/api/hr/devices?site=${c.siteId}`)); } catch (e: any) { setMsg(e.message); } };
+    useEffect(() => { void load(); const t = setInterval(() => void load(), 30000); return () => clearInterval(t); }, [c.siteId]);   // eslint-disable-line react-hooks/exhaustive-deps
+    const run = async (f: () => Promise<any>, ok = '') => { try { const r = await f(); if (r?.devices) setM(r); if (r?.staff) c.setD({ ...c.D, staff: r.staff }); if (r?.staff) await c.reload(); setMsg(ok); } catch (e: any) { setMsg(e.message); } };
+    const host = String(localStorage.getItem('pms_api_url') || 'https://pms-api.tkamlapur.workers.dev').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    if (!M) return <Card className="p-4 text-sm text-muted-foreground">🖐 Punching machines — loading…</Card>;
+    const mine = M.devices.filter((d: Row) => d.site === c.siteId), waiting = M.devices.filter((d: Row) => !d.site);
+    // one row per machine user number: its name on the machine, its punches, and the PMS person it is linked to
+    const rows = new Map<string, Row>();
+    for (const u of M.users) rows.set(u.pin, { pin: u.pin, name: u.name, n: 0, waiting: 0, last_at: '' });
+    for (const l of M.pins) { const r = rows.get(l.pin) || { pin: l.pin, name: '', n: 0, waiting: 0, last_at: '' }; r.n += l.n; r.waiting += l.waiting; if (l.last_at > r.last_at) r.last_at = l.last_at; rows.set(l.pin, r); }
+    const list = [...rows.values()].sort((a, b) => (Number(a.pin) || 0) - (Number(b.pin) || 0) || a.pin.localeCompare(b.pin));
+    const linked = (pin: string) => c.staff.find(s => s.device_pin === pin);
+    const unlinked = list.filter(r => !linked(r.pin));
+    const norm = (x: string) => String(x || '').toLowerCase().replace(/[^a-z0-9ঀ-৿]+/g, ' ').trim();
+    const byName = unlinked.map(r => ({ r, s: r.name && c.staff.find(s => !s.device_pin && norm(s.name) === norm(r.name)) })).filter(x => x.s);
+    const ago = (t: string) => { if (!t) return 'never'; const m = Math.round((Date.now() - Date.parse(t)) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+    const Dev = ({ d }: { d: Row }) => { const on = d.last_seen && Date.now() - Date.parse(d.last_seen) < 3 * 60e3; return <div className="grid gap-2 rounded-lg border p-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2"><span className={cn('size-2.5 rounded-full', on ? 'bg-emerald-500' : 'bg-red-500')} /><b>{d.name || 'Punching machine'}</b><span className="text-muted-foreground">SN {d.sn}</span>
+            <span className={cn('rounded px-1.5 text-xs', on ? 'bg-emerald-100 text-emerald-900' : 'bg-red-100 text-red-900')}>{on ? 'online' : d.last_seen ? `last seen ${ago(d.last_seen)}` : 'has not called yet'}</span>{d.ip && <small className="text-muted-foreground">from {d.ip}</small>}</div>
+        {d.site ? <>
+            <div className="flex flex-wrap items-end gap-2"><label className="grid gap-1 text-xs font-semibold">Count punches from<Input type="date" className="w-40" value={from[d.sn] ?? d.from_day ?? ''} onChange={e => setFrom({ ...from, [d.sn]: e.target.value })} /></label>
+                {c.can && from[d.sn] && from[d.sn] !== d.from_day && <Button size="sm" onClick={() => void run(() => c.api('PUT', `/api/hr/devices/${d.sn}`, { site: c.siteId, name: d.name, from_day: from[d.sn] }), 'Saved — older punches from that day are counted now.')}>Save</Button>}</div>
+            {c.can && <div className="flex flex-wrap gap-1.5"><Button size="sm" variant="outline" onClick={() => void run(() => c.api('POST', `/api/hr/devices/${d.sn}/cmd`, { action: 'users' }), 'Asked — the list arrives within a minute.')}>👥 Get its user list</Button>
+                <Button size="sm" variant="outline" onClick={() => setPush({ sn: d.sn, ids: c.active.filter(s => !s.device_pin).map(s => s.id) })}>📤 Put PMS staff on the machine</Button>
+                <Button size="sm" variant="outline" onClick={() => void run(() => c.api('POST', `/api/hr/devices/${d.sn}/cmd`, { action: 'reread' }), 'Asked — it sends all its punches again (no doubles).')}>🔄 Read everything again</Button>
+                <Button size="sm" variant="ghost" onClick={async () => { const n = prompt('Name of this machine', d.name || ''); if (n) await run(() => c.api('PUT', `/api/hr/devices/${d.sn}`, { site: c.siteId, name: n })); }}>✏️ Rename</Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => { if (await c.confirm({ title: `Unlink ${d.name || d.sn}?`, body: 'Its punches stay; new ones are kept but not counted until it is linked again.', confirmLabel: 'Unlink' })) await run(() => c.api('DELETE', `/api/hr/devices/${d.sn}`)); }}>Unlink</Button></div>}
+        </> : c.can && <Button size="sm" className="w-fit" onClick={() => void run(() => c.api('PUT', `/api/hr/devices/${d.sn}`, { site: c.siteId, name: d.name }), 'Linked.')}>🔗 Link to this site</Button>}
+    </div>; };
+    return (
+        <Card className="content-start gap-3 p-4">
+            <div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">🖐 Punching machines</h2><span className="text-sm text-muted-foreground">face / finger machines on the wall — every punch arrives here by itself</span>
+                <Button size="sm" variant="ghost" className="ml-auto" onClick={() => void load()}>↻</Button></div>
+            {mine.map((d: Row) => <Dev key={d.sn} d={d} />)}
+            {waiting.length > 0 && <><b className="text-sm">New machines calling in (not linked to a site yet)</b>{waiting.map((d: Row) => <Dev key={d.sn} d={d} />)}</>}
+            <details className="rounded-lg border bg-muted/30 p-3 text-sm" open={!mine.some((d: Row) => d.last_seen)}><summary className="cursor-pointer font-semibold">How to connect a machine (ZKTeco MB10 and similar)</summary>
+                <ol className="mt-2 grid list-decimal gap-1 pl-5">
+                    <li>Plug in the network cable (internet must work there). On the machine press <b>M/OK</b> → log in as its admin.</li>
+                    <li><b>Comm.</b> → <b>Ethernet</b>: DHCP <b>ON</b> (or a fixed IP, gateway and DNS 8.8.8.8).</li>
+                    <li><b>Comm.</b> → <b>Cloud Server Setting</b> (on some machines “ADMS” or “Web server”): Enable Domain Name <b>ON</b>, Server Address <b className="select-all font-mono">{host}</b>, Server Port <b>80</b>, Proxy <b>OFF</b>. Save.</li>
+                    <li><b>System</b> → <b>Date Time</b>: Saudi time (UTC+3) — the PMS uses the machine's clock.</li>
+                    <li>Restart the machine. Within a minute it shows here as <b>online</b> (a small cloud icon appears on its screen). Then press <b>👥 Get its user list</b> and link each number below to the person.</li>
+                </ol>
+                <p className="mt-2 text-xs text-muted-foreground">Only machines linked here count. The PMS reads only punches and the user list (number + name) — no fingerprints or face pictures leave the machine. Each scan: a second scan within 3 minutes is ignored; the “Check-Out” key gives OUT; otherwise it alternates IN → OUT (an IN open for under 14 h is closed, so night shifts work).</p></details>
+            {(mine.length > 0 || list.length > 0) && <div className="grid gap-2">
+                <div className="flex flex-wrap items-center gap-2"><b className="text-sm">People on the machine ({list.length}) · {unlinked.length} not linked</b>
+                    {c.can && byName.length > 0 && <Button size="sm" variant="outline" onClick={() => void run(async () => { let r; for (const x of byName) r = await c.api('PUT', '/api/hr/device-pin', { site: c.siteId, staff_id: x.s!.id, pin: x.r.pin }); return r; }, `Linked ${byName.length} by name.`)}>🔗 Link {byName.length} with the same name</Button>}
+                    {c.can && unlinked.length > 0 && <Button size="sm" variant="outline" onClick={async () => { if (await c.confirm({ title: `Add ${unlinked.length} people as new staff?`, body: 'Each is added with the name on the machine and linked to its number. Fill their details later in Staff.', confirmLabel: 'Add' })) await run(() => c.api('POST', '/api/hr/device-staff', { site: c.siteId, users: unlinked.map(r => ({ pin: r.pin, name: r.name })) }), 'Added.'); }}>➕ Add all not-linked as staff</Button>}</div>
+                <div className="overflow-x-auto rounded-lg border"><table className="w-full text-sm"><thead className="bg-muted/50 text-left text-xs"><tr><th className="p-2">No.</th><th className="p-2">Name on the machine</th><th className="p-2">Punches</th><th className="p-2">Last punch</th><th className="p-2">PMS person</th></tr></thead>
+                    <tbody>{list.map(r => { const s = linked(r.pin); return <tr key={r.pin} className={cn('border-t', !s && 'bg-amber-50/60 dark:bg-amber-950/20')}><td className="p-2 font-mono">{r.pin}</td><td className="p-2">{r.name || <span className="text-muted-foreground">—</span>}</td>
+                        <td className="p-2">{r.n}{!s && r.waiting > 0 ? <small className="text-amber-700"> · {r.waiting} waiting for a link</small> : ''}</td><td className="p-2 text-xs">{r.last_at ? r.last_at.slice(0, 16) : '—'}</td>
+                        <td className="p-2">{c.can ? <span className="flex items-center gap-1"><select className={sel} value={s?.id ?? ''} onChange={e => { const id = Number(e.target.value); void run(() => id ? c.api('PUT', '/api/hr/device-pin', { site: c.siteId, staff_id: id, pin: r.pin }) : c.api('PUT', '/api/hr/device-pin', { site: c.siteId, staff_id: s!.id, pin: '' })); }}>
+                            <option value="">— not linked —</option>{c.staff.filter(x => !x.device_pin || x.device_pin === r.pin).map(x => <option key={x.id} value={x.id}>{x.name}{x.active ? '' : ' (inactive)'}</option>)}</select>
+                            {!s && <Button size="sm" variant="ghost" title="Add as a new staff member" onClick={() => void run(() => c.api('POST', '/api/hr/device-staff', { site: c.siteId, users: [{ pin: r.pin, name: r.name }] }))}>➕</Button>}</span> : s?.name || '—'}</td></tr>; })}
+                        {!list.length && <tr><td colSpan={5} className="p-3 text-center text-muted-foreground">Nobody yet — press 👥 Get its user list once the machine is online.</td></tr>}</tbody></table></div></div>}
+            {M.cmds.length > 0 && <details className="text-xs"><summary className="cursor-pointer text-muted-foreground">Messages sent to the machine ({M.cmds.length})</summary>
+                <div className="mt-1 grid gap-0.5">{M.cmds.map((x: Row) => <span key={x.id} className="font-mono">{x.created_at.slice(5, 16).replace('T', ' ')} · {x.cmd.split('\t')[0]} · {x.done_at ? (x.result === '0' ? '✔ done' : `✖ code ${x.result}`) : x.sent_at ? 'sent…' : 'waiting for the machine'}</span>)}</div></details>}
+            {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
+            {push && <Dialog open onOpenChange={() => setPush(null)}><DialogContent className="max-h-[90vh] max-w-md overflow-y-auto"><DialogHeader><DialogTitle>📤 Put staff on the machine</DialogTitle>
+                <DialogDescription>Each gets a number on the machine (if they have none). Then, at the machine: M/OK → User Mgt → find the number → Edit → enrol the face / finger.</DialogDescription></DialogHeader>
+                <div className="grid gap-1">{c.active.map(s => <label key={s.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={push.ids.includes(s.id)} onChange={e => setPush({ ...push, ids: e.target.checked ? [...push.ids, s.id] : push.ids.filter((x: number) => x !== s.id) })} />{s.name}{s.device_pin ? <small className="text-muted-foreground">· no. {s.device_pin}</small> : ''}</label>)}</div>
+                <Button disabled={!push.ids.length} onClick={() => { const p = push; setPush(null); void run(() => c.api('POST', `/api/hr/devices/${p.sn}/cmd`, { action: 'push', staff_ids: p.ids }), 'Sent — the machine picks them up within a minute.'); }}>Send {push.ids.length}</Button></DialogContent></Dialog>}
+        </Card>
+    );
 }
