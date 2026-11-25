@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useCore, useGuard, useSite } from '@/pms/PmsContext';
+import { DEPTS, ROLES, TASKS, type LibRole, type LibTask } from './library';
 import { FLAG, STATUS, addDays, annualTaken, dayLine, daysBetween, dow, hm, saudiNow, shiftOf, type DayLine, type Row, type Shift } from './hr';
 
 // Main menu → HR: staff, faces and PINs, the check-in link, today at a glance, attendance and timesheets, the weekly roster, leave, the day's tasks,
@@ -329,7 +330,8 @@ function Leave(c: Ctx) {
 
 /* ------------------------------ tasks ------------------------------ */
 function Tasks(c: Ctx) {
-    const [day, setDay] = useState(c.today), [form, setForm] = useState<Row | null>(null), [photo, setPhoto] = useState<string | null>(null);
+    const [day, setDay] = useState(c.today), [form, setForm] = useState<Row | null>(null), [photo, setPhoto] = useState<string | null>(null), [lib, setLib] = useState(false);
+    const fromLib = (t: LibTask) => { setLib(false); setForm({ day, days: [day], staff_ids: [], priority: t.priority, checklist: t.steps, title: t.title, title_local: t.bn, place: t.place, minutes: t.minutes, need_photo: t.photo, details: `How often: ${t.freq}` }); };
     const list = c.tasks.filter(t => t.day === day);
     const name = (id: number) => c.staff.find(s => s.id === id)?.name || '?';
     const act = async (t: Row, action: string) => { await c.api('PUT', `/api/hr/tasks/${t.id}`, { action }); await c.reload(); };
@@ -338,7 +340,7 @@ function Tasks(c: Ctx) {
     return (
         <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2"><Button variant="outline" onClick={() => setDay(addDays(day, -1))}>◀</Button><Input type="date" className="w-44" value={day} onChange={e => setDay(e.target.value || day)} /><Button variant="outline" onClick={() => setDay(addDays(day, 1))}>▶</Button>
-                {c.can && <Button className="ml-auto" onClick={() => setForm({ day, days: [day], staff_ids: [], priority: 'normal', checklist: [] })}>➕ New task</Button>}</div>
+                {c.can && <><Button className="ml-auto" variant="outline" onClick={() => setLib(true)}>📚 From the library</Button><Button onClick={() => setForm({ day, days: [day], staff_ids: [], priority: 'normal', checklist: [] })}>➕ New task</Button></>}</div>
             <div className="grid gap-3 lg:grid-cols-4">{cols.map(([k, l]) => <Card key={k} className="content-start gap-2 bg-muted/30 p-2"><b className="px-1 text-sm">{l} ({list.filter(t => t.status === k).length})</b>
                 {list.filter(t => t.status === k).map(t => <div key={t.id} className={cn('grid gap-1 rounded-lg border bg-card p-2 text-sm', t.priority === 'high' && 'border-red-300')}>
                     <b>{t.title}</b>{t.title_local && <span className="text-muted-foreground">{t.title_local}</span>}
@@ -352,6 +354,7 @@ function Tasks(c: Ctx) {
                         {c.can && <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => { if (await c.confirm({ title: 'Delete this task?', confirmLabel: 'Delete' })) { await c.api('DELETE', `/api/hr/tasks/${t.id}`); await c.reload(); } }}>🗑</Button>}</span>
                 </div>)}</Card>)}</div>
             {form && <TaskForm c={c} t={form} onClose={() => setForm(null)} />}
+            {lib && <LibTasks onPick={fromLib} onClose={() => setLib(false)} />}
             {photo && <Dialog open onOpenChange={() => setPhoto(null)}><DialogContent><img src={photo} alt="Proof" className="w-full rounded-xl" /></DialogContent></Dialog>}
         </div>
     );
@@ -389,7 +392,7 @@ function TaskForm({ c, t, onClose }: { c: Ctx; t: Row; onClose: () => void }) {
 
 /* ------------------------------ roles & shifts ------------------------------ */
 function Setup(c: Ctx) {
-    const [sh, setSh] = useState<Row | null>(null), [ro, setRo] = useState<Row | null>(null);
+    const [sh, setSh] = useState<Row | null>(null), [ro, setRo] = useState<Row | null>(null), [lib, setLib] = useState(false);
     const saveShift = async () => { const r = sh!.id ? await c.api('PUT', `/api/hr/shifts/${sh!.id}`, sh) : await c.api('POST', '/api/hr/shifts', { site: c.siteId, ...sh }); c.setD({ ...c.D, ...r }); setSh(null); };
     const saveRole = async () => { const b = { ...ro, duties: String(ro!.dutiesText || '').split('\n').map((x: string) => x.trim()).filter(Boolean) }; const r = ro!.id ? await c.api('PUT', `/api/hr/roles/${ro!.id}`, b) : await c.api('POST', '/api/hr/roles', { site: c.siteId, ...b }); c.setD({ ...c.D, ...r }); setRo(null); };
     return (
@@ -398,7 +401,7 @@ function Setup(c: Ctx) {
                 {c.shifts.map(s => <div key={s.id} className="flex items-center gap-2 rounded-lg border p-2 text-sm"><span className="size-4 rounded" style={{ background: s.color }} /><b>{s.name}</b><span>{s.start}–{s.end}</span><span className="text-muted-foreground">break {s.break_min} · grace {s.grace_min} min · {s.days.map(d => DOW[d]).join(' ')}</span>
                     {c.can && <span className="ml-auto flex gap-1"><Button size="sm" variant="ghost" onClick={() => setSh(s)}>✏️</Button><Button size="sm" variant="ghost" onClick={async () => c.setD({ ...c.D, ...(await c.api('DELETE', `/api/hr/shifts/${s.id}`)) })}>🗑</Button></span>}</div>)}
                 {!c.shifts.length && <p className="text-sm text-muted-foreground">No shifts yet.</p>}</Card>
-            <Card className="content-start gap-2 p-4"><div className="flex items-center justify-between"><h2 className="font-bold">Job roles and their duties</h2>{c.can && <Button size="sm" onClick={() => setRo({ title: '', duties: [], dutiesText: '' })}>➕ Role</Button>}</div>
+            <Card className="content-start gap-2 p-4"><div className="flex items-center justify-between"><h2 className="font-bold">Job roles and their duties</h2>{c.can && <span className="flex gap-1"><Button size="sm" variant="outline" onClick={() => setLib(true)}>📚 Add from the library</Button><Button size="sm" onClick={() => setRo({ title: '', duties: [], dutiesText: '' })}>➕ Role</Button></span>}</div>
                 {c.roles.map(r => <div key={r.id} className="grid gap-1 rounded-lg border p-2 text-sm"><span className="flex items-center gap-2"><b>{r.title}</b>{r.title_local && <span className="text-muted-foreground">{r.title_local}</span>}
                     {c.can && <span className="ml-auto flex gap-1"><Button size="sm" variant="ghost" onClick={() => setRo({ ...r, dutiesText: (r.duties || []).join('\n') })}>✏️</Button><Button size="sm" variant="ghost" onClick={async () => c.setD({ ...c.D, ...(await c.api('DELETE', `/api/hr/roles/${r.id}`)) })}>🗑</Button></span>}</span>
                     {(r.duties || []).length > 0 && <ul className="list-disc pl-5 text-muted-foreground">{r.duties.map((d: string, i: number) => <li key={i}>{d}</li>)}</ul>}
@@ -417,6 +420,7 @@ function Setup(c: Ctx) {
                 <Textarea className="min-h-40" value={ro.dutiesText} onChange={e => setRo({ ...ro, dutiesText: e.target.value })} placeholder={'Duties — one a line, e.g.\nMake the beds\nEmpty the bins\nClean the bathroom'} />
                 <Input value={ro.skills ?? ''} onChange={e => setRo({ ...ro, skills: e.target.value })} placeholder="Skills needed" />
                 <Button onClick={() => void saveRole()}>Save</Button></DialogContent></Dialog>}
+            {lib && <LibRoles c={c} onClose={() => setLib(false)} />}
         </div>
     );
 }
@@ -459,4 +463,46 @@ function PublicLink({ siteId, big }: { siteId: string; big?: boolean }) {
     return <div className="grid justify-items-start gap-2"><a className="break-all text-sm text-primary underline" href={url} target="_blank" rel="noopener">{url}</a>
         <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(url)}>Copy link</Button>{svg && <Button size="sm" variant="outline" onClick={poster}>🖨 Print QR poster</Button>}</div>
         {svg && <div className="rounded-xl bg-white p-2" dangerouslySetInnerHTML={{ __html: svg }} />}</div>;
+}
+
+/* ------------------------------ the hotel library (roles and task templates) ------------------------------ */
+function LibRoles({ c, onClose }: { c: Ctx; onClose: () => void }) {
+    const have = new Set(c.roles.map(r => String(r.title).toLowerCase()));
+    const [pick, setPick] = useState<Set<string>>(() => new Set(ROLES.filter(r => !have.has(r.title.toLowerCase())).map(r => r.title))), [busy, setBusy] = useState(''), [q, setQ] = useState('');
+    const toggle = (ts: string[], on: boolean) => setPick(p => { const n = new Set(p); ts.forEach(t => (on ? n.add(t) : n.delete(t))); return n; });
+    async function add() {
+        const list = ROLES.filter(r => pick.has(r.title) && !have.has(r.title.toLowerCase()));
+        let D = c.D;
+        for (let i = 0; i < list.length; i++) { const r = list[i]; setBusy(`Adding ${i + 1} of ${list.length}…`); D = { ...D, ...(await c.api('POST', '/api/hr/roles', { site: c.siteId, title: r.title, title_local: r.bn, duties: r.duties, skills: r.skills })) }; }
+        c.setD(D); onClose();
+    }
+    const shown = ROLES.filter(r => !q || (r.title + r.bn + r.duties.join(' ')).toLowerCase().includes(q.toLowerCase()));
+    const free = (rs: LibRole[]) => rs.filter(r => !have.has(r.title.toLowerCase()));
+    return <Dialog open onOpenChange={onClose}><DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader><DialogTitle>📚 Job roles from the hotel library</DialogTitle><DialogDescription>{ROLES.length} roles across {DEPTS.length} departments, each with its duties step by step. Roles you already have are greyed out.</DialogDescription></DialogHeader>
+        <Input placeholder="Search…" value={q} onChange={e => setQ(e.target.value)} />
+        {DEPTS.map(([id, label, bn]) => {
+            const rs = shown.filter(r => r.dept === id); if (!rs.length) return null;
+            const all = free(rs).length > 0 && free(rs).every(r => pick.has(r.title));
+            return <div key={id} className="grid gap-1"><label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={all} onChange={e => toggle(free(rs).map(r => r.title), e.target.checked)} />{label} <span className="font-normal text-muted-foreground">{bn}</span></label>
+                {rs.map(r => { const got = have.has(r.title.toLowerCase()); return <label key={r.title} className={cn('ml-6 flex items-start gap-2 rounded border p-1.5 text-sm', got && 'opacity-50')}><input type="checkbox" className="mt-1" disabled={got} checked={got || pick.has(r.title)} onChange={e => toggle([r.title], e.target.checked)} />
+                    <span><b>{r.title}</b> <span className="text-muted-foreground">{r.bn}</span>{got && ' · already added'}<br /><small className="text-muted-foreground">{r.duties.length} duties · {r.skills}</small></span></label>; })}</div>;
+        })}
+        <div className="sticky bottom-0 flex items-center justify-end gap-2 bg-background pt-2"><span className="mr-auto text-sm text-muted-foreground">{busy || `${[...pick].filter(t => !have.has(t.toLowerCase())).length} selected`}</span><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={!!busy} onClick={() => void add().catch(e => setBusy(e.message))}>Add the selected roles</Button></div>
+    </DialogContent></Dialog>;
+}
+function LibTasks({ onPick, onClose }: { onPick: (t: LibTask) => void; onClose: () => void }) {
+    const [dept, setDept] = useState(''), [q, setQ] = useState('');
+    const shown = TASKS.filter(t => (!dept || t.dept === dept) && (!q || (t.title + t.bn + t.place + t.steps.join(' ')).toLowerCase().includes(q.toLowerCase())));
+    const chip = (on: boolean) => cn('rounded-full border px-2 py-0.5 text-xs', on && 'border-primary bg-primary/10 font-bold');
+    return <Dialog open onOpenChange={onClose}><DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader><DialogTitle>📚 Tasks from the hotel library</DialogTitle><DialogDescription>{TASKS.length} ready tasks — front of house and the back-of-house jobs nobody notices. Pick one: it opens filled in (Bangla, place, minutes, checklist); choose who does it and save.</DialogDescription></DialogHeader>
+        <div className="flex flex-wrap gap-1"><button type="button" className={chip(!dept)} onClick={() => setDept('')}>All ({TASKS.length})</button>
+            {DEPTS.map(([id, label]) => <button key={id} type="button" className={chip(dept === id)} onClick={() => setDept(id)}>{label} ({TASKS.filter(t => t.dept === id).length})</button>)}</div>
+        <Input placeholder="Search, e.g. grease, tank, luggage, wudu…" value={q} onChange={e => setQ(e.target.value)} />
+        <div className="grid gap-1.5 sm:grid-cols-2">{shown.map(t => <button key={t.dept + t.title} type="button" onClick={() => onPick(t)} className={cn('grid gap-0.5 rounded-lg border p-2 text-left text-sm hover:bg-muted', t.priority === 'high' && 'border-red-300')}>
+            <b>{t.priority === 'high' ? '⚠ ' : ''}{t.title}</b><span className="text-muted-foreground">{t.bn}</span>
+            <small className="text-muted-foreground">📍 {t.place} · ⌛ {t.minutes} min · 🔁 {t.freq}{t.photo ? ' · 📷' : ''} · {t.steps.length} steps</small></button>)}
+            {!shown.length && <p className="text-sm text-muted-foreground">Nothing matches.</p>}</div>
+    </DialogContent></Dialog>;
 }
