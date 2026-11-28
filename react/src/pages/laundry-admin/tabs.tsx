@@ -51,13 +51,17 @@ function KpiBlocks({ s }: { s: Stats }) {
 // Bills: two parts — Guests (the room cash bills, as before) and Staff (staff in paid mode, 1 SAR a piece: their bills only here, with the printed
 // invoice of one bill and the statement of every unpaid one)
 export function BillsSplit() {
-    const [part, setPart] = useState<'guest' | 'staff'>('guest');
+    // split view (default): guest cash bills and staff paid-laundry bills side by side (stacked on narrow screens); or one of them alone
+    type Mode = 'split' | 'guest' | 'staff';
+    const [mode, setMode] = useState<Mode>(() => { try { const v = localStorage.getItem('pms_la_bills_view'); return v === 'guest' || v === 'staff' ? v : 'split'; } catch { return 'split'; } });
+    const pick = (m: Mode) => { setMode(m); try { localStorage.setItem('pms_la_bills_view', m); } catch { /* ignore */ } };
+    const pane = (who: 'guest' | 'staff') => <Card className="min-w-0 gap-2 p-3"><h3 className="font-bold">{who === 'guest' ? '🚪 Guests — paid laundry (room cash bills)' : '👷 Staff — paid laundry bills'}</h3><div className="overflow-x-auto"><BillsTab who={who} /></div></Card>;
     return (
-        <Tabs value={part} onValueChange={v => setPart(v as 'guest' | 'staff')}>
-            <TabsList><TabsTrigger value="guest">🚪 Guests</TabsTrigger><TabsTrigger value="staff">👷 Staff</TabsTrigger></TabsList>
-            <TabsContent value="guest"><BillsTab who="guest" /></TabsContent>
-            <TabsContent value="staff"><BillsTab who="staff" /></TabsContent>
-        </Tabs>
+        <div className="grid gap-3">
+            <div className="flex flex-wrap gap-1">{([['split', '◫ Split view'], ['guest', '🚪 Guests only'], ['staff', '👷 Staff only']] as [Mode, string][]).map(([m, l]) =>
+                <Button key={m} size="sm" variant={mode === m ? 'default' : 'outline'} onClick={() => pick(m)}>{l}</Button>)}</div>
+            {mode === 'split' ? <div className="grid items-start gap-3 2xl:grid-cols-2">{pane('guest')}{pane('staff')}</div> : pane(mode)}
+        </div>
     );
 }
 

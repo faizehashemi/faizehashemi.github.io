@@ -236,6 +236,7 @@ export default function SettingsPage() {
 
                     {card('slip', 'Slip page', <>
                         <Opt title="Building for a new slip"><select className={sel} value={p.slipDefaultBuilding || ''} onChange={e => save({ slipDefaultBuilding: e.target.value })}><option value="">None (choose each time)</option>{noSlipBld.map(n => <option key={n}>{n}</option>)}</select></Opt>
+                        <Opt title="Makkah: new slips start on MOHAMMEDI" hint="When “Building for a new slip” is None, a new Makkah slip starts with MOHAMMEDI chosen (change it on the slip as needed). Off: the building is left empty.">{sw('slipMakkahMohammedi')}</Opt>
                         <Opt title="Check-in time for a new slip" hint="Empty = none."><Input type="time" className="w-32" value={p.slipCheckinTime || ''} onChange={e => save({ slipCheckinTime: e.target.value })} /><button type="button" className="text-sm text-primary underline" onClick={() => save({ slipCheckinTime: '' })}>clear</button></Opt>
                         <Opt title="Check-out time for a new slip"><Input type="time" className="w-32" value={p.slipCheckoutTime || ''} onChange={e => save({ slipCheckoutTime: e.target.value })} /><button type="button" className="text-sm text-primary underline" onClick={() => save({ slipCheckoutTime: '' })}>clear</button></Opt>
                         <Opt title="Load the slip when an SH is typed into an empty form">{sw('slipAutoLoadSh')}</Opt>
@@ -245,6 +246,7 @@ export default function SettingsPage() {
 
                     {card('checkins', 'Check-ins page', <>
                         <Opt title="Split by from / to" hint="Check-ins in two tables, from the airport and from the other city; check-outs in two, departing to the airport and to the other city. The page's own tick can still switch it.">{sw('checkinsSplit')}</Opt>
+                        <Opt title="Status column in Check-ins" hint="The last column of the Check-ins table (checked in / not yet, with its button). Off (default): hidden.">{sw('checkinsStatusCol')}</Opt>
                         <Opt title="Columns" hint="Ticked columns show. Each table always shows its own date & time (Check-in in Check-ins, Check-out in Check-outs); “the other date & time” is the check-out in Check-ins and the check-in in Check-outs. Export CSV follows the same columns." />
                         <div className="grid gap-3 sm:grid-cols-2">{([['checkinsHideIn', 'Check-ins table'], ['checkinsHideOut', 'Check-outs table']] as const).map(([key, title]) => (
                             <fieldset key={key} className="rounded-lg border p-2"><legend className="px-1 text-xs font-bold">{title}</legend>{libs.cols.map(([id, l]) => (

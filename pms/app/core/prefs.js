@@ -50,6 +50,7 @@ export const DEFAULT_PREFS = {
     shortcuts: Object.fromEntries(VIEWS.filter(v => v.key).map(v => [v.id, v.key])),
     // slip page
     slipDefaultBuilding: '',
+    slipMakkahMohammedi: true, // Makkah: a new slip starts on MOHAMMEDI when no building is chosen above
     slipCheckinTime: '',
     slipCheckoutTime: '',
     slipAutoLoadSh: true,      // load the slip when an SH is typed into an empty form
@@ -58,6 +59,7 @@ export const DEFAULT_PREFS = {
     slipFromTo: false,         // From / To on the slip (where the group comes from and goes to) — hidden unless switched on
     time24: false,             // Slip page times as 24-hour (default: 12-hour)
     // check-ins page
+    checkinsStatusCol: false,  // the Check-ins table's Status column (checked in / not yet) — hidden unless switched on
     checkinsSplit: false,      // split the tables by where groups come from / go to (airport or the other city)
     // columns hidden in the Check-ins / Check-outs tables (ids in CHECKINS_COLS); by default each shows only its own time
     checkinsHideIn: ['other'],

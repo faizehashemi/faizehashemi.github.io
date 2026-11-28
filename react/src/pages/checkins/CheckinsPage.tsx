@@ -135,6 +135,7 @@ export default function CheckinsPage() {
     const tripOf = (r: Row) => trips.get(`${r.checkout_date}|${ums.baseSh(r.sh_no)}`);
     const leaveOf = (r: Row) => (libs ? libs.mode.leaveMode(r, tripOf(r)) : { mode: '', src: '' });
     const KNOWN: string[] = libs ? libs.colsMod.CHECKINS_COLS.map((c: any) => c[0]) : [];
+    const showStatus = !!prefs.checkinsStatusCol;   // the Check-ins table's Status (checked in / not yet) column — Settings → Check-ins page
     const hiddenCols = (kind: 'in' | 'out') => [...((prefs[kind === 'in' ? 'checkinsHideIn' : 'checkinsHideOut'] || []) as string[]).filter(id => KNOWN.includes(id)), ...(showLug ? [] : ['lug'])];
     const flightOf = (r: Row, key: 'checkin' | 'checkout'): any => {
         if (!libs) return { kind: 'none' };
@@ -213,11 +214,11 @@ export default function CheckinsPage() {
         const withOut = (cells: React.ReactNode[], out: React.ReactNode) => (outAt < 0 ? cells : [...cells.slice(0, outAt), out, ...cells.slice(outAt)]);
         const n = 1 + (showFl ? 1 : 0) + cols.length + (showOther ? 1 : 0) + (showSlip ? 1 : 0) + (kind === 'in' ? 1 : 0) + (lastOut ? 1 : 0);
         const head = (
-            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{withOut(cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>), <TableHead key="out" className="whitespace-nowrap">{kind === 'in' ? <>Check-out &amp; transport</> : 'Transport'}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && <TableHead>Status</TableHead>}</TableRow>
+            <TableRow><TableHead>{kind === 'in' ? 'Check-in' : 'Check-out'}</TableHead>{showFl && <TableHead>Flight</TableHead>}{withOut(cols.map(c => <TableHead key={c.id} className={cn(c.right && 'text-right')}>{c.label}</TableHead>), <TableHead key="out" className="whitespace-nowrap">{kind === 'in' ? <>Check-out &amp; transport</> : 'Transport'}</TableHead>)}{showOther && <TableHead className="whitespace-nowrap">{kind === 'in' ? 'Check-out' : 'Check-in'}</TableHead>}{showSlip && <TableHead>Slip</TableHead>}{kind === 'in' && showStatus && <TableHead>Status</TableHead>}</TableRow>
         );
         const tot = (list: Row[], label: string, cls: string) => {
             const k = countsOf(list), v: Record<string, number> = { as: k.as, t: k.t, g: k.g, l: k.l, c: k.c, i: k.i };
-            return <TableRow className={cls}><TableCell className="font-bold">{label}</TableCell>{showFl && <TableCell />}{withOut(cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right', 'font-bold')}>{c.id === 'group' ? `${k.n} slip${k.n === 1 ? '' : 's'}` : v[c.id] ?? ''}</TableCell>), <TableCell key="out" />)}{showOther && <TableCell />}{showSlip && <TableCell />}{kind === 'in' && <TableCell />}</TableRow>;
+            return <TableRow className={cls}><TableCell className="font-bold">{label}</TableCell>{showFl && <TableCell />}{withOut(cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right', 'font-bold')}>{c.id === 'group' ? `${k.n} slip${k.n === 1 ? '' : 's'}` : v[c.id] ?? ''}</TableCell>), <TableCell key="out" />)}{showOther && <TableCell />}{showSlip && <TableCell />}{kind === 'in' && showStatus && <TableCell />}</TableRow>;
         };
         return (
             <Table>
@@ -238,7 +239,7 @@ export default function CheckinsPage() {
                                     {withOut(cols.map(c => <TableCell key={c.id} className={cn(c.right && 'text-right')}>{val(r, c.id)}</TableCell>), <Fragment key="out">{outCell(r, co)}</Fragment>)}
                                     {showOther && <TableCell className="whitespace-nowrap">{fmtDT(kind === 'in' ? co : ci)}</TableCell>}
                                     {showSlip && <TableCell>{sh ? <a className="rounded border border-gold bg-accent px-2 py-0.5 text-xs font-bold text-primary" href={href('slip', { sh_no: sh })} target="_blank" rel="noopener">Open</a> : <span className="text-muted-foreground" title="No SH number">Open</span>}</TableCell>}
-                                    {kind === 'in' && <TableCell className="whitespace-nowrap">{checkin.isCheckedIn(r)
+                                    {kind === 'in' && showStatus && <TableCell className="whitespace-nowrap">{checkin.isCheckedIn(r)
                                         ? <><span className="rounded-full bg-ok-soft px-2 py-0.5 text-xs font-bold text-ok">✓ Checked in</span>{!db.readonly && <button type="button" disabled={busy === String(r.id)} className="ml-1 text-xs text-muted-foreground underline" title="Undo: the group has not checked in" onClick={() => void toggle(r, false)}>Undo</button>}</>
                                         : db.readonly ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs">—</span> : <Button size="sm" variant="outline" disabled={busy === String(r.id)} onClick={() => void toggle(r, true)}>Check in</Button>}</TableCell>}
                                 

@@ -16,6 +16,9 @@ const PLACES = ['Madina Airport', 'Jeddah Airport', 'Makkah', 'Medina', 'By car'
 const iso = (ms?: number | null) => (ms ? new Date(ms).toISOString() : null);
 const win = (w: Row) => ({ ...w, start: iso(w.start), end: iso(w.end) });
 
+/** The building a new slip starts on: the login's own choice (Settings), else MOHAMMEDI on Makkah (Settings switch, on by default) */
+const defBld = (p: Record<string, any>, site: string) => p.slipDefaultBuilding || (site === 'makkah' && p.slipMakkahMohammedi !== false ? 'MOHAMMEDI' : '');
+
 export default function SlipPage() {
     const { cloud, stay, rooms, prefs: prefsLib, settings: S, ums, checkin, timefmt } = useCore();
     const R = rooms as any, st = S as any;
@@ -62,7 +65,7 @@ export default function SlipPage() {
             try { const s = (await guard<any>(st.loadSettings())).settings; const pf = s.sh_prefixes || st.DEFAULTS.sh_prefixes; setShCfg({ prefixes: pf, re: st.shPattern(pf), hold: Number(s.delay_hold_days) || st.DEFAULTS.delay_hold_days }); } catch { /* defaults */ }
             const b = await guard<Row[]>(R.loadBuildings()); setBuildings(b); bldRef.current = b;
             // this browser's defaults for a new slip (Settings → Slip page)
-            setForm(f => ({ ...f, building: prefs.slipDefaultBuilding || '', checkin_time: prefs.slipCheckinTime || '', checkout_time: prefs.slipCheckoutTime || '' }));
+            setForm(f => ({ ...f, building: defBld(prefs, siteId), checkin_time: prefs.slipCheckinTime || '', checkout_time: prefs.slipCheckoutTime || '' }));
             if (db.readonly) setStatus(db.readonlyReason);
             await refreshCache();
             setMods({ picker, modal, hist, tele, itin, sp });
@@ -107,7 +110,7 @@ export default function SlipPage() {
     }
     function clearForm() {
         setCurrentId(null); setUnlocked(false); loadedRooms.current = new Set();
-        setForm({ ...emptyForm(), building: prefs.slipDefaultBuilding || '', checkin_time: prefs.slipCheckinTime || '', checkout_time: prefs.slipCheckoutTime || '' });
+        setForm({ ...emptyForm(), building: defBld(prefs, siteId), checkin_time: prefs.slipCheckinTime || '', checkout_time: prefs.slipCheckoutTime || '' });
         setDelay(emptyDelay()); setGents([newRow()]); setLadies([newRow()]); setConflicts(new Set()); setOkFill(new Set()); setStays([]); setExtras([]);
     }
     const data = () => ({ ...formData(form, gents, ladies, delay), ...(extras.length || rec?.trip_extra?.length ? { trip_extra: extras } : {}) });
@@ -274,7 +277,7 @@ export default function SlipPage() {
     async function onShBlur() {
         if (!prefs.slipAutoLoadSh) return;
         // a default building alone does not count as "already filled in"
-        if (form.tour_name || form.group_leader || (form.building && form.building !== prefs.slipDefaultBuilding)) return;
+        if (form.tour_name || form.group_leader || (form.building && form.building !== defBld(prefs, siteId))) return;
         const raw = form.sh_no.trim();
         if (shCfg.re.test(raw)) { const r = await pickStayFor(raw); if (r) { setCurrentId(r.id); setUnlocked(false); load(r); setStatus(`Auto-loaded latest slip for SH ${r.sh_no} (#${r.id})`); } }
     }
