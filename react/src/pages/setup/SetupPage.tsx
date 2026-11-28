@@ -134,19 +134,21 @@ function useSaver(reload: () => Promise<void>) {
 function Travel({ set, isAdmin, reload }: CardProps) {
     const { settings } = useCore(); const st = settings as any;
     const s = set.settings;
-    const [v, setV] = useState({ x: s.arrival_other_hours ?? 5, a: s.arrival_commute_hours, d: s.departure_lead_hours, i: s.transfer_checkin_time, o: s.transfer_checkout_time });
+    const [v, setV] = useState({ x: s.arrival_other_hours ?? 5, a: s.arrival_commute_hours, d: s.departure_lead_hours, m: s.makkah_medina_dep_hours ?? 8, i: s.transfer_checkin_time, o: s.transfer_checkout_time });
     const { msg, setMsg, busy, run } = useSaver(reload);
     const fmt = (d: string, t: string) => `${new Date(d + 'T00:00').toLocaleDateString([], { day: '2-digit', month: 'short' })} ${t}`;
     const land = st.shiftTime('2026-11-25', '23:00', Number(v.a) || 0), out = st.shiftTime('2026-12-01', '04:30', -(Number(v.d) || 0));
-    const num = (k: 'a' | 'd' | 'x') => <span className="flex items-center gap-1.5"><Input type="number" min={0} max={24} step={0.25} required className="w-24" disabled={!isAdmin} value={v[k]} onChange={e => setV(x => ({ ...x, [k]: e.target.value }))} /> hours</span>;
+    const num = (k: 'a' | 'd' | 'x' | 'm') => <span className="flex items-center gap-1.5"><Input type="number" min={0} max={24} step={0.25} required className="w-24" disabled={!isAdmin} value={v[k]} onChange={e => setV(x => ({ ...x, [k]: e.target.value }))} /> hours</span>;
     return <Shell title={<>Travel times <span className="text-sm font-normal text-muted-foreground">— all sites, every desk</span></>} sub="Slips show hotel times, not flight times. UMS imports use these rules; the same for every desk.">
-        <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={e => { e.preventDefault(); void run({ arrival_commute_hours: Number(v.a), arrival_other_hours: Number(v.x), departure_lead_hours: Number(v.d), transfer_checkin_time: v.i, transfer_checkout_time: v.o }, 'Saved for every desk. Imported slips get the new times at the next UMS import (desk edits are kept).'); }}>
+        <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={e => { e.preventDefault(); void run({ arrival_commute_hours: Number(v.a), arrival_other_hours: Number(v.x), departure_lead_hours: Number(v.d), makkah_medina_dep_hours: Number(v.m), transfer_checkin_time: v.i, transfer_checkout_time: v.o }, 'Saved for every desk. Imported slips get the new times at the next UMS import (desk edits are kept).'); }}>
             <div className="grid gap-1"><Label>After landing, travel to the hotel</Label>{num('a')}</div><div className="grid gap-1"><Label>Before the flight, leave the hotel</Label>{num('d')}</div>
             <div className="grid gap-1"><Label title="Used by the Arrival sheet: a flight landing at the other city's airport (Jeddah for a Medina hotel) or a bus from the other city">Landing in another city, or coming by road: travel to the hotel</Label>{num('x')}</div>
+            <div className="grid gap-1"><Label title="Makkah site only: the group's last stay is in Makkah and its flight leaves from Madina airport — the pax goes from the Makkah hotel straight to Madina airport">Makkah → Madina airport departure (Makkah only): leave the hotel</Label>{num('m')}</div>
             <div className="grid gap-1"><Label>Moving between cities: check-in at</Label><Input type="time" required disabled={!isAdmin} value={v.i} onChange={e => setV(x => ({ ...x, i: e.target.value }))} /></div>
             <div className="grid gap-1"><Label>Moving between cities: check-out at</Label><Input type="time" required disabled={!isAdmin} value={v.o} onChange={e => setV(x => ({ ...x, o: e.target.value }))} /></div>
             <div className="col-span-full flex items-center gap-3">{isAdmin && <Button type="submit" disabled={busy}>Save travel times</Button>}<Msg>{msg || (set.updated_at ? `Last changed by ${set.updated_by || '—'}, ${when(set.updated_at)}` : 'Using the default times.') + (isAdmin ? '' : ' Only an admin can change these.')}</Msg></div></form>
         <div className="grid gap-1 rounded-lg bg-accent/40 p-3 text-sm"><div>Flight lands <b>{fmt('2026-11-25', '23:00')}</b> → hotel check-in <b>{fmt(land.date, land.time)}</b></div><div>Flight departs <b>{fmt('2026-12-01', '04:30')}</b> → hotel check-out <b>{fmt(out.date, out.time)}</b></div>
+            <div>Makkah stay, flight from <b>Madina airport</b> departs {fmt('2026-12-01', '04:30')} → Makkah hotel check-out <b>{(() => { const m = st.shiftTime('2026-12-01', '04:30', -(Number(v.m) || 0)); return fmt(m.date, m.time); })()}</b></div>
             <div>Makkah ⇄ Madina on the day of the move: check-out <b>{v.o}</b>, check-in <b>{v.i}</b></div><div>Arriving or leaving by <b>car, bus or train</b> (UMS "CAR-…" / "BUS-…" / "TRAIN-…"): the UMS time is the hotel time, nothing added or taken off</div></div></Shell>;
 }
 

@@ -14,6 +14,8 @@ export const DEFAULTS = {
     // Arrival sheet (Transport): landing at the other city's airport (Jeddah for Medina) or coming by road from the other city → hours until the hotel
     arrival_other_hours: 5,
     departure_lead_hours: UMS.departureLeadHours,
+    // Makkah only: a pax leaving Makkah straight to Madina airport (last stay in Makkah, flight from Madina) → check-out this many hours before the flight
+    makkah_medina_dep_hours: UMS.makkahMedinaDepHours,
     transfer_checkin_time: UMS.transferCheckinTime,
     transfer_checkout_time: UMS.transferCheckoutTime,
     // KG page events (Setup → KG event times)
@@ -82,6 +84,7 @@ export async function umsConfig() {
         capOf,
         arrivalCommuteHours: s.arrival_commute_hours,
         departureLeadHours: s.departure_lead_hours,
+        makkahMedinaDepHours: s.makkah_medina_dep_hours ?? UMS.makkahMedinaDepHours,
         transferCheckinTime: s.transfer_checkin_time,
         transferCheckoutTime: s.transfer_checkout_time,
     };

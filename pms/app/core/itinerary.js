@@ -5,7 +5,7 @@
 
 import { SITES, UMS } from '../config.js';
 import { shiftTime } from './settings.js';
-import { byRoad, baseSh } from './ums.js';
+import { byRoad, baseSh, departAt } from './ums.js';
 
 const CITY_LABEL = { MAKKAH: 'Makkah', MADINA: 'Medina' };
 const SITE_CITY = (site) => SITES[site]?.umsCity || String(site || '').toUpperCase();
@@ -45,7 +45,7 @@ export function tripOf(slip, all = [], cfg = UMS) {
         return { city, label: CITY_LABEL[city] || city, own: own || null, here: !!own && own.id === slip.id };
     });
     const A = u?.arrival && (byRoad(u.arrival) ? { date: u.arrival.date, time: u.arrival.time } : shiftTime(u.arrival.date, u.arrival.time, +cfg.arrivalCommuteHours));
-    const D = u?.departure && (byRoad(u.departure) ? { date: u.departure.date, time: u.departure.time } : shiftTime(u.departure.date, u.departure.time, -cfg.departureLeadHours));
+    const D = u?.departure && departAt(u.departure, cities[cities.length - 1], cfg);
     const at = (date, time) => (date ? { date, time: time || '' } : null);
     legs.forEach((l, i) => {
         const prev = legs[i - 1], next = legs[i + 1];

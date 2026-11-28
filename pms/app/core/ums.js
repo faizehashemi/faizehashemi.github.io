@@ -162,6 +162,15 @@ export function parseUms(html) {
 
 /** UMS writes the travel mode before the number: "CAR-CAR", "BUS-BUS", "TRAIN-TRN-" (a flight is "SAUDIA -SV 771"). */
 export const byRoad = (leg) => /^(CAR|BUS|TRAIN)\b/i.test(String(leg?.flight || '').trim());
+/** A departure flight from Madina airport (the leg's port, else the group's Dep Airport) */
+export const fromMadinaAirport = (leg, depAirport = '') => /^(MADINA|MEDINA|MADINAH|MED)\b/i.test(String(leg?.port || depAirport || '').trim());
+/** Hotel check-out for the group's departure: by road = the UMS time; a flight = its time − the lead time, or − the Makkah → Madina airport
+ *  time (Setup → Travel times, Makkah only) when the last stay is in Makkah and the flight leaves from Madina airport */
+export function departAt(dep, lastCity, cfg = UMS, depAirport = '') {
+    if (byRoad(dep)) return { date: dep.date, time: dep.time };
+    const lead = lastCity === 'MAKKAH' && fromMadinaAirport(dep, depAirport) ? Number(cfg.makkahMedinaDepHours ?? UMS.makkahMedinaDepHours) : Number(cfg.departureLeadHours);
+    return shiftTime(dep.date, dep.time, -lead);
+}
 
 /**
  * Split a group into hotel stays per city. Hotel times, not flight times: check-in is the landing
@@ -175,7 +184,9 @@ export function staysOf(g, cfg = UMS) {
     const makkah = city('MAKKAH'), medina = city('MADINA');
     // by car, bus or train the UMS time is the hotel time itself: no airport travel added or taken off
     const A = byRoad(g.arrival) ? { date: g.arrival.date, time: g.arrival.time } : shiftTime(g.arrival.date, g.arrival.time, +cfg.arrivalCommuteHours);
-    const D = byRoad(g.departure) ? { date: g.departure.date, time: g.departure.time } : shiftTime(g.departure.date, g.departure.time, -cfg.departureLeadHours);
+    // the last stay's city: Madina when the trip ends there (Dep from Madina, or no move back to Makkah), else Makkah
+    const lastMadina = !g.noMadina && (g.madinaDate ? (g.depFromMadina || !g.makkahDate) : g.firstArrival === 'MADINA');
+    const D = departAt(g.departure, lastMadina ? 'MADINA' : 'MAKKAH', cfg, g.depAirport);
     const outOf = (date) => ({ date, time: cfg.transferCheckoutTime }); // leave a city mid-trip
     const into = (date) => ({ date, time: cfg.transferCheckinTime }); // arrive in the next city
     const warnings = [];

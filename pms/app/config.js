@@ -123,6 +123,7 @@ export const UMS = {
     // (stored on the server, the same for every desk — see core/settings.js).
     arrivalCommuteHours: 3,          // hotel check-in  = flight landing + this (airport → hotel)
     departureLeadHours: 6,           // hotel check-out = flight departure − this (hotel → airport)
+    makkahMedinaDepHours: 8,         // Makkah only: last stay in Makkah, flight from Madina airport → check-out = flight − this (Makkah → Madina airport by road)
     // UMS gives only a date when a group moves between cities; these are the hotel times used then.
     transferCheckinTime: '14:00',
     transferCheckoutTime: '07:00',
