@@ -187,7 +187,7 @@ export default function LaundryPage() {
 
     // ---- logs ----
     const [slog, setSlog] = useState<{ day: string; bills: Row[]; err: string; loading: boolean }>({ day: '', bills: [], err: '', loading: false });
-    const [cash, setCash] = useState<{ from: string; to: string; show: string; bills: Row[]; err: string; picked: boolean }>({ from: '', to: '', show: 'all', bills: [], err: '', picked: false });
+    const [cash, setCash] = useState<{ from: string; to: string; show: string; who: 'guest' | 'staff'; bills: Row[]; err: string; picked: boolean }>({ from: '', to: '', show: 'all', who: 'guest', bills: [], err: '', picked: false });
     const [cashTick, setCashTick] = useState(0);
     const slogDay = slog.day || (L ? L.jeddahDay() : '');
     useEffect(() => {
@@ -255,7 +255,9 @@ export default function LaundryPage() {
         );
     }
     function cashPane() {
-        const bs = cash.bills, unpaid = bs.filter(b => !b.settled_at), paid = bs.filter(b => b.settled_at), sum = (a: Row[]) => a.reduce((n, b) => n + b.paid, 0);
+        // guest bills (rooms) and staff bills (staff in paid mode, 1 SAR a piece) apart — guest bills first
+        const isStaff = (b: Row) => !!b.staff_id, all = cash.bills, gB = all.filter(b => !isStaff(b)), sB = all.filter(isStaff);
+        const bs = cash.who === 'staff' ? sB : gB, unpaid = bs.filter(b => !b.settled_at), paid = bs.filter(b => b.settled_at), sum = (a: Row[]) => a.reduce((n, b) => n + b.paid, 0);
         const list = cash.show === 'paid' ? paid : cash.show === 'unpaid' ? unpaid : bs;
         const show = (k: string) => setCash(c => ({ ...c, show: c.show === k ? 'all' : k }));
         return (
@@ -269,6 +271,8 @@ export default function LaundryPage() {
                     <label><span>📅 To <small>(optional)</small></span><input type="date" value={cash.to} onChange={e => setCash(c => ({ ...c, to: e.target.value }))} /></label>
                     <button type="button" aria-label="Clear the To date" onClick={() => setCash(c => ({ ...c, to: '' }))}>✖ To</button>
                 </div>
+                {!cash.err && <div className="ld-who">{([['guest', '🚪', 'Guest bills', gB], ['staff', '👷', 'Staff bills', sB]] as [typeof cash.who, string, string, Row[]][]).map(([k, ic, l, a]) =>
+                    <button type="button" key={k} className={`ld-whob${cash.who === k ? ' on' : ''}`} onClick={() => setCash(c => ({ ...c, who: k, show: 'all' }))}><span>{ic}</span><b>{l}</b><small>{a.filter(b => !b.settled_at).length} unpaid · {a.length} in all</small></button>)}</div>}
                 {!cash.err && <div className="ld-kpis">
                     <button type="button" className={`ld-kpi unpaid${cash.show === 'unpaid' ? ' on' : ''}`} onClick={() => show('unpaid')}><span>⏳</span><b>{sar(sum(unpaid))}</b><small>Unpaid SAR · {unpaid.length} bill{unpaid.length === 1 ? '' : 's'}</small></button>
                     <button type="button" className={`ld-kpi paid${cash.show === 'paid' ? ' on' : ''}`} onClick={() => show('paid')}><span>✅</span><b>{sar(sum(paid))}</b><small>Paid SAR · {paid.length} bill{paid.length === 1 ? '' : 's'}</small></button>
@@ -276,7 +280,7 @@ export default function LaundryPage() {
                 <div className="ld-cards">{cash.err ? <p className="ld-muted">{cash.err}</p> : list.length ? list.map(b => (
                     <button type="button" key={b.id} className={`ld-card row ${b.settled_at ? 'paid' : 'unpaid'}`} onClick={() => setDlg({ kind: 'receipt', bill: b, warnings: [], offline: false, close: '✖ Close' })}>
                         <div className="ld-cmain"><b>{custLabel(b)}</b><small>{jeddahDate(b.given_at)} {jeddahTime(b.given_at)} · {b.receipt_no} · {b.items} pcs{b.settled_at ? ` · paid ${jeddahDate(b.settled_at)}${b.settled_by ? ' to ' + b.settled_by : ''}` : ''}</small></div>
-                        <span className="ld-paytag">{b.settled_at ? 'Paid' : 'Unpaid'}</span><b className="ld-amt">{sar(b.paid)}</b></button>)) : <p className="ld-muted">No cash bills in these dates.</p>}</div>
+                        <span className="ld-paytag">{b.settled_at ? 'Paid' : 'Unpaid'}</span><b className="ld-amt">{sar(b.paid)}</b></button>)) : <p className="ld-muted">{cash.who === 'staff' ? 'No staff bills in these dates.' : 'No guest bills in these dates.'}</p>}</div>
             </section>
         );
     }

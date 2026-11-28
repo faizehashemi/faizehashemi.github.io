@@ -219,3 +219,9 @@ button.ld-kpi { cursor: pointer; }
 .ld-logitem { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border: 2px solid #dbe6f3; border-radius: 12px; background: #f4f8fd; }
 .ld-logitem b { font-size: 20px; color: #163f6e; } .ld-logitem small { color: var(--muted-foreground); }
 .ld-logitem .ld-pic.icon { object-fit: contain; }
+
+/* Pending cash: Guest bills / Staff bills switch (guest first) */
+.ld-who { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.ld-whob { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; text-align: left; padding: 12px 14px; background: #fff; border: 2px solid var(--edge); border-radius: 14px; cursor: pointer; }
+.ld-whob span { grid-row: span 2; font-size: 30px; } .ld-whob b { font-size: 20px; } .ld-whob small { color: var(--muted-foreground); font-size: 13px; }
+.ld-whob.on { border-color: var(--gold-deep); background: color-mix(in srgb, var(--gold-deep) 12%, #fff); box-shadow: 0 0 0 2px var(--gold-deep) inset; }
